@@ -13,38 +13,10 @@
 
 #include <stdint.h>
 
-#if defined(__has_include)
-#if __has_include("hcomm/ccu/ccu_launch.h")
-#include "hcomm/ccu/ccu_launch.h"
-#define ASCCOMM_CCU_HOST_LAUNCH_HAS_HCOMM_TYPES 1
-#elif __has_include("ccu/ccu_launch.h")
-#include "ccu/ccu_launch.h"
-#define ASCCOMM_CCU_HOST_LAUNCH_HAS_HCOMM_TYPES 1
-#elif __has_include("ccu_launch.h")
-#include "ccu_launch.h"
-#define ASCCOMM_CCU_HOST_LAUNCH_HAS_HCOMM_TYPES 1
-#endif
-#endif
+#include "hcomm/hcomm_ccu_resource.h"
 
-#ifndef ASCCOMM_CCU_HOST_LAUNCH_HAS_HCOMM_TYPES
-typedef enum {
-    CCU_SUCCESS = 0,
-    CCU_E_PARA = 1,
-    CCU_E_PTR = 2,
-    CCU_E_INTERNAL = 4,
-    CCU_E_NOT_SUPPORT = 5,
-    CCU_E_NOT_FOUND = 6,
-    CCU_E_UNAVAIL = 7,
-    CCU_E_RUNTIME = 15,
-    CCU_E_DRV_START = 4096,
-    CCU_E_DRV_INIT_FAILED = 4097,
-    CCU_E_DRV_BUSY = 4098,
-    CCU_E_DRV_END = 4224,
-    CCU_E_RESERVED = 9216
-} CcuResult;
-
-typedef uint64_t CcuInsHandle;
-typedef void* aclrtStream;
+#ifndef ASCCOMM_CCU_HOST_LAUNCH_HAS_ACLRT_STREAM
+typedef void* aclrtStream; // 无 acl 头环境的最小兜底，实际为 aclrtStream（void*）
 #endif
 
 #ifdef __cplusplus

@@ -18,7 +18,7 @@ endif()
 
 include("${ASCCOMM_ROOT}/cmake/fetch_cann_cmake.cmake")
 
-project(asccomm_hcomm_ut LANGUAGES C CXX)
+project(asccomm_ut LANGUAGES C CXX)
 init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -105,6 +105,22 @@ target_link_libraries(intf_llt_pub_basic INTERFACE
 )
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
+if(NOT DEFINED ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
+    foreach(_asccomm_hcomm_candidate
+        "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
+        "${ASCCOMM_ROOT}/../hcomm")
+        if(EXISTS "${_asccomm_hcomm_candidate}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
+            get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_asccomm_hcomm_candidate}" ABSOLUTE)
+            break()
+        endif()
+    endforeach()
+endif()
+if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
+    set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "")
+endif()
+set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}" CACHE PATH "Original control-plane source tree")
+message(STATUS "ASCCOMM_CONTROL_PLANE_SOURCE_DIR = ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}")
+
 add_library(kernel_tiling INTERFACE)
 target_include_directories(kernel_tiling INTERFACE ${CMAKE_BINARY_DIR})
 set(KERNEL_TILING_FILE ${CMAKE_BINARY_DIR}/kernel_tiling/kernel_tiling.h)
@@ -280,9 +296,19 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
     -Wall
     -Werror
 )
+
+add_library(asccomm_ccu_launch_stub STATIC
+    ${ASCCOMM_UT_ROOT}/ccu/stub/ccu_launch_stub.cc
+)
+target_include_directories(asccomm_ccu_launch_stub PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+)
+
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
     intf_llt_pub_basic
     asccomm_ccu_host_launch
+    asccomm_ccu_launch_stub
 )
 
 run_llt_test(
@@ -309,4 +335,5 @@ endfunction()
 
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
+add_subdirectory(aicpu/asccomm aicpu_asccomm)
 add_subdirectory(ccu/hcomm ccu_hcomm)

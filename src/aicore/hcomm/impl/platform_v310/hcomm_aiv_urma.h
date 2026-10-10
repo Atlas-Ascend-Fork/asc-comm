@@ -467,7 +467,7 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UB_CTP>::GetHandleRef(
     multiBatchHandle.handle.remoteInfo = BatchRemoteInfo{};
     multiBatchHandle.handle.channelHandle = 0U;
     if (channelIndex >= multiBatchHandle.channelNum) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed with invalid channel index\n");
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed with invalid channel index\n");
         return multiBatchHandle.handle;
     }
 
@@ -479,7 +479,7 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UB_CTP>::GetHandleRef(
     remoteSource.remoteEidHigh = remoteInfos[channelIndex].remoteEidHigh;
     remoteSource.tpId = remoteInfos[channelIndex].tpId;
     if (!HcommUrmaResolveBatchRemote(remoteSource, remoteAddr, multiBatchHandle.handle.remoteInfo)) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed to resolve remote registered memory\n");
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed to resolve remote registered memory\n");
         return multiBatchHandle.handle;
     }
     multiBatchHandle.handle.channelHandle = multiBatchHandle.channelHandle;
@@ -762,6 +762,11 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         uint32_t times = 0;
         uint32_t ret = HCOMM_SUCCESS;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+            if (times != 0 && times % HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0) {
+                HCOMM_KERNEL_LOG(
+                    KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u curTail=%u expectIdx=%u \n", times, curTail,
+                    expectIdx);
+            }
             Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));

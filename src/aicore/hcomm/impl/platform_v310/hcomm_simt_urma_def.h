@@ -33,6 +33,11 @@ constexpr uint32_t HCOMM_URMA_DWQE_SIZE = 128U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
+constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
+constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = HCOMM_URMA_DWQE_SIZE;
+static_assert(
+    HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES == 256U,
+    "The SIMT batch workspace must match the documented 256-byte minimum");
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
@@ -71,27 +76,88 @@ public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
+        uint32_t groupRank, uint32_t groupSize);
+    template <typename Group>
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
+        const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
+    template <typename T, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteValueNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+        const Group& group);
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+    template <typename Group>
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group);
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
+    template <auto pipe = 0>
+    __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
+
+    __simt_callee__ inline int32_t InitCompletionSet(
+        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,
+        uint64_t bytes);
+    __simt_callee__ inline int32_t PrepareCompletion(
+        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
+    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
+    __simt_callee__ inline int32_t WaitCompletion(
+        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
+    __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
 
 private:
     bool initialized_ = false;
-
     // Reads the channel entity and SQ context from global memory on every post. Nothing is
     // cached across calls: a channel may change from one post to the next, so a cache would
     // rarely hit while still costing a validity check and an invalidation on each post.
@@ -110,7 +176,14 @@ private:
     // in hcomm_simt_urma.h.
     template <typename Desc>
     __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
+    template <typename Desc>
+    __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
+    template <typename Desc, typename Group>
+    __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group);
+    template <bool refreshCache>
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
+    template <bool refreshCache, auto pipe>
+    __simt_callee__ inline int32_t DrainChannel(ChannelHandle channel);
 };
 
 } // namespace AscendC::simt

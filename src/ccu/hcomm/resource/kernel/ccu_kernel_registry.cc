@@ -49,11 +49,8 @@ CcuResult ccu_kernel_registry::init(int32_t device_logic_id)
 
 CcuResult ccu_kernel_registry::load_register_context(const HcommCcuInstance& instance)
 {
+    std::lock_guard<std::mutex> load_lock(load_mutex_);
     CCU_EXCEPTION_HANDLE_BEGIN
-    if (!res_snapshot_) {
-        res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
-        CCU_CHK_PTR_NULL(res_snapshot_);
-    }
     // 当前线程设备必须与创建 registry 时一致，否则说明上下文被用在了错误的设备上
     // （Instance 不再携带设备号，定档口径：即时取 aclrtGetDevice）。
     const int32_t current_device = asc::get_current_ccu_device_logic_id();
@@ -63,7 +60,15 @@ CcuResult ccu_kernel_registry::load_register_context(const HcommCcuInstance& ins
             current_device, dev_logic_id_);
         return CcuResult::CCU_E_PARA;
     }
+    if (context_loaded_) {
+        return CcuResult::CCU_SUCCESS;
+    }
+    if (!res_snapshot_) {
+        res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
+        CCU_CHK_PTR_NULL(res_snapshot_);
+    }
     CCU_CHK_RET(res_snapshot_->load(instance));
+    context_loaded_ = true;
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }

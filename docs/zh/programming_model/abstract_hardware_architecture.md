@@ -28,7 +28,7 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 | --- | --- | --- |
 | AIV | Vector Core | 执行通信Kernel中的算法逻辑，以及数据处理、搬运和归约等操作。 |
 | AI CPU+TS | AI CPU+TS | 采用[AI CPU+TS执行模式](./execution_model.md#aicpu_ts直驱执行机制)。STARS是Device侧的任务调度器，负责调度AI CPU Kernel以及提交到任务队列中的通信任务。AI CPU Kernel由STARS调度执行后，向任务队列提交数据搬运等通信任务，再由STARS调度到相应的执行器。 |
-| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部CCU Buffer完成数据暂存、搬运、同步和片上归约等操作。 |
+| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部CCU Buffer完成数据暂存、搬运、同步和片上归约等操作。CCU的架构及内部组件可参考[CCU编程](./ccu_programming.md#基础概念)。 |
 
 ### 存储单元
 

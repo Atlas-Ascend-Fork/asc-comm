@@ -63,7 +63,7 @@ ccResCtx
 | 数据类型 | FP32 |
 | 每个目标rank的数据量 | 256个FP32元素 |
 | 每个rank输入/输出规模 | `rankSize * 256`个FP32元素 |
-| 算法配置 | `CcuSchedAllToAllSoleMesh` |
+| 算法配置 | `sole[mesh]` |
 | 支持rank数 | 不超过`CCU_MAX_RANK_SIZE`，当前样例中为8 |
 
 ### 实现流程
@@ -71,7 +71,7 @@ ccResCtx
 1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 每个Device创建一个rank，创建AICore Stream，并申请输入和输出Buffer。
 3. 通过`Mc2GetCcArgs`创建MC2参数对象，设置`CCU_SCHED`通信引擎、FP32源/目标数据类型和
-   `CcuSchedAllToAllSoleMesh`算法配置。
+   `sole[mesh]`算法配置。
 4. 调用`CheckOpResSufficient`预检查CCU资源是否充足，返回错误码1043表示CCU资源暂时不足，可以选择非CCU算法；返回其他非0错误码表示参数错误或HCCL内部异常，可以记录错误码并进行故障处理。仅当返回`HCCL_SUCCESS`时才能继续申请CCU资源。
 5. 通过`Mc2AcquireCcResCtx`申请CCU资源上下文`ccResCtx`及其大小。
 6. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。

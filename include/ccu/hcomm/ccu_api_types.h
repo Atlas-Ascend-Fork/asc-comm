@@ -22,6 +22,10 @@ extern "C" {
 typedef enum {
     ccu_condition_eq = 0,
     ccu_condition_ne = 1,
+    ccu_condition_lt = 2,
+    ccu_condition_le = 3,
+    ccu_condition_gt = 4,
+    ccu_condition_ge = 5,
 } ccu_condition_type;
 
 typedef uint64_t ccu_loop;

@@ -23,7 +23,7 @@ namespace detail {
 
 struct no_alloc_tag {};
 
-// 该异常对象会跨越"样例二进制(用户 gcc 编译) -> libasccomm_ccu_dataplane.so(出包 gcc 编译)"边界：
+// 该异常对象会跨越"样例二进制(用户 gcc 编译) -> libasccomm_ccu.so(出包 gcc 编译)"边界：
 // dataplane 侧 catch 后读取 what()/code()。因此对象布局与生成代码不得依赖编译器世代
 // (std::string 成员/内联 STL 操作在不同 gcc 世代下布局与实现不同，会导致跨 SO 读取崩溃)。
 // 这里使用定长 char 缓冲 + POD 成员，保证布局跨 gcc 冻结；snprintf 为 libc 符号，进程内单份实现。
@@ -53,7 +53,8 @@ static_assert(
         sizeof(ccu_exception) - (sizeof(std::exception) + sizeof(CcuResult) + ccu_exception::what_buf_len) <
             alignof(ccu_exception),
     "ccu_exception layout is part of the cross-SO boundary and must stay frozen");
-enum class ccu_arithmetic_operator_type { addition, invalid };
+enum class ccu_arithmetic_operator_type { addition, subtraction, multiplication, invalid };
+enum class ccu_logic_operator_type { and_op, or_op, xor_op, not_op, invalid };
 enum class ccu_shift_operator_type { left, right, invalid };
 
 template <typename lhs_t, typename rhs_t>
@@ -81,7 +82,39 @@ public:
     ccu_arithmetic_operator_type type_{ccu_arithmetic_operator_type::invalid};
 };
 
-// Binary shift operators only support variable operands, not immediate_ values.
+// 二元逻辑运算(and/or/xor)算子，仅支持变量-变量，不支持立即数
+template <typename lhs_t, typename rhs_t>
+class ccu_logic_operator : public ccu_operator<lhs_t, rhs_t> {
+public:
+    ccu_logic_operator(lhs_t lhs, rhs_t rhs, ccu_logic_operator_type type_)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    {
+        check();
+    }
+    void check() const
+    {
+        throw ::AscendC::ccu::detail::ccu_exception(CcuResult::CCU_E_PARA, "ccu_logic_operator: invalid operand types");
+    }
+
+    ccu_logic_operator_type type_{ccu_logic_operator_type::invalid};
+};
+
+// 一元逻辑运算(not)算子
+template <typename lhs_t>
+class ccu_logic_unary_operator {
+public:
+    ccu_logic_unary_operator(lhs_t lhs, ccu_logic_operator_type type_) : lhs(lhs), type_(type_) { check(); }
+    void check() const
+    {
+        throw ::AscendC::ccu::detail::ccu_exception(
+            CcuResult::CCU_E_PARA, "ccu_logic_unary_operator: invalid operand types");
+    }
+
+    lhs_t lhs;
+    ccu_logic_operator_type type_{ccu_logic_operator_type::invalid};
+};
+
+// 二元移位运算(shl/shr)算子，仅支持变量-变量，不支持立即数
 template <typename lhs_t, typename rhs_t>
 class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:

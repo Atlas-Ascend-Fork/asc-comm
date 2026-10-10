@@ -183,6 +183,96 @@ CcuResult ccu_variable_shr_var_to_var(ccu_variable_handle res_var, ccu_variable_
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult ccu_variable_sub_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_sub_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_mul_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_mul_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_add_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_add_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_sub_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_sub_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_mul_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_mul_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_and_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_and_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_or_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_or_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_xor_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_xor_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_not_var(ccu_variable_handle res_var, ccu_variable_handle var_a)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_not_var(res_var, var_a));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 /*
 Address 相关接口
 */
@@ -242,6 +332,15 @@ CcuResult ccu_address_add_assign_var(ccu_address_handle addr, ccu_variable_handl
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult ccu_address_add_imm_to_addr(ccu_address_handle res_addr, ccu_address_handle addr_a, uint16_t imm)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->address_add_imm_to_addr(res_addr, addr_a, imm));
+    return CcuResult::CCU_SUCCESS;
+}
+
 // 参数加载类 相关接口
 CcuResult ccu_load_arg(ccu_variable_handle var_handle, uint32_t arg_id)
 {
@@ -255,7 +354,7 @@ CcuResult ccu_load_arg(ccu_variable_handle var_handle, uint32_t arg_id)
 CcuResult ccu_load_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
-        HCCL_ERROR("[CcuLoadVar] invalid args, num[%u]", num);
+        HCCL_ERROR("[ccu_load_var] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -268,7 +367,7 @@ CcuResult ccu_load_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t n
 CcuResult ccu_load_var_from_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
-        HCCL_ERROR("[CcuLoadVarFromVarAddr] invalid args, num[%u]", num);
+        HCCL_ERROR("[ccu_load_var_from_var_addr] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -281,7 +380,7 @@ CcuResult ccu_load_var_from_var_addr(ccu_variable_handle addr_handle, ccu_variab
 CcuResult ccu_store_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
-        HCCL_ERROR("[CcuStoreVar] invalid args, num[%u]", num);
+        HCCL_ERROR("[ccu_store_var] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -294,7 +393,7 @@ CcuResult ccu_store_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t 
 CcuResult ccu_store_var_to_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
-        HCCL_ERROR("[CcuStoreVarToVarAddr] invalid args, num[%u]", num);
+        HCCL_ERROR("[ccu_store_var_to_var_addr] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -414,7 +513,7 @@ CcuResult ccu_local_buffer_reduce(
     HcclReduceOp op_type, ccu_variable_handle len, ccu_event_handle event, uint16_t mask)
 {
     if (buffers == nullptr || count == 0) {
-        HCCL_ERROR("[CcuLocalBufferReduce] invalid args, buffers[%p] count[%u]", buffers, count);
+        HCCL_ERROR("[ccu_local_buffer_reduce] invalid args, buffers[%p] count[%u]", buffers, count);
         return CcuResult::CCU_E_PARA;
     }
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -572,6 +671,39 @@ CcuResult ccu_do_while_end(ccu_variable_handle var, uint64_t immediate, ccu_cond
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult ccu_if_begin_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->if_begin_var(lhs, rhs, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_while_begin_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->while_begin_var(lhs, rhs, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_do_while_end_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->do_while_end_var(lhs, rhs, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 /* ========== 函数调用操作 ========== */
 CcuResult ccu_func_block_lookup(const void* func_ptr, uint64_t* out_handle)
 {
@@ -690,7 +822,7 @@ void ccu_if_stack_push(const char* label)
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
-        HCCL_ERROR("[_CcuIfStackPush] no current kernel, label=%s", label != nullptr ? label : "(null)");
+        HCCL_ERROR("[ccu_if_stack_push] no current kernel, label=%s", label != nullptr ? label : "(null)");
         return;
     }
     kernel->if_label_stack_push(label);
@@ -701,7 +833,7 @@ void ccu_if_stack_mark_body_done()
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
-        HCCL_ERROR("[_CcuIfStackMarkBodyDone] no current kernel");
+        HCCL_ERROR("[ccu_if_stack_mark_body_done] no current kernel");
         return;
     }
     kernel->if_label_stack_mark_body_done();
@@ -712,7 +844,7 @@ const char* ccu_if_stack_pop_for_else()
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
-        HCCL_ERROR("[_CcuIfStackPopForElse] no current kernel");
+        HCCL_ERROR("[ccu_if_stack_pop_for_else] no current kernel");
         return nullptr;
     }
     return kernel->if_label_stack_pop_for_else();
@@ -723,7 +855,7 @@ void ccu_do_while_stack_push(const char* label)
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
-        HCCL_ERROR("[_CcuDoWhileStackPush] no current kernel, label=%s", label != nullptr ? label : "(null)");
+        HCCL_ERROR("[ccu_do_while_stack_push] no current kernel, label=%s", label != nullptr ? label : "(null)");
         return;
     }
     kernel->do_while_label_stack_push(label);
