@@ -33,7 +33,6 @@ static const uint32_t HCOMM_CCU_INSTANCE_ENTITY_MAGIC_WORD = 0x43435548U; ///< "
 static const uint32_t HCOMM_CCU_CHANNEL_ABI_VERSION = 1U;
 static const uint32_t HCOMM_CCU_CHANNEL_MAGIC_WORD = 0x43435543U; ///< "CCUC"
 static const uint32_t HCOMM_CCU_RES_ABI_VERSION = 1U;
-static const uint32_t HCOMM_CCU_INSTANCE_MAGIC_WORD = 0x43435549U;     ///< "CCUI"
 static const uint32_t HCOMM_CCU_DIE_METADATA_MAGIC_WORD = 0x4343444DU; ///< "CCDM"
 
 /**
@@ -84,35 +83,27 @@ typedef struct {
     HcommCcuDieResRangePack resTypes[32]; // 按资源类型枚举值索引
     uint64_t reserved[16];                // 预留字段，当前必须清零
 } HcommCcuDieRes;
-/**
- * @brief CCU Instance 资源快照 POD。
- * @note 资源按 die 与类型组织；指令空间不进入 range 视图，由控制操作槽位按需申请和释放。
- * @note 设备号由调用线程获取，die 启用状态由 dieMetadata.enabled 推导，句柄代际由 ccuInsKey 承担。
- */
-typedef struct HcommCcuInstance {
-    CommAbiHeader header;          // ABI 头：version/magic/size 校验
-    uint32_t ccuDieNum;            // POD 中 die 槽位数（<= 8）
-    uint32_t ccuVersion;           // 当前设备的 CCU 版本（V1/V2）
-    HcommCcuDieRes ccuDieReses[8]; // 按 die 组织的资源视图（预留 8 槽）
-    uint64_t ascCustom[8];         // hcomm 提供的控制操作槽位数组
-    uint64_t reserved;             // 预留字段，当前必须清零
-} HcommCcuInstance;
 
 /**
  * @brief hcomm 与 asc-comm 间传递的 CCU Instance 完整实体。
- * @note header 用于校验版本、魔数和结构大小；ccuInsKey 由 CcuInstanceMgr 分配，用于跨 SO 查找；
- *       ccuInsPtr 为 hcomm 持有的 CCU Instance 借用指针，随实例生命周期有效。
+ * @note header 用于校验版本、魔数和结构大小；ccuInsKey 由 CcuInstanceMgr 分配，用于跨 SO 查找。
  * @note 本类型仅在 hcomm 与 asc-comm 契约面及 hcomm 内部使用；对外 API 的不透明实例句柄仍为
  *       CcuInsHandle(uint64_t token)。
  */
 typedef struct {
     CommAbiHeader header;        // ABI 头：version/magic/size 校验.
+    uint32_t ccuDieNum;            // POD 中 die 槽位数（<= 8）
+    uint32_t ccuVersion;           // 当前设备的 CCU 版本（V1/V2）
+    HcommCcuDieRes ccuDieReses[8]; // 按 die 组织的资源视图（预留 8 槽）
+    uint64_t ascCustom[8];         // hcomm 提供的控制操作槽位数组
     uint64_t ccuInsKey;          // 不透明实例键（0 为无效句柄哨兵）
-    HcommCcuInstance* ccuInsPtr; // hcomm 持有的 CCU Instance 借用指针
+    uint64_t reserved;             // 预留字段，当前必须清零
 } HcommCcuInstanceEntity;
 
 /**
  * @brief CCU Channel 单次查询快照实体（16 槽 + 计数 + 事件掩码 + 远端 buffer 数组）。
+ * @note 布局规约：remoteBuffers 紧跟 rmtCcuResBuffer（同为 8 字节对齐类型），避免计数段与指针间
+ *       产生中间空洞；不足 8 字节对齐的填充只允许出现在结构体尾部。
  */
 typedef struct {
     CommAbiHeader header; // ABI 头：version/magic/size 校验
@@ -124,14 +115,14 @@ typedef struct {
     uint32_t dieId;        // die id
     uint32_t channelId;    // channel id（DFX 记录用）
 
-    RegedBufferEntity rmtCcuResBuffer; // 对端 CCU 资源空间（基址/大小/token 折叠为 buffer 实体）
+    RegedBufferEntity rmtCcuResBuffer;  // 对端 CCU 资源空间（基址/大小/token 折叠为 buffer 实体）
+    RegedBufferEntity* remoteBuffers;   // 远端 buffer 数组借用指针（hcomm 持有，当前数据面不消费）
 
-    uint32_t localVarNum;             // 本端 XN 有效数量（<= 16）
-    uint32_t remoteVarNum;            // 远端 XN 有效数量
-    uint32_t localEventNum;           // 本端 CKE 有效数量
-    uint32_t remoteEventNum;          // 远端 CKE 有效数量
-    uint32_t remoteBufferNum;         // 远端 buffer 数量（remoteBuffers 数组长度）
-    RegedBufferEntity* remoteBuffers; // 远端 buffer 数组借用指针（hcomm 持有，当前数据面不消费）
+    uint32_t localVarNum;     // 本端 XN 有效数量（<= 16）
+    uint32_t remoteVarNum;    // 远端 XN 有效数量
+    uint32_t localEventNum;   // 本端 CKE 有效数量
+    uint32_t remoteEventNum;  // 远端 CKE 有效数量
+    uint32_t remoteBufferNum; // 远端 buffer 数量（remoteBuffers 数组长度）
 
     uint32_t localVarIds[16];      // 本端 XN id 槽
     uint32_t remoteVarIds[16];     // 远端 XN id 槽

@@ -47,7 +47,7 @@ CcuResult ccu_kernel_registry::init(int32_t device_logic_id)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult ccu_kernel_registry::load_register_context(const HcommCcuInstance& instance)
+CcuResult ccu_kernel_registry::load_register_context(const HcommCcuInstanceEntity& instance)
 {
     std::lock_guard<std::mutex> load_lock(load_mutex_);
     CCU_EXCEPTION_HANDLE_BEGIN
