@@ -24,7 +24,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
@@ -119,7 +119,7 @@ CcuResult ccu_kernel_mgr::configure(asc_ccu_res_snapshot& res_pack)
     reference_mgrs_.clear();
     ccu_version_ = res_pack.get_ccu_version();
     const uint64_t* asc_custom = res_pack.get_control_ops();
-    for (uint32_t i = 0; i < HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT; ++i) {
+    for (uint32_t i = 0; i < 8; ++i) {
         control_ops_[i] = asc_custom[i];
     }
     ccu_rep::ccu_rep_translator::set_ccu_version(ccu_version_);
@@ -164,7 +164,7 @@ HcclResult ccu_kernel_mgr::deinit()
     return first_error;
 }
 
-CcuResult ccu_kernel_mgr::Register(
+CcuResult ccu_kernel_mgr::register_kernel(
     asc_ccu_res_snapshot& res_pack, const uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle)
 {
@@ -250,7 +250,7 @@ static size_t compute_kernel_instr_region_size(ccu_kernel& kernel)
            static_cast<size_t>(kernel.get_rep_need_to_add_latency()) * ccu_rep::ccu_cke_raw_latency;
 }
 
-// 指令空间经 ascCustom.allocInstSpace 向 hcomm 按需申请（不再从本地 range 池切分）
+// 指令空间经控制操作槽位向 hcomm 按需申请（不再从本地 range 池切分）
 static CcuResult set_kernel_instruction_resource(
     std::unique_ptr<ccu_kernel>& kernel, const asc_ccu_res_repository& allocated)
 {
@@ -261,10 +261,10 @@ static CcuResult set_kernel_instruction_resource(
         return CcuResult::CCU_E_INTERNAL;
     }
 
-    const auto alloc_inst_space = reinterpret_cast<HcommCcuAllocInstSpaceFn>(
-        get_current_ccu_control_ops()[HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE]);
+    const auto alloc_inst_space = reinterpret_cast<HcommCcuInstSpaceAllocCallBack>(
+        get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE]);
     CHK_PRT_RET(
-        alloc_inst_space == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] controlOps.allocInstSpace is nullptr.", __func__),
+        alloc_inst_space == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] ascCustom.allocInstSpace is nullptr.", __func__),
         CcuResult::CCU_E_INTERNAL);
     uint32_t start_inst_id = 0;
     const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -526,7 +526,7 @@ static HcclResult trans_rep_res_to_phy_res(const std::vector<ccu_kernel*>& kerne
 CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel_handles)
 {
     if (kernel_handles.empty()) {
-        HCCL_INFO("[CcuKernelMgr][%s] passed, kernelHandles are empty.", __func__);
+        HCCL_INFO("[CcuKernelMgr][%s] passed, kernel_handles are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
 
@@ -566,7 +566,7 @@ CcuResult ccu_kernel_mgr::un_register(const ccu_kernel_handle kernel_handle)
     auto it = kernel_map_.find(kernel_handle);
     CHK_PRT_RET(
         it == kernel_map_.end(),
-        HCCL_ERROR("[CcuKernelMgr][%s] kernelHandle [%llu] does not exist", __func__, kernel_handle),
+        HCCL_ERROR("[CcuKernelMgr][%s] kernel_handle [%llu] does not exist", __func__, kernel_handle),
         CcuResult::CCU_E_NOT_FOUND);
 
     CCU_CHK_RET(clear_kernel_instruction_resource(*it->second));
@@ -653,11 +653,11 @@ HcclResult ccu_kernel_mgr::load_instruction(const ccu_rep::ccu_instr_info& instr
         return HcclResult::HCCL_E_PARA;
     }
 
-    // ascCustom 槽 2：data 为 host 指针，设备内存暂存与驱动交互均由 hcomm 在其 SO 内完成
-    const auto submit_insts =
-        reinterpret_cast<HcommCcuSubmitInstsFn>(get_current_ccu_control_ops()[HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS]);
+    // 控制操作槽 2：data 为 host 指针，设备内存暂存与驱动交互均由 hcomm 在其 SO 内完成
+    const auto submit_insts = reinterpret_cast<HcommCcuInstSpaceSubmitCallBack>(
+        get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS]);
     CHK_PRT_RET(
-        submit_insts == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] controlOps.submitInsts is nullptr.", __func__),
+        submit_insts == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] ascCustom.submitInsts is nullptr.", __func__),
         HcclResult::HCCL_E_INTERNAL);
     auto ret = static_cast<HcclResult>(
         submit_insts(dev_logic_id_, die_id, instr_info.start_instr_id, instr_info.instr_vec.data(), instr_num));
