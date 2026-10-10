@@ -251,8 +251,12 @@ typedef struct {
     RegedBufferEntity* remoteBufferAddr;
     SqContext* sqContextAddr;
     CqContext* cqContextAddr;
-    uint32_t sqHead; // SQ producer index in WQE BBs
-    uint32_t sqTail; // Submitted WQE count, reserved for future use
+    // RoCE packs the producer as [31:16] WQE index and [15:0] WQEBB index; URMA uses
+    // the full field as a WQEBB index.
+    uint32_t sqHead;
+    // RoCE packs the consumer as [31:16] completed WQE index and [15:0] completed
+    // WQEBB index; URMA uses the full field as a WQEBB consumer index.
+    uint32_t sqTail;
     uint32_t cqHead; // Number of expected CQEs
     uint32_t cqTail; // Number of consumed CQEs
     uint8_t reserve[144];
@@ -317,6 +321,10 @@ typedef struct {
     };
     BatchBuffer buffer;
 } UbcBatchHandle;
+
+// RoCE uses the same batch-handle ABI as UB/URMA. This alias keeps the RoCE implementation
+// protocol-specific in source without changing the public BatchHandle mapping.
+using RoceBatchHandle = UbcBatchHandle;
 
 typedef struct {
     UbcBatchHandle handle;
