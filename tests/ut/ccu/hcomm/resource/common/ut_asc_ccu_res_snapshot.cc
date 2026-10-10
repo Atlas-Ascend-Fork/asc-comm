@@ -21,13 +21,15 @@ namespace {
 
 // 把 range 存进 dieResources[die][type]，元数据存进 metadata 实体
 struct ContextStorage {
-    HcommCcuInstance instance_{};
+    HcommCcuInstanceEntity instance_{};
     HcommCcuDieMetadata dieMetadata[HCOMM_CCU_MAX_DIE_NUM]{};
     std::vector<HcommCcuDieResRange> dieRanges[HCOMM_CCU_MAX_DIE_NUM][HCOMM_CCU_BATCH_RES_TYPE_COUNT]{};
 
     ContextStorage()
     {
-        instance_.header = {HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_INSTANCE_MAGIC_WORD, sizeof(HcommCcuInstance), 0};
+        instance_.header = {
+            HCOMM_CCU_INSTANCE_ENTITY_ABI_VERSION, HCOMM_CCU_INSTANCE_ENTITY_MAGIC_WORD,
+            sizeof(HcommCcuInstanceEntity), 0};
         instance_.ccuDieNum = HCOMM_CCU_MAX_DIE_NUM;
         instance_.ccuVersion = HCOMM_CCU_VERSION_V1;
         instance_.ascCustom[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] = 0x1;
