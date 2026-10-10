@@ -20,8 +20,8 @@ migration skeleton on an aarch64 + CANN environment:
 
 ```bash
 cmake -S . -B build -DASCCOMM_BUILD_MC2=ON -DASCCOMM_BUILD_CCU=OFF
-cmake --build build --target mc2_client mc2_client_hcomm_stub -j
+cmake --build build --target mc2_client mc2_compat mc2_client_hcomm_stub -j
 ```
 
-Expected artifacts: `libmc2_client.so` and the `libhcomm.so` stub under
-`build/src/cc/mc2_client_link_stub/`.
+Expected artifacts: `libmc2_client.so`, `libmc2_compat.so`, and the `libhcomm.so`
+stub under `build/src/cc/mc2_client_link_stub/`.

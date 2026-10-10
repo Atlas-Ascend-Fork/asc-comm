@@ -195,6 +195,12 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
         HOST_COMPILE
         _GLIBCXX_USE_CXX11_ABI=0
     )
+    set_target_properties(mc2_compat PROPERTIES
+        CXX_STANDARD 14
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+
     target_compile_options(mc2_compat PRIVATE
         -Werror
         -fno-common
@@ -202,7 +208,6 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
         -pipe
         -O3
         $<$<CONFIG:Debug>:-g>
-        -std=c++14
         -fstack-protector-all
     )
     target_link_options(mc2_compat PRIVATE
