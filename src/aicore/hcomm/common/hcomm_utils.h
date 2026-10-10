@@ -23,6 +23,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_UTIL_H
 
 #include "hcomm_inner_def.h"
+#include <c_api/sync/sync.h>
 
 namespace AscendC {
 
@@ -32,23 +33,15 @@ constexpr uint32_t BITS_5BYTE = 40;
 constexpr uint32_t BITS_7BYTE = 56;
 constexpr uint32_t HCOMM_DEFAULT_QP_IDX = 0;
 
-__aicore__ inline constexpr uint16_t HtoNS(uint16_t x)
-{
-    return (uint16_t)(((x & 0x00ffU) << BITS_1BYTE) | ((x & 0xff00U) >> BITS_1BYTE));
-}
+__aicore__ inline constexpr uint16_t HtoNS(uint16_t x) { return __builtin__bswap16(x); }
 
-__aicore__ inline constexpr uint32_t HtoNL(uint32_t x)
-{
-    return ((x & 0x000000ffU) << BITS_3BYTE) | ((x & 0x0000ff00U) << BITS_1BYTE) | ((x & 0x00ff0000U) >> BITS_1BYTE) |
-           ((x & 0xff000000U) >> BITS_3BYTE);
-}
+__aicore__ inline constexpr uint32_t HtoNL(uint32_t x) { return __builtin__bswap32(x); }
 
-__aicore__ inline constexpr uint64_t HtoNLL(uint64_t x)
+__aicore__ inline constexpr uint64_t HtoNLL(uint64_t x) { return __builtin__bswap64(x); }
+__aicore__ inline void SyncAction(pipe_t pipeSrc, pipe_t pipeDst, event_t id)
 {
-    return ((x & 0x00000000000000ffULL) << BITS_7BYTE) | ((x & 0x000000000000ff00ULL) << BITS_5BYTE) |
-           ((x & 0x0000000000ff0000ULL) << BITS_3BYTE) | ((x & 0x00000000ff000000ULL) << BITS_1BYTE) |
-           ((x & 0x000000ff00000000ULL) >> BITS_1BYTE) | ((x & 0x0000ff0000000000ULL) >> BITS_3BYTE) |
-           ((x & 0x00ff000000000000ULL) >> BITS_5BYTE) | ((x & 0xff00000000000000ULL) >> BITS_7BYTE);
+    asc_sync_notify(pipeSrc, pipeDst, id);
+    asc_sync_wait(pipeSrc, pipeDst, id);
 }
 
 __aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
