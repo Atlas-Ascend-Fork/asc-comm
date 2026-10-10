@@ -408,7 +408,7 @@ is_allowed_path()
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
         asc/impl/comm_api/*/*/*.h|\
-        asc/lib64/libasccomm_ccu.so)
+        asc/lib64/libasccomm_ccu.so|asc/lib64/libasccomm_aicpu.so)
             ;;
         *)
             return 1
