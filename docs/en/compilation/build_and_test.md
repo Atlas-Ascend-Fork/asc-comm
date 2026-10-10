@@ -51,7 +51,7 @@ The generated file is placed in `build_out/` by default:
 cann-asc-comm_9.2.0_linux-<arch>.run
 ```
 
-`<arch>` is `aarch64` or `x86_64`. At packaging time, every `.h` file under the following directories is collected recursively:
+`<arch>` is `aarch64` or `x86_64`. At packaging time, every `.h` file under the following directories is collected recursively, and the package also includes the `libasccomm_ccu.so` and `libasccomm_aicpu.so` dataplane libraries:
 
 | Repository scan directory | CANN installation directory |
 | --- | --- |
@@ -67,7 +67,7 @@ asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
 asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
-For example, `include/aicore/ain/` is installed under `asc/include/comm_api/aicore/ain/`, and `include/ccu/` is installed under `asc/include/comm_api/ccu/`. The run package collects only `.h` files that exist under these directories at packaging time; other file types such as `.cpp` and `.inc` are not included. New headers are included automatically the next time the package is built.
+For example, `include/aicpu/ain/` is installed under `asc/include/comm_api/aicpu/ain/`, and `include/ccu/` is installed under `asc/include/comm_api/ccu/`. The run package collects only `.h` files that exist under these directories at packaging time and the two fixed dataplane libraries; other file types such as `.cpp` and `.inc` are not included. New headers are included automatically the next time the package is built.
 
 > Note: The run package does not remove files from the target CANN installation when they are absent from its manifest. Before validating a header deletion or rename, remove the corresponding old file from the target CANN installation.
 
