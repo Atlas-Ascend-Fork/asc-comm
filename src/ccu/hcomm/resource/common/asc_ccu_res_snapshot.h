@@ -15,10 +15,21 @@
 #include <cstdint>
 
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/hcomm_res_ccu_entity_defs.h"
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace asc {
+
+/**
+ * @brief CCU 控制操作槽位枚举。
+ * @note HcommCcuInstance.ascCustom 数组中函数槽位的固定含义，仅 hcomm 与 asc-comm 内部约定。
+ */
+enum HcommCcuControlSlot {
+    HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY = 0,     /**< 槽 0：获取 ChannelEntity 接口 */
+    HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE = 1,   /**< 槽 1：按设备和 die 申请 CCU 指令空间 */
+    HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS = 2,       /**< 槽 2：下发 CCU 指令接口 */
+    HCOMM_CCU_CONTROL_SLOT_RELEASE_INST_SPACE = 3, /**< 槽 3：归还 CCU 指令空间 */
+};
 
 /**
  * @note 职责：CCU Instance（Register Context）的 asc 侧本地快照。
@@ -41,7 +52,7 @@ public:
     const HcommCcuDieMetadata* get_die_metadata(uint32_t die_id) const;
     uint32_t get_ccu_version() const;
     uint32_t get_valid_die_mask() const;
-    const uint64_t* get_control_ops() const; // ascCustom 槽位数组（值需按槽位含义强转）
+    const uint64_t* get_control_ops() const; // 控制操作槽位数组（值需按槽位含义强转）
 
 private:
     asc_ccu_res_snapshot(const asc_ccu_res_snapshot& that) = delete;
@@ -51,7 +62,7 @@ private:
 
     uint32_t ccu_version_{0};
     uint32_t valid_die_mask_{0};
-    uint64_t control_ops_[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
+    uint64_t control_ops_[8]{};
     asc_ccu_res_repository initial_repo_{};
     asc_ccu_res_repository res_repo_{};
     std::array<HcommCcuDieMetadata, HCOMM_CCU_MAX_DIE_NUM> die_metadata_{};

@@ -21,8 +21,8 @@ static CcuResult AgInitResource(AllGatherContext& ctx)
 
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) {
-            ctx.output[peerId] = ccu::GetResByChannel<ccu::variable>(arg->channels[channelIdx], AG_OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel<ccu::variable>(arg->channels[channelIdx], AG_TOKEN_XN_ID);
+            ctx.output[peerId] = ccu::get_res_by_channel<ccu::variable>(arg->channels[channelIdx], AG_OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::get_res_by_channel<ccu::variable>(arg->channels[channelIdx], AG_TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -99,7 +99,7 @@ static CcuResult AgDoAllGather(
         if (rankIdx == arg->rankId) {
             CCU_CHK_RET(ccu::event_record(ctx.event, rankMask));
         } else {
-            CCU_CHK_RET(ccu::Write(arg->channels[channelId], dst_[rankIdx], src_, sliceSize, ctx.event, rankMask));
+            CCU_CHK_RET(ccu::write(arg->channels[channelId], dst_[rankIdx], src_, sliceSize, ctx.event, rankMask));
             channelId++;
         }
     }
