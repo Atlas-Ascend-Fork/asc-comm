@@ -1,0 +1,9 @@
+{
+    "AsccommSendWithImmKernel": {
+        "opInfo": {
+            "functionName": "AsccommSendWithImmKernel",
+            "kernelSo": "libsend_with_imm_aicpu.so",
+            "opKernelLib": "CUSTAICPUKernel"
+        }
+    }
+}
