@@ -13,10 +13,15 @@ set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation)
 set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode)
 
 # CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
+# include/hcomm：include/hcomm/ccu/hcomm_res_ccu_entity_defs.h 依赖 ccu_types.h（装在
+# ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu/）与 hcomm/hcomm_res_entity_defs.h（装在
+# pkg_inc/hcomm/），需补 CANN 侧 hcomm 头目录才能解析。
 set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_UT_ROOT}/ccu/hcomm_compat/include
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/src/ccu
+    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_UT_ROOT}/ccu/stub
@@ -143,9 +148,9 @@ set(CCU_FEATURES_IMPL_SOURCES
 
 set(src_to_test_list
     main.cc
-    ut_ccu_microcode.cc
-    ut_ccu_kernel_res_allocator.cc
-    ./ccu_representation/interface/ut_ccu_interface_assist.cc
+    resource/microcode/ut_ccu_microcode.cc
+    resource/kernel/ut_ccu_kernel_res_allocator.cc
+    ./resource/representation/interface/ut_ccu_interface_assist.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel_res_allocator.cc
     ${CCU_FEATURES_IMPL_SOURCES}
 )
@@ -188,8 +193,8 @@ add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub_abi0)
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
 add_executable(hccl_utest_comms_asc_ccu_res_snapshot
-    asc_ccu_res_snapshot_main.cc
-    ut_asc_ccu_res_snapshot.cc
+    resource/common/asc_ccu_res_snapshot_main.cc
+    resource/common/ut_asc_ccu_res_snapshot.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/common/asc_ccu_res_snapshot.cc
 )
 target_include_directories(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
@@ -200,18 +205,18 @@ target_link_libraries(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
 )
 add_test(NAME hccl_utest_comms_asc_ccu_res_snapshot COMMAND hccl_utest_comms_asc_ccu_res_snapshot)
 
-add_subdirectory(ccu_representation/reps/sync)
-add_subdirectory(ccu_representation/reps/control)
-add_subdirectory(ccu_representation/reps/common)
-add_subdirectory(ccu_representation/reps/data)
-add_subdirectory(ccu_representation/reps/arithmetic)
-add_subdirectory(ccu_representation/reps/loop)
-add_subdirectory(ccu_representation/reps/logical)
-add_subdirectory(ccu_representation/reps/shift)
-add_subdirectory(ccu_representation/context)
-add_subdirectory(ccu_representation/interface)
-add_subdirectory(ccu_representation/translator)
-add_subdirectory(ccu_microcode)
-add_subdirectory(ccu_microcode_opt)
+add_subdirectory(resource/representation/reps/sync)
+add_subdirectory(resource/representation/reps/control)
+add_subdirectory(resource/representation/reps/common)
+add_subdirectory(resource/representation/reps/data)
+add_subdirectory(resource/representation/reps/arithmetic)
+add_subdirectory(resource/representation/reps/loop)
+add_subdirectory(resource/representation/reps/logical)
+add_subdirectory(resource/representation/reps/shift)
+add_subdirectory(resource/representation/context)
+add_subdirectory(resource/representation/interface)
+add_subdirectory(resource/representation/translator)
+add_subdirectory(resource/microcode)
+add_subdirectory(resource/microcode_opt)
 add_subdirectory(resource/channel)
 add_subdirectory(ccu_variable)

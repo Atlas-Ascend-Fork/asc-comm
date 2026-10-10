@@ -13,7 +13,8 @@
 
 #include <stdint.h>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/ccu/ccu_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #ifndef ASCCOMM_CCU_HOST_LAUNCH_HAS_ACLRT_STREAM
 typedef void* aclrtStream; // 无 acl 头环境的最小兜底，实际为 aclrtStream（void*）
@@ -32,34 +33,16 @@ typedef struct {
 
 typedef struct {
     asccomm_ccu_schd ccu_schd;
-    CcuInsHandle ccu_ins;
+    void* ccu_ins; // 指向 hcomm 持有的 HcommCcuInstanceEntity
     aclrtStream stream;
     void* attrs;
 } asccomm_launch_kernel_cfg;
-
-typedef struct {
-    uint32_t numBlocks; // mission 个数
-    uint32_t reserved;
-    uint64_t phyDieMask; // 按位表示 0x01表示die0 0x02表示die1
-    uint64_t binaryCacheTag;
-} HcommCcuSchd;
-
-typedef struct {
-    HcommCcuSchd ccuSchd;
-    CcuInsHandle ccuIns;
-    aclrtStream stream;
-    void* attrs;
-} HcommLaunchKernelCfg;
 
 typedef CcuResult ccu_result;
 
 extern ccu_result asccomm_ccu_host_kernel_launch(
     const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args);
 
-extern CcuResult HcommCcuHostKernelLaunch(
-    const void* kernel_func, const char* kernel_name, const HcommLaunchKernelCfg* cfg, void* args);
-
-extern uint64_t HcommCcuGetLaunchHashTag(const char* tag);
 extern uint64_t asccomm_ccu_get_launch_hash_tag(const char* tag);
 
 #ifdef __cplusplus

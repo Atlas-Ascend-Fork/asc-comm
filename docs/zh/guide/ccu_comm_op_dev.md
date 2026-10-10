@@ -42,7 +42,7 @@
 3. 算子执行：发起跨rank数据搬运与本rank本地拷贝，并等待全部搬运完成。
 4. 后同步：通知对端搬运完成，并等待所有对端完成。
 
-Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第5步“下发CCU通信任务”直调Kernel，将Channel句柄、任务参数（taskArgs、kernelArg）随任务下发到Stream；Kernel侧随后通过`ccu::load_arg`加载任务参数、`ccu::GetResByChannel`绑定Variable，再依次执行前同步、算子执行、后同步。其中前同步属于资源准备在数据面的延伸：Host侧准备的Token等通信内存信息，需经前同步交换到对端后，跨rank搬运才能发起。
+Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第5步“下发CCU通信任务”直调Kernel，将Channel句柄、任务参数（taskArgs、kernelArg）随任务下发到Stream；Kernel侧随后通过`ccu::load_arg`加载任务参数、`ccu::get_res_by_channel`绑定Variable，再依次执行前同步、算子执行、后同步。其中前同步属于资源准备在数据面的延伸：Host侧准备的Token等通信内存信息，需经前同步交换到对端后，跨rank搬运才能发起。
 
 本章后续内容按此流程展开，代码关键片段均取自[allgather](../../../examples/ccu/ccu_direct/01_allgather/README.md)样例。
 
@@ -182,7 +182,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     样例通过`HcclCommQueryCcuIns`查询通信域上绑定的CCU实例，公共辅助函数`QueryCcuInstance`封装了该调用，并校验通信域恰好绑定一个实例：
 
     ```cpp
-    CcuInsHandle insHandle{};
+    void* insHandle{};
     HCCLCHECK(asccomm_examples::QueryCcuInstance(comm, insHandle));
     ```
 
@@ -276,7 +276,7 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
 
 - 绑定远端Variable单元
 
-    output地址和token属于需要从对端rank写入的Variable，通过`ccu::GetResByChannel`与Channel绑定，`OUTPUT_VAR_ID`、`TOKEN_VAR_ID`由通信双方约定：
+    output地址和token属于需要从对端rank写入的Variable，通过`ccu::get_res_by_channel`与Channel绑定，`OUTPUT_VAR_ID`、`TOKEN_VAR_ID`由通信双方约定：
 
     ```cpp
     // OUTPUT_VAR_ID、TOKEN_VAR_ID分别为对端output地址、token对应的Variable单元编号
@@ -286,8 +286,8 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
     for (uint64_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
             // 通过channel绑定对端rank的output地址与token
-            ctx.output[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_VAR_ID);
-            ctx.token[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_VAR_ID);
+            ctx.output[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_VAR_ID);
+            ctx.token[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_VAR_ID);
             channelIdx++;
         }
     }
@@ -366,7 +366,7 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
 - 提交跨rank写任务
 
-    `ccu::Write`为异步操作，硬件搬运完成时自动置位event中mask对应的标志位：
+    `ccu::write`为异步操作，硬件搬运完成时自动置位event中mask对应的标志位：
 
     ```cpp
     CCU_IF(ctx.sliceSize != 0)
@@ -376,7 +376,7 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
                 // 本rank数据写入对端地址
-                CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask));
+                CCU_CHK_RET(ccu::write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask));
                 channelId++;
             }
         }
@@ -385,13 +385,13 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
 - 本地拷贝
 
-    本rank数据通过`ccu::LocalCopy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[CCU编程](../programming_model/ccu_programming.md)的"并发执行"一节，样例中封装为`GroupCopy`）：
+    本rank数据通过`ccu::local_copy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[CCU编程](../programming_model/ccu_programming.md)的"并发执行"一节，样例中封装为`GroupCopy`）：
 
     ```cpp
     // Loop执行体：片上内存 -> CcuBuffer -> 片上内存，两段搬运间用event_wait确认完成
-    ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+    ccu::local_copy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
     ccu::event_wait(loopEvt, 1);
-    ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+    ccu::local_copy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
     ccu::event_wait(loopEvt, 1);
     ```
 
