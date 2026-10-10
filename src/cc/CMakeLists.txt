@@ -136,11 +136,11 @@ list(APPEND ASCCOMM_MC2_INCLUDE_LIST
 )
 
 if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
-    # 源列表 PR#2 起填充。common 模块（M2）host 侧 .cc 加入 mc2_client；
+    # 源列表自 common 模块迁入起填充（host 侧 .cc）；整体迁移计划见 Issue #66。
     # 源为空（骨架期占位）时用占位 TU 保证 add_library 成立。
-    # TODO(PR#4): hccl_mc2.cc / hccl_alloc_ctx_res.cc / mc2_comm_info_reporter.cc
-    # depend on ops/op_common headers (topo_host/alg_param/op_common/load_kernel etc),
-    # join with ops migration
+    # TODO(#66): hccl_mc2.cc / hccl_alloc_ctx_res.cc / mc2_comm_info_reporter.cc
+    # depend on ops/op_common headers (topo_host/alg_param/op_common/load_kernel etc);
+    # they join the build when the ops module is migrated
     set(ASCCOMM_MC2_CLIENT_SOURCES
         ${HCCL_CC_DIR}/src/common/adapter_acl.cc
         ${HCCL_CC_DIR}/src/common/alg_env_config.cc
@@ -156,7 +156,7 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
     if(NOT ASCCOMM_MC2_CLIENT_SOURCES)
         set(_ASCCOMM_MC2_CLIENT_SKELETON_SRC ${CMAKE_CURRENT_BINARY_DIR}/mc2_client_skeleton.cc)
         file(WRITE ${_ASCCOMM_MC2_CLIENT_SKELETON_SRC}
-            "// mc2_client skeleton placeholder; real source files wired from PR#2+\n")
+            "// mc2_client skeleton placeholder; real source files are wired in later migration stages\n")
         set(ASCCOMM_MC2_CLIENT_SOURCES ${_ASCCOMM_MC2_CLIENT_SKELETON_SRC})
     endif()
     # __FILE__ 注入：日志只带文件名不带路径（对齐 devkit cc/CMakeLists.txt:34-39）。
@@ -226,7 +226,7 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
         -Wl,--no-as-needed
     )
     install(TARGETS mc2_compat
-        DESTINATION "${CMAKE_SYSTEM_PROCESSOR}-linux/lib64" COMPONENT asc-devkit
+        DESTINATION "${CMAKE_SYSTEM_PROCESSOR}-linux/lib64"
     )
 
     add_library(mc2_client SHARED ${ASCCOMM_MC2_CLIENT_SOURCES})
@@ -317,7 +317,7 @@ else()
         "only 'host' is implemented ('device' is reserved for later migration stages)")
 endif()
 
-# 后续 PR 按迁移进度接子目录（对齐 devkit cc/src/CMakeLists.txt:355-363）
-# 注：PR#2 不 add_subdirectory——common（13 源）与 hcomm_dlsym（12 源 → mc2_compat）
-# 均已在根本文件源列表接线；树内 src/common/CMakeLists.txt 随树保留但不引用（PR#4 统一裁决去留）
-# PR#3: add_subdirectory(src/aicpu_kfc)；PR#4: add_subdirectory(src/ops)
+# 后续按迁移进度接子目录（对齐 devkit cc/src/CMakeLists.txt:355-363）
+# 注：common（10 源）与 hcomm_dlsym（12 源 → mc2_compat）已在根本文件源列表接线，
+# 树内 src/common/CMakeLists.txt 随树保留但暂不引用；aicpu_kfc / ops 模块迁入后
+# 再评估子目录接线方式（整体计划与裁决记录见 Issue #66）

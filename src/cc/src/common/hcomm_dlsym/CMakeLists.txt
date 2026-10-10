@@ -122,7 +122,7 @@ if(PRODUCT_SIDE STREQUAL "host")
     endif()
 
     install(TARGETS mc2_compat
-        DESTINATION "${CMAKE_SYSTEM_PROCESSOR}-linux/lib64" COMPONENT asc-devkit
+        DESTINATION "${CMAKE_SYSTEM_PROCESSOR}-linux/lib64"
     )
 
     target_sources(mc2_compat PRIVATE
