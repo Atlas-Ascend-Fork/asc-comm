@@ -63,8 +63,8 @@ struct HcommSimtChannelEntity {
     uint64_t sqContextAddr;
     uint64_t cqContextAddr;
     // Unused by SIMT, which packs curHead and wqeCnt into the single u64 at
-    // SqContext::ubJfs::headAddr so both advance in one store. Listed only to keep this view
-    // field-for-field identical to ChannelEntity.
+    // SqContext::ubJfs::headAddr so both advance in one store. RoCE AIV uses each value as
+    // a WQEBB index. Listed only to keep this view field-for-field identical to ChannelEntity.
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;
