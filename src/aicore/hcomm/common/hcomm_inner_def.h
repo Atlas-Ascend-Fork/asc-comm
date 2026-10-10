@@ -293,6 +293,15 @@ typedef struct {
 } MultiChannelEntity;
 
 typedef struct {
+    uint32_t lKey;
+    uint32_t rKey;
+    uint64_t keyWord;
+    uint64_t dataKeyHighWord;
+} RoceMrKey;
+
+static_assert(sizeof(RoceMrKey) <= sizeof(BatchRemoteInfo), "RoCE MR key cache must not grow UbcBatchHandle");
+
+typedef struct {
     LocalTensor<uint32_t> buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
@@ -302,7 +311,10 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     BatchQueueCursor cursor;
-    BatchRemoteInfo remoteInfo;
+    union {
+        BatchRemoteInfo remoteInfo;
+        RoceMrKey mrKey;
+    };
     BatchBuffer buffer;
 } UbcBatchHandle;
 
