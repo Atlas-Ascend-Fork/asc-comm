@@ -39,7 +39,6 @@ set(ASCCOMM_CANN_BASE_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
     ${ASCCOMM_CANN_ARCH_DIR}/include
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
 )
 asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE_DIRS})
@@ -48,7 +47,6 @@ add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 
 add_library(asccomm_ccu_obj OBJECT)
@@ -71,7 +69,6 @@ target_include_directories(asccomm_ccu_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 target_include_directories(asccomm_ccu_obj SYSTEM PRIVATE
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}

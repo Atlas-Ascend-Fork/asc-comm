@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace asc {
 

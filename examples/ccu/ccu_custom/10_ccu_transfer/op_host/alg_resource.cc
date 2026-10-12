@@ -16,7 +16,7 @@
 #include "alg_resource.h"
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
-#include "../../../common/ccu_instance.h"
+#include "../../../../common/ccu_instance.h"
 
 namespace ops_hccl_transfer {
 namespace {

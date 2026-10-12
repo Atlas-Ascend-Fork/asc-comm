@@ -15,7 +15,7 @@
 #include <cstdint>
 
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace asc {
