@@ -35,7 +35,7 @@ public:
     // 计数器分配且各自从 0 起，跨设备会重号，实例必须落在指定设备的 handle table 上。
     // 该值在 LoadRegisterContext 之前即需就绪，析构时注销 kernel 依赖它定位 CcuKernelMgr。
     CcuResult init(int32_t device_logic_id);
-    CcuResult load_register_context(const HcommCcuInstance& instance);
+    CcuResult load_register_context(const HcommCcuInstanceEntity& instance);
     CcuResult reset();
     asc_ccu_res_snapshot* get_res_snapshot();
     CcuResult save_kernel(const ccu_kernel_handle kernel_handle);
