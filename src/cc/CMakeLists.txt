@@ -206,7 +206,7 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
         -fno-common
         -fno-strict-aliasing
         -pipe
-        -O3
+        $<$<CONFIG:Release>:-O3>
         $<$<CONFIG:Debug>:-g>
         -fstack-protector-all
     )

@@ -8,6 +8,11 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
+# NOTE: this file is kept as migrated verbatim from asc-devkit and is NOT wired
+# into the asc-comm build (sources are listed in src/cc/CMakeLists.txt instead).
+# It references devkit-only variables (PRODUCT_SIDE/TOP_DIR etc.) and will fail
+# configure if add_subdirectory'ed. See Issue #66 for the wiring plan.
+
 if(PRODUCT_SIDE STREQUAL "host")
     set(src_list
         ${CMAKE_CURRENT_SOURCE_DIR}/adapter_acl.cc

@@ -25,3 +25,8 @@ cmake --build build --target mc2_client mc2_compat mc2_client_hcomm_stub -j
 
 Expected artifacts: `libmc2_client.so`, `libmc2_compat.so`, and the `libhcomm.so`
 stub under `build/src/cc/mc2_client_link_stub/`.
+
+Note: installed artifacts (`libmc2_client.so` depends on `libmc2_compat.so` and
+the real `libhcomm.so`) require the CANN environment at runtime
+(`source ${ASCEND_CANN_PACKAGE_PATH}/bin/setenv.bash` or equivalent
+`LD_LIBRARY_PATH`) — same as upstream devkit behavior.
