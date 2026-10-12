@@ -13,6 +13,7 @@
 #include <cstdint>
 
 #include "hcomm/common/ccu_device_context.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 namespace asc {
 
@@ -24,35 +25,31 @@ const ccu_channel* ccu_channel::operator->() const { return this; }
 
 HcclResult ccu_channel::init(ChannelHandle channel)
 {
-    // getChannelEntity 返回 hcomm 持有的 Channel Entity 借用指针（不透明 uint64_t 地址）
-    uint64_t channel_entity_addr = 0;
-    const auto channel_query = reinterpret_cast<HcommCcuGetChannelEntityFn>(
-        get_current_ccu_control_ops()[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY]);
+    HcommCcuChannelEntity entity{};
+    const auto channel_query = reinterpret_cast<HcommCcuGetChannelEntityCallBack>(
+        get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY]);
     if (channel_query == nullptr) {
         return HCCL_E_INTERNAL;
     }
-    int32_t ret = channel_query(channel, &channel_entity_addr);
+    int32_t ret = channel_query(channel, &entity);
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }
-    if (channel_entity_addr == 0) {
-        return HCCL_E_INTERNAL;
-    }
-    // 借用期内深拷贝快照，此后不再触碰 hcomm 内存
-    const auto* entity = reinterpret_cast<const HcommCcuChannelEntity*>(channel_entity_addr);
     // ABI 头校验：实体必须是当前版本布局
-    if (entity->header.version != HCOMM_CCU_CHANNEL_ABI_VERSION ||
-        entity->header.magicWord != HCOMM_CCU_CHANNEL_MAGIC_WORD ||
-        entity->header.size != sizeof(HcommCcuChannelEntity)) {
+    if (entity.header.version != HCOMM_CCU_CHANNEL_ABI_VERSION ||
+        entity.header.magicWord != HCOMM_CCU_CHANNEL_MAGIC_WORD ||
+        entity.header.size != sizeof(HcommCcuChannelEntity)) {
         return HCCL_E_INTERNAL;
     }
     // 远端 CCU 资源空间尚未就绪时拒绝使用该 Channel（定档：RegedBufferEntity 口径）
-    if (entity->rmtCcuResBuffer.type != REGED_BUFFER_RMA || entity->rmtCcuResBuffer.bufferInfo.rma.addr == 0 ||
-        entity->rmtCcuResBuffer.bufferInfo.rma.size == 0) {
+    if (entity.rmtCcuResBuffer.type != REGED_BUFFER_RMA || entity.rmtCcuResBuffer.bufferInfo.rma.addr == 0 ||
+        entity.rmtCcuResBuffer.bufferInfo.rma.size == 0) {
         return HCCL_E_INTERNAL;
     }
-    // 快照整体拷贝到本地，后续算法只读这份实体，不再触碰 hcomm 对象
-    channel_entity_ = *entity;
+    // 定长字段与变长数组分别拷贝；本地 remoteBuffers 指针指向自有存储
+    remote_buffers_.assign(entity.remoteBuffers, entity.remoteBuffers + entity.remoteBufferNum);
+    channel_entity_ = entity;
+    channel_entity_.remoteBuffers = remote_buffers_.data();
     return HCCL_SUCCESS;
 }
 

@@ -12,11 +12,11 @@
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
 #include "ccu/hcomm/hccl_types.h"
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/hcomm_res_ccu_entity_defs.h"
 
 namespace asc {
 
-// ascCustom 槽 0（getChannelEntity）的 stub：预置快照 + 可注入的失败返回
+// 控制操作槽 0（getChannelEntity）的 stub：预置快照 + 可注入的失败返回
 void SetHcommCcuChannelGetEntityStub(const HcommCcuChannelEntity& channelEntity);
 void SetHcommCcuChannelGetEntityStubResult(HcommResult result);
 void ResetHcommCcuChannelGetEntityStub();

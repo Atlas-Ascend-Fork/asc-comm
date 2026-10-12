@@ -15,6 +15,6 @@
 
 #include "hcomm_primitives.h"
 
-#include "hcomm/hcomm_ccu_resource.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
+#include "hcomm/hcomm_res_ccu_entity_defs.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
 
 #endif

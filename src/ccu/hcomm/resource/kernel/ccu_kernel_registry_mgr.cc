@@ -64,7 +64,7 @@ CcuResult ccu_kernel_registry_mgr::deinit()
 }
 
 CcuResult ccu_kernel_registry_mgr::get_or_create(
-    int32_t device_logic_id, HcommCcuInstanceHandle ins_handle, ccu_kernel_registry*& registry)
+    int32_t device_logic_id, HcommCcuInstanceEntity ins_handle, ccu_kernel_registry*& registry)
 {
     registry = nullptr;
     if (ins_handle.ccuInsKey == 0) {
@@ -87,7 +87,7 @@ CcuResult ccu_kernel_registry_mgr::get_or_create(
     return CcuResult::CCU_SUCCESS;
 }
 
-ccu_kernel_registry* ccu_kernel_registry_mgr::get(HcommCcuInstanceHandle ins_handle) const
+ccu_kernel_registry* ccu_kernel_registry_mgr::get(HcommCcuInstanceEntity ins_handle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
     auto it = ins_map_.find(ins_handle.ccuInsKey);

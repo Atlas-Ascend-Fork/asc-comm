@@ -24,7 +24,7 @@ endif()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH = ${ASCEND_CANN_PACKAGE_PATH}")
 
 if(NOT ASCCOMM_CANN_ARCH_DIR)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+    if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
         set(_ASCCOMM_CANN_ARCH "aarch64-linux")
     else()
         set(_ASCCOMM_CANN_ARCH "x86_64-linux")

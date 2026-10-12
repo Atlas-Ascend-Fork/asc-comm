@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #include "hcomm/ccu/ccu_types.h"
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/hcomm_res_ccu_entity_defs.h"
 
 #ifdef __cplusplus
 extern "C" {

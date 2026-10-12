@@ -13,7 +13,9 @@
 
 #include <cstdint>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include <vector>
+
+#include "hcomm/hcomm_res_ccu_entity_defs.h"
 #include "ccu/hcomm/hccl_types.h"
 
 namespace asc {
@@ -44,8 +46,10 @@ private:
     // 从实体定长数组安全读取第 index 个资源 id（含空指针/越界校验）
     HcclResult get_id_by_array(const uint32_t* ids, uint32_t valid_num, uint32_t index, uint32_t& id) const;
 
-    // 单次查询得到的完整实体快照；不再持有变长容器，CcuChannel 生命周期与 hcomm 完全解耦
+    // 单次查询得到的定长实体字段
     HcommCcuChannelEntity channel_entity_{};
+    // 远端 buffer 实体数组深拷贝；channel_entity_.remoteBuffers 指向该存储
+    std::vector<RegedBufferEntity> remote_buffers_{};
     // Init 的结果缓存，初始为内部错误，避免未初始化即被使用
     HcclResult result_{HCCL_E_INTERNAL};
 };

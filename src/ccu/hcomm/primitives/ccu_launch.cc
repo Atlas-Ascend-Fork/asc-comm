@@ -28,7 +28,7 @@
 // 在不进入内核注册流程的情况下准备单实例资源快照。
 // 变量/事件分配接口可能先于 <<<>>> 调用，因此需要执行此操作。
 static CcuResult ccu_prepare_instance(
-    HcommCcuInstanceHandle ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
+    HcommCcuInstanceEntity ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
 {
     if (ins_handle.ccuInsKey == 0 || ins_handle.ccuInsPtr == nullptr) {
         HCCL_ERROR(
@@ -52,7 +52,7 @@ static CcuResult ccu_prepare_instance(
 CcuResult asccomm_ccu_kernel_register_start(void* ins_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
-    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     // Instance 不再携带设备号：以当前线程设备定位 per-device registry/kernel mgr
     int32_t dev_logic_id = -1;
     asc::ccu_kernel_registry* ccu_ins = nullptr;
@@ -78,19 +78,19 @@ static CcuResult ccu_kernel_try_register(
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
-    CCU_CHK_RET(
-        kernel_mgr.Register(*res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
+    CCU_CHK_RET(kernel_mgr.register_kernel(
+        *res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
     CCU_CHK_RET(ccu_ins->save_kernel(new_handle));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult asccomm_ccu_kernel_register(
-    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
-    const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle)
+    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+    uint32_t arg_num, ccu_kernel_handle* kernel_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
-    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     HCCL_RUN_INFO("Entry-%s", __func__);
 
     CCU_CHK_PTR_NULL(kernel_func);
@@ -131,7 +131,7 @@ CcuResult asccomm_ccu_kernel_register(
 CcuResult asccomm_ccu_kernel_register_end(void* ins_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
-    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(instanceHandle);
     CCU_CHK_PTR_NULL(ccu_ins);
@@ -160,7 +160,7 @@ CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_
     CCU_CHK_RET(kernel_mgr.get_ccu_kernel_info(kernel_handle, info));
 
     *task_args_num = info.max_task_args_num;
-    HCCL_INFO("[%s] success, kernelHandle[%llx], taskArgsNum[%u].", __func__, kernel_handle, *task_args_num);
+    HCCL_INFO("[%s] success, kernel_handle[%llx], task_args_num[%u].", __func__, kernel_handle, *task_args_num);
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -214,7 +214,7 @@ CcuResult asccomm_ccu_kernel_launch(
     std::vector<asc::ccu_task_param> task_params{};
     auto ret = kernel->gene_task_params(static_cast<const uint64_t*>(task_args), arg_num, task_params);
     CHK_PRT_RET(
-        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernelHandle[0x%llx].", __func__, kernel_handle), ret);
+        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernel_handle[0x%llx].", __func__, kernel_handle), ret);
 
     if (task_params.empty()) {
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);
@@ -248,7 +248,7 @@ CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* to
 
 // 定位实例资源仓后转发给 CcuVarEventResMgr；预约、地址映射与失败回滚均由该类内部完成
 static CcuResult ccu_alloc_var_event_res(
-    HcommCcuInstanceHandle ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
+    HcommCcuInstanceEntity ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
 {
     int32_t dev_logic_id = -1;
     asc::ccu_kernel_registry* ccu_ins = nullptr;
@@ -262,22 +262,20 @@ static CcuResult ccu_alloc_var_event_res(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult asccomm_ccu_variable_alloc(
-    void* ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
+CcuResult asccomm_ccu_variable_alloc(void* ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
-    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     CCU_CHK_PTR_NULL(var_handle);
     *var_handle = 0;
     CCU_CHK_RET(ccu_alloc_var_event_res(instanceHandle, asc::ccu_var_event_type::variable, die_id, num, *var_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult asccomm_ccu_event_alloc(
-    void* ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
+CcuResult asccomm_ccu_event_alloc(void* ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
-    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     CCU_CHK_PTR_NULL(event_handle);
     *event_handle = 0;
     CCU_CHK_RET(ccu_alloc_var_event_res(instanceHandle, asc::ccu_var_event_type::event, die_id, num, *event_handle));

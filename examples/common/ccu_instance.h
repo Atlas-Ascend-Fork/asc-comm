@@ -15,7 +15,7 @@
 
 #include <hccl/hccl_rank_graph.h>
 #include <ccu/hcomm/ccu_api_types.h>
-#include <hcomm/hcomm_ccu_resource.h>
+#include <hcomm/hcomm_res_ccu_entity_defs.h>
 
 extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
 
@@ -25,7 +25,7 @@ constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 
 /**
  * 查询通信域 CCU 实例并返回原语链句柄。直接调用 hcomm 对外接口；
- * void* 请求地址由用户侧传入，返回 hcomm 持有的 HcommCcuInstanceHandle 稳定地址。
+ * void* 请求地址由用户侧传入，返回 hcomm 持有的 HcommCcuInstanceEntity 稳定地址。
  */
 inline HcclResult QueryCcuInstance(HcclComm comm, void*& insHandle)
 {
