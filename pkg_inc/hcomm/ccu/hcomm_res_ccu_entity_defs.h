@@ -17,7 +17,6 @@
 #define HCOMM_RES_CCU_ENTITY_DEFS_H
 
 #include <stdint.h>
-#include "hcomm_res_defs.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
 #ifdef __cplusplus

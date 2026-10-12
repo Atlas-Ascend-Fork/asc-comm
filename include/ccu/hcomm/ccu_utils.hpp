@@ -16,7 +16,7 @@
 #include <cstdio>
 
 #include "hcomm/ccu/ccu_types.h"
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace AscendC {
 namespace ccu {
