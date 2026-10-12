@@ -16,7 +16,7 @@
 // 符合控制面/数据面 ABI 边界约束。
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/ccu/ccu_types.h"
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
