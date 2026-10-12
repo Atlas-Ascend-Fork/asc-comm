@@ -24,7 +24,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
