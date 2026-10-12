@@ -49,11 +49,12 @@ std::vector<asc_ccu_res_range>* get_ranges(asc_ccu_res_repository& repository, u
     }
 }
 
-bool is_instance_header_valid(const HcommCcuInstance& instance)
+bool is_instance_header_valid(const HcommCcuInstanceEntity& instance)
 {
-    return instance.header.version == HCOMM_CCU_RES_ABI_VERSION &&
-           instance.header.magicWord == HCOMM_CCU_INSTANCE_MAGIC_WORD &&
-           instance.header.size == sizeof(HcommCcuInstance) && instance.header.reserved == 0 && instance.reserved == 0;
+    return instance.header.version == HCOMM_CCU_INSTANCE_ENTITY_ABI_VERSION &&
+           instance.header.magicWord == HCOMM_CCU_INSTANCE_ENTITY_MAGIC_WORD &&
+           instance.header.size == sizeof(HcommCcuInstanceEntity) && instance.header.reserved == 0 &&
+           instance.reserved == 0;
 }
 
 bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
@@ -65,7 +66,7 @@ bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
 }
 
 // 从 die 元数据推导有效 die 位图
-uint32_t derive_valid_die_mask(const HcommCcuInstance& instance)
+uint32_t derive_valid_die_mask(const HcommCcuInstanceEntity& instance)
 {
     uint32_t mask = 0;
     for (uint32_t slot = 0; slot < instance.ccuDieNum && slot < CCU_INSTANCE_DIE_CAPACITY; ++slot) {
@@ -130,7 +131,7 @@ CcuResult append_wire_ranges(
 }
 } // namespace
 
-CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstance& instance)
+CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
 {
     if (!is_instance_header_valid(instance) || instance.ccuDieNum > CCU_INSTANCE_DIE_CAPACITY ||
         instance.ccuDieNum != HCOMM_CCU_MAX_DIE_NUM || // 现网 2 die；硬件扩展后放开

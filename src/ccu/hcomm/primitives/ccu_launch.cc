@@ -30,10 +30,10 @@
 static CcuResult ccu_prepare_instance(
     HcommCcuInstanceEntity ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
 {
-    if (ins_handle.ccuInsKey == 0 || ins_handle.ccuInsPtr == nullptr) {
+    if (ins_handle.ccuInsKey == 0) {
         HCCL_ERROR(
-            "[%s] failed, invalid instance handle: key[%llx], pod[%p].", __func__,
-            static_cast<unsigned long long>(ins_handle.ccuInsKey), static_cast<const void*>(ins_handle.ccuInsPtr));
+            "[%s] failed, invalid instance handle: key[%llx].", __func__,
+            static_cast<unsigned long long>(ins_handle.ccuInsKey));
         return CcuResult::CCU_E_PARA;
     }
 
@@ -46,7 +46,7 @@ static CcuResult ccu_prepare_instance(
     CCU_CHK_RET(
         asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get_or_create(dev_logic_id, ins_handle, ccu_ins));
     CCU_CHK_PTR_NULL(ccu_ins);
-    return ccu_ins->load_register_context(*ins_handle.ccuInsPtr);
+    return ccu_ins->load_register_context(ins_handle);
 }
 
 CcuResult asccomm_ccu_kernel_register_start(void* ins_handle)
@@ -67,7 +67,7 @@ CcuResult asccomm_ccu_kernel_register_start(void* ins_handle)
         HCCL_ERROR("[%s] failed to load register context, ret[%d].", __func__, ret);
         return ret;
     }
-    asc::set_current_ccu_control_ops(instanceHandle.ccuInsPtr->ascCustom);
+    asc::set_current_ccu_control_ops(instanceHandle.ascCustom);
     return CcuResult::CCU_SUCCESS;
 }
 
