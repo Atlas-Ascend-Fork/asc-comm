@@ -12,7 +12,7 @@
 #define HCOMM_RES_ENTITY_DEFS_H
 
 #include <stdint.h>
-#include "hcomm_res_defs.h"
+#include "hcomm/hcomm_res_defs.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -12,7 +12,7 @@
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
 #include "ccu/hcomm/hccl_types.h"
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace asc {
 

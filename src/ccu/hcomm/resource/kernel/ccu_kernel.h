@@ -32,7 +32,7 @@
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
 // 类型（HcclResult 等）统一取自 hccl 公共类型定义，避免依赖 hcomm 私有类型头
-#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "ccu/hcomm/hccl_types.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
