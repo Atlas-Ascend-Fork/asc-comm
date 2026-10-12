@@ -31,9 +31,9 @@
 #include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
-// 类型（HcclResult 等）统一取自 hcomm 包内 hcomm_types.h，避免耦合 hccl 私有定义
-#include "hcomm/hcomm_ccu_resource.h"
-#include "hcomm/hcomm_types.h"
+// 类型（HcclResult 等）统一取自 hccl 公共类型定义，避免依赖 hcomm 私有类型头
+#include "hcomm/hcomm_res_ccu_entity_defs.h"
+#include "ccu/hcomm/hccl_types.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
@@ -496,7 +496,7 @@ private:
 
     uint32_t load_arg_index_{0};
 
-    uint32_t ccu_version_{HCOMM_CCU_VERSION_INVALID};
+    uint32_t ccu_version_{static_cast<uint32_t>(HCOMM_CCU_VERSION_INVALID)};
 
     ccu_shared_resource exported_res_{};
     ccu_shared_resource imported_res_{};
