@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "hcomm_res_defs.h"
+#include "hcomm/hcomm_res_defs.h"
 #include "hcomm_res_entity_defs.h"
 
 // ASCCOMM AICPU公共类型定义；基础ABI类型由CANN包pkg_inc/hcomm/hcomm_res_defs.h提供。
