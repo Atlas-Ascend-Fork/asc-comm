@@ -146,16 +146,6 @@ public:
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
-    __simt_callee__ inline int32_t InitCompletionSet(
-        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,
-        uint64_t bytes);
-    __simt_callee__ inline int32_t PrepareCompletion(
-        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
-    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
-    __simt_callee__ inline int32_t WaitCompletion(
-        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
-    __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
-
 private:
     bool initialized_ = false;
     // Reads the channel entity and SQ context from global memory on every post. Nothing is

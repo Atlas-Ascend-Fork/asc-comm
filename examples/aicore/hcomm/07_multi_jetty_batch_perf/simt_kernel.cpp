@@ -16,7 +16,6 @@
 #include "simt_submit.h"
 #include "simt_completion.h"
 
-static_assert(AscendC::simt::HCOMM_SIMT_COMPLETION_VERSION == 1U);
 namespace {
 using namespace multi_jetty_batch_perf;
 
@@ -62,12 +61,12 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
     if (threadIdx.x == 0U) {
         auto set = CompletionSet(completionBuffer);
         if (firstJetty == 0U) {
-            status = hcomm.InitCompletionSet(set, channels, totalJettyCount, set.workspace, kCompletionWorkspaceBytes);
+            status = InitCompletionSet(set, channels, totalJettyCount, set.workspace, kCompletionWorkspaceBytes);
         } else {
             status = ResumeCompletionSet(set, firstJetty);
         }
         if (status == AscendC::HCOMM_SUCCESS)
-            status = PrepareCompletionWindows(hcomm, set, kernelJettyCount, warmup, batchSize, api, firstJetty);
+            status = PrepareCompletionWindows(set, kernelJettyCount, warmup, batchSize, api, firstJetty);
         timing[kStatusIndex] = static_cast<uint64_t>(static_cast<int64_t>(status));
     }
     // Complete all Handle initialization before the candidate's ordinary Appends.
@@ -98,11 +97,11 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
         }
         if (static_cast<int64_t>(timing[kStatusIndex]) == AscendC::HCOMM_SUCCESS) {
             auto set = CompletionSet(completionBuffer);
-            status = hcomm.Drain(set);
+            status = DrainCompletionSet(set);
             CaptureWarmupCompletion(
                 set, reinterpret_cast<__gm__ CompletionSummary*>(completionBuffer), kernelJettyCount, firstJetty);
             if (status == AscendC::HCOMM_SUCCESS)
-                status = PrepareCompletionWindows(hcomm, set, kernelJettyCount, iterations, batchSize, api, firstJetty);
+                status = PrepareCompletionWindows(set, kernelJettyCount, iterations, batchSize, api, firstJetty);
             timing[kStatusIndex] = static_cast<uint64_t>(static_cast<int64_t>(status));
             if (status != AscendC::HCOMM_SUCCESS)
                 statuses[firstJetty] = status;
@@ -135,7 +134,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
         }
         if (submitStatus == AscendC::HCOMM_SUCCESS) {
             auto set = CompletionSet(completionBuffer);
-            submitStatus = hcomm.Drain(set);
+            submitStatus = DrainCompletionSet(set);
         }
         if (submitStatus != AscendC::HCOMM_SUCCESS)
             statuses[firstJetty] = submitStatus;
