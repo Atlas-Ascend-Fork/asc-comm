@@ -12,6 +12,7 @@
 
 #include "base/dlog_pub.h"
 
+#include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <unordered_map>
@@ -192,6 +193,13 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
             "[%s] invalid input, kernel_func[%p], cfg[%p], args[%p].", __func__, kernel_func, cfg, args);
         return CCU_E_PTR;
     }
+    printf("[%s] launch cfg dump: kernel_func[%p], kernel_name[%s], cfg[%p], cfg->ccu_ins[%p], "
+           "cfg->ccu_schd.num_blocks[%u], cfg->ccu_schd.phy_die_mask[0x%llx], cfg->ccu_schd.binary_cache_tag[0x%llx], "
+           "cfg->stream[%p], cfg->attrs[%p], args[%p]\n",
+        __func__, kernel_func, kernel_name != nullptr ? kernel_name : "(null)", cfg, cfg->ccu_ins,
+        cfg->ccu_schd.num_blocks, static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask),
+        static_cast<unsigned long long>(cfg->ccu_schd.binary_cache_tag), cfg->stream, cfg->attrs, args);
+    fflush(stdout);
     CcuResult ret = validate_launch_cfg(cfg);
     if (ret != CCU_SUCCESS) {
         return ret;
