@@ -303,6 +303,11 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
         aicore/hcomm
+    # pod 契约头统一位于 pkg_inc/hcomm/（含 ccu/ 子目录），随 pkg_inc 整体装载到 comm_api/hcomm/
+    copy_headers \
+        "${PROJECT_ROOT}/pkg_inc" \
+        "${STAGING_DIR}/payload/asc/include/comm_api" \
+        550
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
