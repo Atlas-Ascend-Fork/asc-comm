@@ -98,7 +98,7 @@ private:
                 auto* loop_param_var = loop.loop_param_var();
                 if (loop_param_var == nullptr) {
                     throw ::AscendC::ccu::detail::ccu_exception(
-                        CcuResult::CCU_E_PARA, "ccu::loop var_-based loop has null loop parameter");
+                        CcuResult::CCU_E_PARA, "ccu::loop var-based loop has null loop parameter");
                 }
                 CCU_THROW_IF_FAILED(
                     ::asc::ccu_loop_group_add_loop_from_var(handle_, loop.handle(), loop_param_var->handle),

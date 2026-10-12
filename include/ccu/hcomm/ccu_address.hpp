@@ -44,17 +44,17 @@ public:
 
     void operator=(address&& other) { this->handle = other.handle; }
 
-    void operator=(uint64_t immediate_) const
+    void operator=(uint64_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_address_assign_imm(this->handle, immediate_),
+            ::asc::ccu_address_assign_imm(this->handle, immediate),
             "address::operator=(uint64_t): ccu_address_assign_imm failed");
     }
 
-    void operator=(const variable& var_) const
+    void operator=(const variable& var) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_address_assign_var(this->handle, var_.handle),
+            ::asc::ccu_address_assign_var(this->handle, var.handle),
             "address::operator=(variable): ccu_address_assign_var failed");
     }
 
@@ -86,35 +86,35 @@ public:
             "address::operator=(Addr+Imm): ccu_address_add_imm_to_addr failed");
     }
 
-    // address + address
+    // addr + addr
     detail::ccu_arithmetic_operator<address, address> operator+(const address& that) const
     {
         return detail::ccu_arithmetic_operator<address, address>(
             *this, that, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    // address + variable
-    detail::ccu_arithmetic_operator<address, variable> operator+(const variable& var_) const
+    // addr + variable
+    detail::ccu_arithmetic_operator<address, variable> operator+(const variable& var) const
     {
         return detail::ccu_arithmetic_operator<address, variable>(
-            *this, var_, detail::ccu_arithmetic_operator_type::addition);
+            *this, var, detail::ccu_arithmetic_operator_type::addition);
     }
 
     // address + immediate
-    detail::ccu_arithmetic_operator<address, uint16_t> operator+(const uint16_t imm_) const
+    detail::ccu_arithmetic_operator<address, uint16_t> operator+(const uint16_t imm) const
     {
         return detail::ccu_arithmetic_operator<address, uint16_t>(
-            *this, imm_, detail::ccu_arithmetic_operator_type::addition);
+            *this, imm, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    void operator+=(const variable& var_) const
+    void operator+=(const variable& var) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_address_add_assign_var(this->handle, var_.handle),
+            ::asc::ccu_address_add_assign_var(this->handle, var.handle),
             "address::operator+=(variable): ccu_address_add_assign_var failed");
     }
 
-    // address += address
+    // addr += addr
     void operator+=(const address& other) const
     {
         CCU_THROW_IF_FAILED(
@@ -132,11 +132,11 @@ private:
     friend class remote_addr;
 };
 
-// variable + address（交换律）
-inline detail::ccu_arithmetic_operator<variable, address> operator+(const variable& var_, const address& addr_)
+// variable + addr（交换律）
+inline detail::ccu_arithmetic_operator<variable, address> operator+(const variable& var, const address& addr)
 {
     return detail::ccu_arithmetic_operator<variable, address>(
-        var_, addr_, detail::ccu_arithmetic_operator_type::addition);
+        var, addr, detail::ccu_arithmetic_operator_type::addition);
 }
 
 } // namespace ccu
