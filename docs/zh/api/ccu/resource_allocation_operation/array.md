@@ -42,7 +42,7 @@ class array final {
 public:
     explicit array(uint32_t count);       // 构造即批量虚拟分配，count可为0
     // 绑定Host侧已预约的前count个资源，仅variable / event特化可用
-    array(typename ccu_array_traits<T>::Handle acq_handle, uint32_t count);
+    array(typename ccu_array_traits<T>::handle_t acq_handle, uint32_t count);
     T& operator[](uint32_t i);            // 下标访问（无边界检查）
     const T& operator[](uint32_t i) const;
     T* data();                             // 获取首元素指针（用于传给需要指针参数的批量接口）
