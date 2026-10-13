@@ -29,7 +29,10 @@ set_target_properties(hcomm_batch_write PROPERTIES
 target_include_directories(hcomm_batch_write PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
-    $ENV{ASCEND_HOME_PATH}/asc/include/comm_api
+    $ENV{ASCEND_HOME_PATH}/asc/include/adv_api
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/pkg_inc
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/include
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/include/hcomm
 )
 
 target_link_directories(hcomm_batch_write PRIVATE
