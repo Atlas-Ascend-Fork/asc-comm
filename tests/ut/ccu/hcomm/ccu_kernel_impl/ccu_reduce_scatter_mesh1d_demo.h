@@ -275,13 +275,13 @@ static CcuResult InitResource(ReduceScatterContext& ctx)
     }
 
     // ctx 默认构造时 variable / local_addr / remote_addr / event 成员已自动 alloc，
-    // 这里仅需把"远端 rank"对应的 variable 通过 get_res_by_channel 重绑定即可
+    // 这里仅需把"远端 rank"对应的 variable 通过 GetResByChannel 重绑定即可
     // (右值赋值走 variable 的 move-assign，直接覆盖 handle)。
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) {
-            ctx.input[peerId] = ccu::get_res_by_channel<ccu::variable>(arg->channels[channelIdx], RS_INPUT_XN_ID);
-            ctx.scratch[peerId] = ccu::get_res_by_channel<ccu::variable>(arg->channels[channelIdx], RS_SCRATCH_XN_ID);
-            ctx.token[peerId] = ccu::get_res_by_channel<ccu::variable>(arg->channels[channelIdx], RS_TOKEN_XN_ID);
+            ctx.input[peerId] = ccu::GetResByChannel<ccu::variable>(arg->channels[channelIdx], RS_INPUT_XN_ID);
+            ctx.scratch[peerId] = ccu::GetResByChannel<ccu::variable>(arg->channels[channelIdx], RS_SCRATCH_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::variable>(arg->channels[channelIdx], RS_TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -397,10 +397,10 @@ static CcuResult CreateReduceLoop(ReduceScatterContext& ctx)
             for (uint32_t i = 0; i < size; i++) {
                 const uint32_t copyMask = 1 << i;
                 if (i == arg->rankId) {
-                    ccu::local_copy(
+                    ccu::LocalCopy(
                         ctx.moRes.ccuBuf[bufBase + i], ctx.loopSrc[index], ctx.loopLen[index], loopEvt, copyMask);
                 } else {
-                    ccu::local_copy(
+                    ccu::LocalCopy(
                         ctx.moRes.ccuBuf[bufBase + i], ctx.loopScratch[index][i], ctx.loopLen[index], loopEvt,
                         copyMask);
                 }
@@ -408,13 +408,13 @@ static CcuResult CreateReduceLoop(ReduceScatterContext& ctx)
             ccu::event_wait(loopEvt, (1 << size) - 1);
 
             if (size > 1) {
-                ccu::local_reduce(
+                ccu::LocalReduce(
                     &ctx.moRes.ccuBuf[bufBase], size, arg->data_type, arg->output_data_type, arg->reduce_op,
                     ctx.loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
             }
 
-            ccu::local_copy(ctx.loopDst[index], ctx.moRes.ccuBuf[bufBase], ctx.loopLenExp[index], loopEvt, 1);
+            ccu::LocalCopy(ctx.loopDst[index], ctx.moRes.ccuBuf[bufBase], ctx.loopLenExp[index], loopEvt, 1);
             ccu::event_wait(loopEvt, 1);
         }));
         ctx.reduceLoops[index].reset(new ccu::loop(ctx.reduceLoopParam[index], *ctx.reduceBody[index]));
@@ -593,7 +593,7 @@ static CcuResult DoReduceScatter(ReduceScatterContext& ctx)
             if (rankIdx == arg->rankId) {
                 ccu::event_record(ctx.event, rankMask);
             } else {
-                ccu::read(
+                ccu::Read(
                     arg->channels[channelId], ctx.scratchMem[rankIdx], ctx.remoteInput[rankIdx], sliceSize, ctx.event,
                     rankMask);
                 channelId++;

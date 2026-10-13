@@ -17,8 +17,6 @@
 namespace asc {
 namespace {
 
-constexpr uint32_t CCU_INSTANCE_DIE_CAPACITY = 8U; // Instance 预留的 die 槽数
-
 std::vector<asc_ccu_res_range>* get_ranges(asc_ccu_res_repository& repository, uint32_t resource_type, uint32_t die_id)
 {
     switch (resource_type) {
@@ -45,16 +43,15 @@ std::vector<asc_ccu_res_range>* get_ranges(asc_ccu_res_repository& repository, u
         case HCOMM_CCU_BATCH_RES_MISSION:
             return &repository.mission[die_id];
         default:
-            return nullptr; // INS 不走 range 视图，由控制操作槽位按需申请
+            return nullptr; // INS 不走 range 视图，由 ascCustom.allocInstSpace 按需申请
     }
 }
 
-bool is_instance_header_valid(const HcommCcuInstanceEntity& instance)
+bool is_instance_header_valid(const HcommCcuInstance& instance)
 {
-    return instance.header.version == HCOMM_CCU_INSTANCE_ENTITY_ABI_VERSION &&
-           instance.header.magicWord == HCOMM_CCU_INSTANCE_ENTITY_MAGIC_WORD &&
-           instance.header.size == sizeof(HcommCcuInstanceEntity) && instance.header.reserved == 0 &&
-           instance.reserved == 0;
+    return instance.header.version == HCOMM_CCU_RES_ABI_VERSION &&
+           instance.header.magicWord == HCOMM_CCU_INSTANCE_MAGIC_WORD &&
+           instance.header.size == sizeof(HcommCcuInstance) && instance.header.reserved == 0;
 }
 
 bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
@@ -66,10 +63,10 @@ bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
 }
 
 // 从 die 元数据推导有效 die 位图
-uint32_t derive_valid_die_mask(const HcommCcuInstanceEntity& instance)
+uint32_t derive_valid_die_mask(const HcommCcuInstance& instance)
 {
     uint32_t mask = 0;
-    for (uint32_t slot = 0; slot < instance.ccuDieNum && slot < CCU_INSTANCE_DIE_CAPACITY; ++slot) {
+    for (uint32_t slot = 0; slot < instance.ccuDieNum && slot < HCOMM_CCU_INSTANCE_DIE_CAPACITY; ++slot) {
         const HcommCcuDieMetadata* metadata = instance.ccuDieReses[slot].dieMetadata;
         if (metadata != nullptr && metadata->enabled != 0) {
             mask |= 1U << slot;
@@ -78,12 +75,11 @@ uint32_t derive_valid_die_mask(const HcommCcuInstanceEntity& instance)
     return mask;
 }
 
-// 控制操作槽位校验：槽 0-2 （ChannelEntity/AllocInstSpace/SubmitInsts）
-bool is_control_ops_valid(const uint64_t (&control_ops)[8])
+// ascCustom 校验：槽 0-2 （ChannelEntity/AllocInstSpace/SubmitInsts）
+bool is_asc_custom_valid(const uint64_t (&asc_custom)[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT])
 {
-    return control_ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] != 0 &&
-           control_ops[HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE] != 0 &&
-           control_ops[HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS] != 0;
+    return asc_custom[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY] != 0 &&
+           asc_custom[HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE] != 0 && asc_custom[HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS] != 0;
 }
 
 bool ranges_overlap(const asc_ccu_res_range& left, const asc_ccu_res_range& right)
@@ -98,7 +94,7 @@ bool ranges_overlap(const asc_ccu_res_range& left, const asc_ccu_res_range& righ
 
 // 把一段 wire range（类型与 die 来自外层索引）追加进本地仓储，并做形状与重叠校验
 CcuResult append_wire_ranges(
-    const HcommCcuDieResRangePack& type_view, uint32_t resource_type, uint32_t die_id, uint32_t valid_die_mask,
+    const HcommCcuResRanges& type_view, uint32_t resource_type, uint32_t die_id, uint32_t valid_die_mask,
     std::vector<asc_ccu_res_range>& all_ranges, asc_ccu_res_repository& repository)
 {
     if (type_view.resourceType != resource_type || type_view.reserved != 0) {
@@ -108,7 +104,7 @@ CcuResult append_wire_ranges(
         return CcuResult::CCU_E_PARA;
     }
     for (uint32_t index = 0; index < type_view.resRangeNum; ++index) {
-        const HcommCcuDieResRange& range = type_view.resRanges[index];
+        const HcommCcuResRange& range = type_view.resRanges[index];
         if (range.reserved != 0 || (valid_die_mask & (1U << die_id)) == 0 || range.count == 0 ||
             static_cast<uint64_t>(range.startId) + range.count >
                 static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1U) {
@@ -131,11 +127,11 @@ CcuResult append_wire_ranges(
 }
 } // namespace
 
-CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
+CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstance& instance)
 {
-    if (!is_instance_header_valid(instance) || instance.ccuDieNum > CCU_INSTANCE_DIE_CAPACITY ||
+    if (!is_instance_header_valid(instance) || instance.ccuDieNum > HCOMM_CCU_INSTANCE_DIE_CAPACITY ||
         instance.ccuDieNum != HCOMM_CCU_MAX_DIE_NUM || // 现网 2 die；硬件扩展后放开
-        instance.ccuVersion > HCOMM_CCU_VERSION_V2 || !is_control_ops_valid(instance.ascCustom)) {
+        instance.ccuVersion > HCOMM_CCU_VERSION_V2 || !is_asc_custom_valid(instance.ascCustom)) {
         return CcuResult::CCU_E_PARA;
     }
 
@@ -145,7 +141,7 @@ CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
 
     // 先按 dieId 顺序装载各 die；有效位图从 dieMetadata.enabled 推导
     uint32_t derived_die_mask = 0;
-    for (uint32_t slot = 0; slot < CCU_INSTANCE_DIE_CAPACITY; ++slot) {
+    for (uint32_t slot = 0; slot < HCOMM_CCU_INSTANCE_DIE_CAPACITY; ++slot) {
         const HcommCcuDieRes& die_res = instance.ccuDieReses[slot];
         if (slot < instance.ccuDieNum) {
             if (die_res.dieId != slot) {
@@ -196,7 +192,7 @@ CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
     asc_ccu_res_repository current_repo = instance_snapshot;
     ccu_version_ = instance.ccuVersion;
     valid_die_mask_ = derived_die_mask;
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT; ++i) {
         control_ops_[i] = instance.ascCustom[i];
     }
     initial_repo_ = std::move(instance_snapshot);

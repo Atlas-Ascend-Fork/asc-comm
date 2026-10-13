@@ -354,12 +354,12 @@ kernel_name<<<schd, insHandle, stream>>>(argument list)
     | phy_die_mask | 按位表示CCU所在的IO Die，`0x01`表示die0，`0x02`表示die1。一个CCU不能跨Die使用另一个IO Die的网络设备，因此当前仅支持配置单个Die |
     | binary_cache_tag | Kernel句柄缓存标签。非0时，相同标签的重复调用会复用已注册的Kernel句柄，避免重复注册；置0则每次调用都重新注册 |
 
-- **insHandle**：类型为`void*`，不透明的CCU实例句柄，通过`HcclCommQueryCcuIns`查询通信域获得（样例公共辅助函数`QueryCcuInstance`封装了该调用）。Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上，实例需在直调前创建并绑定到通信域。
+- **insHandle**：类型为`CcuInsHandle`，CCU实例句柄。Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上，实例需在直调前创建并绑定到通信域。
 - **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序，通过`aclrtSynchronizeStream`等待完成。
 
 #### <<<>>> 函数签名
 
-CCU Kernel使用`__ccu_host__`限定符修饰，其中SQE参数`sqeArgs1`~`sqeArgs10`与Host侧taskArgs一一对应，通过`ccu::load_arg`按序加载；`kernelArg`为编排上下文，随Kernel注册一次性下发。
+CCU Kernel使用`__ccu_host__`限定符修饰，其中SQE参数`sqeArgs1`~`sqeArgs10`与Host侧taskArgs一一对应，通过`ccu::LoadArg`按序加载；`kernelArg`为编排上下文，随Kernel注册一次性下发。
 
 ## 编程约束与限制
 

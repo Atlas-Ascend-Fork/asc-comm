@@ -398,17 +398,8 @@ is_allowed_path()
 {
     local path=$1
     case "${path}" in
-        asc/include/adv_api/*.h|asc/include/adv_api/*.hpp|\
-        asc/include/adv_api/*/*.h|asc/include/adv_api/*/*.hpp|\
-        asc/include/adv_api/*/*/*.h|asc/include/adv_api/*/*/*.hpp|\
-        asc/impl/adv_api/detail/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/impl/adv_api/detail/*/*/*.h|\
-        asc/include/comm_api/*.h|asc/include/comm_api/*.hpp|\
-        asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
-        asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
-        asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|\
-        asc/lib64/libasccomm_ccu.so)
+        asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
+        asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
             ;;
         *)
             return 1
@@ -425,8 +416,7 @@ is_allowed_directory_path()
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|\
-        asc/lib64)
+        asc/impl/comm_api|asc/impl/comm_api/*)
             ;;
         *)
             return 1
@@ -443,16 +433,8 @@ payload_file_mode()
     local mode
 
     case "${path}" in
-        asc/include/adv_api/*.h|asc/include/adv_api/*.hpp|\
-        asc/include/adv_api/*/*.h|asc/include/adv_api/*/*.hpp|\
-        asc/include/adv_api/*/*/*.h|asc/include/adv_api/*/*/*.hpp|\
-        asc/impl/adv_api/detail/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/impl/adv_api/detail/*/*/*.h|\
-        asc/include/comm_api/*.h|asc/include/comm_api/*.hpp|\
-        asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
-        asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
-        asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so)
+        asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
+        asc/include/comm_api/*|asc/impl/comm_api/*)
             mode=550
             ;;
         *)
@@ -472,7 +454,7 @@ managed_directory_mode()
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64)
+        asc/impl/comm_api|asc/impl/comm_api/*)
             mode=550
             ;;
         *)

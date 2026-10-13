@@ -23,7 +23,7 @@ struct CcuLaunchStubCalls {
 
 struct CcuLaunchStubObservations {
     CcuLaunchStubCalls calls{};
-    void* lastInsHandle{};
+    CcuInsHandle lastInsHandle{};
     uint32_t lastDieId{};
     const char* lastKernelName{};
     const void* lastKernelFunc{};

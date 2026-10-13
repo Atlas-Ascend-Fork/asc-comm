@@ -20,13 +20,13 @@ namespace ccu_rep {
 
 #define CCU_WHILE(x) \
     for (auto __ccuRepeatHidden = CcuRep::Repeat(this, x); __ccuRepeatHidden.check(); __ccuRepeatHidden.Run())
-#define CCU_BREAK __ccuRepeatHidden.break_()
+#define CCU_BREAK __ccuRepeatHidden.Break()
 
 class repeat {
 public:
     repeat(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel);
     ~repeat();
-    void break_() const;
+    void Break() const;
     bool check() const;
     void run();
 

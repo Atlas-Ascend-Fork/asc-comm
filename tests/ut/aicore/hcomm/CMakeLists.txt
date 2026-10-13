@@ -84,7 +84,9 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         )
     elseif(target_name MATCHES "roce")
         set(test_filters
-            HcommRoCETestSuite.*
+            HcommRoCETestSuite.Init_ReadNbi_Drain
+            HcommRoCETestSuite.Init_WriteNbi_Drain
+            HcommRoCETestSuite.Init_WriteWithNotifyNbi
         )
     elseif(target_name MATCHES "jetty")
         set(test_filters

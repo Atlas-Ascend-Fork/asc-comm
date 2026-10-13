@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "hcomm/ccu/ccu_types.h"
+#include "hcomm/hcomm_ccu_base.h"
 
 namespace asc {
 

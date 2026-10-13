@@ -120,7 +120,7 @@ static CcuResult map_dev_res_address(uint8_t die_id, rtDevResType_t res_type, ui
             "[CcuVarEventResMgr][%s] rtGetDevResAddress failed[%d], die_id[%u] res_type[%d] "
             "res_id[%u].",
             __func__, ret, die_id, static_cast<int32_t>(res_type), res_id);
-        return CCU_E_INTERNAL;
+        return CCU_E_RUNTIME;
     }
 
     va = mapped_addr;
@@ -143,7 +143,7 @@ static CcuResult unmap_dev_res_address(uint8_t die_id, rtDevResType_t res_type, 
             "[CcuVarEventResMgr][%s] rtReleaseDevResAddress failed[%d], die_id[%u] "
             "res_type[%d] res_id[%u].",
             __func__, ret, die_id, static_cast<int32_t>(res_type), res_id);
-        return CCU_E_INTERNAL;
+        return CCU_E_RUNTIME;
     }
 
     return CCU_SUCCESS;
@@ -218,8 +218,8 @@ CcuResult ccu_var_event_res_mgr::register_addrs(ccu_var_event_type type, uint64_
 }
 
 CcuResult ccu_var_event_res_mgr::alloc_and_record(
-    HcommCcuInstanceEntity ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
-    uint32_t num, uint64_t& new_handle)
+    CcuInsHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id, uint32_t num,
+    uint64_t& new_handle)
 {
     if (die_id >= HCOMM_CCU_MAX_DIE_NUM) {
         HCCL_ERROR(
@@ -264,8 +264,8 @@ CcuResult ccu_var_event_res_mgr::alloc_and_record(
 }
 
 CcuResult ccu_var_event_res_mgr::acquire(
-    HcommCcuInstanceEntity ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
-    uint32_t num, uint64_t& handle)
+    CcuInsHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id, uint32_t num,
+    uint64_t& handle)
 {
     uint64_t new_handle = 0;
     CcuResult alloc_ret = alloc_and_record(ins_handle, res_repo, type, die_id, num, new_handle);
@@ -500,7 +500,7 @@ CcuResult ccu_var_event_res_mgr::release_by_handle(uint64_t handle)
     return unmap_ret;
 }
 
-CcuResult ccu_var_event_res_mgr::release_by_instance(HcommCcuInstanceEntity ins_handle)
+CcuResult ccu_var_event_res_mgr::release_by_instance(CcuInsHandle ins_handle)
 {
     std::vector<ccu_var_event_res> to_release{};
     {
@@ -552,23 +552,23 @@ static void remove_range_from_pool(std::vector<asc_ccu_res_range>& pool, uint32_
     std::vector<asc_ccu_res_range> result{};
     result.reserve(pool.size() + 1);
     for (const auto& block : pool) {
-        const uint32_t block_start = block.start_id;
-        const uint32_t block_end = block.start_id + block.count;
-        if (end <= block_start || start >= block_end) {
+        const uint32_t blockStart = block.start_id;
+        const uint32_t blockEnd = block.start_id + block.count;
+        if (end <= blockStart || start >= blockEnd) {
             result.push_back(block);
             continue;
         }
-        if (block_start < start) {
-            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id, block_start, start - block_start});
+        if (blockStart < start) {
+            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id, blockStart, start - blockStart});
         }
-        if (end < block_end) {
-            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id, end, block_end - end});
+        if (end < blockEnd) {
+            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id, end, blockEnd - end});
         }
     }
     pool.swap(result);
 }
 
-CcuResult ccu_var_event_res_mgr::exclude_allocated_from_repo(HcommCcuInstanceEntity ins_handle) const
+CcuResult ccu_var_event_res_mgr::exclude_allocated_from_repo(CcuInsHandle ins_handle) const
 {
     // shared_lock 用于只读遍历 res_map_；被修改的 *pool 属于该 ins_handle 自己的 AscCcuResSnapshot，
     // 其并发安全由“同一 instance 单线程串行访问”契约保证，详见头文件线程安全契约说明

@@ -27,7 +27,7 @@ class remote_addr;
 template <typename u>
 class array;
 template <typename t>
-t get_res_by_channel(ChannelHandle channel_, uint32_t index);
+t GetResByChannel(ChannelHandle channel_, uint32_t index);
 
 struct cond_expr {
     variable* var_{nullptr};
@@ -346,7 +346,7 @@ private:
     friend class local_addr;
     friend class remote_addr;
     template <typename t>
-    friend t get_res_by_channel(ChannelHandle channel_, uint32_t index);
+    friend t GetResByChannel(ChannelHandle channel_, uint32_t index);
 };
 
 } // namespace ccu

@@ -15,8 +15,7 @@
 // 依赖的 Register Context 不透明句柄来自 hcomm 包内 header，与 hccl 内部类型解耦，
 // 符合控制面/数据面 ABI 边界约束。
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/ccu/ccu_types.h"
-#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,13 +24,13 @@ extern "C" {
 // stream 直接以 void* 传递（调用方传 aclrtStream），避免公共头依赖 acl 头文件
 typedef void* ccu_launch_stream;
 
-extern CcuResult asccomm_ccu_kernel_register_start(void* ins_handle);
+extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle);
 
 extern CcuResult asccomm_ccu_kernel_register(
-    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
-    uint32_t arg_num, ccu_kernel_handle* kernel_handle);
+    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
+    const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle);
 
-extern CcuResult asccomm_ccu_kernel_register_end(void* ins_handle);
+extern CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle);
 
 extern CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num);
 

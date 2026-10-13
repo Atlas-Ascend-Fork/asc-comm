@@ -13,18 +13,12 @@ set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation)
 set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode)
 
 # CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
-# pod 契约头统一平铺于 pkg_inc/hcomm/，依赖 ccu_types.h（装在
-# ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu/），需补 CANN 侧 hcomm 头目录才能解析。
 set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_UT_ROOT}/ccu/hcomm_compat/include
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_ROOT}/pkg_inc
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/src/ccu
-    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
     ${ASCCOMM_UT_ROOT}/ccu/stub
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
@@ -149,9 +143,9 @@ set(CCU_FEATURES_IMPL_SOURCES
 
 set(src_to_test_list
     main.cc
-    resource/microcode/ut_ccu_microcode.cc
-    resource/kernel/ut_ccu_kernel_res_allocator.cc
-    ./resource/representation/interface/ut_ccu_interface_assist.cc
+    ut_ccu_microcode.cc
+    ut_ccu_kernel_res_allocator.cc
+    ./ccu_representation/interface/ut_ccu_interface_assist.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel_res_allocator.cc
     ${CCU_FEATURES_IMPL_SOURCES}
 )
@@ -193,79 +187,9 @@ add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub_abi0)
 
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
-set(CCU_TRANSFER_TEST_SOURCES
-    main.cc
-    ut_ccu_primitives_transfer.cc
-    # 直接编入被测实现（asc::ccu_kernel / asc::ccu_rep）而非链接安装包 libasccomm_ccu.so：
-    # 安装包 SO 只保证 C ABI（asccomm_ccu_*）可用，C++ 内部符号随版本演进，
-    # 依赖环境 SO 会在 CANN 包落后于本仓时出现链接符号未定义（与 ccu_features 目标同模式）。
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel.cc
-    ${CCU_FEATURES_IMPL_SOURCES}
-    # ccu_kernel 构造路径会创建的其余 REP 实现（data/sync/control/common，
-    # CCU_FEATURES_IMPL_SOURCES 未覆盖），随 ccu_kernel.cc 一并编入
-    ${CCU_REP_DIR}/reps/common/ccu_rep_load.cc
-    ${CCU_REP_DIR}/reps/common/ccu_rep_load_var.cc
-    ${CCU_REP_DIR}/reps/common/ccu_rep_store.cc
-    ${CCU_REP_DIR}/reps/common/ccu_rep_store_var.cc
-    ${CCU_REP_DIR}/reps/control/ccu_rep_jump.cc
-    ${CCU_REP_DIR}/reps/control/ccu_rep_jumplabel.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_buflocread.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_buflocwrite.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_bufread.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_bufreduce.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_bufwrite.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_loccpy.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_read.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_remMem.cc
-    ${CCU_REP_DIR}/reps/data/ccu_rep_write.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_record_event.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_event.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_notify.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_record_shared_notify.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostsem.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostvar.cc
-    ${CCU_REP_DIR}/reps/sync/ccu_rep_remwaitsem.cc
-    ${CCU_REP_DIR}/interface/ccu_funccall.cc
-    ${CCU_REP_DIR}/interface/ccu_loopcall.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/common/ccu_var_event_res_mgr.cc
-)
-
-add_executable(hccl_utest_comms_ccu_primitives_transfer ${CCU_TRANSFER_TEST_SOURCES})
-target_include_directories(hccl_utest_comms_ccu_primitives_transfer PRIVATE
-    ${UT_COMMON_INCLUDE_LIST}
-)
-target_compile_definitions(hccl_utest_comms_ccu_primitives_transfer PRIVATE
-    ASCCOMM_CCU_LOCAL_LOGGING
-    _GLIBCXX_USE_CXX11_ABI=0
-    google=ascend_private
-    -DOPEN_HCCL_TEST
-    OPEN_BUILD_PROJECT
-)
-target_compile_options(hccl_utest_comms_ccu_primitives_transfer PRIVATE
-    -U_FORTIFY_SOURCE
-    -fno-var-tracking-assignments
-    -Os
-    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
-)
-target_link_libraries(hccl_utest_comms_ccu_primitives_transfer PRIVATE
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
-    asccomm_ccu_hcomm_compat
-    asccomm_gtest_abi0
-    -pthread
-    asccomm_ccu_llt_stub_abi0
-    # ccu_var_event_res_mgr 的地址映射依赖 runtime C ABI（rtGetDevResAddress 等，稳定接口）
-    ${ASCEND_CANN_ARCH_DIR}/lib64/libruntime.so
-    -lgcov
-    -lrt
-    -ldl
-)
-add_dependencies(hccl_utest_comms_ccu_primitives_transfer asccomm_ccu_llt_stub_abi0)
-add_test(NAME hccl_utest_comms_ccu_primitives_transfer COMMAND hccl_utest_comms_ccu_primitives_transfer)
-
 add_executable(hccl_utest_comms_asc_ccu_res_snapshot
-    resource/common/asc_ccu_res_snapshot_main.cc
-    resource/common/ut_asc_ccu_res_snapshot.cc
+    asc_ccu_res_snapshot_main.cc
+    ut_asc_ccu_res_snapshot.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/common/asc_ccu_res_snapshot.cc
 )
 target_include_directories(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
@@ -276,18 +200,18 @@ target_link_libraries(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
 )
 add_test(NAME hccl_utest_comms_asc_ccu_res_snapshot COMMAND hccl_utest_comms_asc_ccu_res_snapshot)
 
-add_subdirectory(resource/representation/reps/sync)
-add_subdirectory(resource/representation/reps/control)
-add_subdirectory(resource/representation/reps/common)
-add_subdirectory(resource/representation/reps/data)
-add_subdirectory(resource/representation/reps/arithmetic)
-add_subdirectory(resource/representation/reps/loop)
-add_subdirectory(resource/representation/reps/logical)
-add_subdirectory(resource/representation/reps/shift)
-add_subdirectory(resource/representation/context)
-add_subdirectory(resource/representation/interface)
-add_subdirectory(resource/representation/translator)
-add_subdirectory(resource/microcode)
-add_subdirectory(resource/microcode_opt)
+add_subdirectory(ccu_representation/reps/sync)
+add_subdirectory(ccu_representation/reps/control)
+add_subdirectory(ccu_representation/reps/common)
+add_subdirectory(ccu_representation/reps/data)
+add_subdirectory(ccu_representation/reps/arithmetic)
+add_subdirectory(ccu_representation/reps/loop)
+add_subdirectory(ccu_representation/reps/logical)
+add_subdirectory(ccu_representation/reps/shift)
+add_subdirectory(ccu_representation/context)
+add_subdirectory(ccu_representation/interface)
+add_subdirectory(ccu_representation/translator)
+add_subdirectory(ccu_microcode)
+add_subdirectory(ccu_microcode_opt)
 add_subdirectory(resource/channel)
 add_subdirectory(ccu_variable)

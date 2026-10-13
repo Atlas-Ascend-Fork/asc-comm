@@ -12,7 +12,6 @@
 #include <cstdarg>
 #include <cstring>
 #include "exception_defination.h"
-#include <cstdint>
 
 // securec 桩
 extern "C" int snprintf_s(char* strDest, size_t destMax, size_t count_, const char* format, ...)
@@ -44,7 +43,6 @@ extern "C" int memcpy_s(void* dest, size_t destMax, const void* src_, size_t cou
 
 // hcomm logging 桩
 bool HcclCheckLogLevel(int logType, int moduleId) { return false; }
-extern "C" int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel) { return 0; }
 bool IsErrorToWarn() { return false; }
 
 namespace Hccl {

@@ -18,7 +18,7 @@ endif()
 
 include("${ASCCOMM_ROOT}/cmake/fetch_cann_cmake.cmake")
 
-project(asccomm_ut LANGUAGES C CXX)
+project(asccomm_hcomm_ut LANGUAGES C CXX)
 init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -105,22 +105,6 @@ target_link_libraries(intf_llt_pub_basic INTERFACE
 )
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
-if(NOT DEFINED ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
-    foreach(_asccomm_hcomm_candidate
-        "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
-        "${ASCCOMM_ROOT}/../hcomm")
-        if(EXISTS "${_asccomm_hcomm_candidate}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
-            get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_asccomm_hcomm_candidate}" ABSOLUTE)
-            break()
-        endif()
-    endforeach()
-endif()
-if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
-    set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "")
-endif()
-set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}" CACHE PATH "Original control-plane source tree")
-message(STATUS "ASCCOMM_CONTROL_PLANE_SOURCE_DIR = ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}")
-
 add_library(kernel_tiling INTERFACE)
 target_include_directories(kernel_tiling INTERFACE ${CMAKE_BINARY_DIR})
 set(KERNEL_TILING_FILE ${CMAKE_BINARY_DIR}/kernel_tiling/kernel_tiling.h)
@@ -265,12 +249,10 @@ add_library(asccomm_ccu_host_launch STATIC
 target_include_directories(asccomm_ccu_host_launch
     PUBLIC
         ${ASCCOMM_ROOT}/include
-        ${ASCCOMM_ROOT}/pkg_inc/hcomm
-        ${ASCCOMM_ROOT}/pkg_inc
     PRIVATE
         ${ASCEND_CANN_ARCH_DIR}/include
-        ${ASCEND_CANN_ARCH_DIR}/include/hcomm
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
+        ${ASCEND_CANN_ARCH_DIR}/include/hccl
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
@@ -286,11 +268,9 @@ add_executable(asccomm_ut_ccu_host_launch
 )
 target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
-    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
+    ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
@@ -306,11 +286,7 @@ add_library(asccomm_ccu_launch_stub STATIC
 )
 target_include_directories(asccomm_ccu_launch_stub PRIVATE
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_ROOT}/pkg_inc/hcomm
-    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
 )
 
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
@@ -343,5 +319,4 @@ endfunction()
 
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
-add_subdirectory(aicpu/asccomm aicpu_asccomm)
 add_subdirectory(ccu/hcomm ccu_hcomm)

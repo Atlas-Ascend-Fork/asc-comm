@@ -22,14 +22,14 @@ namespace ccu_rep {
 func_call::func_call(ccu_rep_context* context, std::string label) : context_(context), label_(label)
 {
     ccu_ins_generater_base* ins_gen_ptr = context->get_ins_generator();
-    asc::check_ccu_not_null(ins_gen_ptr, "[func_call::func_call](label) ins_gen_ptr is nullptr!");
+    asc::check_ccu_not_null(ins_gen_ptr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
     rep_func_call_ = std::make_shared<ccu_rep_func_call>(ins_gen_ptr, label);
 }
 
 func_call::func_call(ccu_rep_context* context, const variable& func_addr) : context_(context)
 {
     ccu_ins_generater_base* ins_gen_ptr = context->get_ins_generator();
-    asc::check_ccu_not_null(ins_gen_ptr, "[func_call::func_call](func_addr) ins_gen_ptr is nullptr!");
+    asc::check_ccu_not_null(ins_gen_ptr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
     rep_func_call_ = std::make_shared<ccu_rep_func_call>(ins_gen_ptr, func_addr);
 }
 

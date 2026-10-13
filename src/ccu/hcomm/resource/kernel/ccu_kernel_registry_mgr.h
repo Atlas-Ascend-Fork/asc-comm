@@ -29,8 +29,8 @@ public:
     CcuResult deinit();
 
     // insHandle is hcomm-owned. asc-comm only uses ccuInsKey as an opaque lookup key.
-    CcuResult get_or_create(int32_t device_logic_id, HcommCcuInstanceEntity ins_handle, ccu_kernel_registry*& registry);
-    ccu_kernel_registry* get(HcommCcuInstanceEntity ins_handle) const;
+    CcuResult get_or_create(int32_t device_logic_id, CcuInsHandle ins_handle, ccu_kernel_registry*& registry);
+    ccu_kernel_registry* get(CcuInsHandle ins_handle) const;
 
 private:
     explicit ccu_kernel_registry_mgr() = default;

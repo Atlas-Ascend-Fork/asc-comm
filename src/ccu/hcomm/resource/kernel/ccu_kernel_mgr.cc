@@ -24,7 +24,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
-#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
@@ -93,7 +93,7 @@ ccu_kernel_mgr& ccu_kernel_mgr::get_instance(const int32_t device_logic_id)
     int32_t dev_logic_id = device_logic_id;
     if (dev_logic_id < 0 || static_cast<uint32_t>(dev_logic_id) >= ccu_max_device_num) {
         HCCL_WARNING(
-            "[ccu_kernel_mgr][%s] use the backup device, dev_logic_id[%d] should be "
+            "[CcuKernelMgr][%s] use the backup device, devLogicId[%d] should be "
             "less than %u.",
             __func__, dev_logic_id, ccu_max_device_num);
         dev_logic_id = ccu_max_device_num; // 使用备份设备
@@ -119,7 +119,7 @@ CcuResult ccu_kernel_mgr::configure(asc_ccu_res_snapshot& res_pack)
     reference_mgrs_.clear();
     ccu_version_ = res_pack.get_ccu_version();
     const uint64_t* asc_custom = res_pack.get_control_ops();
-    for (uint32_t i = 0; i < 8; ++i) {
+    for (uint32_t i = 0; i < HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT; ++i) {
         control_ops_[i] = asc_custom[i];
     }
     ccu_rep::ccu_rep_translator::set_ccu_version(ccu_version_);
@@ -164,7 +164,7 @@ HcclResult ccu_kernel_mgr::deinit()
     return first_error;
 }
 
-CcuResult ccu_kernel_mgr::register_kernel(
+CcuResult ccu_kernel_mgr::Register(
     asc_ccu_res_snapshot& res_pack, const uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle)
 {
@@ -174,7 +174,7 @@ CcuResult ccu_kernel_mgr::register_kernel(
 
     // 当前argNum仅允许 0 或 1
     if (arg_num > 1) {
-        HCCL_ERROR("[%s] failed, arg_num[%u] now only support 0 or 1.", __func__, arg_num);
+        HCCL_ERROR("[%s] failed, argNum[%u] now only support 0 or 1.", __func__, arg_num);
         return CcuResult::CCU_E_PARA;
     }
 
@@ -206,7 +206,7 @@ CcuResult ccu_kernel_mgr::register_kernel(
 
     CcuResult ret = alloc_res(res_pack);
     if (ret != CcuResult::CCU_SUCCESS) {
-        HCCL_WARNING("[%s] alloc_res failed, maybe resource not enough, please check ret[%d]", __func__, ret);
+        HCCL_WARNING("[%s] AllocRes failed, maybe resource not enough, please check ret[%d]", __func__, ret);
         return ret;
     }
 
@@ -230,9 +230,9 @@ static void dump_res_req_info(const asc_ccu_res_request& total_res)
             total_res.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][i] != 0 ||
             total_res.count[HCOMM_CCU_BATCH_RES_MISSION][i] != 0) {
             HCCL_INFO(
-                "dump_res_req_info: die_id[%u], ms_req[%u], block_ms_req[%u], cke_req[%u], block_cke_req[%u], "
-                "loop_engine_req[%u], block_loop_engine_req[%u], gsa_req[%u], block_gsa_req[%u], xn_req[%u], "
-                "block_xn_req[%u], mission_req[%u]",
+                "DumpResReqInfo: dieId[%u], msReq[%u], blockMsReq[%u], ckeReq[%u], blockCkeReq[%u], "
+                "loopEngineReq[%u], blockLoopEngineReq[%u], gsaReq[%u], blockGsaReq[%u], xnReq[%u], "
+                "blockXnReq[%u], missionReq[%u]",
                 i, total_res.count[HCOMM_CCU_BATCH_RES_MS][i], total_res.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][i],
                 total_res.count[HCOMM_CCU_BATCH_RES_CKE][i], total_res.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][i],
                 total_res.count[HCOMM_CCU_BATCH_RES_LOOP][i], total_res.count[HCOMM_CCU_BATCH_RES_BLOCK_LOOP][i],
@@ -250,22 +250,21 @@ static size_t compute_kernel_instr_region_size(ccu_kernel& kernel)
            static_cast<size_t>(kernel.get_rep_need_to_add_latency()) * ccu_rep::ccu_cke_raw_latency;
 }
 
-// 指令空间经控制操作槽位向 hcomm 按需申请（不再从本地 range 池切分）
+// 指令空间经 ascCustom.allocInstSpace 向 hcomm 按需申请（不再从本地 range 池切分）
 static CcuResult set_kernel_instruction_resource(
     std::unique_ptr<ccu_kernel>& kernel, const asc_ccu_res_repository& allocated)
 {
     const uint32_t die_id = kernel->get_die_id();
     const size_t instr_count = compute_kernel_instr_region_size(*kernel);
     if (instr_count == 0 || instr_count > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
-        HCCL_ERROR("[ccu_kernel_mgr][%s] invalid instruction count[%zu], die_id[%u].", __func__, instr_count, die_id);
+        HCCL_ERROR("[CcuKernelMgr][%s] invalid instruction count[%zu], dieId[%u].", __func__, instr_count, die_id);
         return CcuResult::CCU_E_INTERNAL;
     }
 
-    const auto alloc_inst_space = reinterpret_cast<HcommCcuInstSpaceAllocCallBack>(
-        get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE]);
+    const auto alloc_inst_space = reinterpret_cast<HcommCcuAllocInstSpaceFn>(
+        get_current_ccu_control_ops()[HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE]);
     CHK_PRT_RET(
-        alloc_inst_space == nullptr,
-        HCCL_ERROR("[ccu_kernel_mgr][%s] asc_custom.alloc_inst_space is nullptr.", __func__),
+        alloc_inst_space == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] controlOps.allocInstSpace is nullptr.", __func__),
         CcuResult::CCU_E_INTERNAL);
     uint32_t start_inst_id = 0;
     const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
@@ -273,8 +272,8 @@ static CcuResult set_kernel_instruction_resource(
     CHK_PRT_RET(
         ret != 0,
         HCCL_ERROR(
-            "[ccu_kernel_mgr][%s] alloc_inst_space failed, die_id[%u] instr_num[%zu] ret[%d].", __func__, die_id,
-            instr_count, ret),
+            "[CcuKernelMgr][%s] allocInstSpace failed, dieId[%u] instrNum[%zu] ret[%d].", __func__, die_id, instr_count,
+            ret),
         static_cast<CcuResult>(ret));
 
     // 申请到的区间记为本地 instruction range：un_register 时仅需清记录（释放由 hcomm 池整体归还）
@@ -284,8 +283,7 @@ static CcuResult set_kernel_instruction_resource(
     ins_info.start_id = start_inst_id;
     ins_info.count = static_cast<uint32_t>(instr_count);
     HCCL_INFO(
-        "[ccu_kernel_mgr][%s]: die_id[%u], start_id[%u], count[%u]", __func__, die_id, ins_info.start_id,
-        ins_info.count);
+        "[CcuKernelMgr][%s]: dieId[%u], startId[%u], count[%u]", __func__, die_id, ins_info.start_id, ins_info.count);
     kernel->set_instr_id(ins_info.start_id);
     kernel->set_instruction_resource(ins_info);
 
@@ -329,7 +327,7 @@ CcuResult ccu_kernel_mgr::alloc_res(asc_ccu_res_snapshot& res_pack)
     CcuResult plan_ret = plan_kernel_resources(res_pack.get_ccu_res_repo(), res_req, remaining, allocated);
     if (plan_ret != CcuResult::CCU_SUCCESS) {
         dump_res_req_info(res_req);
-        HCCL_WARNING("[ccu_kernel_mgr][%s] resource is not enough.", __func__);
+        HCCL_WARNING("[CcuKernelMgr][%s] resource is not enough.", __func__);
         return plan_ret;
     }
 
@@ -350,7 +348,7 @@ HcclResult reset_rep_resource_template(
 {
     if (resource.size() > repository.size() - start_index) {
         HCCL_ERROR(
-            "[ccu_kernel_mgr][reset_rep_resource_template] resource size[%u] bigger "
+            "[CcuKernelMgr][ResetRepResourceTemplate]resource size[%u] bigger "
             "repository size[%u] typeid[%s]",
             resource.size(), repository.size(), typeid(t1).name());
         return HcclResult::HCCL_E_INTERNAL;
@@ -392,7 +390,7 @@ static HcclResult save_kernel_mission_info(ccu_kernel* kernel, const die_res_inf
     const uint32_t die_id = kernel->get_die_id();
     // 从missionId中获取一个元素并从missionId中删除，当前应只有一个元素，且无需删除
     if (mission_id[die_id].empty()) {
-        HCCL_ERROR("[%s] failed, die_id[%u] does not have missions.", __func__, die_id);
+        HCCL_ERROR("[%s] failed, dieId[%u] does not have missions.", __func__, die_id);
         return HcclResult::HCCL_E_INTERNAL;
     }
 
@@ -409,9 +407,9 @@ static void dump_res_repository_info(const asc_ccu_res_repository& res_repo)
             res_repo.block_gsa[i].size() != 0 || res_repo.xn[i].size() != 0 || res_repo.block_xn[i].size() != 0 ||
             res_repo.mission[i].size() != 0) {
             HCCL_INFO(
-                "dump_res_repository: die_id[%u], ms_size[%u], block_ms_size[%u], cke_size[%u], block_cke_size[%u], "
-                "loop_engine_size[%u], block_loop_engine_size[%u], gsa_size[%u], block_gsa_size[%u], xn_size[%u], "
-                "block_xn_size[%u], mission_size[%u]",
+                "DumpResRepository: dieId[%u], ms size[%u], blockMs size[%u], cke size[%u], blockCke size[%u], "
+                "loopEngine size[%u], blockLoopEngine size[%u], gsa size[%u], blockGsa size[%u], xn size[%u], "
+                "blockXn size[%u], mission size[%u]",
                 i, res_repo.ms[i].size(), res_repo.block_ms[i].size(), res_repo.cke[i].size(),
                 res_repo.block_cke[i].size(), res_repo.loop_engine[i].size(), res_repo.block_loop_engine[i].size(),
                 res_repo.gsa[i].size(), res_repo.block_gsa[i].size(), res_repo.xn[i].size(),
@@ -459,7 +457,7 @@ static HcclResult merge_exported_resources(
         const auto& res_tag = item.first;
         if (output_res.find(res_tag) != output_res.end()) {
             HCCL_ERROR(
-                "[ccu_kernel_mgr][%s] failed, exported resource tag[%s] is already existed, "
+                "[CcuKernelMgr][%s] failed, exported resource tag[%s] is already existed, "
                 "please check.",
                 __func__, res_tag);
             return HcclResult::HCCL_E_PARA;
@@ -479,7 +477,7 @@ static HcclResult reset_imported_resources(
         const auto& res_tag = item.first;
         const auto& iter = exported_res.find(res_tag);
         if (iter == exported_res.end()) {
-            HCCL_ERROR("[ccu_kernel_mgr][%s] failed to find exported resources by tag[%s].", __func__, res_tag.c_str());
+            HCCL_ERROR("[CcuKernelMgr][%s] failed to find exported resources by tag[%s].", __func__, res_tag.c_str());
             return HcclResult::HCCL_E_NOT_FOUND;
         }
 
@@ -528,7 +526,7 @@ static HcclResult trans_rep_res_to_phy_res(const std::vector<ccu_kernel*>& kerne
 CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel_handles)
 {
     if (kernel_handles.empty()) {
-        HCCL_INFO("[ccu_kernel_mgr][%s] passed, kernel_handles are empty.", __func__);
+        HCCL_INFO("[CcuKernelMgr][%s] passed, kernelHandles are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
 
@@ -538,7 +536,7 @@ CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel
         const auto& iter = kernel_map_.find(kernel_handle);
         if (iter == kernel_map_.end()) {
             HCCL_ERROR(
-                "[ccu_kernel_mgr][%s] failed to find kernel by ccu kernel handle[0x%llx].", __func__, kernel_handle);
+                "[CcuKernelMgr][%s] failed to find kernel by ccu kernel handle[0x%llx].", __func__, kernel_handle);
             return CcuResult::CCU_E_NOT_FOUND;
         }
 
@@ -568,7 +566,7 @@ CcuResult ccu_kernel_mgr::un_register(const ccu_kernel_handle kernel_handle)
     auto it = kernel_map_.find(kernel_handle);
     CHK_PRT_RET(
         it == kernel_map_.end(),
-        HCCL_ERROR("[ccu_kernel_mgr][%s] kernel_handle [%llu] does not exist", __func__, kernel_handle),
+        HCCL_ERROR("[CcuKernelMgr][%s] kernelHandle [%llu] does not exist", __func__, kernel_handle),
         CcuResult::CCU_E_NOT_FOUND);
 
     CCU_CHK_RET(clear_kernel_instruction_resource(*it->second));
@@ -583,7 +581,7 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
     // 临时申请device hbm内存用于查询token信息，由本地 RAII 对象管理生命周期
     ccu_dev_mem tmp_dev_mem{1};
     if (!tmp_dev_mem.valid()) {
-        HCCL_ERROR("[instantiation_translator] alloc temp device memory for token query failed.");
+        HCCL_ERROR("[InstantiationTranslator] alloc temp device memory for token query failed.");
         return HcclResult::HCCL_E_MEMORY;
     }
     auto hbm_token_info = asc::ccu_rep::get_token_info(tmp_dev_mem.get_addr(), tmp_dev_mem.get_size());
@@ -630,7 +628,7 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
         plan_kernel_resources(res_pack.get_ccu_res_repo(), request, remaining_repository, translator_res_repository);
     if (ccu_ret != CcuResult::CCU_SUCCESS) {
         dump_res_req_info(request);
-        HCCL_WARNING("[ccu_kernel_mgr][%s] translator resource is not enough, die_id[%u].", __func__, die_id);
+        HCCL_WARNING("[CcuKernelMgr][%s] translator resource is not enough, dieId[%u].", __func__, die_id);
         return static_cast<HcclResult>(ccu_ret);
     }
     asc_ccu_res_repository expanded_translator_res_repository;
@@ -655,18 +653,18 @@ HcclResult ccu_kernel_mgr::load_instruction(const ccu_rep::ccu_instr_info& instr
         return HcclResult::HCCL_E_PARA;
     }
 
-    // 控制操作槽 2：data 为 host 指针，设备内存暂存与驱动交互均由 hcomm 在其 SO 内完成
-    const auto submit_insts = reinterpret_cast<HcommCcuInstSpaceSubmitCallBack>(
-        get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS]);
+    // ascCustom 槽 2：data 为 host 指针，设备内存暂存与驱动交互均由 hcomm 在其 SO 内完成
+    const auto submit_insts =
+        reinterpret_cast<HcommCcuSubmitInstsFn>(get_current_ccu_control_ops()[HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS]);
     CHK_PRT_RET(
-        submit_insts == nullptr, HCCL_ERROR("[ccu_kernel_mgr][%s] asc_custom.submit_insts is nullptr.", __func__),
+        submit_insts == nullptr, HCCL_ERROR("[CcuKernelMgr][%s] controlOps.submitInsts is nullptr.", __func__),
         HcclResult::HCCL_E_INTERNAL);
     auto ret = static_cast<HcclResult>(
         submit_insts(dev_logic_id_, die_id, instr_info.start_instr_id, instr_info.instr_vec.data(), instr_num));
     if (ret != HcclResult::HCCL_SUCCESS) {
         HCCL_ERROR(
-            "[ccu_kernel_mgr][%s] failed to submit instructions, "
-            "dev_logic_id[%d] die_id[%u] start_instr_id[%u] instr_num[%u] ret[%d].",
+            "[CcuKernelMgr][%s] failed to submit instructions, "
+            "devLogicId[%d] dieId[%u] startInstrId[%u] instrNum[%u] ret[%d].",
             __func__, dev_logic_id_, die_id, instr_info.start_instr_id, instr_num, ret);
         return ret;
     }
@@ -687,7 +685,7 @@ HcclResult ccu_kernel_mgr::trans_rep_sequence_to_microcode(const std::vector<ccu
             CHK_PRT_RET(
                 instr_info.instr_vec.size() > region_size,
                 HCCL_ERROR(
-                    "[ccu_kernel_mgr][%s] optimized instruction count[%zu] exceeds reserved region[%zu].", __func__,
+                    "[CcuKernelMgr][%s] optimized instruction count[%zu] exceeds reserved region[%zu].", __func__,
                     instr_info.instr_vec.size(), region_size),
                 HcclResult::HCCL_E_INTERNAL);
             CHK_RET(load_instruction(instr_info, die_id));
@@ -721,7 +719,7 @@ ccu_kernel* ccu_kernel_mgr::get_kernel(const ccu_kernel_handle kernel_handle)
     std::unique_lock<std::mutex> lock(kernel_map_mutex_);
     auto it = kernel_map_.find(kernel_handle);
     if (it == kernel_map_.end()) {
-        HCCL_ERROR("[ccu_kernel_mgr][%s] handle[%llx] is not existed.", __func__, kernel_handle);
+        HCCL_ERROR("[CcuKernelMgr][%s] handle[%llx] is not existed.", __func__, kernel_handle);
         return nullptr;
     }
 
@@ -733,7 +731,7 @@ CcuResult ccu_kernel_mgr::get_ccu_kernel_info(const ccu_kernel_handle kernel_han
     std::unique_lock<std::mutex> lock(kernel_map_mutex_);
     auto it = kernel_map_.find(kernel_handle);
     if (it == kernel_map_.end()) {
-        HCCL_ERROR("[ccu_kernel_mgr][%s] handle[%llx] is not existed.", __func__, kernel_handle);
+        HCCL_ERROR("[CcuKernelMgr][%s] handle[%llx] is not existed.", __func__, kernel_handle);
         return CcuResult::CCU_E_NOT_FOUND;
     }
     CCU_CHK_RET(it->second->get_ccu_kernel_info(info));
