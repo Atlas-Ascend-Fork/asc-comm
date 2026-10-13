@@ -31,6 +31,16 @@ def parse_args():
     return parser.parse_args()
 
 
+def load_fp32(path, expected_size, label):
+    expected_bytes = expected_size * np.dtype(np.float32).itemsize
+    actual_bytes = path.stat().st_size
+    if actual_bytes != expected_bytes:
+        raise ValueError(
+            f"{label} byte size mismatch: expected {expected_bytes}, got {actual_bytes}"
+        )
+    return np.fromfile(path, dtype=np.float32)
+
+
 def main():
     args = parse_args()
     if not 1 <= args.rank_size <= MAX_RANKS:
@@ -39,7 +49,7 @@ def main():
         raise ValueError("count must be non-negative")
 
     expected_size = args.rank_size * args.count
-    golden = np.fromfile(args.golden, dtype=np.float32)
+    golden = load_fp32(args.golden, expected_size, "golden")
     if golden.size != expected_size:
         raise ValueError(
             f"golden size mismatch: expected {expected_size}, got {golden.size}"
@@ -47,7 +57,7 @@ def main():
 
     for rank_id in range(args.rank_size):
         output_path = args.output_dir / f"output_rank_{rank_id}.bin"
-        output = np.fromfile(output_path, dtype=np.float32)
+        output = load_fp32(output_path, expected_size, f"rank {rank_id} output")
         if output.size != expected_size:
             raise ValueError(
                 f"rank {rank_id} output size mismatch: "
