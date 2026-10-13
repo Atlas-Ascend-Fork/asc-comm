@@ -216,7 +216,8 @@ public:
     /*!
      * @brief Synchronize with all peers in the team with a timeout.
      * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
-     * @param [in] timeoutCycles: Maximum cycles to wait.
+     * @param [in] timeoutCycles: Maximum additional polling attempts per peer after the first signal read.
+     *        This is a retry count, not a hardware clock-cycle or elapsed-time limit.
      * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
      * @return 0 on success, -1 on timeout.
      */

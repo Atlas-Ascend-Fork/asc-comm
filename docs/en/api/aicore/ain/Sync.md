@@ -28,7 +28,7 @@ __aicore__ inline int32_t Sync(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `order` | Input | Memory order for barrier signal wait. Currently supports `AIN_MEMORY_ORDER_RELAX`. |
-| `timeoutCycles` | Input | Maximum number of polling attempts. Used only by the timeout overload. |
+| `timeoutCycles` | Input | Maximum additional polls per peer after its first signal read. Used only by the timeout overload; not a hardware clock-cycle or elapsed-time limit. |
 | `ubuf` | Input | UBuf temporary workspace descriptor used by the underlying Hcomm. |
 
 ## Template Parameters
@@ -55,5 +55,5 @@ The timeout overload returns:
 - `ubuf.addr` and `ubuf.bytes` must provide a UBuf temporary workspace for underlying Hcomm initialization. `DescriptorUbuf` currently must provide a UBuf temporary workspace no smaller than 512 B.
 - Currently, only `AIN_MEMORY_ORDER_RELAX` is supported. This memory order only guarantees signal atomic read/write and threshold checking, and does not guarantee memory ordering for ordinary data accesses before and after signal operations.
 - The no-timeout overload keeps polling until all other ranks arrive at the barrier. The caller must ensure that ranks in the team call it symmetrically to avoid permanent Kernel waiting.
-- For the timeout overload, `timeoutCycles` indicates the number of polling attempts. Returning `-1` only indicates that the current rank timed out while waiting, and does not roll back signals that have already been sent.
+- The timeout overload resets the retry count for each peer. If its signal remains below the threshold, the initial read is followed by at most `timeoutCycles` additional polls, for up to `timeoutCycles + 1` reads; `timeoutCycles=0` still reads once. This is neither a clock-cycle or elapsed-time limit nor a shared budget for the whole barrier. Returning `-1` does not roll back signals already sent.
 - Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported.
