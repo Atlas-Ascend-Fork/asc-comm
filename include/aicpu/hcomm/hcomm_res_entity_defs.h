@@ -278,8 +278,6 @@ typedef struct {
 
 typedef struct {
     HcommSqContextType type; ///< SQ上下文类型
-    uint8_t fence; ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
-    uint8_t reserved[3]; ///< 对齐保留
     union {
         struct {
             uint64_t sqVa;     ///< UB SQ的CPU虚拟地址(WQE写入位置)
@@ -310,8 +308,10 @@ typedef struct {
             uint32_t sqHead;            ///< 软件维护的SQ生产者索引
             uint32_t sqTail;            ///< 已完成WQE计数
         } roceSq;
-        uint8_t raws[120];
+        uint8_t raws[112];
     } contextInfo;
+    uint8_t fence; ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
+    uint8_t reserved[3]; ///< 对齐保留
 } HcommSqContext;
 
 typedef struct {
@@ -416,6 +416,9 @@ static_assert(std::is_pod<HcommRegedBufferEntity>::value, "HcommRegedBufferEntit
 static_assert(std::is_pod<HcommRegedNotifyEntity>::value, "HcommRegedNotifyEntity must be POD");
 static_assert(std::is_pod<HcommSqContext>::value, "HcommSqContext must be POD");
 static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
+static_assert(sizeof(HcommSqContext) == 128, "HcommSqContext ABI size must match HCOMM");
+static_assert(offsetof(HcommSqContext, contextInfo) == 8, "HcommSqContext ABI offset mismatch");
+static_assert(offsetof(HcommSqContext, fence) == 120, "HcommSqContext ABI offset mismatch");
 static_assert(
     sizeof(ChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must not exceed 256 bytes");
 static_assert(sizeof(ThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "ThreadEntity ABI size must be 256 bytes");
