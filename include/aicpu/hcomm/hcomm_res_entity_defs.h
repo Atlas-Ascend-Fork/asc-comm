@@ -178,8 +178,6 @@ typedef struct {
 #define HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE 256U       ///< Channel resource ABI固定大小
 #define HCOMM_RESOURCE_THREAD_ENTITY_SIZE 256U        ///< Thread resource ABI固定大小
 
-#pragma pack(push, 4)
-
 typedef enum {
     HCOMM_PROTECTION_TYPE_INVALID = -1,
     HCOMM_PROTECTION_TYPE_ROCE = 0,
@@ -341,7 +339,7 @@ typedef struct {
             uint32_t cqTail;   ///< 已消费CQE计数
             uint8_t cqDbFlush; ///< 是否需要刷新CQ软件Doorbell
         } roceCq;
-        uint8_t raws[124];
+        uint8_t raws[120];
     } contextInfo;
 } HcommCqContext;
 
@@ -357,7 +355,6 @@ typedef struct {
     CommAbiHeader abiHeader;
     CommEngine engine;
     CommProtocol protocol;
-    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
     uint32_t localNotifyNum;
     uint32_t remoteNotifyNum;
     uint32_t localBufferNum;
@@ -370,7 +367,9 @@ typedef struct {
     HcommRegedBufferEntity* remoteBufferAddr;
     HcommSqContext* sqContextAddr;
     HcommCqContext* cqContextAddr;
+    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
     ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值；数据面只作关联信息，不解引用
+    uint8_t reserve[112]; ///< 固定256字节ABI的预留扩展空间
 } ChannelEntity;
 
 // RTSQ硬件字段由HCOMM控制面在资源构造阶段查询并填充；数据面只消费初始快照，
@@ -393,16 +392,13 @@ typedef struct {
 
 typedef struct {
     CommAbiHeader abiHeader;                 ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
-    HcommDevInfo devInfo;                    ///< Thread所属设备信息
     uint32_t localNotifyNum;                 ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
     HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的resource RTSQ运行上下文
     ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
-    uint8_t raw[172];                ///< Thread固定256字节中的ABI预留扩展空间
-
+    HcommDevInfo devInfo;           ///< Thread所属设备信息
+    uint8_t raw[168];               ///< Thread固定256字节中的ABI预留扩展空间
 } ThreadEntity;
-
-#pragma pack(pop)
 
 #ifdef __cplusplus
 }
@@ -423,8 +419,19 @@ static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
 static_assert(
     sizeof(ChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must not exceed 256 bytes");
 static_assert(sizeof(ThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "ThreadEntity ABI size must be 256 bytes");
-static_assert(alignof(ChannelEntity) == 4, "ChannelEntity ABI alignment must be 4 bytes");
-static_assert(alignof(ThreadEntity) == 4, "ThreadEntity ABI alignment must be 4 bytes");
+static_assert(sizeof(ChannelEntity) == HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must be 256 bytes");
+static_assert(alignof(ChannelEntity) == 8, "ChannelEntity ABI alignment must match HCOMM");
+static_assert(alignof(ThreadEntity) == 8, "ThreadEntity ABI alignment must match HCOMM");
+static_assert(offsetof(ChannelEntity, localNotifyNum) == 24, "ChannelEntity ABI offset mismatch");
+static_assert(offsetof(ChannelEntity, localNotifyAddr) == 48, "ChannelEntity ABI offset mismatch");
+static_assert(offsetof(ChannelEntity, sqContextAddr) == 80, "ChannelEntity ABI offset mismatch");
+static_assert(offsetof(ChannelEntity, devInfo) == 96, "ChannelEntity ABI offset mismatch");
+static_assert(offsetof(ChannelEntity, originChannelHandle) == 136, "ChannelEntity ABI offset mismatch");
+static_assert(offsetof(ThreadEntity, localNotifyNum) == 16, "ThreadEntity ABI offset mismatch");
+static_assert(offsetof(ThreadEntity, localNotifyAddr) == 24, "ThreadEntity ABI offset mismatch");
+static_assert(offsetof(ThreadEntity, sqContextAddr) == 32, "ThreadEntity ABI offset mismatch");
+static_assert(offsetof(ThreadEntity, originThreadHandle) == 40, "ThreadEntity ABI offset mismatch");
+static_assert(offsetof(ThreadEntity, devInfo) == 48, "ThreadEntity ABI offset mismatch");
 static_assert(
     offsetof(ThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
     "ThreadEntity origin handle must fit in the fixed ABI storage");
