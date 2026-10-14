@@ -125,8 +125,16 @@ struct UdmaSqeCommon {
         UdfExtData udfData;
     } inlinedata;
 
-    uint32_t rmtAddrLow;
-    uint32_t rmtAddrHigh;
+    union {
+        struct {
+            uint32_t rmtAddrLow;
+            uint32_t rmtAddrHigh;
+        } rmtAddr;
+        struct {
+            uint32_t immDataLow;
+            uint32_t immDataHigh;
+        } immData;
+    };
 };
 
 struct UdmaSqeWriteWithNotify {
@@ -146,5 +154,34 @@ struct UdmaSqeRead {
     struct UdmaSqeCommon comm;
     union LocalValueU u;
 };
+
+// JFC完成队列条目(CQE)。位域布局与aicore侧HcommUrmaJfcCqeCtx一致
+// (asc-comm/src/aicore/hcomm/common/hcomm_inner_def.h)，AICPU软件轮询按64字节消费。
+struct UdmaCqe {
+    uint32_t sR : 1;       // 0:发送侧完成 1:接收侧完成(即本端recv命中)
+    uint32_t isJetty : 1;  // 0:JFS/JFR 1:Jetty
+    uint32_t owner : 1;    // CQE相位位，软件轮询按(cqeConsIdx / cqDepth) & 1 判圈
+    uint32_t inlineEn : 1; // 接收数据是否inline在CQE中
+    uint32_t opcode : 3;   // UdmaSqOpcode(接收侧即对端SEND/SEND_WITH_IMM)
+    uint32_t fd : 1;       // 1:CQE由驱动flush产生(链路异常)
+    uint32_t rsv : 8;
+    uint32_t substatus : 8;  // 子错误码
+    uint32_t status : 8;     // 错误码，0为成功
+    uint32_t entryIdx : 16;  // 关联的WQE索引
+    uint32_t localNumL : 16; // 本地jetty/JFS/JFR编号低位(诊断用)
+    uint32_t localNumH : 4;  // 本地编号高位
+    uint32_t rmtIdx : 20;    // 对端jetty/JFS索引
+    uint32_t rsv1 : 8;
+    uint32_t tpn : 24; // TP号
+    uint32_t rsv2 : 8;
+    uint32_t byteCnt;       // 实际接收字节数
+    uint32_t userDataL;     // 驱动回填的用户数据低32位
+    uint32_t userDataH;     // 驱动回填的用户数据高32位
+    uint32_t rmtEid[4];     // 对端EID
+    uint32_t dataL;         // 32位立即数(imm data)
+    uint32_t dataH;         // 立即数高32位(公开API仅暴露32位，恒0)
+    uint32_t inlineData[3]; // inline接收数据(inlineEn=1时有效)
+};
+static_assert(sizeof(UdmaCqe) == 64, "UDMA CQE must be 64 bytes");
 } // namespace Asc
 #endif // ASCCOMM_AICPU_RESOURCE_AI_CPU_RESOUCES_H_
