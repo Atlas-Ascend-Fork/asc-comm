@@ -419,6 +419,49 @@ int32_t asccomm_read_reduce_on_thread(
     });
 }
 
+int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(src);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_send(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len);
+    });
+}
+
+int32_t asccomm_send_with_imm_on_thread(
+    ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint32_t immData)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(src);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_send_with_imm(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len, immData);
+    });
+}
+
+int32_t asccomm_recv_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, uint64_t len)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(dst);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_recv(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), len, nullptr);
+    });
+}
+
+int32_t asccomm_recv_with_imm_on_thread(
+    ThreadHandle thread, ChannelHandle channel, void* dst, uint64_t len, uint32_t* immData)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(immData);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_recv(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), len, immData);
+    });
+}
+
 int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const AsccommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
 {

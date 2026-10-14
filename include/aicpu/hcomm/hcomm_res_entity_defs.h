@@ -168,7 +168,7 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
-#define HCOMM_RESOURCE_CHANNEL_VERSION 0U             ///< Channel resource ABI版本号
+#define HCOMM_RESOURCE_CHANNEL_VERSION 1U             ///< Channel resource ABI版本号
 #define HCOMM_RESOURCE_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
 #define HCOMM_RESOURCE_THREAD_VERSION 0U              ///< Thread resource ABI版本号
 #define HCOMM_RESOURCE_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
@@ -178,7 +178,10 @@ typedef struct {
 #define HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE 256U       ///< Channel resource ABI固定大小
 #define HCOMM_RESOURCE_THREAD_ENTITY_SIZE 256U        ///< Thread resource ABI固定大小
 
-#pragma pack(push, 4)
+// 与hcomm仓pkg_inc权威头保持二进制布局一致(自然对齐)。
+// 跨仓契约：hcomm控制面按自然对齐staging ChannelEntity/ThreadEntity及其指向的
+// RegedNotifyEntity/RegedBufferEntity/SqContext数组，本头字段顺序/对齐/尺寸必须
+// 与之逐字节一致；变更时两仓需同步并更新文末static_assert布局锁。
 
 typedef enum {
     HCOMM_PROTECTION_TYPE_INVALID = -1,
@@ -280,8 +283,6 @@ typedef struct {
 
 typedef struct {
     HcommSqContextType type; ///< SQ上下文类型
-    uint8_t fence; ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
-    uint8_t reserved[3]; ///< 对齐保留
     union {
         struct {
             uint64_t sqVa;     ///< UB SQ的CPU虚拟地址(WQE写入位置)
@@ -312,8 +313,10 @@ typedef struct {
             uint32_t sqHead;            ///< 软件维护的SQ生产者索引
             uint32_t sqTail;            ///< 已完成WQE计数
         } roceSq;
-        uint8_t raws[120];
+        uint8_t raws[112];
     } contextInfo;
+    uint8_t fence;          ///< 一次性Fence标志，由下一次相关传输消费并清零(hcomm权威头同位：union之后)
+    uint8_t reserved[3];    ///< 对齐保留
 } HcommSqContext;
 
 typedef struct {
@@ -327,6 +330,12 @@ typedef struct {
             uint32_t jfcID;
             uint32_t cqeSize;
             uint32_t cqDepth;
+            uint32_t cqHead;       ///< 软件轮询的下一个CQE索引(数据面持续自增)
+            uint32_t cqTail;       ///< 已消费CQE计数(数据面维护)
+            uint64_t ringVa;       ///< 预投recv环形缓冲基地址(host预投，数据面只读拷出)
+            uint32_t ringDepth;    ///< 预投recv环形缓冲槽位个数
+            uint32_t ringSlotSize; ///< 预投recv环形缓冲单槽字节数
+            uint32_t ringConsIdx;  ///< recv环消费索引(数据面维护，模ringDepth)
         } ubJfc;
         struct {
             uint64_t cqVa;
@@ -357,7 +366,6 @@ typedef struct {
     CommAbiHeader abiHeader;
     CommEngine engine;
     CommProtocol protocol;
-    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
     uint32_t localNotifyNum;
     uint32_t remoteNotifyNum;
     uint32_t localBufferNum;
@@ -370,8 +378,10 @@ typedef struct {
     HcommRegedBufferEntity* remoteBufferAddr;
     HcommSqContext* sqContextAddr;
     HcommCqContext* cqContextAddr;
-    ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值；数据面只作关联信息，不解引用
-} ChannelEntity;
+    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
+    ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值(hcomm侧名compatChannelHandle)；数据面只作关联信息，不解引用
+    uint8_t reserve[112];              ///< ABI预留扩展空间，与hcomm权威头同位
+} ChannelEntity; // 256B
 
 // RTSQ硬件字段由HCOMM控制面在资源构造阶段查询并填充；数据面只消费初始快照，
 // 并在提交过程中维护运行态head/tail。
@@ -393,16 +403,13 @@ typedef struct {
 
 typedef struct {
     CommAbiHeader abiHeader;                 ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
-    HcommDevInfo devInfo;                    ///< Thread所属设备信息
     uint32_t localNotifyNum;                 ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
     HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的resource RTSQ运行上下文
-    ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
-    uint8_t raw[172];                ///< Thread固定256字节中的ABI预留扩展空间
-
-} ThreadEntity;
-
-#pragma pack(pop)
+    ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值(hcomm侧名compatThreadHandle)；数据面只作关联信息，不解引用
+    HcommDevInfo devInfo;            ///< Thread所属设备信息(与hcomm权威头同位：句柄之后)
+    uint8_t raw[168];                ///< Thread固定256字节中的ABI预留扩展空间
+} ThreadEntity; // 256B
 
 #ifdef __cplusplus
 }
@@ -420,17 +427,31 @@ static_assert(std::is_pod<HcommRegedBufferEntity>::value, "HcommRegedBufferEntit
 static_assert(std::is_pod<HcommRegedNotifyEntity>::value, "HcommRegedNotifyEntity must be POD");
 static_assert(std::is_pod<HcommSqContext>::value, "HcommSqContext must be POD");
 static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
-static_assert(
-    sizeof(ChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must not exceed 256 bytes");
+// 布局锁：与hcomm仓pkg_inc/hcomm/hcomm_res_entity_defs.h逐字节一致(自然对齐)。
+// 任一断言失败说明两仓头再次漂移，禁止强行改断言，必须同步两仓定义。
+static_assert(sizeof(HcommDevInfo) == 40, "HcommDevInfo ABI size must be 40 bytes");
+static_assert(sizeof(HcommRegedBufferEntity) == 64, "HcommRegedBufferEntity ABI size must be 64 bytes");
+static_assert(sizeof(HcommRegedNotifyEntity) == 64, "HcommRegedNotifyEntity ABI size must be 64 bytes");
+static_assert(sizeof(HcommSqContext) == 128, "HcommSqContext ABI size must be 128 bytes");
+static_assert(sizeof(HcommCqContext) == 136, "HcommCqContext ABI size must be 136 bytes");
+static_assert(sizeof(HcommRtsqContext) == 56, "HcommRtsqContext ABI size must be 56 bytes");
+static_assert(sizeof(ChannelEntity) == HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must be 256 bytes");
 static_assert(sizeof(ThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "ThreadEntity ABI size must be 256 bytes");
-static_assert(alignof(ChannelEntity) == 4, "ChannelEntity ABI alignment must be 4 bytes");
-static_assert(alignof(ThreadEntity) == 4, "ThreadEntity ABI alignment must be 4 bytes");
+static_assert(alignof(ChannelEntity) == 8, "ChannelEntity ABI alignment must be 8 bytes (natural)");
+static_assert(alignof(ThreadEntity) == 8, "ThreadEntity ABI alignment must be 8 bytes (natural)");
+static_assert(offsetof(ThreadEntity, localNotifyNum) == 16, "ThreadEntity localNotifyNum offset must match hcomm");
+static_assert(offsetof(ThreadEntity, localNotifyAddr) == 24, "ThreadEntity localNotifyAddr offset must match hcomm");
+static_assert(offsetof(ThreadEntity, sqContextAddr) == 32, "ThreadEntity sqContextAddr offset must match hcomm");
+static_assert(offsetof(ThreadEntity, originThreadHandle) == 40, "ThreadEntity origin handle offset must match hcomm");
+static_assert(offsetof(ThreadEntity, devInfo) == 48, "ThreadEntity devInfo offset must match hcomm");
+static_assert(offsetof(ChannelEntity, localNotifyAddr) == 48, "ChannelEntity localNotifyAddr offset must match hcomm");
+static_assert(offsetof(ChannelEntity, sqContextAddr) == 80, "ChannelEntity sqContextAddr offset must match hcomm");
+static_assert(offsetof(ChannelEntity, cqContextAddr) == 88, "ChannelEntity cqContextAddr offset must match hcomm");
+static_assert(offsetof(ChannelEntity, devInfo) == 96, "ChannelEntity devInfo offset must match hcomm");
 static_assert(
-    offsetof(ThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
-    "ThreadEntity origin handle must fit in the fixed ABI storage");
+    offsetof(ChannelEntity, originChannelHandle) == 136, "ChannelEntity origin handle offset must match hcomm");
 static_assert(
-    offsetof(ChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
-    "ChannelEntity origin handle must fit in the fixed ABI storage");
+    offsetof(HcommCqContext, contextInfo.ubJfc.ringVa) == 64, "HcommCqContext ubJfc.ringVa offset must match hcomm");
 #endif
 
 #endif // HCOMM_RES_ENTITY_DEFS_H
