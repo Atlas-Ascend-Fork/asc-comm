@@ -32,6 +32,11 @@ AsccommResult asccomm_read(
 AsccommResult asccomm_read_reduce(
     HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn);
+AsccommResult asccomm_send(HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len);
+AsccommResult asccomm_send_with_imm(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t immData);
+AsccommResult asccomm_recv(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t* immData);
 AsccommResult asccomm_batch_transfer(
     HcommThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
     uint32_t transferDescNum);

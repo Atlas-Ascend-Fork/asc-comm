@@ -29,12 +29,16 @@ template <typename Entity>
 AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
 {
     CHK_PTR_NULL(entity);
-    CHK_PRT_RET(
-        entity->abiHeader.version != version || entity->abiHeader.magicWord != magicWord,
+    if (entity->abiHeader.version != version || entity->abiHeader.magicWord != magicWord) {
+        // 诊断：dump句柄与实体头32字节，用于定位控制面/数据面实体ABI错位
+        const auto* words = reinterpret_cast<const uint64_t*>(entity);
         ASCCOMM_ERROR(
-            "[%s] invalid resource ABI header, version[%u], magicWord[0x%x].", __func__, entity->abiHeader.version,
-            entity->abiHeader.magicWord),
-        ASCCOMM_E_PARA);
+            "[%s] invalid resource ABI header, expect version[%u] magic[0x%x], got version[%u] magic[0x%x]; "
+            "entity[%p] dump[0x%llx][0x%llx][0x%llx][0x%llx].",
+            __func__, version, magicWord, entity->abiHeader.version, entity->abiHeader.magicWord,
+            reinterpret_cast<const void*>(entity), words[0], words[1], words[2], words[3]);
+        return ASCCOMM_E_PARA;
+    }
     CHK_PRT_RET(
         entity->abiHeader.size < sizeof(Entity),
         ASCCOMM_ERROR(
@@ -419,6 +423,49 @@ int32_t asccomm_read_reduce_on_thread(
         return asccomm_read_reduce(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len,
             reduceIn);
+    });
+}
+
+int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(src);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_send(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len);
+    });
+}
+
+int32_t asccomm_send_with_imm_on_thread(
+    ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint32_t immData)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(src);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_send_with_imm(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len, immData);
+    });
+}
+
+int32_t asccomm_recv_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, uint64_t len)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(dst);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_recv(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), len, nullptr);
+    });
+}
+
+int32_t asccomm_recv_with_imm_on_thread(
+    ThreadHandle thread, ChannelHandle channel, void* dst, uint64_t len, uint32_t* immData)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(immData);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_recv(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), len, immData);
     });
 }
 

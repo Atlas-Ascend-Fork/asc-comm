@@ -12,7 +12,9 @@
 #include <vector>
 #include "asccomm_transport.h"
 #include "asccomm_runtime.h"
+#include "../../primitives/launch/asccomm_launch.h"
 #include "../connection/ub_conn_lite.h"
+#include "../connection/ub_jfc_lite.h"
 #include "../connection/ub_jetty_lite.h"
 #include "../connection/rdma_vendor_1825_ops.h"
 #include "securec.h"
@@ -85,6 +87,52 @@ AsccommResult get_ub_context(ChannelEntity& channel, HcommJfsContext*& jfs)
     return ASCCOMM_SUCCESS;
 }
 
+// 取通道的UB JFC(接收完成队列)上下文。recv依赖控制面按软件poll模式建JFC并
+// 填充CQ上下文(CHANNEL ABI=1起)；老版本实体cqNum=0时返回NOT_SUPPORT。
+AsccommResult get_ub_cq_context(ChannelEntity& channel, HcommCqContext*& cq)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol), ASCCOMM_ERROR("[%s] protocol[%d] is not UB.", __func__, channel.protocol),
+        ASCCOMM_E_NOT_SUPPORT);
+    if (channel.cqNum == 0 || channel.cqContextAddr == nullptr) {
+        ASCCOMM_ERROR(
+            "[%s] UB CQ context is not provisioned; "
+            "recv requires a software-poll JFC channel (CHANNEL ABI >= 1).",
+            __func__);
+        return ASCCOMM_E_NOT_SUPPORT;
+    }
+    CHK_PRT_RET(
+        channel.cqContextAddr[0].type != HCOMM_CQ_CONTEXT_TYPE_UB_JFC,
+        ASCCOMM_ERROR("[%s] CQ context is not UB JFC.", __func__), ASCCOMM_E_PARA);
+    cq = &channel.cqContextAddr[0];
+    const auto& ubJfc = cq->contextInfo.ubJfc;
+    CHK_PRT_RET(
+        ubJfc.scqVa == 0 || ubJfc.cqeSize == 0 || ubJfc.cqDepth == 0,
+        ASCCOMM_ERROR("[%s] invalid UB JFC context.", __func__), ASCCOMM_E_PARA);
+    return ASCCOMM_SUCCESS;
+}
+
+// 回写recv消费游标：cqTail(CQ消费计数)与ringConsIdx(recv槽消费索引)。
+// 直接落在持久HcommCqContext上(设备内存)，跨调用存活。
+void export_recv_cursor(HcommCqContext& cq, const Asc::UbJfcLite& jfc, uint32_t newRingConsIdx)
+{
+    jfc.export_state(cq);
+    cq.contextInfo.ubJfc.ringConsIdx = newRingConsIdx % cq.contextInfo.ubJfc.ringDepth;
+}
+
+// 设备内存间的本地拷贝(经RTSQ SDMA)，供recv把预投slot数据搬给用户buffer。
+AsccommResult local_copy(HcommThreadEntity& thread, uintptr_t dst, uintptr_t src, uint64_t len)
+{
+    constexpr uint64_t SDMA_MAX = 0xFFFFFFFFULL; // 单条SDMA SQE上限，超出分片
+    uint64_t offset = 0;
+    while (offset < len) {
+        const uint64_t realSize = len - offset > SDMA_MAX ? SDMA_MAX : len - offset;
+        CHK_RET(asccomm_rtsq_sdma_copy(thread, dst + offset, src + offset, static_cast<uint32_t>(realSize)));
+        offset += realSize;
+    }
+    return ASCCOMM_SUCCESS;
+}
+
 AsccommResult build_ub_slices(
     const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len, Asc::RmaBufSliceLite& local,
     Asc::RmtRmaBufSliceLite& remote)
@@ -107,6 +155,20 @@ AsccommResult build_ub_slices(
     remote = Asc::RmtRmaBufSliceLite(
         remoteAddr, len, 0, remoteResource.protectionInfo.memInfo.ub.tokenId,
         remoteResource.protectionInfo.memInfo.ub.tokenValue, std::numeric_limits<uint32_t>::max());
+    return ASCCOMM_SUCCESS;
+}
+
+AsccommResult build_ub_local_slice(
+    const ChannelEntity& channel, uintptr_t localAddr, uint64_t len, Asc::RmaBufSliceLite& local)
+{
+    const HcommRegedBufferEntity* localBuffer =
+        find_buffer(channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
+    CHK_PTR_NULL(localBuffer);
+    const auto& localResource = localBuffer->bufferInfo.rma;
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
+        ASCCOMM_ERROR("[%s] UB buffer requires URMA protection.", __func__), ASCCOMM_E_PARA);
+    local = Asc::RmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
     return ASCCOMM_SUCCESS;
 }
 
@@ -586,6 +648,104 @@ AsccommResult asccomm_read_reduce(
     }
     // The original RoCE transport does not override ReadReduce and therefore performs no operation.
     return channel.protocol == COMM_PROTOCOL_ROCE ? ASCCOMM_SUCCESS : ASCCOMM_E_NOT_SUPPORT;
+}
+
+AsccommResult asccomm_send(HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommJfsContext* jfs = nullptr;
+    CHK_RET(get_ub_context(channel, jfs));
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    CHK_RET(build_ub_local_slice(channel, localAddr, len, local));
+    Asc::UbConnLiteParam param{};
+    fill_ub_param(*jfs, param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
+    import_ub_state(*jfs, connection);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    connection.send(local, cfg, out);
+    export_ub_state(connection, *jfs);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
+}
+
+AsccommResult asccomm_send_with_imm(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t immData)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommJfsContext* jfs = nullptr;
+    CHK_RET(get_ub_context(channel, jfs));
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    CHK_RET(build_ub_local_slice(channel, localAddr, len, local));
+    Asc::UbConnLiteParam param{};
+    fill_ub_param(*jfs, param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
+    import_ub_state(*jfs, connection);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    connection.send_with_imm(local, immData, cfg, out);
+    export_ub_state(connection, *jfs);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
+}
+
+AsccommResult asccomm_recv(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t* immData)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommCqContext* cq = nullptr;
+    CHK_RET(get_ub_cq_context(channel, cq));
+    const auto& ubJfc = cq->contextInfo.ubJfc;
+    CHK_PRT_RET(
+        ubJfc.ringVa == 0 || ubJfc.ringDepth == 0 || ubJfc.ringSlotSize == 0,
+        ASCCOMM_ERROR("[%s] recv ring is not provisioned; host must pre-post recv buffers.", __func__),
+        ASCCOMM_E_NOT_SUPPORT);
+    CHK_PRT_RET(
+        ubJfc.ringConsIdx >= ubJfc.ringDepth,
+        ASCCOMM_ERROR("[%s] recv ring consumed[%u] exceeds quota[%u].", __func__, ubJfc.ringConsIdx, ubJfc.ringDepth),
+        ASCCOMM_E_UNAVAIL);
+
+    // 软件轮询JFC直到一条接收侧CQE命中。自旋期间推进已积压SQE，防止对端SQ满死锁。
+    Asc::UbJfcLite jfc;
+    jfc.import(*cq);
+    jfc.tryLaunch = []() { (void)asccomm_try_launch_registered_threads(); };
+    Asc::UdmaCqe cqe{};
+    bool got = false;
+    const uint32_t timeout = asccomm_get_notify_wait_timeout();
+    CHK_RET(jfc.poll_one(timeout, cqe, got));
+    if (!got) {
+        return ASCCOMM_E_TIMEOUT;
+    }
+    CHK_PRT_RET(cqe.sR == 0, ASCCOMM_ERROR("[%s] CQE is not a receive completion.", __func__), ASCCOMM_E_REMOTE);
+    CHK_PRT_RET(
+        cqe.byteCnt > len,
+        ASCCOMM_ERROR(
+            "[%s] received length[%u] exceeds buffer[%llu].", __func__, cqe.byteCnt,
+            static_cast<unsigned long long>(len)),
+        ASCCOMM_E_PARA);
+
+    // 消息体已由硬件写入预投slot：ring[ringConsIdx]为本次命中的recv buffer。
+    const uint64_t copyLen = cqe.byteCnt;
+    const uintptr_t slotAddr = ubJfc.ringVa + static_cast<uint64_t>(ubJfc.ringConsIdx) * ubJfc.ringSlotSize;
+    // slot -> 用户buffer。dst与slot同址(用户直接在ring槽上recv)时跳过拷贝。
+    if (localAddr != slotAddr && copyLen > 0) {
+        CHK_RET(local_copy(thread, localAddr, slotAddr, copyLen));
+    }
+    if (immData != nullptr) {
+        *immData = cqe.dataL;
+    }
+    // 拷贝成功后再提交CQ/ring游标；若拷贝失败保持本次CQE未消费，避免重试时丢消息。
+    export_recv_cursor(*cq, jfc, ubJfc.ringConsIdx + 1U);
+    ASCCOMM_INFO(
+        "[%s] recv done, len[%u], immData[0x%x], ringConsIdx[%u].", __func__, cqe.byteCnt, cqe.dataL,
+        ubJfc.ringConsIdx);
+    return ASCCOMM_SUCCESS;
 }
 
 AsccommResult asccomm_notify_record(HcommThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
