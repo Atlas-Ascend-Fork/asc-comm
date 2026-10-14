@@ -126,7 +126,8 @@ struct KernelCacheKey {
 
     bool operator==(const KernelCacheKey& other) const
     {
-        return binary_cache_tag == other.binary_cache_tag && instance == other.instance && phy_die_mask == other.phy_die_mask;
+        return binary_cache_tag == other.binary_cache_tag && instance == other.instance &&
+               phy_die_mask == other.phy_die_mask;
     }
 };
 
