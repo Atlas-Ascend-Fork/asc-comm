@@ -27,6 +27,7 @@ target_include_directories(basic_ring_demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     $ENV{ASCEND_HOME_PATH}/include
+    $ENV{ASCEND_HOME_PATH}/include/pkg_inc
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/hcomm
 )
