@@ -19,6 +19,7 @@ namespace {
 constexpr const char* DUMMY_KERNEL_NAME = "DummyKernel";
 uint32_t g_dummyKernelCallCount = 0;
 const void* g_dummyKernelObservedArg = nullptr;
+HcommCcuInstanceEntity g_defaultCcuInstance{};
 
 void DummyKernel(void* arg)
 {
@@ -30,7 +31,8 @@ asccomm_launch_kernel_cfg MakeLaunchCfg()
 {
     asccomm_launch_kernel_cfg cfg{};
     cfg.ccu_schd = {1, 0, 0x01, 0};
-    cfg.ccu_ins = nullptr;
+    g_defaultCcuInstance.ccuInsKey = 0x01U;
+    cfg.ccu_ins = &g_defaultCcuInstance;
     cfg.stream = reinterpret_cast<aclrtStream>(0x22);
     cfg.attrs = nullptr;
     return cfg;
@@ -99,6 +101,7 @@ TEST_F(TestCcuHostLaunch, NullInstanceWithBinaryCacheTagReturnsPtr)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
     cfg.ccu_schd.binary_cache_tag = 0x5701U;
+    cfg.ccu_ins = nullptr;
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
