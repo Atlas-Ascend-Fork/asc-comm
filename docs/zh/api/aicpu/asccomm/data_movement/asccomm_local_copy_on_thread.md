@@ -1,0 +1,68 @@
+# asccomm_local_copy_on_thread
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+
+提供本地内存拷贝功能，将src指向的长度为len的内存数据，拷贝到dst所指向的相同长度的内存中。
+
+## 函数原型
+
+```cpp
+int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
+```
+
+## 参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| dst | 输出 | 目的内存地址，Device内存。 |
+| src | 输入 | 源内存地址，Device内存。 |
+| len | 输入 | 数据长度（字节）。 |
+
+## 返回值说明
+
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 任务已生成（`len`为0时不生成任务），不表示拷贝完成。 |
+| `ASCCOMM_E_PTR` | Thread句柄为0、源地址或目的地址为空，或Thread内部任务缓存地址为空。 |
+| `ASCCOMM_E_PARA` | Thread资源描述或通信任务提交队列参数不合法。 |
+| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列空间不足，等待可用空间超时。 |
+| `ASCCOMM_E_INTERNAL` | 获取任务ID、查询或配置通信任务提交队列、拷贝任务提交等内部操作失败。 |
+
+## 约束说明
+
+- dst和src必须为非NULL且可被AICPU直接访问的有效Device地址。
+- len为0时不生成本地拷贝任务。
+
+## 调用示例
+
+```cpp
+// thread为控制面传入的有效ThreadHandle资源句柄；src和dst为AICPU可直接访问的Device地址。
+uint64_t len = 1024;
+int32_t ret = asccomm_local_copy_on_thread(thread, dst, src, len);
+```
