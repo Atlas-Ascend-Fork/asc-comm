@@ -94,6 +94,18 @@ TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
         CCU_E_PARA);
 }
 
+TEST_F(TestCcuHostLaunch, NullInstanceWithBinaryCacheTagReturnsPtr)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    cfg.ccu_schd.binary_cache_tag = 0x5701U;
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
+        CCU_E_PTR);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
+}
+
 TEST_F(TestCcuHostLaunch, LaunchHashTagReturnsStableNonZeroValue)
 {
     const uint64_t tag = asccomm_ccu_get_launch_hash_tag("CcuAllGatherMesh1DMem2MemKernel");
@@ -258,14 +270,14 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
     asccomm_launch_kernel_cfg secondCfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
     constexpr uint64_t SHARED_BINARY_TAG = 0x5701U;
-    int firstInstanceIdentity = 0;
-    int secondInstanceIdentity = 0;
+    HcommCcuInstanceEntity firstInstance{};
+    HcommCcuInstanceEntity secondInstance{};
     firstCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
     secondCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
-    firstCfg.ccu_ins.ccuInsKey = 0x11U;
-    firstCfg.ccu_ins.ccuInsPtr = reinterpret_cast<const HcommCcuInstance*>(&firstInstanceIdentity);
-    secondCfg.ccu_ins.ccuInsKey = 0x22U;
-    secondCfg.ccu_ins.ccuInsPtr = reinterpret_cast<const HcommCcuInstance*>(&secondInstanceIdentity);
+    firstInstance.ccuInsKey = 0x11U;
+    firstCfg.ccu_ins = &firstInstance;
+    secondInstance.ccuInsKey = 0x22U;
+    secondCfg.ccu_ins = &secondInstance;
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
@@ -282,7 +294,7 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
         CCU_SUCCESS);
     CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerKernel, 2U);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, secondCfg.ccu_ins.ccuInsKey);
+    EXPECT_EQ(observed.lastInsHandle, secondCfg.ccu_ins);
     EXPECT_EQ(observed.lastDieId, 0U);
 
     asccomm_launch_kernel_cfg thirdCfg = firstCfg;
@@ -292,7 +304,7 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
         CCU_SUCCESS);
     observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerKernel, 3U);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, thirdCfg.ccu_ins.ccuInsKey);
+    EXPECT_EQ(observed.lastInsHandle, thirdCfg.ccu_ins);
     EXPECT_EQ(observed.lastDieId, 1U);
 }
 

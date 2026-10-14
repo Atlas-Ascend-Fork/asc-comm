@@ -152,10 +152,15 @@ public:
         if (cache_tag == 0U) {
             return register_and_get_task_args_num(kernel_func, kernel_name, cfg, args, kernel_handle, task_args_num);
         }
+        if (cfg->ccu_ins == nullptr) {
+            ASCCOMM_CCU_LOG_ERROR("[%s] ccu_ins is null while binary cache is enabled.", __func__);
+            return CCU_E_PTR;
+        }
 
+        const auto* ccu_instance = static_cast<const HcommCcuInstanceEntity*>(cfg->ccu_ins);
         const KernelCacheKey cache_key{
             cache_tag,
-            {cfg->ccu_ins.ccuInsKey, reinterpret_cast<std::uintptr_t>(cfg->ccu_ins.ccuInsPtr)},
+            {ccu_instance->ccuInsKey, reinterpret_cast<std::uintptr_t>(ccu_instance)},
             cfg->ccu_schd.phy_die_mask};
 
         std::lock_guard<std::mutex> lock(mutex_);
