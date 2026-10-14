@@ -168,10 +168,10 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
-#define HCOMM_RESOURCE_CHANNEL_VERSION 0U             ///< Channel resource ABI版本号
-#define HCOMM_RESOURCE_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
-#define HCOMM_RESOURCE_THREAD_VERSION 0U              ///< Thread resource ABI版本号
-#define HCOMM_RESOURCE_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
+#define HCOMM_CHANNEL_ENTITY_VERSION 0U             ///< Channel resource ABI版本号
+#define HCOMM_CHANNEL_ENTITY_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
+#define HCOMM_THREAD_ENTITY_VERSION 0U              ///< Thread resource ABI版本号
+#define HCOMM_THREAD_ENTITY_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
 #define HCOMM_RESOURCE_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
 #define HCOMM_RESOURCE_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
 #define HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
@@ -344,8 +344,8 @@ typedef struct {
 } HcommCqContext;
 
 typedef struct {
-    uint32_t version;    ///< 设备信息结构版本号
-    uint32_t devId;      ///< 设备物理或逻辑ID，由资源创建端约定
+    uint32_t chipVersion; ///< 预留芯片版本字段，当前默认0
+    uint32_t devPhyId;  ///< Host 侧 NPU 物理设备 ID；Device 侧可转换为本地设备 ID
     uint8_t dieId;       ///< 设备Die编号(UB doorbell jetty三元素之一)
     uint8_t funcId;      ///< 设备Function编号(UB doorbell jetty三元素之一)
     uint8_t reserve[30]; ///< 设备信息扩展空间，创建资源时置0

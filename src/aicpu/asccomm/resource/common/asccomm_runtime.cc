@@ -186,8 +186,8 @@ AsccommResult validate_thread_entity(ThreadEntity* thread)
 {
     CHK_PTR_NULL(thread);
     CHK_PRT_RET(
-        thread->abiHeader.version != HCOMM_RESOURCE_THREAD_VERSION ||
-            thread->abiHeader.magicWord != HCOMM_RESOURCE_THREAD_MAGIC_WORD ||
+        thread->abiHeader.version != HCOMM_THREAD_ENTITY_VERSION ||
+            thread->abiHeader.magicWord != HCOMM_THREAD_ENTITY_MAGIC_WORD ||
             thread->abiHeader.size < sizeof(ThreadEntity),
         ASCCOMM_ERROR("[%s] invalid resource thread entity.", __func__), ASCCOMM_E_PARA);
     CHK_PTR_NULL(thread->sqContextAddr);
@@ -212,11 +212,11 @@ AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread)
         return ASCCOMM_SUCCESS;
     }
 
-    drvError_t ret = drvGetLocalDevIDByHostDevID(thread->devInfo.devId, &rtsq.localDevId);
+    drvError_t ret = drvGetLocalDevIDByHostDevID(thread->devInfo.devPhyId, &rtsq.localDevId);
     CHK_PRT_RET(
         ret != 0,
         ASCCOMM_ERROR(
-            "[%s] drvGetLocalDevIDByHostDevID failed, devicePhyId[%u], ret[%d].", __func__, thread->devInfo.devId, ret),
+            "[%s] drvGetLocalDevIDByHostDevID failed, devicePhyId[%u], ret[%d].", __func__, thread->devInfo.devPhyId, ret),
         ASCCOMM_E_INTERNAL);
     CHK_RET(query_sq_base(rtsq, rtsq.sqBaseAddr));
     CHK_RET(query_sq_value(rtsq, DRV_SQCQ_PROP_SQ_DEPTH, rtsq.sqDepth));
