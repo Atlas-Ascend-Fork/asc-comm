@@ -140,7 +140,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
         HcclChannelDesc desc;
         HCCLCHECK(HcclChannelDescInit(&desc, 1));
-        CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UB_CTP;
         bool protocolExists = false;
         for (uint32_t idx = 0; idx < listSize; idx++) {
             CommLink link = linkList[idx];

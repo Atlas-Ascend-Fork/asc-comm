@@ -191,7 +191,7 @@ HcclResult GetChannelForCcu(
                 HcclRankGraphGetLinks(comm, netLayers[layerIndex], myRank, remoteRank, &linkList, &listSize));
             for (uint32_t linkIndex = 0; linkIndex < listSize; ++linkIndex) {
                 const CommLink& link = linkList[linkIndex];
-                if (link.linkAttr.linkProtocol != CommProtocol::COMM_PROTOCOL_UBC_CTP) {
+                if (link.linkAttr.linkProtocol != CommProtocol::COMM_PROTOCOL_UB_CTP) {
                     continue;
                 }
                 desc.remoteRank = remoteRank;

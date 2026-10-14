@@ -53,7 +53,7 @@ static HcclResult AllocThreadAndChannelResource(
 
         HcclChannelDesc desc;
         RETURN_IF_HCCL_FAIL(HcclChannelDescInit(&desc, 1));
-        CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UB_CTP;
         bool protocolExists = false;
         for (uint32_t idx = 0; idx < listSize; idx++) {
             CommLink link = linkList[idx];
