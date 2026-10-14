@@ -30,27 +30,6 @@
 
 namespace AscendC::simt {
 
-__simt_callee__ inline int32_t HcommSimtFindBufferIdx(
-    __gm__ RegedBufferEntity* bufferAddr, uint32_t bufferNum, __gm__ uint8_t* addr, uint64_t len)
-{
-    if (bufferAddr == nullptr) {
-        return HCOMM_FAILED;
-    }
-    uint64_t targetAddr = reinterpret_cast<uint64_t>(addr);
-    for (uint32_t i = 0; i < bufferNum; ++i) {
-        uint64_t baseAddr = bufferAddr[i].bufferInfo.rma.addr;
-        uint64_t bufferSize = bufferAddr[i].bufferInfo.rma.size;
-        if (targetAddr < baseAddr) {
-            continue;
-        }
-        uint64_t offset = targetAddr - baseAddr;
-        if (offset <= bufferSize && len <= bufferSize - offset) {
-            return static_cast<int32_t>(i);
-        }
-    }
-    return HCOMM_FAILED;
-}
-
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);

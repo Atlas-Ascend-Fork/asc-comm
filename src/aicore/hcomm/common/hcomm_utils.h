@@ -32,18 +32,18 @@ constexpr uint32_t BITS_5BYTE = 40;
 constexpr uint32_t BITS_7BYTE = 56;
 constexpr uint32_t HCOMM_DEFAULT_QP_IDX = 0;
 
-__aicore__ inline uint16_t HtoNS(uint16_t x)
+__aicore__ inline constexpr uint16_t HtoNS(uint16_t x)
 {
     return (uint16_t)(((x & 0x00ffU) << BITS_1BYTE) | ((x & 0xff00U) >> BITS_1BYTE));
 }
 
-__aicore__ inline uint32_t HtoNL(uint32_t x)
+__aicore__ inline constexpr uint32_t HtoNL(uint32_t x)
 {
     return ((x & 0x000000ffU) << BITS_3BYTE) | ((x & 0x0000ff00U) << BITS_1BYTE) | ((x & 0x00ff0000U) >> BITS_1BYTE) |
            ((x & 0xff000000U) >> BITS_3BYTE);
 }
 
-__aicore__ inline uint64_t HtoNLL(uint64_t x)
+__aicore__ inline constexpr uint64_t HtoNLL(uint64_t x)
 {
     return ((x & 0x00000000000000ffULL) << BITS_7BYTE) | ((x & 0x000000000000ff00ULL) << BITS_5BYTE) |
            ((x & 0x0000000000ff0000ULL) << BITS_3BYTE) | ((x & 0x00000000ff000000ULL) << BITS_1BYTE) |

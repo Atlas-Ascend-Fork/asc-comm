@@ -30,7 +30,7 @@ asccomm_launch_kernel_cfg MakeLaunchCfg()
 {
     asccomm_launch_kernel_cfg cfg{};
     cfg.ccu_schd = {1, 0, 0x01, 0};
-    cfg.ccu_ins = CcuInsHandle{};
+    cfg.ccu_ins = nullptr;
     cfg.stream = reinterpret_cast<aclrtStream>(0x22);
     cfg.attrs = nullptr;
     return cfg;
@@ -60,9 +60,6 @@ TEST_F(TestCcuHostLaunch, NullArgumentsReturnPtr)
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, nullptr),
         CCU_E_PTR);
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, nullptr, args),
-        CCU_E_PTR);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
@@ -78,18 +75,6 @@ TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
     cfg.ccu_schd.phy_die_mask = 0x03;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
-
-    HcommLaunchKernelCfg hcommCfg{};
-    hcommCfg.ccuSchd.numBlocks = cfg.ccu_schd.num_blocks;
-    hcommCfg.ccuSchd.reserved = cfg.ccu_schd.reserved;
-    hcommCfg.ccuSchd.phyDieMask = cfg.ccu_schd.phy_die_mask;
-    hcommCfg.ccuSchd.binaryCacheTag = cfg.ccu_schd.binary_cache_tag;
-    hcommCfg.ccuIns = cfg.ccu_ins;
-    hcommCfg.stream = cfg.stream;
-    hcommCfg.attrs = cfg.attrs;
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcommCfg, args),
         CCU_E_PARA);
 }
 
@@ -117,7 +102,6 @@ TEST_F(TestCcuHostLaunch, LaunchHashTagReturnsStableNonZeroValue)
     EXPECT_NE(tag, 0U);
     EXPECT_EQ(tag, asccomm_ccu_get_launch_hash_tag("CcuAllGatherMesh1DMem2MemKernel"));
     EXPECT_NE(tag, asccomm_ccu_get_launch_hash_tag("CcuAllGatherMesh1DMem2MemKernel_rank_1"));
-    EXPECT_EQ(tag, HcommCcuGetLaunchHashTag("CcuAllGatherMesh1DMem2MemKernel"));
 }
 
 TEST_F(TestCcuHostLaunch, LaunchSuccessForwardsRegisterAndLaunchParameters)
@@ -136,8 +120,7 @@ TEST_F(TestCcuHostLaunch, LaunchSuccessForwardsRegisterAndLaunchParameters)
     EXPECT_EQ(observed.calls.registerEnd, 1U);
     EXPECT_EQ(observed.calls.getTaskArgsNum, 1U);
     EXPECT_EQ(observed.calls.kernelLaunch, 1U);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, cfg.ccu_ins.ccuInsKey);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsPtr, cfg.ccu_ins.ccuInsPtr);
+    EXPECT_EQ(observed.lastInsHandle, cfg.ccu_ins);
     EXPECT_EQ(observed.lastDieId, 0U);
     EXPECT_EQ(observed.lastKernelName, DUMMY_KERNEL_NAME);
     EXPECT_NE(observed.lastKernelHandle, 0U);
@@ -311,29 +294,6 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
     EXPECT_EQ(observed.calls.registerKernel, 3U);
     EXPECT_EQ(observed.lastInsHandle.ccuInsKey, thirdCfg.ccu_ins.ccuInsKey);
     EXPECT_EQ(observed.lastDieId, 1U);
-}
-
-TEST_F(TestCcuHostLaunch, HcompatCfgForwardsThroughNewLaunchChain)
-{
-    HcommLaunchKernelCfg hcompatCfg{};
-    hcompatCfg.ccuSchd.numBlocks = 1;
-    hcompatCfg.ccuSchd.reserved = 0;
-    hcompatCfg.ccuSchd.phyDieMask = 0x02;
-    hcompatCfg.ccuSchd.binaryCacheTag = 0x5601U;
-    hcompatCfg.ccuIns = CcuInsHandle{};
-    hcompatCfg.stream = reinterpret_cast<aclrtStream>(0x33);
-    hcompatCfg.attrs = nullptr;
-    uint64_t args[] = {1, 2, 3};
-
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcompatCfg, args),
-        CCU_SUCCESS);
-
-    const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
-    EXPECT_EQ(observed.lastDieId, 1U);
-    EXPECT_EQ(observed.lastStream, hcompatCfg.stream);
-    EXPECT_EQ(observed.lastTaskArgs, args);
-    EXPECT_EQ(observed.lastLaunchArgNum, 3U);
 }
 
 int main(int argc, char** argv)

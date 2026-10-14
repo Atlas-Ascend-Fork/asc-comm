@@ -180,6 +180,19 @@ function run_ccu_ut() {
     (cd "${ccu_ctest_dir}" && ctest --output-on-failure)
 }
 
+function run_aicpu_ut() {
+    local ut_build_dir="$1"
+    local aicpu_ctest_dir="${ut_build_dir}/aicpu_asccomm"
+
+    if [[ ! -f "${aicpu_ctest_dir}/CTestTestfile.cmake" ]]; then
+        log "ERROR" "AICPU CTest registration not found: ${aicpu_ctest_dir}"
+        return 1
+    fi
+
+    log "INFO" "run AICPU UT through CTest"
+    (cd "${aicpu_ctest_dir}" && ctest --output-on-failure)
+}
+
 function collect_coverage() {
     local ut_build_dir="$1"
 
@@ -200,7 +213,7 @@ main(){
 
     if [[ "${TEST}" != true ]]; then
         if [[ "${PACKAGE}" != true ]]; then
-            log "INFO" "use -t/--test to build hcomm UT"
+            log "INFO" "use -t/--test to build UT"
         fi
         exit 0
     fi
@@ -218,6 +231,7 @@ main(){
     cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
     build "${ut_build_dir}"
     run_ccu_ut "${ut_build_dir}"
+    run_aicpu_ut "${ut_build_dir}"
     if [[ "${COV}" == true ]]; then
         collect_coverage "${ut_build_dir}"
         log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"

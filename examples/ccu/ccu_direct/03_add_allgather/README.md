@@ -53,7 +53,7 @@ sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
 2. 每个Device创建一个rank，并初始化输入Buffer。
 3. 基于HCCL通信域申请CCU Channel、CCU实例、CCU变量和CCU事件资源。
 4. 通过`vector_add<<<1, nullptr, streamAiv>>>`直调AICore vector kernel，生成本地计算结果。
-5. 通过`HcommCcuGetMemToken`获取`computeBuf`内存Token，并准备CCU任务参数。
+5. 通过`asccomm_ccu_get_mem_token`获取`computeBuf`内存Token，并准备CCU任务参数。
 6. 通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`直调CCU Kernel完成AllGather。
 7. 同步AIV和CCU Stream后将`recvBuf`拷贝回Host侧并打印。
 8. 销毁HCCL通信域、Stream和Device侧内存。

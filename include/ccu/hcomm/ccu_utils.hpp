@@ -15,7 +15,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/ccu/ccu_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace AscendC {
 namespace ccu {
@@ -23,7 +24,7 @@ namespace detail {
 
 struct no_alloc_tag {};
 
-// 该异常对象会跨越"样例二进制(用户 gcc 编译) -> libasccomm_ccu_dataplane.so(出包 gcc 编译)"边界：
+// 该异常对象会跨越"样例二进制(用户 gcc 编译) -> libasccomm_ccu.so(出包 gcc 编译)"边界：
 // dataplane 侧 catch 后读取 what()/code()。因此对象布局与生成代码不得依赖编译器世代
 // (std::string 成员/内联 STL 操作在不同 gcc 世代下布局与实现不同，会导致跨 SO 读取崩溃)。
 // 这里使用定长 char 缓冲 + POD 成员，保证布局跨 gcc 冻结；snprintf 为 libc 符号，进程内单份实现。
@@ -68,8 +69,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_arithmetic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }
@@ -86,8 +87,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_logic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_logic_operator(lhs_t lhs, rhs_t rhs, ccu_logic_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_logic_operator(lhs_t lhs, rhs_t rhs, ccu_logic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }
@@ -103,7 +104,7 @@ public:
 template <typename lhs_t>
 class ccu_logic_unary_operator {
 public:
-    ccu_logic_unary_operator(lhs_t lhs, ccu_logic_operator_type type_) : lhs(lhs), type_(type_) { check(); }
+    ccu_logic_unary_operator(lhs_t lhs, ccu_logic_operator_type type) : lhs(lhs), type_(type) { check(); }
     void check() const
     {
         throw ::AscendC::ccu::detail::ccu_exception(
@@ -118,8 +119,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }

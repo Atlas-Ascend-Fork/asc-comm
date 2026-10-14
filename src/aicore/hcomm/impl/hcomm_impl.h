@@ -49,7 +49,9 @@ template <typename T, typename U>
 __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
-    static_assert(commProtocol == COMM_PROTOCOL_UB_CTP, "BatchHandle only supports COMM_PROTOCOL_UB_CTP");
+    static_assert(
+        commProtocol == COMM_PROTOCOL_UB_CTP || commProtocol == COMM_PROTOCOL_ROCE,
+        "BatchHandle only supports COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE");
     auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, remoteAddr, localAddr);
     using ExpectedType = BatchHandle<T>;
     static_assert(
