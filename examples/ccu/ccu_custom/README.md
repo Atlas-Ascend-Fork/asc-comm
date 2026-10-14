@@ -2,13 +2,13 @@
 
 简体中文 | [English](./README_en.md)
 
-本目录提供Host侧直接注册并下发自定义CCU Kernel的样例。样例基于HCCL通信域申请CCU线程、Channel和内存Token，使用`asccomm_ccu_kernel_register*`注册Kernel，并通过`asccomm_ccu_kernel_launch`下发任务。
+本目录提供自定义CCU Kernel样例。样例基于HCCL通信域申请CCU线程、Channel、实例和内存Token，并通过`<<<>>>`直调或`asccomm_ccu_kernel_launch`下发任务。
 
 ## 样例列表
 
 | 样例 | 说明 |
 | --- | --- |
-| [01_allgather](./01_allgather/README.md) | 演示自定义CCU AllGather Kernel。 |
+| [01_allgather](./01_allgather/README.md) | 演示以`<<<>>>`直调方式执行CCU AllGather Kernel。 |
 | [02_allgather_mesh1d_mem2mem](./02_allgather_mesh1d_mem2mem/README.md) | 演示Mesh1D Mem2Mem AllGather数据面。 |
 | [03_allgather_nhr1d_mem2mem](./03_allgather_nhr1d_mem2mem/README.md) | 演示NHR1D Mem2Mem AllGather数据面。 |
 | [04_allreduce](./04_allreduce/README.md) | 演示自定义AllReduce SUM Kernel。 |

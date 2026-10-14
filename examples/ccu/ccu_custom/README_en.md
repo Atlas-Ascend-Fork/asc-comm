@@ -2,13 +2,13 @@
 
 English | [简体中文](./README.md)
 
-This directory provides samples where the host directly registers and launches custom CCU kernels. The samples acquire CCU threads, channels, and memory tokens through HCCL communicators, register kernels with `asccomm_ccu_kernel_register*`, and launch them with `asccomm_ccu_kernel_launch`.
+This directory provides custom CCU kernel samples. The samples acquire CCU threads, channels, instances, and memory tokens through HCCL communicators, then launch kernels with `<<<>>>` direct launch or `asccomm_ccu_kernel_launch`.
 
 ## Sample List
 
 | Sample | Description |
 | --- | --- |
-| [01_allgather](./01_allgather/README_en.md) | Demonstrates a custom CCU AllGather kernel. |
+| [01_allgather](./01_allgather/README_en.md) | Demonstrates a CCU AllGather kernel launched with `<<<>>>` direct launch. |
 | [02_allgather_mesh1d_mem2mem](./02_allgather_mesh1d_mem2mem/README_en.md) | Demonstrates the Mesh1D Mem2Mem AllGather dataplane. |
 | [03_allgather_nhr1d_mem2mem](./03_allgather_nhr1d_mem2mem/README_en.md) | Demonstrates the NHR1D Mem2Mem AllGather dataplane. |
 | [04_allreduce](./04_allreduce/README_en.md) | Demonstrates a custom AllReduce SUM kernel. |
