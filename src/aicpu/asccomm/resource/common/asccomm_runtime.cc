@@ -170,12 +170,13 @@ AsccommResult copy_pending_sqes(HcommRtsqContext& context)
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult refresh_rtsq(HcommThreadSqContext& contextOuter)
+AsccommResult refresh_rtsq(HcommThreadEntity& thread)
 {
+    HcommThreadSqContext& contextOuter = *thread.sqContextAddr;
     HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     ++rtsq.pendingSqeCnt;
     if (rtsq.pendingSqeCnt == HCOMM_RESOURCE_RTSQ_BATCH_SIZE) {
-        return asccomm_rtsq_launch(contextOuter);
+        return asccomm_rtsq_launch(thread);
     }
     return ASCCOMM_SUCCESS;
 }
@@ -236,8 +237,10 @@ AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult asccomm_rtsq_launch(HcommThreadSqContext& contextOuter)
+AsccommResult asccomm_rtsq_launch(HcommThreadEntity& thread)
 {
+    CHK_PTR_NULL(thread.sqContextAddr);
+    HcommThreadSqContext& contextOuter = *thread.sqContextAddr;
     HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     if (rtsq.pendingSqeCnt == 0) {
         return ASCCOMM_SUCCESS;
@@ -248,7 +251,7 @@ AsccommResult asccomm_rtsq_launch(HcommThreadSqContext& contextOuter)
         ASCCOMM_E_PARA);
     uint32_t localDevId = 0;
     CHK_PRT_RET(
-        drvGetLocalDevIDByHostDevID(0, &localDevId) != 0,
+        drvGetLocalDevIDByHostDevID(thread.devInfo.devPhyId, &localDevId) != 0,
         ASCCOMM_ERROR("[%s] resolve local device failed.", __func__), ASCCOMM_E_INTERNAL);
     CHK_RET(ensure_queue_space(localDevId, rtsq));
     CHK_RET(copy_pending_sqes(rtsq));
@@ -264,43 +267,48 @@ AsccommResult asccomm_rtsq_launch(HcommThreadSqContext& contextOuter)
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult asccomm_rtsq_try_launch(HcommThreadSqContext& contextOuter)
+AsccommResult asccomm_rtsq_try_launch(HcommThreadEntity& thread)
 {
+    CHK_PTR_NULL(thread.sqContextAddr);
+    HcommThreadSqContext& contextOuter = *thread.sqContextAddr;
     HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     if (rtsq.pendingSqeCnt == 0) {
         return ASCCOMM_SUCCESS;
     }
     uint32_t localDevId = 0;
     CHK_PRT_RET(
-        drvGetLocalDevIDByHostDevID(0, &localDevId) != 0,
+        drvGetLocalDevIDByHostDevID(thread.devInfo.devPhyId, &localDevId) != 0,
         ASCCOMM_ERROR("[%s] resolve local device failed.", __func__), ASCCOMM_E_INTERNAL);
     CHK_RET(query_sq_value(localDevId, rtsq, DRV_SQCQ_PROP_SQ_HEAD, rtsq.sqHead));
     if (get_tail_to_head_distance(rtsq) <= rtsq.pendingSqeCnt) {
         return ASCCOMM_SUCCESS;
     }
-    return asccomm_rtsq_launch(contextOuter);
+    return asccomm_rtsq_launch(thread);
 }
 
-AsccommResult asccomm_rtsq_notify_wait(HcommThreadSqContext& context, uint32_t notifyId, uint32_t timeout)
+AsccommResult asccomm_rtsq_notify_wait(HcommThreadEntity& thread, uint32_t notifyId, uint32_t timeout)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_notify_wait(
         context.contextInfo.RtsqContext.streamId, taskId, notifyId, timeout, get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
-AsccommResult asccomm_rtsq_notify_record(HcommThreadSqContext& context, uint32_t notifyId)
+AsccommResult asccomm_rtsq_notify_record(HcommThreadEntity& thread, uint32_t notifyId)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_notify_record(
         context.contextInfo.RtsqContext.streamId, taskId, notifyId, get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
-AsccommResult asccomm_rtsq_sdma_copy(HcommThreadSqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
+AsccommResult asccomm_rtsq_sdma_copy(HcommThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     constexpr uint32_t RTSQ_PART_ID = 0;
     constexpr uint32_t COPY_OPCODE = 0;
     uint32_t taskId = 0;
@@ -308,12 +316,13 @@ AsccommResult asccomm_rtsq_sdma_copy(HcommThreadSqContext& context, uint64_t dst
     Asc::build_a5_sqe_sdma_copy(
         context.contextInfo.RtsqContext.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, COPY_OPCODE,
         get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
 AsccommResult asccomm_rtsq_sdma_reduce(
-    HcommThreadSqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn)
+    HcommThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     uint32_t operation = 0;
     switch (reduceIn.reduceOp) {
         case Asc::ReduceOp::SUM:
@@ -361,25 +370,27 @@ AsccommResult asccomm_rtsq_sdma_reduce(
     Asc::build_a5_sqe_sdma_copy(
         context.contextInfo.RtsqContext.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, operation | dataType,
         get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
-AsccommResult asccomm_rtsq_ub_db_send(HcommThreadSqContext& context, const Asc::UbJettyLiteId& jettyId, uint16_t piValue)
+AsccommResult asccomm_rtsq_ub_db_send(HcommThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_ub_db_send(
         context.contextInfo.RtsqContext.streamId, taskId, jettyId, piValue, get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
-AsccommResult asccomm_rtsq_rdma_db_send(HcommThreadSqContext& context, uint64_t dbAddr, uint64_t dbValue)
+AsccommResult asccomm_rtsq_rdma_db_send(HcommThreadEntity& thread, uint64_t dbAddr, uint64_t dbValue)
 {
+    HcommThreadSqContext& context = *thread.sqContextAddr;
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_rdma_db_send(
         context.contextInfo.RtsqContext.streamId, taskId, dbAddr, dbValue, get_current_sqe(context));
-    return refresh_rtsq(context);
+    return refresh_rtsq(thread);
 }
 
 AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
@@ -390,7 +401,7 @@ AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
         HcommThreadEntity* thread = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(threads[index]));
         CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
-        CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
+        CHK_RET(asccomm_rtsq_launch(*thread));
     }
     return ASCCOMM_SUCCESS;
 }
@@ -403,7 +414,7 @@ AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
         HcommThreadEntity* thread = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(threads[index]));
         CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
-        CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
+        CHK_RET(asccomm_rtsq_try_launch(*thread));
     }
     return ASCCOMM_SUCCESS;
 }
