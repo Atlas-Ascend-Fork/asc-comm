@@ -1,0 +1,18 @@
+# 简介
+
+本节提供AICPU Asccomm的同步接口：Thread Notify用于线程间同步，ACL运行时Notify用于基于ACL Notify资源的同步，Channel Notify用于通信通道两端同步；Fence、Drain和超时设置接口用于控制通信操作的顺序和等待行为。
+
+## 接口列表
+
+- [asccomm_aclrt_notify_record_on_thread](asccomm_aclrt_notify_record_on_thread.md)
+- [asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)
+- [asccomm_channel_drain_on_thread](asccomm_channel_drain_on_thread.md)
+- [asccomm_channel_fence_on_thread](asccomm_channel_fence_on_thread.md)
+- [asccomm_channel_notify_record_on_thread](asccomm_channel_notify_record_on_thread.md)
+- [asccomm_channel_notify_wait_on_thread](asccomm_channel_notify_wait_on_thread.md)
+- [asccomm_channel_notify_wait_on_thread_with_default_timeout](asccomm_channel_notify_wait_on_thread_with_default_timeout.md)
+- [asccomm_set_notify_wait_timeout](asccomm_set_notify_wait_timeout.md)
+- [asccomm_thread_notify_record_on_thread](asccomm_thread_notify_record_on_thread.md)
+- [asccomm_thread_notify_wait_on_thread](asccomm_thread_notify_wait_on_thread.md)
+- [asccomm_thread_notify_wait_on_thread_with_default_timeout](asccomm_thread_notify_wait_on_thread_with_default_timeout.md)
+- [asccomm_thread_res_acquire_timeout](asccomm_thread_res_acquire_timeout.md)
