@@ -7,6 +7,8 @@ Each rank specifies variable-length data blocks per peer through `sendCounts/sen
 
 The CCU kernel publishes the output address with the receive offset already applied to each peer; remote data is sent with `ccu::write`, and local data with a single `ccu::local_copy`.
 
+This sample is currently a minimal direct-launch prototype: dynamic `sendBytes/sendOffsets/recvOffsets` are carried by the struct referenced by `ccu_kernel_arg`, and the kernel initializes them with `ccu::variable = uint64_t`. Whether this is equivalent to `ccu::load_arg` must be confirmed by the actual run result of this sample.
+
 The sample supports FP32 only, non-in-place operation, at most 16 ranks, and a per-peer data block of at most 256 MiB.
 
 ## Build and Run

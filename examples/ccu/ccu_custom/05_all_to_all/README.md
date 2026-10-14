@@ -3,6 +3,7 @@
 ## 样例介绍
 
 本样例展示如何基于 HCCL 通信域和 CCU 数据面接口实现等长 AllToAll。
+Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
 
 每个 rank 的输入按目标 rank 分为 `rankSize` 段，并向每个目标 rank 发送 `perCount` 个元素。目标 rank 的输出按源 rank 顺序保存：
 
@@ -27,18 +28,9 @@ CCU kernel 使用 `GroupCopy` 完成本地段复制，并使用 `ccu::write` 将
 05_all_to_all/
 ├── CMakeLists.txt
 ├── README.md
+├── README_en.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+└── main.asc
 ```
 
 ## 构建和运行
