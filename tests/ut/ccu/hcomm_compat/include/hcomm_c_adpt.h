@@ -13,7 +13,7 @@
 
 #include "ccu/hcomm/hccl_types.h"
 
-#include "hcomm_primitives.h"
+#include "hcomm/hcomm_primitives.h"
 
 #include "hcomm/ccu/hcomm_res_ccu_entity_defs.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
 
