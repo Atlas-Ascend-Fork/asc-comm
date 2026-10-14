@@ -1,0 +1,212 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+#ifndef HCCL_MC2_H
+#define HCCL_MC2_H
+
+#include <hccl/hccl_types.h>
+#include <hccl/hccl_res.h>
+#include <ccu/ccu_types.h>
+
+using Mc2Result = uint32_t;
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
+/**
+ * @brief  Alloc Mc2OpArgs memory
+ * @param opArgs A pointer to the allocated Mc2OpArgs memory.
+ */
+extern HcclResult Mc2KfcAllocOpArgs(void** opArgs);
+
+/**
+ * @brief  Free Mc2OpArgs memory
+ * @param opArgs A pointer to the Mc2OpArgs memory.
+ */
+extern HcclResult Mc2KfcFreeOpArgs(void* opArgs);
+
+/**
+ * @brief  Set the source data type param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param srcDataType The source data type to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetSrcDataType(void* opArgs, uint8_t srcDataType);
+
+/**
+ * @brief  Set the destination data type param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param dstDataType The destination data type to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetDstDataType(void* opArgs, uint8_t dstDataType);
+
+/**
+ * @brief  Set the reduce type param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param reduceType The reduce type to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetReduceType(void* opArgs, uint32_t reduceType);
+
+/**
+ * @brief  Set the data count param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param count The data count to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetCount(void* opArgs, uint64_t count);
+
+/**
+ * @brief  Set the algConfig param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param algConfig The algConfig to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetAlgConfig(void* opArgs, char* algConfig);
+
+/**
+ * @brief  Set the comm engine param of Mc2OpArgs
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param commEngine The comm engine type to set.
+ */
+extern HcclResult Mc2KfcOpArgsSetCommEngine(void* opArgs, uint8_t commEngine);
+
+/**
+ * @brief  Create the OpResCtx for communication
+ * @param comm A pointer identifying the communication resource based on.
+ * @param opType The opType param.
+ * @param opArgs A pointer to the Mc2OpArgs.
+ * @param opResCtx A pointer to the created OpResCtx.
+ */
+extern HcclResult Mc2CreateOpResCtx(HcclComm comm, uint8_t opType, void* opArgs, void** opResCtx);
+
+/**
+ * @brief Allocate communication resource by MC2 Tiling data
+ * @param comm A pointer identifying the communication resource based on.
+ * @param stream A pointer identifying the stream information.
+ * @param mc2Tiling MC2 tiling data structure containing algorithm configuration.
+ * @param opResCtx Output pointer to store the created communication context.
+ * @return HcclResult - HCCL_SUCCESS on success, error code otherwise.
+ *
+ * @note This interface is used for MC2 compilation scenario to pre-allocate
+ *       communication resources based on tiling information.
+ */
+extern HcclResult __attribute__((visibility("default"))) HcclAllocComResourceByTiling(
+    HcclComm comm, void* stream, void* mc2Tiling, void** opResCtx);
+
+/**
+ * @brief Check whether communication resource can be allocated for the given MC2 tiling
+ * @param comm A pointer identifying the communication resource based on.
+ * @param stream A pointer identifying the stream information.
+ * @param mc2Tiling MC2 tiling data structure containing algorithm configuration.
+ * @return HcclResult - HCCL_SUCCESS on success, error code otherwise.
+ *
+ * @note CheckOnly pre-check: reuses the same argument parsing / algorithm selection / resource
+ *       calculation / resource acquisition logic as the real allocation path to probe whether
+ *       resources are sufficient; HCCL_E_UNAVAIL is translated to HCCL_E_RES_NOT_SUFFICIENT,
+ *       and the final OpResCtx is not persisted to device.
+ */
+extern HcclResult __attribute__((visibility("default"))) CheckOpResSufficient(
+    HcclComm comm, void* stream, void* mc2Tiling);
+
+extern CcuResult CcuKernelLaunch(HcclComm comm, void* opResCtx);
+
+/**
+ * @brief Allocate the opaque ccArgs object for MC2 builtin APIs.
+ * @param ccArgs Output pointer to store the allocated ccArgs object.
+ * @return HCCL_SUCCESS on success, otherwise a failure code.
+ * @note The returned object must be released by Mc2FreeCcArgs.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2GetCcArgs(void** ccArgs);
+
+/**
+ * @brief Free the opaque ccArgs object for MC2 builtin APIs.
+ * @param ccArgs Opaque argument object returned by Mc2GetCcArgs.
+ * @return HCCL_SUCCESS on success, otherwise a failure code.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2FreeCcArgs(void* ccArgs);
+
+/**
+ * @brief Set the comm engine for MC2 builtin API arguments.
+ *        The matching launch version is updated automatically according to the engine.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param commEngine Comm engine value.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2SetCcCommEngine(void* ccArgs, uint8_t commEngine);
+
+/**
+ * @brief Set the algorithm config for MC2 builtin API arguments.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param algConfig Algorithm config string.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2SetCcAlgConfig(void* ccArgs, const char* algConfig);
+
+/**
+ * @brief Set the source data type for MC2 builtin API arguments.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param srcDataType Source data type.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2SetCcSrcDataType(void* ccArgs, uint8_t srcDataType);
+
+/**
+ * @brief Set the destination data type for MC2 builtin API arguments.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param dstDataType Destination data type.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2SetCcDstDataType(void* ccArgs, uint8_t dstDataType);
+
+/**
+ * @brief Set the reduce type for MC2 builtin API arguments.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param reduceType Reduce type.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2SetCcReduceType(void* ccArgs, uint8_t reduceType);
+
+/**
+ * @brief Allocate the opaque ccResCtx object for MC2 builtin APIs.
+ * @param comm Communication domain handle.
+ * @param ccType MC2 operation type.
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs.
+ * @param ccResCtx Output pointer to store the allocated resource context.
+ * @param ccResCtxSize Output size of the allocated resource context.
+ * @note The returned context is owned by the communication domain and should not be freed by the caller.
+ *       The CCU path currently supports Ascend 950 only.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2AcquireCcResCtx(
+    HcclComm comm, uint8_t ccType, void* ccArgs, void** ccResCtx, uint32_t* ccResCtxSize);
+
+/**
+ * @brief Launch MC2 builtin kernel from the prepared resource context.
+ * @param stream Stream reserved for the AICPU launch path. It is ignored by the CCU path.
+ * @param ccResCtx Device-side resource context returned by Mc2AcquireCcResCtx.
+ * @param ccResCtxSize Size of the resource context.
+ * @note The launch path dispatches by commEngine in the OpParam referenced by the context.
+ *       The CCU path currently supports Ascend 950 only and obtains its launch stream
+ *       from the thread resource embedded in ccResCtx.
+ */
+extern Mc2Result __attribute__((visibility("default"))) Mc2CcKernelLaunch(
+    void* stream, void* ccResCtx, uint32_t ccResCtxSize);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+
+/**
+ * @brief Check whether communication resource can be allocated for the given MC2 ccArgs
+ * @param comm A pointer identifying the communication resource based on.
+ * @param ccType The MC2 operation type (HcclCMDType).
+ * @param ccArgs Opaque argument object created by Mc2GetCcArgs and filled by Mc2SetCc* APIs.
+ * @return HcclResult - HCCL_SUCCESS on success, error code otherwise.
+ *
+ * @note ccArgs must be created by Mc2GetCcArgs. The real probe runs only for rankSize > 1 on the
+ *       CCU_SCHED engine; other cases return HCCL_SUCCESS without probing.
+ *       Declared with C++ linkage (outside the extern "C" block) to allow overloading without
+ *       conflicting with the C-linkage overload symbol.
+ */
+extern HcclResult __attribute__((visibility("default"))) CheckOpResSufficient(
+    HcclComm comm, uint8_t ccType, void* ccArgs);
+
+#endif // HCCL_MC2_H
