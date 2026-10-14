@@ -121,7 +121,7 @@ HcclResult GetChannelForCcu(
         bool found = false;
         for (uint32_t index = 0; index < listSize; ++index) {
             const CommLink& link = linkList[index];
-            if (link.linkAttr.linkProtocol != CommProtocol::COMM_PROTOCOL_UBC_CTP) {
+            if (link.linkAttr.linkProtocol != CommProtocol::COMM_PROTOCOL_UB_CTP) {
                 continue;
             }
             desc.remoteRank = remoteRank;
