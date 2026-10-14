@@ -3,6 +3,7 @@
 ## 样例介绍
 
 本样例展示如何基于 HCCL 通信域和 CCU 数据面接口实现一个自定义 AllReduce SUM 操作。
+Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
 
 样例约束：
 
@@ -26,18 +27,9 @@
 04_allreduce/
 ├── CMakeLists.txt
 ├── README.md
+├── README_en.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+└── main.asc
 ```
 
 ## 构建和运行
@@ -58,7 +50,7 @@ bash run.sh
 `run.sh` 会执行 CMake 配置、编译并运行：
 
 ```bash
-cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}"
+cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DCMAKE_ASC_ARCHITECTURES=dav-3510
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 exec "${BUILD_DIR}/ccu_allreduce"
 ```

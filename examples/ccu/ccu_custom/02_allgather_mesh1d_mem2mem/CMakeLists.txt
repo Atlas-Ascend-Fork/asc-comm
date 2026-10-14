@@ -23,12 +23,11 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
 endif()
 
 add_executable(ccu_allgather_mesh1d_mem2mem
-    main.cc
+    main.asc
 )
 
 target_include_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_host
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
@@ -49,7 +48,6 @@ target_compile_options(ccu_allgather_mesh1d_mem2mem PRIVATE
 )
 
 target_compile_definitions(ccu_allgather_mesh1d_mem2mem PRIVATE
-    HOST_COMPILE
     _GLIBCXX_USE_CXX11_ABI=0
 )
 target_link_options(ccu_allgather_mesh1d_mem2mem PRIVATE
@@ -57,7 +55,6 @@ target_link_options(ccu_allgather_mesh1d_mem2mem PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
-    -Wl,--copy-dt-needed-entries
 )
 target_link_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
@@ -74,6 +71,3 @@ target_link_libraries(ccu_allgather_mesh1d_mem2mem PRIVATE
     ascendc_runtime
     pthread
 )
-
-add_subdirectory(op_host)
-add_subdirectory(op_kernel_ccu)

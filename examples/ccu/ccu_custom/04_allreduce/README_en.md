@@ -3,6 +3,7 @@
 ## Overview
 
 This sample shows how to implement a custom AllReduce SUM operation with HCCL communication-domain APIs and CCU dataplane APIs.
+The kernel is launched with the ASC `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
 
 Sample constraints:
 
@@ -27,17 +28,8 @@ Algorithm flow:
 ├── CMakeLists.txt
 ├── README.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+├── README_en.md
+└── main.asc
 ```
 
 ## Build and Run
@@ -58,7 +50,7 @@ bash run.sh
 `run.sh` configures CMake, builds, and runs:
 
 ```bash
-cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}"
+cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DCMAKE_ASC_ARCHITECTURES=dav-3510
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 exec "${BUILD_DIR}/ccu_allreduce"
 ```

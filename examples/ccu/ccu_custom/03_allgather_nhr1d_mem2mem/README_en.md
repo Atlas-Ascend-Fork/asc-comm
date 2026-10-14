@@ -1,15 +1,15 @@
 # CCU AllGather NHR1D Mem2Mem
 
-This sample registers and launches a CCU kernel directly from the host, demonstrating the NHR1D Mem2Mem AllGather dataplane.
+This sample launches a CCU kernel with the ASC `<<<>>>` direct-launch syntax, demonstrating the NHR1D Mem2Mem AllGather dataplane.
 
 ## Overview
 
 ```text
 Python generates input and golden data
-  -> initialize the HCCL communication domain
-  -> generate NHR steps and the rank-to-channel mapping
-  -> acquire CCU channels in one batch
-  -> register and launch the CCU kernel
+ -> initialize the HCCL communication domain
+ -> generate NHR steps and the rank-to-channel mapping
+ -> acquire CCU channels in one batch
+  -> launch the CCU kernel with `<<<>>>`
   -> GroupCopy the local slice
   -> write and forward slices remotely per NHR step
   -> C++ writes out the result of each rank
@@ -51,6 +51,20 @@ The host and kernel share a unified 10-argument task ABI, keeping the per-round 
 - Data type: `float`
 - Communication scope: single die, single mission, 1 to 16 ranks
 - Data layout: out-of-place AllGather, equal slice size on every rank
+
+## Directory Structure
+
+```text
+03_allgather_nhr1d_mem2mem/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+├── main.asc
+└── scripts/
+    ├── gen_data.py
+    └── verify_result.py
+```
 
 ## Build and Run
 
