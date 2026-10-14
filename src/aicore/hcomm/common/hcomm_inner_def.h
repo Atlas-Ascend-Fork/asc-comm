@@ -253,8 +253,10 @@ typedef struct {
     RegedBufferEntity* remoteBufferAddr;
     SqContext* sqContextAddr;
     CqContext* cqContextAddr;
-    uint32_t sqHead; // SQ producer index in WQE BBs
-    uint32_t sqTail; // Submitted WQE count, reserved for future use
+    // RoCE and URMA both use this field as the SQ producer WQEBB index.
+    uint32_t sqHead;
+    // Completed SQ consumer WQEBB index.
+    uint32_t sqTail;
     uint32_t cqHead; // Number of expected CQEs
     uint32_t cqTail; // Number of consumed CQEs
     uint8_t reserve[144];
@@ -320,6 +322,10 @@ typedef struct {
     BatchBuffer buffer;
 } UbcBatchHandle;
 
+// RoCE uses the same batch-handle ABI as UB/URMA. This alias keeps the RoCE implementation
+// protocol-specific in source without changing the public BatchHandle mapping.
+using RoceBatchHandle = UbcBatchHandle;
+
 typedef struct {
     UbcBatchHandle handle;
     ChannelHandle channelHandle;
@@ -361,7 +367,7 @@ struct HandleTraits<UbcMultiBatchHandle> {
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)
     uint8_t dfTsl;   // dw0[23:16]: cr(1) + df(1) + va(1) + tsl(5); tsl = task section length / 8B
-    uint16_t wfBdsl; // dw0[15:0]: cf(1) + wf(1) + wqe_msn(2) + fde(1) + fast(1) + drv_sl(2) + bdsl(8)
+    uint16_t wfBdsl; // dw0[15:0]: cf(1) + wf(1) + wqe_ssn(2) + fde(1) + fast(1) + drv_sl(2) + bdsl(8)
     uint32_t clPi;   // dw1: cl(4) + reserved(8) + mask_pi(20); mask_pi only used by direct WQE
     uint64_t db;     // dw2-dw3: doorbell segment, not used by this path
 } RoceWqeCtrlSeg;
@@ -413,9 +419,10 @@ typedef struct {
 
 typedef struct {
     uint32_t ownerIdQpn; // dw1: owner(31) + cqe_size(30:29) + dif_en(28) + wq_id(27:24) + err_code(23:20) + qpn(19:0)
-    uint32_t opSrWqebb;  // dw2: op_type(31:27) + s_r(26) + inline(25) + merge(24) + fake(23) + wqebb_cnt(19:0)
-    uint32_t byteCnt;    // dw3: transferred byte count
-    uint32_t immData;    // dw4: immediate data / invalidate key (receive side)
+    uint32_t
+        opSrWqebb;    // dw2: op_type(31:27) + s_r(26) + inline(25) + merge(24) + fake(23) + completed_wqebb_index(19:0)
+    uint32_t byteCnt; // dw3: transferred byte count
+    uint32_t immData; // dw4: immediate data / invalidate key (receive side)
     union {
         struct {
             uint8_t smac[2];
