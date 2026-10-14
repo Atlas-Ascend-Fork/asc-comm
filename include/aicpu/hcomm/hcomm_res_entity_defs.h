@@ -386,7 +386,7 @@ typedef struct {
             uint32_t sqTail;
             uint32_t taskId;
             uint32_t taskIdEnd;
-            uint32_t localSqAddr;
+            uint64_t localSqAddr;
             uint32_t localSqDepth;
             uint32_t pendingSqeCnt;
         } RtsqContext;
