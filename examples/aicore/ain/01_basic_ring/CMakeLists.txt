@@ -26,7 +26,9 @@ set_target_properties(basic_ring_demo PROPERTIES
 target_include_directories(basic_ring_demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
+    $ENV{ASCEND_HOME_PATH}/pkg_inc
     $ENV{ASCEND_HOME_PATH}/include
+    $ENV{ASCEND_HOME_PATH}/include/hcomm
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/hcomm
 )
