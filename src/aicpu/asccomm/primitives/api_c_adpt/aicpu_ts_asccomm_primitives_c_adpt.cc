@@ -50,7 +50,7 @@ AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool r
     // The public ThreadHandle is the device resource entity address.  The control
     // plane performs the original-handle -> POD conversion before launch.
     threadEntity = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(thread));
-    CHK_RET(validate_entity(threadEntity, HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD));
+    CHK_RET(validate_entity(threadEntity, HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (resolveRtsq) {
         CHK_RET(asccomm_resolve_thread_rtsq(threadEntity));
@@ -67,7 +67,7 @@ AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool regis
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
     // ChannelHandle follows the same resource-address ABI as ThreadHandle.
     context.channel = reinterpret_cast<ChannelEntity*>(static_cast<uintptr_t>(channel));
-    CHK_RET(validate_entity(context.channel, HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD));
+    CHK_RET(validate_entity(context.channel, HCOMM_CHANNEL_ENTITY_VERSION, HCOMM_CHANNEL_ENTITY_MAGIC_WORD));
     return ASCCOMM_SUCCESS;
 }
 
