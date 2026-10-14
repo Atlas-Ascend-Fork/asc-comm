@@ -44,7 +44,7 @@ HcclResult AllocChannelResource(
 
         HcclChannelDesc desc;
         RETURN_IF_HCCL_FAIL(HcclChannelDescInit(&desc, 1));
-        const CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        const CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UB_CTP;
         bool protocolExists = false;
         for (uint32_t i = 0; i < listSize; i++) {
             const CommLink& link = linkList[i];
