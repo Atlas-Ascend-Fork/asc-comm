@@ -51,8 +51,10 @@ AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool r
     // plane performs the original-handle -> POD conversion before launch.
     threadEntity = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(thread));
     CHK_RET(validate_entity(threadEntity, HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD));
-    CHK_PTR_NULL(threadEntity->sqContextAddr);
+    // A host stream can be exported as a notify-only thread entity. Such an entity
+    // has no RTSQ, so only callers that submit work through the thread require it.
     if (resolveRtsq) {
+        CHK_PTR_NULL(threadEntity->sqContextAddr);
         CHK_RET(asccomm_resolve_thread_rtsq(threadEntity));
     }
     if (registerThread) {
