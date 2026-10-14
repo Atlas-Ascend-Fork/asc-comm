@@ -23,10 +23,11 @@ void __attribute__((weak)) __attribute__((visibility("default"))) GetSqeId(
 }
 
 namespace {
+using HcommRtsqContext = decltype(((HcommThreadSqContext*)nullptr)->contextInfo.RtsqContext);
 
 AsccommResult acquire_task_id(HcommThreadSqContext& contextOuter, uint32_t& taskId)
 {
-    HcommRtsqContext& rtsq = contextOuter.rtsq;
+    HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     CHK_PRT_RET(
         contextOuter.type != HCOMM_SQ_CONTEXT_TYPE_UB_JFS || rtsq.localSqAddr == 0,
         ASCCOMM_ERROR("[%s] invalid local SQE buffer.", __func__), ASCCOMM_E_PTR);
@@ -171,7 +172,7 @@ AsccommResult copy_pending_sqes(HcommRtsqContext& context)
 
 AsccommResult refresh_rtsq(HcommThreadSqContext& contextOuter)
 {
-    HcommRtsqContext& rtsq = contextOuter.rtsq;
+    HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     ++rtsq.pendingSqeCnt;
     if (rtsq.pendingSqeCnt == HCOMM_RESOURCE_RTSQ_BATCH_SIZE) {
         return asccomm_rtsq_launch(contextOuter);
@@ -181,8 +182,8 @@ AsccommResult refresh_rtsq(HcommThreadSqContext& contextOuter)
 
 uint8_t* get_current_sqe(HcommThreadSqContext& contextOuter)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(contextOuter.rtsq.localSqAddr))
-           + contextOuter.rtsq.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
+    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(contextOuter.contextInfo.RtsqContext.localSqAddr))
+           + contextOuter.contextInfo.RtsqContext.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
 }
 
 AsccommResult validate_thread_entity(HcommThreadEntity* thread)
@@ -194,7 +195,7 @@ AsccommResult validate_thread_entity(HcommThreadEntity* thread)
             thread->abiHeader.size < sizeof(HcommThreadEntity),
         ASCCOMM_ERROR("[%s] invalid resource thread entity.", __func__), ASCCOMM_E_PARA);
     CHK_PTR_NULL(thread->sqContextAddr);
-    const HcommRtsqContext& rtsq = thread->sqContextAddr->rtsq;
+    const HcommRtsqContext& rtsq = thread->sqContextAddr->contextInfo.RtsqContext;
     CHK_PRT_RET(
         rtsq.sqBaseAddr == 0 || rtsq.sqDepth == 0 || rtsq.sqHead >= rtsq.sqDepth || rtsq.sqTail >= rtsq.sqDepth,
         ASCCOMM_ERROR(
@@ -210,7 +211,7 @@ AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
 {
     CHK_PTR_NULL(thread);
     CHK_PTR_NULL(thread->sqContextAddr);
-    HcommRtsqContext& rtsq = thread->sqContextAddr->rtsq;
+    HcommRtsqContext& rtsq = thread->sqContextAddr->contextInfo.RtsqContext;
     if (rtsq.sqBaseAddr != 0) {
         return ASCCOMM_SUCCESS;
     }
@@ -237,7 +238,7 @@ AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
 
 AsccommResult asccomm_rtsq_launch(HcommThreadSqContext& contextOuter)
 {
-    HcommRtsqContext& rtsq = contextOuter.rtsq;
+    HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     if (rtsq.pendingSqeCnt == 0) {
         return ASCCOMM_SUCCESS;
     }
@@ -265,7 +266,7 @@ AsccommResult asccomm_rtsq_launch(HcommThreadSqContext& contextOuter)
 
 AsccommResult asccomm_rtsq_try_launch(HcommThreadSqContext& contextOuter)
 {
-    HcommRtsqContext& rtsq = contextOuter.rtsq;
+    HcommRtsqContext& rtsq = contextOuter.contextInfo.RtsqContext;
     if (rtsq.pendingSqeCnt == 0) {
         return ASCCOMM_SUCCESS;
     }
@@ -284,7 +285,8 @@ AsccommResult asccomm_rtsq_notify_wait(HcommThreadSqContext& context, uint32_t n
 {
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
-    Asc::build_a5_sqe_notify_wait(context.rtsq.streamId, taskId, notifyId, timeout, get_current_sqe(context));
+    Asc::build_a5_sqe_notify_wait(
+        context.contextInfo.RtsqContext.streamId, taskId, notifyId, timeout, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -292,7 +294,8 @@ AsccommResult asccomm_rtsq_notify_record(HcommThreadSqContext& context, uint32_t
 {
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
-    Asc::build_a5_sqe_notify_record(context.rtsq.streamId, taskId, notifyId, get_current_sqe(context));
+    Asc::build_a5_sqe_notify_record(
+        context.contextInfo.RtsqContext.streamId, taskId, notifyId, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -303,7 +306,8 @@ AsccommResult asccomm_rtsq_sdma_copy(HcommThreadSqContext& context, uint64_t dst
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_sdma_copy(
-        context.rtsq.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, COPY_OPCODE, get_current_sqe(context));
+        context.contextInfo.RtsqContext.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, COPY_OPCODE,
+        get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -355,7 +359,8 @@ AsccommResult asccomm_rtsq_sdma_reduce(
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
     Asc::build_a5_sqe_sdma_copy(
-        context.rtsq.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, operation | dataType, get_current_sqe(context));
+        context.contextInfo.RtsqContext.streamId, taskId, dstAddr, srcAddr, size, RTSQ_PART_ID, operation | dataType,
+        get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -363,7 +368,8 @@ AsccommResult asccomm_rtsq_ub_db_send(HcommThreadSqContext& context, const Asc::
 {
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
-    Asc::build_a5_sqe_ub_db_send(context.rtsq.streamId, taskId, jettyId, piValue, get_current_sqe(context));
+    Asc::build_a5_sqe_ub_db_send(
+        context.contextInfo.RtsqContext.streamId, taskId, jettyId, piValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -371,7 +377,8 @@ AsccommResult asccomm_rtsq_rdma_db_send(HcommThreadSqContext& context, uint64_t 
 {
     uint32_t taskId = 0;
     CHK_RET(acquire_task_id(context, taskId));
-    Asc::build_a5_sqe_rdma_db_send(context.rtsq.streamId, taskId, dbAddr, dbValue, get_current_sqe(context));
+    Asc::build_a5_sqe_rdma_db_send(
+        context.contextInfo.RtsqContext.streamId, taskId, dbAddr, dbValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
