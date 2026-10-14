@@ -108,6 +108,26 @@ AsccommResult asccomm_read_reduce(
     return g_runtimeStubState.readReduceResult;
 }
 
+AsccommResult asccomm_send(HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len)
+{
+    g_runtimeStubState.sendCalls.push_back({&thread, &channel, localAddr, len});
+    return g_runtimeStubState.sendResult;
+}
+
+AsccommResult asccomm_send_with_imm(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t immData)
+{
+    g_runtimeStubState.sendWithImmCalls.push_back({&thread, &channel, localAddr, len, immData});
+    return g_runtimeStubState.sendWithImmResult;
+}
+
+AsccommResult asccomm_recv(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t* immData)
+{
+    g_runtimeStubState.recvCalls.push_back({&thread, &channel, localAddr, len, immData});
+    return g_runtimeStubState.recvResult;
+}
+
 AsccommResult asccomm_batch_transfer(
     HcommThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
     uint32_t transferDescNum)
