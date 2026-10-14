@@ -36,6 +36,8 @@ constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 constexpr uint32_t HCOMM_POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t HCOMM_NUM_CQE_PER_POLL_CQ = 100;
+// HCCL guarantees buffer 0 covers all URMA buffers and shares their protection metadata.
+constexpr uint32_t HCOMM_URMA_DEFAULT_BUFFER_IDX = 0U;
 constexpr uint32_t HCOMM_RESOURCE_CHANNEL_VERSION = 1U;
 
 #pragma pack(push, 1)
@@ -303,6 +305,15 @@ typedef struct {
 } MultiChannelEntity;
 
 typedef struct {
+    uint32_t lKey;
+    uint32_t rKey;
+    uint64_t keyWord;
+    uint64_t dataKeyHighWord;
+} RoceMrKey;
+
+static_assert(sizeof(RoceMrKey) <= sizeof(BatchRemoteInfo), "RoCE MR key cache must not grow UbcBatchHandle");
+
+typedef struct {
     LocalTensor<uint32_t> buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
@@ -312,7 +323,10 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     BatchQueueCursor cursor;
-    BatchRemoteInfo remoteInfo;
+    union {
+        BatchRemoteInfo remoteInfo;
+        RoceMrKey mrKey;
+    };
     BatchBuffer buffer;
 } UbcBatchHandle;
 

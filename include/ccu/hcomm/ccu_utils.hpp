@@ -15,7 +15,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/ccu/ccu_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace AscendC {
 namespace ccu {
@@ -68,8 +69,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_arithmetic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }
@@ -86,8 +87,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_logic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_logic_operator(lhs_t lhs, rhs_t rhs, ccu_logic_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_logic_operator(lhs_t lhs, rhs_t rhs, ccu_logic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }
@@ -103,7 +104,7 @@ public:
 template <typename lhs_t>
 class ccu_logic_unary_operator {
 public:
-    ccu_logic_unary_operator(lhs_t lhs, ccu_logic_operator_type type_) : lhs(lhs), type_(type_) { check(); }
+    ccu_logic_unary_operator(lhs_t lhs, ccu_logic_operator_type type) : lhs(lhs), type_(type) { check(); }
     void check() const
     {
         throw ::AscendC::ccu::detail::ccu_exception(
@@ -118,8 +119,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }

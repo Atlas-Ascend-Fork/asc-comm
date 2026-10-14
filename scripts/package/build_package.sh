@@ -190,6 +190,10 @@ copy_headers()
     while IFS= read -r -d '' source_file; do
         relative_path=${source_file#"${source_root}/"}
         skip=false
+        case "${source_file}" in
+            *.h|*.hpp) ;;
+            *) continue ;;
+        esac
         for excluded_path in "$@"; do
             case "${relative_path}" in
                 "${excluded_path}"|"${excluded_path}/"*)
@@ -201,7 +205,7 @@ copy_headers()
         [[ "${skip}" == false ]] || continue
         install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
         count=$((count + 1))
-    done < <(find "${source_root}" -type f -name '*.h' -print0 | sort -z)
+    done < <(find "${source_root}" -type f \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
     [[ ${count} -gt 0 || $# -gt 0 ]] || fail "no header files found under ${source_root}"
 }
@@ -213,7 +217,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f \( -name '*.h' -o -name '*.so' \) -print0 | sort -z)
+        done < <(find asc -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -303,6 +307,11 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
         aicore/hcomm
+    # pod 契约头统一位于 pkg_inc/hcomm/（含 ccu/ 子目录），随 pkg_inc 整体装载到 comm_api/hcomm/
+    copy_headers \
+        "${PROJECT_ROOT}/pkg_inc" \
+        "${STAGING_DIR}/payload/asc/include/comm_api" \
+        550
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \

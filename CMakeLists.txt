@@ -11,7 +11,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 include(version.cmake)
+if(NOT CANN_3RD_LIB_PATH)
+    set(CANN_3RD_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party" CACHE PATH "CANN third_party path")
+endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_cann_cmake.cmake")
 project(asc_comm VERSION "${ASCCOMM_VERSION}" LANGUAGES C CXX)
+init_cann_project(PREPEND_MODULE_PATH)
+add_cann_target_options()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -20,6 +26,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU library" ON)
 option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
+option(ASCCOMM_BUILD_MC2 "Build MC2 communication client library (migrated from asc-devkit hccl)" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -53,4 +60,8 @@ if(ASCCOMM_BUILD_CCU)
 endif()
 if(ASCCOMM_BUILD_AICPU)
     add_subdirectory(src/aicpu)
+endif()
+
+if(ASCCOMM_BUILD_MC2)
+    add_subdirectory(src/cc)
 endif()

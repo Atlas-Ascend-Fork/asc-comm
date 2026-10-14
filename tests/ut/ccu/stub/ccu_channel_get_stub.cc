@@ -11,9 +11,10 @@
 #include "ccu_channel_get_stub.h"
 
 #include "hcomm/common/ccu_device_context.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
-// 本文件底部提供的 stub 入口（ascCustom 槽 0：返回实体借用地址）
-extern "C" int32_t HcommCcuGetChannelEntity(ChannelHandle channel, uint64_t* channelEntityPtr);
+// 本文件底部提供的 stub 入口（控制操作槽 0：填充实体快照）
+extern "C" int32_t HcommCcuGetChannelEntity(ChannelHandle channel, HcommCcuChannelEntity* channelEntity);
 
 namespace asc {
 namespace {
@@ -31,8 +32,8 @@ void SetHcommCcuChannelGetEntityStub(const HcommCcuChannelEntity& channelEntity)
     channelEntityStubConfigured = true;
 
     // 仅注入本 stub 关心的槽 0（getChannelEntity）
-    uint64_t ops[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
-    ops[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuGetChannelEntity);
+    uint64_t ops[8]{};
+    ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuGetChannelEntity);
     asc::set_current_ccu_control_ops(ops);
 }
 
@@ -48,23 +49,16 @@ void ResetHcommCcuChannelGetEntityStub()
 
 } // namespace asc
 
-namespace asc {
-namespace {
-HcommCcuChannelEntity channelEntityStorage{}; // stub 的"实体"存储：借出该地址
-}
-} // namespace asc
-
-// 借用地址指向预置快照
-int32_t HcommCcuGetChannelEntity(ChannelHandle, uint64_t* channelEntityPtr)
+// 填充预置快照
+int32_t HcommCcuGetChannelEntity(ChannelHandle, HcommCcuChannelEntity* channelEntity)
 {
-    if (channelEntityPtr == nullptr || !asc::channelEntityStubConfigured) {
+    if (channelEntity == nullptr || !asc::channelEntityStubConfigured) {
         return static_cast<int32_t>(HCCL_E_PTR);
     }
     if (asc::queryResultStub != HCCL_SUCCESS) {
         return static_cast<int32_t>(asc::queryResultStub);
     }
 
-    asc::channelEntityStorage = asc::channelEntityStub;
-    *channelEntityPtr = reinterpret_cast<uint64_t>(&asc::channelEntityStorage);
+    *channelEntity = asc::channelEntityStub;
     return static_cast<int32_t>(HCCL_SUCCESS);
 }

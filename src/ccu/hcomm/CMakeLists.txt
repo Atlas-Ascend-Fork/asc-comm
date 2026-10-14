@@ -22,7 +22,6 @@ target_sources(asccomm_ccu_obj PRIVATE
     resource/kernel/ccu_kernel_registry.cc
     resource/kernel/ccu_kernel_registry_mgr.cc
     resource/kernel/ccu_kernel.cc
-    resource/kernel/ccu_dfx.cc
     resource/kernel/ccu_kernel_res_allocator.cc
     resource/kernel/ccu_kernel_mgr.cc
     resource/microcode/ccu_microcode.cc

@@ -24,7 +24,7 @@ endif()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH = ${ASCEND_CANN_PACKAGE_PATH}")
 
 if(NOT ASCCOMM_CANN_ARCH_DIR)
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+    if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
         set(_ASCCOMM_CANN_ARCH "aarch64-linux")
     else()
         set(_ASCCOMM_CANN_ARCH "x86_64-linux")
@@ -37,8 +37,8 @@ message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 # 最后探测相邻源码仓；没有契约头时回退到随仓自包含头文件。
 if(NOT ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
     foreach(_candidate
-        "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
-        "${ASCCOMM_ROOT}/../hcomm")
+        "${ASCCOMM_ROOT}/../hcomm"
+        "${ASCCOMM_ROOT}/../../hcomm")
         if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
             get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_candidate}" ABSOLUTE)
             break()

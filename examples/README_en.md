@@ -17,7 +17,7 @@ This directory contains usage samples for asc-comm APIs.
 | [aicore/hcomm/06_simt_batch_perf](./aicore/hcomm/06_simt_batch_perf/README_en.md) | Validates six SIMT URMA APIs and compares issue cost for Immediate, ExplicitBatch and GroupBatch. | Ascend 950PR / Ascend 950DT |
 | [simt_jetty](./simt_jetty/README_en.md) | Demonstrates a SIMT Kernel building and submitting Jetty WQEs directly through `HcommJetty::Write` with thread/warp/group cooperation, covering the multi-warp dispatch batching mode and the mixed SIMT/SIMD publication mode, with device-side performance and stress scripts. | Ascend 950PR / Ascend 950DT |
 | [aicore/jetty/01_hcomm_jetty_write](./aicore/jetty/01_hcomm_jetty_write/README_en.md) | Demonstrates an AIV Kernel submitting WQEs directly to the Jetty SQ through `HcommJetty::Write` and `HcommJetty::WriteValue` in a multi-card scenario, with `Drain` used for completion and verification. | Ascend 950PR / Ascend 950DT |
-| [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README_en.md) | Demonstrates AllGather and other collective communication operations using HCCL communicators and CCU dataplane interfaces with direct `<<<>>>` invocation. | Ascend 950PR/Ascend 950DT |
+| [ccu](./ccu/README_en.md) | Demonstrates CCU builtin integration, direct ASC invocation, and custom kernels, covering collective communication and basic data movement. | Ascend 950PR/Ascend 950DT |
 
 See the README in each sample directory for build and run instructions.
 
