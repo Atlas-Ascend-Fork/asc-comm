@@ -375,30 +375,36 @@ typedef struct {
 // RTSQ硬件字段由HCOMM控制面在资源构造阶段查询并填充；数据面只消费初始快照，
 // 并在提交过程中维护运行态head/tail。
 typedef struct {
-    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID(控制面填充)
-    uint32_t streamId;      ///< RTSQ关联的Stream ID，写入部分SQE或用于诊断
-    uint32_t sqId;          ///< 硬件RTSQ编号
-    uint32_t sqDepth;       ///< 硬件RTSQ可容纳的SQE数量
-    uint32_t sqHead;        ///< 最近一次查询到的硬件RTSQ Head
-    uint32_t sqTail;        ///< 资源运行时维护的硬件RTSQ Tail
-    uint64_t sqBaseAddr;    ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址
-    uint64_t localSqeAddr;  ///< 控制面申请、数据面维护的本地SQE缓存地址
-    uint32_t taskId;        ///< 数据面下一次使用的Task ID，控制面创建资源时置0
-    uint32_t taskIdEnd;     ///< 当前已申请Task ID区间的开区间上界，控制面创建资源时置0
-    uint32_t pendingSqeCnt; ///< 本地缓存中尚未提交的SQE数量
-    uint8_t launchFlag;     ///< 非0时在非Batch模式下每生成一个SQE立即提交
-    uint8_t reserved[3];    ///< RTSQ状态扩展及对齐空间，创建资源时置0
+    uint32_t streamId;
+    uint32_t sqId;
+    uint64_t sqBaseAddr;
+    uint32_t sqDepth;
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t taskId;
+    uint32_t taskIdEnd;
+    uint32_t localSqAddr;
+    uint32_t localSqDepth;
+    uint32_t pendingSqeCnt;
 } HcommRtsqContext;
 
 typedef struct {
+    HcommSqContextType type;
+    union {
+        HcommRtsqContext rtsq;
+        int8_t raws[120];
+    };
+} HcommThreadSqContext;
+
+typedef struct {
     CommAbiHeader abiHeader;                 ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
+    HcommDevInfo devInfo;                    ///< Thread所属设备信息
     uint32_t localNotifyNum;                 ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
-    HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的resource RTSQ运行上下文
+    HcommThreadSqContext* sqContextAddr;     ///< Thread直接持有的resource RTSQ运行上下文
     ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
-    HcommDevInfo devInfo;           ///< Thread所属设备信息
     uint8_t raw[168];               ///< Thread固定256字节中的ABI预留扩展空间
-} ThreadEntity;
+} HcommThreadEntity;
 
 #ifdef __cplusplus
 }
@@ -421,23 +427,23 @@ static_assert(offsetof(HcommSqContext, contextInfo) == 8, "HcommSqContext ABI of
 static_assert(offsetof(HcommSqContext, fence) == 120, "HcommSqContext ABI offset mismatch");
 static_assert(
     sizeof(ChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must not exceed 256 bytes");
-static_assert(sizeof(ThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "ThreadEntity ABI size must be 256 bytes");
+static_assert(sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "HcommThreadEntity ABI size must be 256 bytes");
 static_assert(sizeof(ChannelEntity) == HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must be 256 bytes");
 static_assert(alignof(ChannelEntity) == 8, "ChannelEntity ABI alignment must match HCOMM");
-static_assert(alignof(ThreadEntity) == 8, "ThreadEntity ABI alignment must match HCOMM");
+static_assert(alignof(HcommThreadEntity) == 8, "HcommThreadEntity ABI alignment must match HCOMM");
 static_assert(offsetof(ChannelEntity, localNotifyNum) == 24, "ChannelEntity ABI offset mismatch");
 static_assert(offsetof(ChannelEntity, localNotifyAddr) == 48, "ChannelEntity ABI offset mismatch");
 static_assert(offsetof(ChannelEntity, sqContextAddr) == 80, "ChannelEntity ABI offset mismatch");
 static_assert(offsetof(ChannelEntity, devInfo) == 96, "ChannelEntity ABI offset mismatch");
 static_assert(offsetof(ChannelEntity, originChannelHandle) == 136, "ChannelEntity ABI offset mismatch");
-static_assert(offsetof(ThreadEntity, localNotifyNum) == 16, "ThreadEntity ABI offset mismatch");
-static_assert(offsetof(ThreadEntity, localNotifyAddr) == 24, "ThreadEntity ABI offset mismatch");
-static_assert(offsetof(ThreadEntity, sqContextAddr) == 32, "ThreadEntity ABI offset mismatch");
-static_assert(offsetof(ThreadEntity, originThreadHandle) == 40, "ThreadEntity ABI offset mismatch");
-static_assert(offsetof(ThreadEntity, devInfo) == 48, "ThreadEntity ABI offset mismatch");
+static_assert(offsetof(HcommThreadEntity, devInfo) == 16, "HcommThreadEntity ABI offset mismatch");
+static_assert(offsetof(HcommThreadEntity, localNotifyNum) == 56, "HcommThreadEntity ABI offset mismatch");
+static_assert(offsetof(HcommThreadEntity, localNotifyAddr) == 64, "HcommThreadEntity ABI offset mismatch");
+static_assert(offsetof(HcommThreadEntity, sqContextAddr) == 72, "HcommThreadEntity ABI offset mismatch");
+static_assert(offsetof(HcommThreadEntity, originThreadHandle) == 80, "HcommThreadEntity ABI offset mismatch");
 static_assert(
-    offsetof(ThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
-    "ThreadEntity origin handle must fit in the fixed ABI storage");
+    offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
+    "HcommThreadEntity origin handle must fit in the fixed ABI storage");
 static_assert(
     offsetof(ChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
     "ChannelEntity origin handle must fit in the fixed ABI storage");

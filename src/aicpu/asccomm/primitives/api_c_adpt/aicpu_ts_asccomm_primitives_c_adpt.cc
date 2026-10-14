@@ -21,7 +21,7 @@
 namespace {
 
 struct CommContext {
-    ThreadEntity* thread;
+    HcommThreadEntity* thread;
     ChannelEntity* channel;
 };
 
@@ -44,12 +44,12 @@ AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t m
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
+AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
     // plane performs the original-handle -> POD conversion before launch.
-    threadEntity = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(thread));
+    threadEntity = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(thread));
     CHK_RET(validate_entity(threadEntity, HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (resolveRtsq) {
@@ -71,7 +71,7 @@ AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool regis
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
+AsccommResult get_thread_notify_id(const HcommThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
     CHK_PRT_RET(
         notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
@@ -244,7 +244,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
@@ -269,7 +269,7 @@ int32_t asccomm_local_reduce_on_thread(
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
         uint64_t len = 0;
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
@@ -288,12 +288,12 @@ int32_t asccomm_local_reduce_on_thread(
 int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
-        ThreadEntity* dstThreadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* dstHcommThreadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
-        CHK_RET(get_thread_entity(dstThread, false, false, dstThreadEntity));
+        CHK_RET(get_thread_entity(dstThread, false, false, dstHcommThreadEntity));
         uint32_t notifyId = 0;
-        CHK_RET(get_thread_notify_id(*dstThreadEntity, dstNotifyIdx, notifyId));
+        CHK_RET(get_thread_notify_id(*dstHcommThreadEntity, dstNotifyIdx, notifyId));
         return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, notifyId);
     });
 }
@@ -301,7 +301,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
 int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
     return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
@@ -312,7 +312,7 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
 int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId)
 {
     return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
     });
@@ -321,7 +321,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
     return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
     });
@@ -473,7 +473,7 @@ int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle t
 {
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
     return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
+        HcommThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
