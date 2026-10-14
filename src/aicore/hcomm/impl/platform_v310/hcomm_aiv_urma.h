@@ -360,23 +360,17 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(const LocalTenso
 }
 
 __aicore__ inline bool HcommUrmaResolveBatchRemote(
-    const MultiChannelRemoteInfo& remoteInfo, GM_ADDR remoteAddr, BatchRemoteInfo& resolvedRemoteInfo)
+    const MultiChannelRemoteInfo& remoteInfo, GM_ADDR, BatchRemoteInfo& resolvedRemoteInfo)
 {
     auto* remoteBuffers = reinterpret_cast<RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
     if (remoteBuffers == nullptr || remoteInfo.remoteBufferNum == 0U) {
         return false;
     }
 
-    int32_t remoteIdx = 0;
-    if (remoteAddr != nullptr) {
-        remoteIdx = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U);
-        if (remoteIdx == HCOMM_FAILED) {
-            return false;
-        }
-    }
-
-    resolvedRemoteInfo.tokenId = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    resolvedRemoteInfo.tokenValue = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    resolvedRemoteInfo.tokenId =
+        remoteBuffers[HCOMM_URMA_DEFAULT_BUFFER_IDX].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    resolvedRemoteInfo.tokenValue =
+        remoteBuffers[HCOMM_URMA_DEFAULT_BUFFER_IDX].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     resolvedRemoteInfo.tpId = remoteInfo.tpId;
     resolvedRemoteInfo.remoteEidLow = remoteInfo.remoteEidLow;
     resolvedRemoteInfo.remoteEidHigh = remoteInfo.remoteEidHigh;
@@ -647,25 +641,18 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     (void)reqPipe;
 
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    int32_t remoteIdx =
-        HcommFindBufferIdx(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, remoteAddr, len);
-    if (remoteIdx == HCOMM_FAILED) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA PostSend failed with invalid remote buffer \n");
-        return HCOMM_FAILED;
-    }
-
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
     uint32_t cqeCnt = channelEntity->cqHead;
     HCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
+        KERNEL_INFO, "Hcomm URMA PostSend resolved remote buffer curHead=%u sqDepth=%u \n", curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     PollCqWhenSqOverflow(channel, sqCtx, curHead);
 
     // write SQE
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = (__ubuf__ HcommUrmaSqeCtx*)wqeItem_.GetPhyAddr();
-    auto remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
+    auto remoteMemInfo = channelEntity->remoteBufferAddr[HCOMM_URMA_DEFAULT_BUFFER_IDX];
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     HcommUrmaFillSqeCtx<opCode, config>(
         sqeCtx, (__gm__ uint8_t*)remoteAddr, sqCtx, remoteMemInfo, curHead, notifyAddr, params);

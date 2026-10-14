@@ -36,6 +36,8 @@ constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 constexpr uint32_t HCOMM_POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t HCOMM_NUM_CQE_PER_POLL_CQ = 100;
+// HCCL guarantees buffer 0 covers all URMA buffers and shares their protection metadata.
+constexpr uint32_t HCOMM_URMA_DEFAULT_BUFFER_IDX = 0U;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {

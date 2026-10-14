@@ -108,9 +108,7 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommUrmaTestSuite.Aiv_Urma_WriteWithValue
             HcommUrmaTestSuite.Aiv_Urma_WriteWithValue_DelayedCommit
             HcommUrmaTestSuite.Aiv_Urma_WriteWithValue_WqeBbCnt
-            HcommUrmaTestSuite.Aiv_Urma_WriteWithValue_RemoteBufferNotFound
             HcommUrmaTestSuite.Aiv_Urma_WriteWithNotify_WqeBbCnt
-            HcommUrmaTestSuite.Aiv_Urma_RemoteBufferNotFound
             HcommUrmaTestSuite.Aiv_Urma_BatchCommitDrain
             HcommUrmaTestSuite.Aiv_Urma_InitLocalTensor
             HcommUrmaTestSuite.Aiv_Urma_MakeBatchHandleLocalTensor
