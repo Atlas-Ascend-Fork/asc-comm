@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
-#include "../../../common/kfc_server_message.h"
+#include "../../common/kfc_server_message.h"
 
 namespace mc2_ops_hccl {
 
