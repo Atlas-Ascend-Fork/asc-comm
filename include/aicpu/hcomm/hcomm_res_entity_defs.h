@@ -168,9 +168,9 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
-#define HCOMM_CHANNEL_ENTITY_VERSION 1U             ///< Channel resource ABI版本号
+#define HCOMM_CHANNEL_ENTITY_VERSION 0U             ///< Channel resource ABI版本号
 #define HCOMM_CHANNEL_ENTITY_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
-#define HCOMM_THREAD_ENTITY_VERSION 1U              ///< Thread resource ABI版本号
+#define HCOMM_THREAD_ENTITY_VERSION 0U              ///< Thread resource ABI版本号
 #define HCOMM_THREAD_ENTITY_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
 #define HCOMM_RESOURCE_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
 #define HCOMM_RESOURCE_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
