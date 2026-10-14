@@ -15,7 +15,7 @@
 
 #include "ccu/hcomm/hccl_types.h"
 
-#include "hcomm_primitives.h"
+#include "hcomm/hcomm_primitives.h"
 
 namespace hccl {
 class DeviceMem;
