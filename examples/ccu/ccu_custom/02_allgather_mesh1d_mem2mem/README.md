@@ -1,15 +1,15 @@
 # CCU AllGather Mesh1D Mem2Mem
 
-本样例使用 Host 直接注册并下发 CCU Kernel，演示 Mesh1D Mem2Mem
+本样例使用 ASC `<<<>>>` 直调方式下发 CCU Kernel，演示 Mesh1D Mem2Mem
 AllGather 数据面。
 
 ## 样例介绍
 
 ```text
 Python 生成输入和 Golden 数据
-  -> 初始化 HCCL 通信域
-  -> 申请 CCU thread 和 UBC_CTP channel
-  -> 注册 CCU Kernel
+ -> 初始化 HCCL 通信域
+ -> 申请 CCU thread 和 UBC_CTP channel
+  -> 通过 `<<<>>>` 直调 CCU Kernel
   -> 交换 output 地址和 token
   -> 向所有对端写入本 rank 的 slice
   -> GroupCopy 本地 slice
@@ -31,6 +31,20 @@ Host 和 Kernel 使用统一的 10 参数任务 ABI，将本轮传输量 `chunkS
 - 数据类型：`float`
 - 通信范围：单 Die、单 mission、1～16 个 rank
 - 数据布局：非原地 AllGather，各 rank 的 slice 大小相同
+
+## 目录结构
+
+```text
+02_allgather_mesh1d_mem2mem/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+├── main.asc
+└── scripts/
+    ├── gen_data.py
+    └── verify_result.py
+```
 
 ## 构建和运行
 

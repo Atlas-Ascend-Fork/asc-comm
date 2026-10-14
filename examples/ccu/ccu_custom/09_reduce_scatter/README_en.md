@@ -3,6 +3,7 @@
 ## Overview
 
 This sample shows how to implement ReduceScatter SUM with HCCL communication-domain APIs and CCU dataplane APIs.
+The kernel is launched with the ASC `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
 
 The input of each rank is split into `rankSize` segments by destination rank. After same-position data of all ranks is summed, rank `r` keeps only segment `r`:
 
@@ -19,18 +20,9 @@ The CCU kernel first copies the input segment of the local rank to the local out
 09_reduce_scatter/
 ├── CMakeLists.txt
 ├── README.md
+├── README_en.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+└── main.asc
 ```
 
 ## Build and Run

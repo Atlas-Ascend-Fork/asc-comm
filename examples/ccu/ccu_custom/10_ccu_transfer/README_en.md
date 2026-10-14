@@ -3,6 +3,7 @@
 ## Overview
 
 This sample demonstrates three categories of basic data-movement APIs on the A5/V1 CCU dataplane: local copy, remote write, and remote reduce-write. The sample uses a fixed 2 ranks with 4 FP32 input elements per rank, and a compile-time parameter selects the teaching scenario.
+The kernel is launched with the ASC `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
 
 - Scenario 1 calls the three overloads of `ccu::local_copy`: `local_addr` to `local_addr`, `local_addr` to `ccu_buffer`, and `ccu_buffer` to `local_addr`. Direct copy is used for data movement within the local rank; a `ccu_buffer` can serve as scratch storage, which is useful for first writing data into the CCU buffer and then writing it out from the buffer.
 - Scenario 2 calls the two overloads of `ccu::write`: `local_addr` to a remote `remote_addr`, and `ccu_buffer` to a remote `remote_addr`. A remote write is initiated by the local rank and writes directly into peer memory.

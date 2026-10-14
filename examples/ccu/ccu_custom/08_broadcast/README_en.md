@@ -4,6 +4,7 @@
 
 This sample implements Broadcast with an HCCL communication domain, CCU full-mesh channels, and `ccu::write`.
 All ranks first exchange local buffer addresses and tokens, and then the root rank writes the complete data directly to the other ranks.
+The kernel is launched with the ASC `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
 
 This implementation targets flow verification and does not use the scatter+allgather optimization for large data in production HCCL.
 

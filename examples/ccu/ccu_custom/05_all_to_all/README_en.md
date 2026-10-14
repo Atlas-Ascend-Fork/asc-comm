@@ -3,6 +3,7 @@
 ## Overview
 
 This sample shows how to implement equal-length AllToAll with HCCL communication-domain APIs and CCU dataplane APIs.
+The kernel is launched with the ASC `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
 
 The input of each rank is split into `rankSize` segments by destination rank, and `perCount` elements are sent to each destination rank. The output of a destination rank stores segments in source-rank order:
 
@@ -27,18 +28,9 @@ Sample constraints:
 05_all_to_all/
 ├── CMakeLists.txt
 ├── README.md
+├── README_en.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+└── main.asc
 ```
 
 ## Build and Run

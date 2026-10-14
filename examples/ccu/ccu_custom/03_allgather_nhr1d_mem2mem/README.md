@@ -1,16 +1,16 @@
 # CCU AllGather NHR1D Mem2Mem
 
-本样例使用 Host 直接注册并下发 CCU Kernel，演示 NHR1D Mem2Mem
+本样例使用 ASC `<<<>>>` 直调方式下发 CCU Kernel，演示 NHR1D Mem2Mem
 AllGather 数据面。
 
 ## 样例介绍
 
 ```text
 Python 生成输入和 Golden 数据
-  -> 初始化 HCCL 通信域
-  -> 生成 NHR step 和 rank-to-channel 映射
-  -> 批量申请 CCU channel
-  -> 注册并下发 CCU Kernel
+ -> 初始化 HCCL 通信域
+ -> 生成 NHR step 和 rank-to-channel 映射
+ -> 批量申请 CCU channel
+  -> 通过 `<<<>>>` 直调 CCU Kernel
   -> GroupCopy 本地 slice
   -> 按 NHR step 远端写入并转发 slice
   -> C++ 写出各 rank 结果
@@ -53,6 +53,20 @@ rank 间隔 `outputSliceStride` 分开，为后续 Host 多轮分块保留地址
 - 数据类型：`float`
 - 通信范围：单 Die、单 mission、1～16 个 rank
 - 数据布局：非原地 AllGather，各 rank 的 slice 大小相同
+
+## 目录结构
+
+```text
+03_allgather_nhr1d_mem2mem/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+├── main.asc
+└── scripts/
+    ├── gen_data.py
+    └── verify_result.py
+```
 
 ## 构建和运行
 
