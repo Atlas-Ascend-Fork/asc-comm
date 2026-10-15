@@ -28,6 +28,19 @@ struct BufDesc {
     uint32_t len; ///< Length of the segment in bytes.
 };
 
+#pragma pack(push, 1)
+/** @brief WQE control configuration. RoCE uses cqe and fence; the other fields are ignored. */
+struct WqeEntry {
+    uint32_t odr : 3;      ///< Ordering strength. 0 is unordered and 5 is strongly ordered.
+    uint32_t fence : 1;    ///< Set to 1 to make this WQE wait for completion of all previous WQEs.
+    uint32_t se : 1;       ///< Set to 1 to trigger remote event notification on completion.
+    uint32_t cqe : 1;      ///< Set to 1 to generate a completion queue entry on completion.
+    uint32_t inlineEn : 1; ///< Set to 1 to carry data inline in the WQE instead of an SGE reference.
+} __attribute__((packed));
+#pragma pack(pop)
+
+static_assert(sizeof(WqeEntry) == 1, "WqeEntry must keep its one-byte ABI");
+
 /**
  * @brief 通信协议类型枚举
  */

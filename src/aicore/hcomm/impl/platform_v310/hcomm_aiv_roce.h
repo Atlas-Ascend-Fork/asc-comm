@@ -26,7 +26,6 @@
 #include "../../common/hcomm_log.h"
 #include "../../common/hcomm_utils.h"
 #include "../../common/hcomm_inner_def.h"
-#include "utils/debug/asc_assert.h"
 
 namespace AscendC {
 
