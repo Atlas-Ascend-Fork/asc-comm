@@ -186,4 +186,4 @@ if (lockRet == 0) {
 
 可参考[hcomm_write_read_nbi](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程；参考[hcomm_batch_write](../../../examples/aicore/hcomm/02_hcomm_batch_write/README.md)了解多通道批量写流程。
 
-两个样例均依赖Ascend 950PR/Ascend 950DT和至少2张NPU完成运行验证；单卡环境仅支持编译验证。
+两个样例均依赖Ascend 950PR&950DT系列产品和至少2张NPU完成运行验证；单卡环境仅支持编译验证。

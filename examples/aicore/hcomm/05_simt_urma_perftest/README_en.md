@@ -1,93 +1,98 @@
 # Hcomm SIMT URMA Performance Sample
 
-Measures the issue performance of five point-to-point interfaces on the SIMT path: `WriteNbi`,
-`WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`. Rank 0 sends and times; rank 1
-only holds registered memory and verifies what landed.
+## Overview
 
-Every case is driven by a single lane: one channel must be driven by one lane.
+This sample measures the issue performance of five point-to-point interfaces on the SIMT path: `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`. It covers both immediate and deferred publication, and reports the WQE issue latency and the completion bandwidth separately.
 
-## Only the First Two Ranks Participate
+This is a point-to-point benchmark: `<nranks>` can be >= 2, but only rank 0 (the sender) and rank 1 (the receiver) establish the channel and run the timing; the other ranks print `SKIP` and exit directly. Keeping a single sender is intentional — multiple concurrent senders contend for the link and SQ resources, so the measured latency and bandwidth are no longer comparable. For multi-card send/receive validation, use the [`simt_urma`](../04_simt_urma/README.md) functional sample.
 
-This is a point-to-point benchmark: `<nranks>` may be >= 2, but only rank 0 (sender) and rank 1
-(receiver) build the channel and run the benchmark. Every other rank prints `SKIP` and exits without
-joining the communicator. Keeping a single sender is deliberate — concurrent senders contend for the
-link and for SQ space, and the resulting latency and bandwidth numbers are no longer comparable.
+All operations are issued by a single lane, and one channel must be driven by one lane.
 
-For multi-card send/receive validation use [`simt_urma`](../04_simt_urma/README_en.md), which is a ring
-topology in which every rank participates.
+## Supported Products and CANN Software Versions
 
-## What Is Measured
+| Product | CANN Software Version |
+|---------|-----------------------|
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+
+## Directory Structure
+
+```text
+simt_urma_perftest
+├── CMakeLists.txt               // Build project file
+├── main.cpp                     // Host-side communicator, memory registration, and timing flow
+├── op_kernel.cpp                // SIMT Kernel-side URMA interface calls
+├── simt_urma_perftest_common.h  // Definitions shared by Host and Kernel
+├── README.md                    // Chinese sample documentation
+└── README_en.md                 // English sample documentation
+```
+
+## Sample Description
+
+### Functionality Description
 
 Five interfaces x two publication strategies:
 
 | `api` | Description |
-| --- | --- |
-| `write` | `WriteNbi`; the WQE points at a local buffer through an SGE, payload length is configurable |
-| `write_value` | `WriteValueNbi`; an 8-byte payload carried inline in the WQE, the local buffer is never read |
-| `notify` | `WriteWithNotifyNbi`; writes a remote signal word after the payload, payload length is configurable |
-| `faa` | `AtomicFAA`; accumulates into a single remote 8-byte word |
-| `cas` | `AtomicCAS`; compare-and-swap on a single remote 8-byte word |
+|-------|-------------|
+| `write` | `WriteNbi`; the WQE points at a local buffer through an SGE, and the payload length is configurable |
+| `write_value` | `WriteValueNbi`; an 8-byte payload inlined in the WQE, without reading the local buffer |
+| `notify` | `WriteWithNotifyNbi`; writes a remote signal word after the payload, and the payload length is configurable |
+| `faa` | `AtomicFAA`; accumulates into the same remote 8-byte word |
+| `cas` | `AtomicCAS`; compare-and-swap on the same remote 8-byte word |
 
 | `commit-mode` | Description |
-| --- | --- |
+|---------------|-------------|
 | `immediate` | Every WQE uses `commit=true` and rings its own doorbell |
-| `last` | All but the last use `commit=false`; the final post publishes the whole batch |
+| `last` | All WQEs except the last one use `commit=false`, and the last one publishes the whole batch |
 
-The two strategies differ in SQ footprint as well as doorbell count: a deferred `WriteNbi` occupies
-one basic block, while a committed one splits its payload across two SGEs to fill the 128-byte DWQE
-window and occupies two. The other four interfaces are fixed 2-BB WQEs either way. `SqBlocksPerWqe`
-in the log reports the actual footprint.
+The two strategies also differ in SQ footprint: a deferred `WriteNbi` occupies one basic block, while an immediate one splits the payload into two SGEs to fill the 128-byte DWQE window and occupies two. The other four interfaces occupy a fixed 2 BB regardless of strategy. `SqBlocksPerWqe` in the log reports the actual footprint.
 
-Consecutive WQEs rotate over several slots so they do not all land on the same cache line — otherwise
-the measurement reflects the remote memory system rather than the issue path. The two atomics are the
-exception: they must target one word for the accumulation to mean anything, so they do not rotate.
+The timing flow is: issue the interface `warmup` times, then `Drain` (not timed); then issue it `iterations` times and record `IssueTime` (counts only the timed WQE issues, used to compare issue latency between interfaces); after `Drain` completes, record `CompletionTime` (used only to compute `CompletionBandwidth`). `DrainStatus` and `Completed` are used to confirm that the run completed correctly.
 
-## Timing Flow
+Consecutive WQEs rotate over multiple slots to avoid landing on the same cache line — otherwise the measurement reflects the remote memory system rather than the issue path. The two atomic interfaces are the exception: they must target the same word for the accumulation to be meaningful, so they do not rotate.
 
-```text
-run the interface warmup times
-Drain                         not timed
+### Sample Specifications
 
-begin = clock()
-run the interface iterations times
-issueEnd = clock()
-Drain
-completionEnd = clock()
-```
+| Item | Description |
+|------|-------------|
+| Communication Mode | Point-to-point benchmark; only rank 0 sends and rank 1 receives |
+| Invocation Method | Direct URMA interface calls within the SIMT Kernel |
+| Tested Interfaces | `write`, `write_value`, `notify`, `faa`, `cas` |
+| Publication Strategy | `immediate` (default), `last` |
+| Supported Rank Count | Any >= 2 (rank 2 and above do not participate in communication) |
 
-`IssueTime` and `AverageIssue` cover only the timed WQE submissions and are used to compare issue
-latency between interfaces. `CompletionTime` runs from the start of the timed submissions to the end
-of `Drain`, and is used only to compute `CompletionBandwidth`. `DrainStatus` and `Completed` confirm
-the run actually completed correctly.
+### Implementation Flow
 
-## Build and Run
+1. The executable directly launches all rank processes (in-process fork, see `examples/aicore/utils/process_manager.h`). The ranks exchange root info and create the communicator through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`). Only rank 0 and rank 1 join the communicator; the other ranks exit directly.
+2. Rank 0 and rank 1 register their memory, create the channel, and exchange memory addresses.
+3. Rank 0 issues the interface `warmup` times and calls `Drain`, then issues it `iterations` times while timing, and calls `Drain` again.
+4. Rank 0 records `IssueTime`, `CompletionTime`, and `Completed`; rank 1 validates the landed data.
+5. Outputs the RESULT line.
 
-Perform the following steps in the sample root directory. This sample supports NPU run mode only.
+## Compilation and Execution
 
-- Set Environment Variables
+Perform the following steps in the root directory of this sample to compile and run it. This sample supports NPU run mode only.
 
-  The sample builds against the asc-comm headers installed into the CANN directory. If not yet
-  installed, generate and install the development verification run package from the repository root
-  (see [`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md)):
+- Configure environment variables
+
+  The sample builds against the asc-comm headers installed into the CANN directory. If they are not yet installed, generate and install the development verification run package from the repository root first. For parameter details, see [`docs/en/build/build_and_test.md`](../../../../docs/en/build/build_and_test.md):
 
   ```bash
   bash build.sh --pkg
   ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
   ```
 
-  Then load the CANN environment:
+  Then load the CANN environment variables:
 
   ```bash
   source ${install_path}/cann/set_env.sh
   ```
 
-  > **Note:** `${install_path}` is the CANN installation directory. If not specified, the default is
-  > `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN package installation directory. If not specified, the default installation directory is `/usr/local/Ascend`.
 
-- Run the Sample
+- Run the sample
 
-  The executable forks all rank processes internally. Only rank 0 and rank 1 participate in the
-  benchmark; other ranks print `SKIP` and exit.
+  Execute the following commands in the sample directory. The executable internally forks all rank processes, so it can be run directly:
 
   ```bash
   mkdir -p build
@@ -97,68 +102,41 @@ Perform the following steps in the sample root directory. This sample supports N
   cd .. && ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
   ```
 
-  ```text
+- Launch parameter description
+
+  ```bash
   ./build/simt_urma_perftest <ip:port> <nranks> <write|write_value|notify|faa|cas> [options]
   ```
 
   | Parameter | Default | Description |
-  | --- | --- | --- |
-  | `<ip:port>` | Required | Control channel address that rank 0 listens on (`tcp://ip:port`) |
-  | `<nranks>` | Required | Number of rank processes; must be >= 2 (only rank 0/1 participate) |
-  | `--iterations` | `1024` | Timed WQE count |
-  | `--warmup` | `100` | Warmup WQE count |
-  | `--payload-bytes` | `4096` | Payload bytes for `write` and `notify`; minimum 2; ignored by the other three interfaces |
-  | `--commit-mode` | `immediate` | `immediate` (one doorbell per WQE) or `last` (defer all but the last) |
+  |-----------|---------|-------------|
+  | `<ip:port>` | None | Control channel address (`tcp://ip:port` format) that rank 0 listens on, used for root info exchange and Host-side barriers; use different ports when running multiple instances in parallel |
+  | `<nranks>` | None | Number of rank processes to launch; must be >= 2 (only rank 0/1 participate in the test) |
+  | `--iterations` | `1024` | Number of timed WQEs |
+  | `--warmup` | `100` | Number of warmup WQEs |
+  | `--payload-bytes` | `4096` | Payload bytes for `write` and `notify`, minimum 2. `write_value` is always 8 bytes, and `faa`/`cas` are always 8 bytes, so these three ignore this option |
+  | `--commit-mode` | `immediate` | `immediate` (one doorbell per WQE) or `last` (defer all but the last WQE) |
 
-- Build Options
+- Build options description
 
-  | Option | Values | Description |
-  | --- | --- | --- |
+  | Option | Allowed Values | Description |
+  |--------|----------------|-------------|
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode; this sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to Ascend 950PR&950DT products |
 
-- Example Commands
+- Expected output
 
-  ```bash
-  # Single-point write
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
-
-  # Deferred publication
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write --commit-mode last
-
-  # Inline write
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write_value
-
-  # Notify and the atomics
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 notify --payload-bytes 4096
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 faa
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 cas
+  ```text
+  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+  [rank 1] simt_urma_perftest write PASS
   ```
 
-  For payload sweeps, run the executable multiple times with different `--payload-bytes` values
-  (e.g. `8 16 64 256 1024 4096 16384 65536`).
+  The sample succeeds when `DrainStatus=0`, `Completed` matches `WqeCount`, and rank 1 prints `PASS`.
 
-## Output
+## Notes
 
-```text
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
-[rank 1] simt_urma_perftest write PASS
-```
-
-## Constraints
-
-**`--payload-bytes` must be at least 2.** A committed `WriteNbi` splits its payload into
-`firstLen = len >> 1` and `lastLen = len - firstLen`; a single byte would give the first segment a
-zero length, which URMA does not accept.
-
-**Only `write` and `write_value` are verified on the receiving side.** The `notify` signal word shares
-a slot with its payload, and the two atomics rewrite their target word on every iteration, so the
-landed image depends on the iteration count and there is no stable expected value to compare against.
-Those cases rely on `DrainStatus` and `Completed` to determine whether the run completed correctly.
-
-## Runtime Constraints
-
-- Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
-- At least two NPUs on the same host are required to run; single-NPU environments only support
-  compilation verification.
-- The build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library.
+- Running the sample requires at least two NPUs; a single-card environment supports compilation verification only.
+- `--payload-bytes` must be at least 2: an immediate `WriteNbi` splits the payload into two SGEs, and a single byte would make the first segment zero-length, which URMA does not accept.
+- The receiving side only validates `write` and `write_value`: the `notify` signal word shares one slot with its payload, and the two atomic interfaces rewrite the target word on every iteration, so the landed image depends on the iteration count and has no stable expected value. These two categories rely on `DrainStatus` and `Completed` to determine whether the run completed correctly.
+- For a payload sweep, run the executable once for each `--payload-bytes` value (for example `8 16 64 256 1024 4096 16384 65536`).
+- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `hcomm` library.

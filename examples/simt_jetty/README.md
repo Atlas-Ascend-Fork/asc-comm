@@ -14,7 +14,7 @@ Kernel侧通过`HcommPeer`和`HcommJetty`接口直接从GM Jetty表解析队列�
 
 | 项目 | 说明 |
 | --- | --- |
-| 产品 | `Ascend 950PR / Ascend 950DT` |
+| 产品 | `Ascend 950PR&950DT系列产品` |
 | NPU架构 | `dav-3510` |
 | 通信协议 | `COMM_PROTOCOL_UB_CTP` |
 | 执行模型 | SIMT VF（mixed模式额外包含AIV主体） |

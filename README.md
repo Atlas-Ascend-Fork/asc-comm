@@ -29,7 +29,7 @@
 
 ### 📖 资料文档
 
-- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/zh/guide/build_and_test.md)、[三方依赖与兼容性](./docs/zh/guide/dependencies.md)说明。
+- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/zh/build/build_and_test.md)、[三方依赖与兼容性](./docs/zh/build/dependencies.md)说明。
 - 新增[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)，覆盖当前公开的Hcomm接口。
 - 新增[样例目录](./examples/README.md)，提供Hcomm AIV直驱调用和端到端通信样例入口。
 
@@ -179,7 +179,7 @@ bash build.sh --pkg
 ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-制包脚本会递归收集`include/`和`src/`中的头文件，其中Hcomm安装到`adv_api`，其他头文件按相对路径安装到`comm_api`。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/guide/build_and_test.md)。
+制包脚本会递归收集`include/`和`src/`中的头文件，其中Hcomm安装到`adv_api`，其他头文件按相对路径安装到`comm_api`。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/build/build_and_test.md)。
 
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 
@@ -188,7 +188,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/guide/build_and_test.md)。
+更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/build/build_and_test.md)。
 
 ## 🧰clangd/IDE支持
 
@@ -207,8 +207,8 @@ cmake --build build/ut-hcomm
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
   | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
   | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
-  | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
+  | [构建与测试](./docs/zh/build/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
+  | [三方依赖与兼容性](./docs/zh/build/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 
 - **贡献指南**
@@ -217,8 +217,8 @@ cmake --build build/ut-hcomm
   | --- | --- |
   | [CANN社区贡献指南](https://gitcode.com/cann/community) | CANN社区Issue、PR等通用处理流程。 |
   | [asc-comm贡献指南](./CONTRIBUTING.md) | 本仓Issue、开发、检查和PR提交流程。 |
-  | [API文档贡献指南](./docs/api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |
-  | [资料贡献指南](./docs/doc_contributing.md) | README、docs、examples等资料文档的补充规范。 |
+  | [API文档贡献指南](./docs/zh/contributing/api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |
+  | [资料贡献指南](./docs/zh/contributing/doc_contributing.md) | README、docs、examples等资料文档的补充规范。 |
 
 - **其他**
 

@@ -10,7 +10,7 @@ processes, exchanges HCCL root information, and synchronizes each phase.
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Example Behavior
 
