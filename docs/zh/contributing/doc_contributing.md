@@ -8,9 +8,9 @@ asc-comm资料体系包含仓库入口、快速开始、构建测试、API参考
 | --- | --- | --- |
 | 仓库入口 | 项目概述、目录结构、常用文档入口 | `README.md` |
 | 快速开始 | 环境准备、源码下载、构建和UT验证 | `docs/quick_start.md` |
-| 构建与依赖 | 构建脚本、CMake入口、三方依赖说明 | `docs/zh/guide/` |
-| API参考 | 接口功能、原型、参数、返回值和约束 | `docs/zh/api/` |
-| 使用指南 | API调用流程、协议能力和注意事项 | `docs/zh/guide/` |
+| 构建与依赖 | 构建脚本、CMake入口、三方依赖说明 | `docs/zh/compilation` |
+| API参考 | 接口功能、原型、参数、返回值和约束 | `docs/zh/api` |
+| 使用指南 | API调用流程、协议能力和注意事项 | `docs/zh/guide` |
 | 样例说明 | 样例目录入口、运行边界和验证说明 | `examples/README.md`、`examples/*/README.md` |
 
 ## 贡献场景
@@ -118,4 +118,4 @@ docs/zh/api/ ───使用流程──→ docs/zh/guide/hcomm_usage.md
 ## 更多信息
 
 - API文档贡献指南：[api_contributing.md](./api_contributing.md)
-- asc-comm贡献指南：[CONTRIBUTING.md](../CONTRIBUTING.md)
+- asc-comm贡献指南：[CONTRIBUTING.md](../../../CONTRIBUTING.md)

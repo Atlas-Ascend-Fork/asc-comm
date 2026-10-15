@@ -2,20 +2,20 @@
 
 ## Overview
 
-This sample demonstrates how to prepare CCU communication resources and start a CCU Server through the MC2
-builtin APIs, and then submit an AlltoAll Client communication request from an AICore kernel through the
-HCCL high-level API.
+This sample demonstrates how to prepare CCU communication resources and start a CCU Server through the MC2 builtin APIs,
+and then submit an AlltoAll Client communication request from an AICore kernel through the HCCL high-level API.
 
-The sample creates one rank for each available NPU device. Each rank sends 256 FP32 elements to every
-destination rank. On the host, `CheckOpResSufficient` first pre-checks CCU resources, `Mc2AcquireCcResCtx`
-then obtains the CCU resource context, and `Mc2CcKernelLaunch` starts the CCU Server. On the AICore, the same
-`ccResCtx` is passed to `Hccl::InitV2`, and `Hccl::AlltoAll` performs the equal-size data exchange.
+The sample creates a communication domain based on the number of NPU devices, with one rank per device. Each rank sends
+256 FP32 elements to every destination rank in the communication domain. On the host, `CheckOpResSufficient` first pre-checks CCU resources, and then
+`Mc2AcquireCcResCtx` obtains the CCU resource context, and `Mc2CcKernelLaunch` starts the CCU Server.
+On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`,
+and `Hccl::AlltoAll` performs the equal-size data exchange.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -29,11 +29,13 @@ then obtains the CCU resource context, and `Mc2CcKernelLaunch` starts the CCU Se
 
 ## Sample Description
 
-Each rank stores one contiguous data block for every destination rank, with 256 FP32 elements per block.
-The block sent from rank `i` to rank `j` is initialized to `i * CCU_MAX_RANK_SIZE + j`. After AlltoAll,
-the block received by rank `j` from rank `i` should contain the same small integer, which is used to
-validate the exchange. The maximum value is `CCU_MAX_RANK_SIZE * CCU_MAX_RANK_SIZE - 1`, so switching
-to `int8_t` or `uint8_t` does not truncate the payload.
+### Functionality
+
+Each rank input is divided into multiple contiguous data blocks by destination rank, with 256 FP32 elements per block.
+The block sent from rank `i` to destination rank `j` is initialized to `i * CCU_MAX_RANK_SIZE + j`.
+After AlltoAll, the `i`-th block received by rank `j` should contain the same small integer value, used to validate the data exchange result.
+The maximum value is `CCU_MAX_RANK_SIZE * CCU_MAX_RANK_SIZE - 1`, so switching to `int8_t` or `uint8_t`
+does not truncate the data.
 
 ```text
 Host:
@@ -68,27 +70,21 @@ ccResCtx
 
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device, create the AICore stream, and allocate the input and output buffers.
-3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32
-   source and destination data types, and the `sole[mesh]` algorithm configuration.
-4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043
-   means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be
-   selected; any other non-zero code indicates a parameter error or an internal HCCL error, which
-   can be logged for fault handling. CCU resources can be acquired only when the result is
-   `HCCL_SUCCESS`.
+3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32 source and
+   destination data types, and the `sole[mesh]` algorithm configuration.
+4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043 means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be selected; any other non-zero code indicates a parameter error or an internal HCCL error, which can be logged for fault handling. CCU resources can be acquired only when the result is `HCCL_SUCCESS`.
 5. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
-6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the
-   CCU Server. The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
+6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the CCU Server.
+   The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
 7. Launch the AICore kernel through `all_to_all_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
-8. The AICore side calls `Hccl::AlltoAll<true>` to submit the equal-size exchange, and calls `Wait` and
-   `SyncAll` to wait for completion.
-9. Synchronize the AICore stream, copy `recvBuf` back to the host, and validate every block by source rank.
-10. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication
-    domain and does not need to be freed separately.
+8. The AICore side calls `Hccl::AlltoAll<true>` to submit the equal-size data exchange Client request, and calls `Wait` and `SyncAll` to wait for completion.
+9. Synchronize the AICore stream, copy `recvBuf` back to the host, and validate each block by source rank and local rank.
+10. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication domain and does not need to be freed separately.
 
 ## Build and Run
 
-Run the following commands in this sample directory. This sample supports NPU execution only.
+Run the following commands in this sample directory. This sample supports NPU run mode only.
 
 ```bash
 source ${install_path}/cann/set_env.sh
@@ -99,10 +95,10 @@ make -j
 ./demo
 ```
 
-`${install_path}` is the CANN installation directory. The default is `/usr/local/Ascend`.
+`${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
 
-In a two-device run, rank `d` sends a block containing `d * CCU_MAX_RANK_SIZE + j` to destination rank `j`.
-The received blocks are ordered by source rank:
+In a two-device run, each element in the block sent by rank `d` to destination rank `j` is `d * CCU_MAX_RANK_SIZE + j`,
+and the received blocks on each rank are ordered by source rank:
 
 ```text
 Found 2 NPU device(s) available
@@ -114,10 +110,9 @@ rankId: 1, validation: PASS
 
 ## Notes
 
-- `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only
-  to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
+- `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
-  `all_to_all_kernel`.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+  `all_to_all_kernel`; both must use the same resource context.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE` (8).

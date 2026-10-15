@@ -14,7 +14,7 @@
 
 ## 运行约束
 
-- 样例支持Ascend 950PR/Ascend 950DT，具体CANN版本要求以各子样例README为准。
+- 样例支持Ascend 950PR&950DT系列产品，具体CANN版本要求以各子样例README为准。
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - 直调和自定义Kernel样例运行前通常需要设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`，以子样例README为准。
 

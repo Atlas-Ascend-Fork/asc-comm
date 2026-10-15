@@ -10,7 +10,7 @@ CCU是昇腾NPU中的专用集合通信协处理器。如[图1](#fig-ccu-system-
 
 **图1** CCU系统架构<a id="fig-ccu-system-architecture"></a>
 
-![CCU系统架构](./figures/ccu_system_architecture.png)
+![CCU系统架构](./figures/ccu_system_architecture.svg)
 
 ### 基础概念
 
@@ -18,7 +18,7 @@ CCU内部包含多个关键组件，共同完成集合通信任务，如[图2](#
 
 **图2** CCU架构<a id="fig-ccu-architecture"></a>
 
-![CCU架构](./figures/ccu_architecture.png)
+![CCU架构](./figures/ccu_architecture.svg)
 
 CCU内部组件的参数规格及职责如[表1](#tab-ccu-components)所示，其中寄存器分为通用寄存器、同步寄存器和地址寄存器三类。
 
@@ -149,7 +149,7 @@ CCU Buffer支持最多8片的按序Reduce计算，输入类型与输出类型一
 
 **图3** FP16/BF16 ADD归约的升精度过程<a id="fig-ccu-reduction-precision"></a>
 
-![CCU归约升精度过程](./figures/ccu_buffer.png)
+![CCU归约升精度过程](./figures/ccu_buffer.svg)
 
 ### 数据搬运
 
@@ -157,7 +157,7 @@ CCU的数据搬运能力如[图4](#fig-ccu-datacopy)所示，覆盖本地内存�
 
 **图4** CCU数据搬运能力<a id="fig-ccu-datacopy"></a>
 
-![CCU数据搬运能力](./figures/ccu_datacopy.png)
+![CCU数据搬运能力](./figures/ccu_datacopy.svg)
 
 本地搬运使用`local_copy`，跨端读写远端内存使用`read`和`write`，搬运的同时完成规约使用`local_reduce`、`read_reduce`和`write_reduce`，本端内存与寄存器之间的参数搬运使用`load`和`store`。需要注意，数据搬运是异步操作，指令下发后硬件在后台执行，需要通过[同步机制](#同步机制)确认搬运完成后才能读取目标数据或复用相关资源。
 
@@ -293,7 +293,7 @@ Loop是CCU任务中的基础并发单元，执行体为`ccu::func`定义的函�
 
 **图5** Loop并发搬运<a id="fig-ccu-loop"></a>
 
-![CCU Loop并发搬运](./figures/ccu_loop.png)
+![CCU Loop并发搬运](./figures/ccu_loop.svg)
 
 **LoopGroup**
 
@@ -307,7 +307,7 @@ LoopGroup复制Loop的关系如[图6](#fig-ccu-loopgroup)所示。左侧实线�
 
 **图6** LoopGroup复制Loop<a id="fig-ccu-loopgroup"></a>
 
-![CCU LoopGroup](./figures/ccu_loopgroup.png)
+![CCU LoopGroup](./figures/ccu_loopgroup.svg)
 
 **使用示例**
 

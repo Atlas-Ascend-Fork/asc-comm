@@ -2,15 +2,14 @@
 
 ## Overview
 
-This example creates an `UbcBatchHandle` on a RoCE channel with `MakeBatchHandle`, then submits
-scattered memory segments through the multi-SGE `WriteNbi` and `ReadNbi` overloads. MPI manages the
-processes, exchanges HCCL root information, and synchronizes each phase.
+This example creates an `UbcBatchHandle` on a RoCE channel with `MakeBatchHandle`, then submits scattered memory segments through the multi-SGE
+`WriteNbi` and `ReadNbi` overloads. MPI manages the processes, exchanges HCCL root information, and synchronizes each phase.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
-|---------|-----------------------|
-| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+| --- | --- |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Example Behavior
 
@@ -20,10 +19,9 @@ processes, exchanges HCCL root information, and synchronizes each phase.
   reads from one 512-byte contiguous remote `src`.
 - Every four `WriteNbi` calls are submitted with one `BatchCommit` and completed with one `Drain`.
   The 128 `ReadNbi` calls follow the same four-call commit-and-drain pattern.
-- Rank 0 issues the writes and rank 1 verifies the remote data. Rank 1 then issues the reads and
-  verifies its local scattered segments.
+- Rank 0 issues the writes and rank 1 verifies the remote data. Rank 1 then issues the reads and verifies its local scattered segments.
 
-## Files
+## Directory Structure
 
 ```text
 10_hcomm_roce_multi_sge
@@ -46,8 +44,7 @@ Each rank registers a 393216-byte communication buffer divided into four regions
 | `[196608, 262144)` | 65536B | Destination on rank 1 for the 128 contiguous 512B messages written by rank 0 |
 | `[262144, 393216)` | 131072B | Local scattered result of `ReadNbi`: 64B segments with 128B stride |
 
-The batch WQE buffer is `4 * 8 * 64` bytes in the kernel's VECOUT UB; one batch of WQEs is reused
-every four calls.
+The batch WQE buffer is `4 * 8 * 64` bytes in the kernel's VECOUT UB; one batch of WQEs is reused every four calls.
 
 ## Build
 
@@ -74,8 +71,6 @@ export LD_LIBRARY_PATH="${MPI_HOME}/lib:${LD_LIBRARY_PATH:-}"
 ```
 
 ## Run
-
-Start the sample with two ranks:
 
 ```bash
 cd examples/aicore/hcomm/10_hcomm_roce_multi_sge

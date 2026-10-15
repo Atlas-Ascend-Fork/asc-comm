@@ -228,4 +228,4 @@ You can also specify ranks manually:
 ./demo 1 2 tcp://127.0.0.1:29621
 ```
 
-The sample supports Ascend 950PR / Ascend 950DT and requires CANN 9.1.0 or later. At least two NPUs are required to run the sample; single-NPU environments only support compilation verification.
+The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or later. At least two NPUs are required to run the sample; single-NPU environments only support compilation verification.

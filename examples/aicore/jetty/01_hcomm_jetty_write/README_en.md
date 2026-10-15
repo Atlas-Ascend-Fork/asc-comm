@@ -2,13 +2,16 @@
 
 ## Overview
 
-This sample demonstrates how to submit WQEs directly to the Jetty SQ from an AIV Kernel to perform point-to-point one-sided communication between multiple NPUs. The sample adopts a symmetric multi-rank execution model: each rank calls `HcommJetty::Write` and `HcommJetty::WriteValue` once for each of the other ranks, then waits for the whole batch of WQEs with `HcommJetty::Drain`. The Host side prepares the communication domain, registers memory, and creates the URMA channels; it does not need to participate in each data-plane operation. Each rank then verifies the data and markers it received, and the parent process reports the overall result.
+This sample demonstrates how to submit WQEs directly to the Jetty SQ from an AIV Kernel to perform point-to-point one-sided communication between multiple NPUs. The sample adopts a multi-rank
+symmetric execution model: each rank calls `HcommJetty::Write` and `HcommJetty::WriteValue` once for each of the other ranks,
+then waits for the whole batch of WQEs with `HcommJetty::Drain`. The Host side prepares the communication domain, registers memory, and creates the URMA channels; the data plane
+does not require Host involvement for each operation. Each rank then verifies the received data and markers, and the parent process finally aggregates the results of all ranks.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -24,7 +27,10 @@ This sample demonstrates how to submit WQEs directly to the Jetty SQ from an AIV
 
 ### Functionality Description
 
-Each rank writes a block of local data into the receive slot of every other rank, and writes an identifier value to a separate marker address. On the Kernel side, `HcommPeer` and `HcommJetty` build and submit WQEs directly: `Write` moves 256 bytes of data, `WriteValue` writes an 8-byte marker, and `Drain` waits for all WQEs submitted by this rank. After all ranks' writes land, each rank checks that the data slot and marker from every peer match the agreed values.
+Each rank writes a block of local data into the receive slot of every other rank, and writes an identifier value to a separate marker address. On the Kernel side,
+`HcommPeer` and `HcommJetty` are used to build and submit WQEs directly: `Write` moves 256 bytes of data, `WriteValue` writes an 8-byte
+marker, and `Drain` waits for all WQEs submitted by this rank. After all ranks' writes land, each rank checks the data
+slot and marker from every peer against the agreed values.
 
 ### Sample Specifications
 
@@ -39,9 +45,13 @@ Each rank writes a block of local data into the receive slot of every other rank
 
 ### Implementation Flow
 
-1. The executable directly launches all rank processes (in-process fork, see `examples/aicore/utils/process_manager.h`); ranks exchange root info and create the communication domain through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`).
-2. Each rank prepares the data to send, registers the communication memory, builds a `COMM_PROTOCOL_UBC_CTP` channel description for every peer, and creates the channels.
-3. Each rank writes all Jetty handles into a device-side table and downloads a per-peer context: the local buffer address, the remote data-slot address, the remote marker address, and the marker value.
+1. The executable directly launches all rank processes (in-process fork, see `examples/aicore/utils/process_manager.h`);
+   ranks exchange root info through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`) and
+   create the communication domain.
+2. Each rank prepares the data to send, registers the communication memory, and builds a `COMM_PROTOCOL_UBC_CTP` channel description for every peer, then
+   creates the channels.
+3. Each rank writes all Jetty handles into a device-side table and downloads a per-peer context: the local buffer address, the remote data
+   slot address, the remote marker address, and the marker value.
 4. After all channels are established, the kernel is launched; on the Kernel side it calls `Write` and `WriteValue` for each peer in turn, and waits for completion with `Drain`.
 5. Each rank reads back the communication buffer, verifies the data slots and markers written by all peers, and the parent process reports the overall result.
 
@@ -83,7 +93,7 @@ Follow the steps below in the root directory of this sample to compile and run i
   | Option | Allowed Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Execution mode; this sample only supports NPU execution |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to Ascend 950PR&950DT products |
 
 - Expected output
 
