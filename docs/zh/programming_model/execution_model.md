@@ -191,23 +191,42 @@ Order标志可以指定以下两种完成序：
 
 分布式通信场景的同步主要可分为本端同步、远端同步两种。
 
+> [!NOTE]说明
+>
+> 本章节代码以Ain接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。Ain接口的使用方法可参考[基于Ain的通信算子开发指南](../guide/ain_operator_impl.md)。
+
 ### 本端同步
 
 若需等待已提交通信任务执行完成后再执行后续操作，用户需主动轮询完成队列（CQ），通过读取队列内的完成事件，判断对应通信任务是否执行完成。
 
 以远端读操作为例，本端从对端内存读取数据后，必须通过本端同步确认读取完成，再访问读取结果；否则可能读到未更新完毕的数据，导致后续逻辑出错。
 
-```text
-// 本端同步：提交远端读事务后轮询CQ，确认本端读取完成后再使用数据。
-uint32_t* localBuf;    // 本端接收缓冲区
-uint32_t* remoteBuf;   // 远端数据地址
-// 从对端remoteBuf读取4字节数据到localBuf。
-Read(channel, localBuf, remoteBuf, sizeof(uint32_t));
-// 轮询CQ，阻塞至本端读取完成。
-Drain(channel);
-// 此处本端已完成读取，localBuf中的数据可用。
-if (*localBuf == expectValue) {
-    Process();
+```cpp
+// 初始化UBuf工作区大小：不得小于512B
+constexpr uint32_t HCOMM_BUF_SIZE = 512U;
+
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+extern "C" __global__ __aicore__ void local_sync_kernel(
+    __gm__ void* team,
+    __gm__ void* dstWin, // 目的对称window
+    __gm__ void* srcWin, // 源对称window
+    uint32_t peer)       // 对端rank ID
+{
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
+    pipe.InitBuffer(hcommBuf, HCOMM_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
+    AscendC::AinDescriptorUbuf hcommUbuf{
+        reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
+        HCOMM_BUF_SIZE, 0U};
+    AscendC::Ain ain(0);
+
+    // 单边读（非阻塞）：将对端srcWin偏移0起的4字节数据读入本端dstWin偏移0起的位置。
+    ain.Get(team, peer, dstWin, 0, srcWin, 0, sizeof(uint32_t), hcommUbuf);
+    // 本端同步（阻塞）：等待team内所有peer通道上已提交的通信任务完成，确保本次读取已完成。
+    ain.Flush(team);
+    // 本端同步完成，读取结果已写入dstWin注册的本端缓冲区，可安全访问。
+    Process(dstWin);
 }
 ```
 
@@ -217,25 +236,43 @@ if (*localBuf == expectValue) {
 
 **点对点同步**
 
-建立点对点的跨Rank同步时，由对端在完成数据写入后发送同步信号，本端通过轮询该信号判断远端数据是否已就绪。
+建立点对点的跨Rank同步时，由对端在完成数据写入后发送同步信号，本端通过轮询该信号，判断远端数据是否已就绪。
 
 以远端写操作为例，Rank 0向Rank 1写入数据，Rank 1必须通过点对点同步确认数据已写入完毕，再访问写入结果；否则会产生未定义行为，读取结果不可预测，可能读到旧数据或部分更新的数据，引发后续逻辑出错。
 
-```text
-// 点对点同步：Rank 0向Rank 1写入数据，Rank 1等待同步信号后处理数据。
-uint32_t* localBuf;    // 本端数据缓冲区
-uint32_t* remoteBuf;   // 远端数据缓冲区
-uint32_t* notifyBuf;   // 同步信号缓冲区
-uint32_t notifyVal;    // 预期同步信号值
+```cpp
+// 初始化UBuf工作区大小：不得小于512B
+constexpr uint32_t HCOMM_BUF_SIZE = 512U;
 
-if (rankId == 0) {
-    // Rank 0：从本端localBuf写4字节数据到远端remoteBuf，并写同步信号值到同步缓冲区。
-    WriteWithNotify(channel, remoteBuf, localBuf, sizeof(uint32_t), notifyBuf, notifyVal);
-} else {
-    // Rank 1：轮询同步信号缓冲区，直至接收到预期同步信号。
-    while (*notifyBuf != notifyVal) {}
-    // 此时Rank 0的数据已完整写入Rank 1的localBuf（对应Rank 0的remoteBuf），可安全访问。
-    Process(localBuf);
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+extern "C" __global__ __aicore__ void p2p_sync_kernel(
+    __gm__ void* team,
+    __gm__ void* sendWin,   // 发送数据所在对称window
+    __gm__ void* recvWin,   // 接收数据所在对称window
+    __gm__ void* signalWin, // 同步signal所在对称window
+    uint32_t rankId,        // 本端rank ID
+    uint64_t signalVal)     // 同步signal初始值
+{
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
+    pipe.InitBuffer(hcommBuf, HCOMM_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
+    AscendC::AinDescriptorUbuf hcommUbuf{
+        reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
+        HCOMM_BUF_SIZE, 0U};
+    AscendC::Ain ain(0);
+
+    if (rankId == 0) {
+        // Rank 0写任务之后追加一次远端signal原子加操作：对Rank 1的signalWin偏移0处signal计数值加1。
+        ain.Put(team, 1, recvWin, 0, sendWin, 0, sizeof(uint32_t), AscendC::AinSignalInc{signalWin, 0}, hcommUbuf);
+        // 本端同步：等待已提交的写任务完成
+        ain.Flush(team);
+    } else {
+        // 点对点同步：Rank 1阻塞等待signal计数值加1，确保Rank 0的数据已完整写入。
+        ain.WaitSignal(team, signalWin, 0, signalVal + 1, 32);
+        // 点对点同步完成，后续Process可安全访问。
+        Process(recvWin);
+    }
 }
 ```
 
@@ -245,17 +282,37 @@ if (rankId == 0) {
 
 以集合通信AlltoAll操作为例：通信组内所有Rank交换数据，交换前需保证各Rank的发送缓冲区已完成预处理，交换后需保证所有数据已交换完毕。若缺少前屏障，部分Rank可能读到尚未预处理完毕的发送数据；若缺少后屏障，部分Rank的后处理可能提前释放或覆盖缓冲区，污染正处于交换过程中的数据。
 
-```text
-// 屏障同步：通信组team内所有Rank在AlltoAll前后施加同步。
-Team team;
-uint32_t* sendBuf; // 发送数据缓冲区
-uint32_t* recvBuf; // 接收数据缓冲区
+```cpp
+// 初始化UBuf工作区大小：不得小于512B
+constexpr uint32_t HCOMM_BUF_SIZE = 512U;
 
-PreProcess(sendBuf);              // 预处理发送数据
-Barrier(team);                    // 前屏障：等待所有Rank完成预处理，确保发送数据就绪。
-AlltoAll(team, sendBuf, recvBuf); // 通信组内所有Rank交换数据。
-Barrier(team);                    // 后屏障：等待所有Rank完成交换，确保接收数据完整。
-PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+extern "C" __global__ __aicore__ void barrier_sync_kernel(
+    __gm__ void* team,
+    __gm__ void* sendWin, // 发送数据所在对称window
+    __gm__ void* recvWin) // 接收数据所在对称window
+{
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
+    pipe.InitBuffer(hcommBuf, HCOMM_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
+    AscendC::AinDescriptorUbuf hcommUbuf{
+        reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
+        HCOMM_BUF_SIZE, 0U};
+    AscendC::Ain ain(0);
+    // 创建屏障会话
+    AscendC::AinBarrierSession ainBarrier(&ain, team, 0);
+    // 预处理发送数据
+    PreProcess(sendWin);
+    // 前屏障（阻塞）：阻塞等待直至所有Rank抵达同步点，确保所有Rank的发送数据就绪
+    ainBarrier.Sync(AscendC::AinMemoryOrder::AIN_MEMORY_ORDER_RELAX, hcommUbuf);
+    // 通信组内所有Rank交换数据
+    AlltoAll(team, sendWin, recvWin);
+    // 后屏障（阻塞）：阻塞等待直至所有Rank抵达同步点，确保所有Rank交换数据完成
+    ainBarrier.Sync(AscendC::AinMemoryOrder::AIN_MEMORY_ORDER_RELAX, hcommUbuf);
+    // 后处理发送数据和接收数据
+    PostProcess(sendWin, recvWin);
+}
 ```
 
 > [!CAUTION]注意
