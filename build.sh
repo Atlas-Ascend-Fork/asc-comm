@@ -93,6 +93,8 @@ usage() {
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
+    echo ""
+    echo "Default (no options): verify the asc-comm run package build"
 }
 
 parse_args() {
@@ -213,7 +215,10 @@ main(){
 
     if [[ "${TEST}" != true ]]; then
         if [[ "${PACKAGE}" != true ]]; then
-            log "INFO" "use -t/--test to build UT"
+            log "INFO" "default mode: verify the asc-comm run package build"
+            bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
+                --cann_path="${Ascend_CANN_PACKAGE_PATH}" \
+                --output-dir="${SCRIPT_DIR}/build_out_guard" || return $?
         fi
         exit 0
     fi
