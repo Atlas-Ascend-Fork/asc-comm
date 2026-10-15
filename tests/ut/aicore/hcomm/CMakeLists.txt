@@ -9,6 +9,7 @@
 # ----------------------------------------------------------------------------------------------------------
 
 set(HCOMM_UT_INCLUDE_DIRS
+    ${ASCCOMM_UT_ROOT}/aicore/stub
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
     ${ASCCOMM_UT_STAGE_INCLUDE_DIR}
