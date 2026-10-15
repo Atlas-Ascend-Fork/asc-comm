@@ -63,13 +63,15 @@ Tensor API submodule: fd51475d8ceb26eb21befffe4391528bc16726a3
 ```
 
 ```bash
-source /path/to/cann/set_env.sh
-git clone https://gitcode.com/cann/ops-tensor.git /path/to/ops-tensor
-git -C /path/to/ops-tensor checkout e6cd0c20c716813ac4c76f2dba7152f63a4514ab
-git -C /path/to/ops-tensor submodule update --init --recursive include/tensor_api
+CANN_ENV="/path/to/cann/set_env.sh"  # 按实际安装位置修改
+OPS_TENSOR_ROOT="/path/to/ops-tensor"
+source "$CANN_ENV"
+git clone https://gitcode.com/cann/ops-tensor.git "$OPS_TENSOR_ROOT"
+git -C "$OPS_TENSOR_ROOT" checkout e6cd0c20c716813ac4c76f2dba7152f63a4514ab
+git -C "$OPS_TENSOR_ROOT" submodule update --init --recursive include/tensor_api
 
 # 在本示例目录执行
-cmake -S . -B build -DOPS_TENSOR_ROOT=/path/to/ops-tensor
+cmake -S . -B build -DOPS_TENSOR_ROOT="$OPS_TENSOR_ROOT"
 cmake --build build -j
 ```
 
@@ -144,6 +146,148 @@ python3 tests/run_device_tests.py --binary build/ain_all_gather_matmul \
 设备测试覆盖 FP16/BF16、M/N/K tile 尾块、18 个通信分块、单核多 peer、延迟 rank、独立通信和
 独立计算、HCCL 对照，以及资源复用时改变输入。每条命令和日志保存在输出目录，`results.json`
 保留退出码与判定。只有全部 rank 校验通过且进程组成功，才打印最终 `Status=PASS`。
+
+## 手动执行功能与性能测试
+
+以下命令在目标 Linux 主机的同一个 Bash 会话中依次执行。需要远程执行时，先通过 SSH 登录目标主机。
+先完成上面的构建，或使用与当前源码、CANN 包匹配的已有二进制。所有路径集中配置，不依赖固定的主机或安装目录。
+
+### 1. 配置环境与保存现场
+
+修改下面的路径和设备列表。`WORK` 是本次测试的工作目录；源码和构建产物可以放在其他位置，
+分别通过 `CASE_DIR` 和 `BIN` 指定。本流程使用同一互联组内的四张卡。
+
+```bash
+CANN_ENV="/path/to/cann/set_env.sh"
+WORK="/path/to/test-work"
+CASE_DIR="/path/to/asc-comm/examples/aicore/ain/02_all_gather_matmul"
+BIN="$CASE_DIR/build/ain_all_gather_matmul"
+DEVICES="4,5,6,7"  # 根据当前 ACL 编号和互联拓扑修改，例如 0,1,2,3
+BASE_PORT=30100     # 确保 BASE_PORT 到 BASE_PORT+35 未被其他测试占用
+
+source "$CANN_ENV"
+set -e
+set -o pipefail     # 测试失败时，即使通过 tee 保存日志，也停止后续步骤
+mkdir -p "$WORK"
+cd "$WORK"
+test -x "$BIN"
+test -f "$CASE_DIR/tests/run_device_tests.py"
+npu-smi info
+ldd "$BIN"
+```
+
+上述路径应填写为绝对路径。确认所选四张卡没有其他业务占用，并确认 `ldd` 没有 `not found`，
+实际加载的 CANN 库来自预期安装目录，再继续测试。不要为测试停止其他人的进程；卡未释放时等待释放。
+如果设置了设备可见性映射，先核实映射后的 ACL device ID。不要跨不互联的四卡组执行。
+
+```bash
+RESULT_DIR=$(mktemp -d "$WORK/ain-agmm-results.XXXXXX")
+{
+  date -Iseconds
+  uname -a
+  echo "CANN_ENV=$CANN_ENV"
+  echo "ASCEND_HOME_PATH=${ASCEND_HOME_PATH:-}"
+  echo "BIN=$BIN DEVICES=$DEVICES"
+  git -C "$CASE_DIR" rev-parse HEAD
+  git -C "$CASE_DIR" status --short
+  for component in runtime asc-devkit hccl hcomm; do
+    version_file="${ASCEND_HOME_PATH:-}/share/info/$component/version.info"
+    echo "component=$component version_file=$version_file"
+    if [ -f "$version_file" ]; then
+      cat "$version_file"
+    else
+      echo "版本文件不存在，请按当前安装布局补充记录"
+    fi
+  done
+  sha256sum "$BIN"
+  ldd "$BIN"
+  npu-smi info
+} > "$RESULT_DIR/environment.log" 2>&1
+echo "结果目录：$RESULT_DIR"
+```
+
+每次重跑都创建新的 `RESULT_DIR`，避免覆盖已有结果。包目录名不一定等于组件版本，应保留组件
+版本信息和二进制校验和；源码 HEAD 也不能单独证明已有二进制由该提交构建。
+
+### 2. 功能测试
+
+先运行四卡、小 shape 的随机输入冒烟测试，检查 AIN 串行和融合路径：
+
+```bash
+"$BIN" "tcp://127.0.0.1:$BASE_PORT" 4 257 80 272 \
+  --devices "$DEVICES" --dtype fp16 --mode both --tile-m 256 \
+  --random --verify-iters 2 --warmup 1 --iters 5 --timeout 180 \
+  2>&1 | tee "$RESULT_DIR/functional-smoke.log"
+```
+
+通过标准是进程退出码为 0、每个 rank 的 `CHECK` 均为 `errors=0`，并出现最终 `Status=PASS`。
+随后运行完整设备回归：
+
+```bash
+python3 "$CASE_DIR/tests/run_device_tests.py" \
+  --binary "$BIN" --devices "$DEVICES" \
+  --output-dir "$RESULT_DIR/functional" --port "$((BASE_PORT + 10))" \
+  2>&1 | tee "$RESULT_DIR/functional-suite.log"
+```
+
+提供四张卡时共运行 11 个用例，覆盖上述验证场景；两卡用例使用设备列表的前两张卡，
+四卡用例使用全部四张卡。检查所有用例为 `PASS`，并保留 `functional/results.json` 和各用例日志。
+脚本遇到首个失败即退出，未运行用例不能算通过。`--output-dir` 指定的目录必须尚不存在。
+
+### 3. 性能测试：六组对照
+
+功能通过后，在设备空闲且环境一致的条件下，按顺序测试 FP16/BF16 各三种模式：
+
+| 模式 | 对照含义 |
+| --- | --- |
+| `serial` | AIN AllGather 与 Blaze Matmul 串行执行 |
+| `fused` | AIN 与 Blaze Matmul 在同一个 MIX kernel 内重叠 |
+| `hccl` | HCCL AllGather 与 Blaze Matmul 串行执行 |
+
+固定每个 rank 的 `M=1024、K=4096、N=1024`，因此四卡输出为 `[4096,1024]`。
+每组预热 10 次、测量 100 次，通信分块固定为 256 行，避免自动分块差异影响对照。
+
+```bash
+mkdir "$RESULT_DIR/performance"
+port=$((BASE_PORT + 30))
+for dtype in fp16 bf16; do
+  for mode in serial fused hccl; do
+    echo "测试：dtype=$dtype mode=$mode port=$port"
+    "$BIN" "tcp://127.0.0.1:$port" 4 1024 4096 1024 \
+      --devices "$DEVICES" --dtype "$dtype" --mode "$mode" --tile-m 256 \
+      --verify-iters 2 --warmup 10 --iters 100 --timeout 600 \
+      2>&1 | tee "$RESULT_DIR/performance/${dtype}_${mode}.log"
+    port=$((port + 1))
+  done
+done
+npu-smi info > "$RESULT_DIR/devices-after.log"
+```
+
+性能测试使用默认周期输入，仍校验所有输出元素；大 shape 不加 `--random`，避免昂贵的 CPU golden。
+此处不加 `--trace`；如需观察重叠阶段，另行运行诊断并保存独立日志。不要并发执行不同测试组。
+
+### 4. 汇总与解读
+
+```bash
+grep -H '^PERF ' "$RESULT_DIR"/performance/*.log \
+  | tee "$RESULT_DIR/performance-summary.txt"
+grep -H '^RESULT ' "$RESULT_DIR"/performance/*.log
+```
+
+六份日志均应有最终 `Status=PASS`。分别按 dtype 记录三种模式的
+`max_rank_median_us`、`max_rank_p95_us` 和 `host_submit_skew_p95_us`，单位均为微秒。
+前两项是每次取最慢 rank 后的中位数和 P95，具体计时范围见上文 `PERF` 说明；第三项仅用于
+辅助检查 Host 提交偏斜，不能从设备耗时中直接扣除。
+
+在相同 dtype 下，以中位数计算：
+
+- 相对 AIN 串行的耗时降低比例：`(1 - fused / serial) * 100%`。
+- 相对 HCCL 串行的耗时降低比例：`(1 - fused / hccl) * 100%`。
+- 加速比：`基线耗时 / fused 耗时`；小于 1 表示融合更慢。
+
+仅比较校验通过、设备无其他业务干扰、shape/dtype/卡数/分块和 CANN 环境一致的结果。
+若耗时波动明显，保留原始日志，在新的结果目录中重复整套六组测试，不只挑选最快的一轮。
+这些步骤用于采集当前环境的结果，本身不代表当前 CANN 包已完成功能或性能验证。
 
 任何特定 shape 的收益都不能推广为全量优于传统 MC2；传统 MC2 算子还需用匹配的 shape、dtype、
 布局和通信引擎另行对照。本示例没有把 HCCL cascade 标成传统 MC2 性能。
