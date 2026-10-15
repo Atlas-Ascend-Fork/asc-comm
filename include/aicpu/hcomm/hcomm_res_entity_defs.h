@@ -168,15 +168,15 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
-#define HCOMM_CHANNEL_ENTITY_VERSION 0U             ///< Channel resource ABI版本号
-#define HCOMM_CHANNEL_ENTITY_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
-#define HCOMM_THREAD_ENTITY_VERSION 0U              ///< Thread resource ABI版本号
-#define HCOMM_THREAD_ENTITY_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
-#define HCOMM_RESOURCE_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
-#define HCOMM_RESOURCE_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
-#define HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
-#define HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE 256U       ///< Channel resource ABI固定大小
-#define HCOMM_RESOURCE_THREAD_ENTITY_SIZE 256U        ///< Thread resource ABI固定大小
+#define HCOMM_CHANNEL_ENTITY_VERSION 0U              ///< Channel resource ABI版本号
+#define HCOMM_CHANNEL_ENTITY_MAGIC_WORD 0x0fcf0f5fU  ///< Channel 资源合法性校验魔术字
+#define HCOMM_THREAD_ENTITY_VERSION 0U               ///< Thread resource ABI版本号
+#define HCOMM_THREAD_ENTITY_MAGIC_WORD 0x0fcf0f6fU   ///< Thread 资源合法性校验魔术字
+#define HCOMM_RESOURCE_RTSQ_SQE_SIZE 64U             ///< 单个RTSQ SQE占用字节数
+#define HCOMM_RESOURCE_RTSQ_BATCH_SIZE 128U          ///< 本地最多缓存的RTSQ SQE数量
+#define HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE 1024U ///< 单次申请的RTSQ Task ID数量
+#define HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE 256U      ///< Channel resource ABI固定大小
+#define HCOMM_RESOURCE_THREAD_ENTITY_SIZE 256U       ///< Thread resource ABI固定大小
 
 typedef enum {
     HCOMM_PROTECTION_TYPE_INVALID = -1,
@@ -280,14 +280,14 @@ typedef struct {
     HcommSqContextType type; ///< SQ上下文类型
     union {
         struct {
-            uint64_t sqVa;     ///< UB SQ的CPU虚拟地址(WQE写入位置)
-            uint64_t headAddr; ///< SQ硬件Head地址(预留)
-            uint64_t tailAddr; ///< SQ CI地址(软件轮询预留，当前恒0)
-            uint64_t dbVa;     ///< Doorbell寄存器地址(预留，doorbell走RTSQ UBDMA SQE)
-            uint32_t jfsID;    ///< Jetty ID
-            uint32_t wqeSize;  ///< 单个WQE字节数(64)
-            uint32_t sqDepth;  ///< WQEBB深度(控制面已乘4，数据面直用)
-            uint32_t tpID;     ///< TP号
+            uint64_t sqVa;         ///< UB SQ的CPU虚拟地址(WQE写入位置)
+            uint64_t headAddr;     ///< SQ硬件Head地址(预留)
+            uint64_t tailAddr;     ///< SQ CI地址(软件轮询预留，当前恒0)
+            uint64_t dbVa;         ///< Doorbell寄存器地址(预留，doorbell走RTSQ UBDMA SQE)
+            uint32_t jfsID;        ///< Jetty ID
+            uint32_t wqeSize;      ///< 单个WQE字节数(64)
+            uint32_t sqDepth;      ///< WQEBB深度(控制面已乘4，数据面直用)
+            uint32_t tpID;         ///< TP号
             uint8_t remoteEID[16]; ///< 远端EID【硬件逆序形态】；控制面已Reversed()，数据面直取填入WQE.rmtEid
             uint32_t sqHead;       ///< 软件维护的SQ生产者索引(pi，数据面持续自增)
             uint32_t sqTail;       ///< 已完成WQE计数(ci，数据面维护；当前无消费方可恒0)
@@ -310,7 +310,7 @@ typedef struct {
         } roceSq;
         uint8_t raws[112];
     } contextInfo;
-    uint8_t fence; ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
+    uint8_t fence;       ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
     uint8_t reserved[3]; ///< 对齐保留
 } HcommSqContext;
 
@@ -345,10 +345,10 @@ typedef struct {
 
 typedef struct {
     uint32_t chipVersion; ///< 预留芯片版本字段，当前默认0
-    uint32_t devPhyId;  ///< Host 侧 NPU 物理设备 ID；Device 侧可转换为本地设备 ID
-    uint8_t dieId;       ///< 设备Die编号(UB doorbell jetty三元素之一)
-    uint8_t funcId;      ///< 设备Function编号(UB doorbell jetty三元素之一)
-    uint8_t reserve[30]; ///< 设备信息扩展空间，创建资源时置0
+    uint32_t devPhyId;    ///< Host 侧 NPU 物理设备 ID；Device 侧可转换为本地设备 ID
+    uint8_t dieId;        ///< 设备Die编号(UB doorbell jetty三元素之一)
+    uint8_t funcId;       ///< 设备Function编号(UB doorbell jetty三元素之一)
+    uint8_t reserve[30];  ///< 设备信息扩展空间，创建资源时置0
 } HcommDevInfo;
 
 typedef struct {
@@ -367,9 +367,9 @@ typedef struct {
     HcommRegedBufferEntity* remoteBufferAddr;
     HcommSqContext* sqContextAddr;
     HcommCqContext* cqContextAddr;
-    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
+    HcommDevInfo devInfo;              ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
     ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值；数据面只作关联信息，不解引用
-    uint8_t reserve[112]; ///< 固定256字节ABI的预留扩展空间
+    uint8_t reserve[112];              ///< 固定256字节ABI的预留扩展空间
 } ChannelEntity;
 
 // RTSQ硬件字段由HCOMM控制面在资源构造阶段查询并填充；数据面只消费初始快照，
@@ -400,8 +400,8 @@ typedef struct {
     uint32_t localNotifyNum;                 ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
     HcommThreadSqContext* sqContextAddr;     ///< Thread直接持有的resource RTSQ运行上下文
-    ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
-    uint8_t raw[168];               ///< Thread固定256字节中的ABI预留扩展空间
+    ThreadHandle originThreadHandle;         ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
+    uint8_t raw[168];                        ///< Thread固定256字节中的ABI预留扩展空间
 } HcommThreadEntity;
 
 #ifdef __cplusplus
@@ -425,7 +425,8 @@ static_assert(offsetof(HcommSqContext, contextInfo) == 8, "HcommSqContext ABI of
 static_assert(offsetof(HcommSqContext, fence) == 120, "HcommSqContext ABI offset mismatch");
 static_assert(
     sizeof(ChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must not exceed 256 bytes");
-static_assert(sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "HcommThreadEntity ABI size must be 256 bytes");
+static_assert(
+    sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "HcommThreadEntity ABI size must be 256 bytes");
 static_assert(sizeof(ChannelEntity) == HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE, "ChannelEntity ABI size must be 256 bytes");
 static_assert(alignof(ChannelEntity) == 8, "ChannelEntity ABI alignment must match HCOMM");
 static_assert(alignof(HcommThreadEntity) == 8, "HcommThreadEntity ABI alignment must match HCOMM");
