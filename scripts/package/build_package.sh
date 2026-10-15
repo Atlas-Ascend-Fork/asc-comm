@@ -138,15 +138,15 @@ find_ccu_library()
     local build_dir="${PROJECT_ROOT}/build/package-ccu"
     local library="${build_dir}/libasccomm_ccu.so"
 
-    cmake -S "${PROJECT_ROOT}" -B "${build_dir}" > "${build_dir}.log" \
+    cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
         -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=ON
-    cmake --build "${build_dir}" --target asccomm_ccu >> "${build_dir}.log"
+    cmake --build "${build_dir}" --target asccomm_ccu
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
-    echo "${library}"
+    CCU_LIBRARY="${library}"
 }
 
 read_package_version()
@@ -270,7 +270,6 @@ build_package()
     local makeself_dir
     local version_checker_dir
     local run_file
-    local ccu_library
 
     [[ -n "${CANN_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --cann_path"
     [[ "${CANN_PATH}" = /* ]] || fail "CANN path must be absolute: ${CANN_PATH}"
@@ -285,7 +284,7 @@ build_package()
     required_runtime_version=$(read_package_compat_version "runtime")
     makeself_dir=$(find_makeself_dir)
     version_checker_dir=$(find_version_checker_dir)
-    ccu_library=$(find_ccu_library)
+    find_ccu_library
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -317,7 +316,7 @@ build_package()
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
         550 \
         aicore/hcomm
-    install -D -m 550 "${ccu_library}" \
+    install -D -m 550 "${CCU_LIBRARY}" \
         "${STAGING_DIR}/payload/asc/lib64/libasccomm_ccu.so"
     write_manifest
     write_link_manifest
