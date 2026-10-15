@@ -11,7 +11,7 @@ Kernel完成AllGather后，每个rank的输出Buffer中按rank顺序保存所有
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
 
 ## 目录结构介绍
 
@@ -88,7 +88,7 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
 
@@ -108,5 +108,5 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
-- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR&950DT系列产品场景。
 - 当前样例会使用环境中可见的全部NPU设备，设备数量不能超过`CCU_MAX_RANK_SIZE`。

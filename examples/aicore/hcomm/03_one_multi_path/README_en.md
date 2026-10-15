@@ -11,7 +11,7 @@ The sample uses one process per device. Each rank fills its local HCCL Buffer wi
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -120,7 +120,7 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode; this sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 

@@ -2,27 +2,31 @@
 
 English | [简体中文](./README.md)
 
-## Directory Layout
+## Directory Structure
 
 ```text
 docs/
-├── zh/api/              # Chinese API reference documents
-├── zh/guide/            # Chinese usage, build and test guides
-├── en/api/              # English API reference documents
-├── en/guide/            # English usage, build and test guides
-├── api_contributing_en.md  # API documentation contribution guide
-├── doc_contributing_en.md  # General documentation contribution guide
-└── quick_start_en.md       # Quick Start
+├── zh/api/              # Chinese API reference documentation
+├── zh/guide/            # Chinese usage, build, and test guide
+├── zh/programming_model/ # Chinese programming model documentation
+├── en/api/              # English API reference documentation
+├── en/guide/            # English usage, build, and test guide
+├── api_contributing.md  # API documentation contribution guide
+├── doc_contributing.md  # Documentation contribution guide
+└── quick_start.md       # Quick start
 ```
 
-| Document | Description |
+## Document Index
+
+| Document | Content |
 | --- | --- |
-| [Quick Start](./quick_start_en.md) | Environment setup, source compilation and UT verification for asc-comm. |
-| [API Reference](./en/api/README.md) | List of currently published asc-comm APIs. |
-| [Hcomm Usage Guide](./en/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-| [Build & Test](./en/guide/build_and_test.md) | CANN environment, development run package, UT compilation and sample build instructions. |
-| [Third-party Dependencies & Compatibility](./en/guide/dependencies.md) | Direct repository dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
-| [API Documentation Contribution Guide](./api_contributing_en.md) | Structure, constraints and checklist for adding or updating API documents. |
-| [Documentation Contribution Guide](./doc_contributing_en.md) | Standards for maintaining README, docs, examples and other documentation. |
-| [Contribution Guide](../CONTRIBUTING_en.md) | Workflow for Issues, development, checks and PR submission. |
-| [Samples](../examples/README_en.md) | Entry point for asc-comm API samples, including the AIV direct-driven URMA WriteNbi/ReadNbi point-to-point communication sample. |
+| [Quick Start](./quick_start_en.md) | Environment setup, source compilation, and UT verification for asc-comm. |
+| [Programming Model](./zh/programming_model/overview.md) | Ascend C communication programming paradigm, abstract hardware architecture, and classification and selection of communication modes. |
+| [API Reference](./zh/api/README.md) | List of currently published asc-comm interfaces. |
+| [Hcomm Usage Guide](./zh/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
+| [Build & Test](./en/compilation/build_and_test.md) | CANN environment, development run package, UT build, and sample build instructions. |
+| [Third-party Dependencies & Compatibility](./en/compilation/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration, and integration dependency boundaries. |
+| [API Documentation Contribution Guide](./en/contributing/api_contributing.md) | Structure, constraints, and checklist for adding or updating API documentation. |
+| [Documentation Contribution Guide](./en/contributing/doc_contributing.md) | Specification for supplementing README, docs, examples, and other documentation. |
+| [Contribution Guide](../CONTRIBUTING_en.md) | Issue, development, check, and PR submission workflow. |
+| [Samples](../examples/README_en.md) | Entry point for asc-comm API samples, including the AIV direct-drive URMA WriteNbi/ReadNbi point-to-point communication sample. |

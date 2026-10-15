@@ -14,7 +14,7 @@ AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，通过`Hccl::AllGather`与
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
 
 ## 目录结构介绍
 
@@ -110,7 +110,7 @@ ccResCtx
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
 
@@ -133,5 +133,5 @@ ccResCtx
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `all_gather_kernel`，二者必须使用同一个资源上下文。
 - AICore通信任务需要在CCU Server启动后提交，`Hccl::AllGather`不是Host侧直接执行的AllGather。
-- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR&950DT系列产品场景。
 - 当前样例会使用环境中可见的全部NPU设备，设备数量不能超过`CCU_MAX_RANK_SIZE`。

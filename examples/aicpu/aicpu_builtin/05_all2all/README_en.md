@@ -16,7 +16,7 @@ the equal-length data exchange.
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -121,7 +121,7 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 
@@ -151,5 +151,5 @@ Perform the following steps in the sample root directory. This sample supports N
   kernel must use two different streams, and the AICore stream must be synchronized before the AICPU
   stream.
 - The AICore side must call `Finalize`. The AICPU KFC Server exits only after receiving this message.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+- The sample uses `dav-3510` by default and covers Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `MC2_MAX_RANK_SIZE`.

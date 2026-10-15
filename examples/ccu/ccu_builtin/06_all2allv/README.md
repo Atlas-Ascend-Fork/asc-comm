@@ -14,7 +14,7 @@ kernel通过HCCL高阶API提交AlltoAllV Client通信任务。
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
 
 ## 目录结构介绍
 
@@ -103,6 +103,6 @@ make -j
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `all_to_all_v_kernel`，二者必须使用同一个资源上下文。
-- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR&950DT系列产品场景。
 - 当前样例使用环境中可见的全部NPU设备，设备数量不能超过`CCU_MAX_RANK_SIZE`（8）。
 - AlltoAllV的counts和displacements单位都是元素个数，不是字节数。

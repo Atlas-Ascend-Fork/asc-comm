@@ -114,6 +114,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 ## 调用示例
 
 - config-based：
+
     ```cpp
     using namespace AscendC::ccu;
 
@@ -149,6 +150,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
     ```
 
 - var-based：
+
     ```cpp
     // 用户自定义的kernel入参结构体，Host侧填充后通过<<<>>>的kernelArg传入
     struct my_kernel_arg {
