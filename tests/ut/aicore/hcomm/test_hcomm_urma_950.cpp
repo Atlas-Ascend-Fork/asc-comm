@@ -338,12 +338,10 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenId, 0x123456U);
     EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenValue, 0x654321U);
 
-    auto ignoredRemoteAddrHandle =
+    auto invalidRemoteHandle =
         hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x500U));
-    EXPECT_EQ(ignoredRemoteAddrHandle.channelHandle, channel.GetHandle());
-    EXPECT_EQ(ignoredRemoteAddrHandle.buffer.bufferCapacity, 2U);
-    EXPECT_EQ(ignoredRemoteAddrHandle.remoteInfo.tokenId, 0x123456U);
-    EXPECT_EQ(ignoredRemoteAddrHandle.remoteInfo.tokenValue, 0x654321U);
+    EXPECT_EQ(invalidRemoteHandle.channelHandle, 0U);
+    EXPECT_EQ(invalidRemoteHandle.buffer.bufferCapacity, 0U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain)
