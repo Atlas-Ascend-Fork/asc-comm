@@ -1,104 +1,105 @@
 # Hcomm SIMT URMA Functional Sample
 
-Validates every SIMT URMA point-to-point interface in `hcomm/hcomm_simt.h`: `WriteNbi`,
-`WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, under both immediate and
-deferred publication.
+## Overview
 
-The topology is a ring: every rank posts into the memory registered by
-`next = (rank + 1) % nranks` and verifies what `prev = (rank - 1 + nranks) % nranks` wrote. So with
-three or more cards every rank both sends and receives, rather than only the first two working
-while the rest idle.
+This sample validates all SIMT URMA point-to-point communication interfaces in `hcomm/hcomm_simt.h`: `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, and covers both immediate and deferred publication.
 
-Each rank is both sender and receiver, and both sides are checked: `sendBuf` holds the values this
-rank fetched back, `recvBuf` holds what `prev` wrote. Remote writes only ever land in `recvBuf` —
-the peer index is looked up by `kRecvBufTag`, and although `sendBuf` is registered on the channel it
-is never a remote target — so each `recvBuf` on the ring has exactly one writer and both checks have
-deterministic expected values.
+The topology is a ring: each rank sends operations to the memory registered by `next = (rank + 1) % nranks` and validates the results written by `prev = (rank - 1 + nranks) % nranks`. Each rank is both a sender and a receiver, and both sides are checked: `sendBuf` stores the old values fetched back by this rank's atomic operations, and `recvBuf` stores the data written by `prev`. Each `recvBuf` on the ring has exactly one writer, so all expected values are deterministic.
 
-What a rank sends does not depend on its rank, so the receiver's expected-value table does not need
-to distinguish where the data came from.
+All operations are issued by a single SIMT thread. One channel must be driven by one lane: a deferred WQE stays in the send queue until a later `commit=true` post publishes a producer index covering the whole batch, so all tasks in the same batch must be posted by the same lane.
 
-Every scenario is driven by a single SIMT thread. One channel must be driven by one lane: a deferred
-WQE stays in the send queue until a later `commit=true` post publishes a producer index covering the
-whole batch, and that index cannot distinguish which lane wrote which basic block. All tasks in one
-batch must be posted by the same lane.
+## Supported Products and CANN Software Versions
 
-## Test Modes
+| Product | CANN Software Version |
+|---------|-----------------------|
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
-### Write family
+## Directory Structure
 
-`WriteNbi` takes its data from a local buffer, and the WQE carries an SGE pointing at that buffer.
-Slot `i` carries the value `i + 1`, so the buffer reads back as 1, 2, ... 32; any wrong value points
-straight at the slot it should have come from.
+```text
+simt_urma
+├── CMakeLists.txt          // Build project file
+├── main.cpp                // Host-side communicator, memory registration, and verification flow
+├── op_kernel.cpp           // SIMT Kernel-side URMA interface calls
+├── simt_urma_common.h      // Definitions shared by Host and Kernel
+├── README.md               // Chinese sample documentation
+└── README_en.md            // English sample documentation
+```
 
-| `mode` | Kernel | Publication |
-|---|---|---|
-| `write_single` | `SimtWriteSingle` | 32 independent `WriteNbi<commit=true>` calls |
-| `write_batch_last` | `SimtWriteBatchLast` | 31 serial `WriteNbi<false>`, then one `WriteNbi<true>` |
+## Sample Description
 
-`WriteValueNbi` carries the value inline in the WQE with no SGE pointing at local memory, so these
-two modes never read the send buffer at all (it stays registered only to keep the buffer tables
-symmetric across ranks):
+### Functionality Description
 
-| `mode` | Kernel | Publication |
-|---|---|---|
-| `write_value_single` | `SimtWriteValueSingle` | 32 independent `WriteValueNbi<commit=true>` calls |
-| `write_value_batch_last` | `SimtWriteValueBatchLast` | 31 serial `WriteValueNbi<false>`, then one `WriteValueNbi<true>` |
+The sample provides ten test modes, covering immediate and deferred publication for each of the five interfaces:
 
-All four modes cover the full 32 slots and the receiver-side check is identical for each. The
-`*_single` modes publish every post with its own doorbell; the `*_batch_last` modes rely on the
-producer index carried by the final immediate post to sweep up the 31 deferred WQEs before it.
+**Write family**
 
-`WriteValueNbi` requires `config` to have inline enabled (`URMA_INLINE_CFG` is the default) and
-`sizeof(T)` to fit the WQE inline payload area; both are checked at compile time.
+`WriteNbi` takes data from a local buffer, and the WQE carries an SGE pointing to that buffer. Slot `i` carries the value `i + 1`, so any wrong value on the receiving side can be traced directly to the slot it should have come from.
 
-### Notify/Atomic family
+`WriteValueNbi` inlines the value to be written in the WQE without reading the send buffer. It requires `config` to have inline enabled (`URMA_INLINE_CFG` is the default) and `sizeof(T)` to fit within the WQE inline payload area; both are checked at compile time.
+
+| `mode` | Publication |
+|--------|-------------|
+| `write_single` | 32 independent `WriteNbi<commit=true>` calls |
+| `write_batch_last` | 31 serial `WriteNbi<false>` calls, then one `WriteNbi<true>` |
+| `write_value_single` | 32 independent `WriteValueNbi<commit=true>` calls |
+| `write_value_batch_last` | 31 serial `WriteValueNbi<false>` calls, then one `WriteValueNbi<true>` |
+
+**Notify/Atomic family**
 
 | `mode` | Description |
-|---|---|
+|--------|-------------|
 | `notify` | Submits one Notify operation and calls `Drain` |
-| `faa` | Submits one FAA operation, verifying the remote sum and the locally fetched old value |
-| `cas` | Submits one CAS operation, verifying the remote swap and the locally fetched old value |
-| `single` (default) | Submits Notify, FAA, and CAS serially, calling `Drain` after each |
-| `batch_last` | Defers Notify and FAA with `commit=false`, then publishes the batch with a `commit=true` CAS |
-| `notify_immediate_repeat` | One lane submits `kNotifyImmediateRepeatCount` `WriteWithNotifyNbi<true>` posts back to back, ringing the doorbell for each WQE, then calls `Drain` once after the whole burst; covers repeated immediate submission |
+| `faa` | Submits one FAA operation and validates the remote accumulated result and the old value fetched back locally |
+| `cas` | Submits one CAS operation and validates the remote swapped result and the old value fetched back locally |
+| `single` (default) | Submits Notify, FAA, and CAS serially, calling `Drain` after each operation |
+| `batch_last` | Defers Notify and FAA with `commit=false`, then publishes the whole batch with a `commit=true` CAS |
+| `notify_immediate_repeat` | One lane submits `kNotifyImmediateRepeatCount` `WriteWithNotifyNbi<true>` posts in a row (currently 100), then calls `Drain` once at the end |
 
-`kNotifyImmediateRepeatCount` is defined in [`simt_urma_common.h`](./simt_urma_common.h), currently 100.
+The two families use non-overlapping slot layouts, and the buffer is allocated according to the larger of the two layouts. SIMT has no `Commit` interface, so a deferred task can only be carried out by a later `commit=true` post. All modes call `Drain` at the end to ensure that the CQ is consumed before the kernel returns.
 
-The two families use disjoint slot layouts: each was designed around what its own operations need to
-observe, and keeping them apart makes every mode's expected-value table easier to read. The buffer is
-sized to whichever layout is larger.
+### Sample Specifications
 
-SIMT has no `Commit` interface, so a deferred task can only be carried out by a later `commit=true`
-post. Every mode ends with `Drain` to make sure the CQ has been consumed before the kernel returns.
+| Item | Description |
+|------|-------------|
+| Communication Mode | Ring topology SIMT URMA point-to-point communication |
+| Invocation Method | Direct URMA interface calls within the SIMT Kernel |
+| Test Modes | `write_single`, `write_batch_last`, `write_value_single`, `write_value_batch_last`, `notify`, `faa`, `cas`, `single`, `batch_last`, `notify_immediate_repeat` |
+| Supported Rank Count | Any >= 2 |
 
-## Build and Run
+### Implementation Flow
 
-Perform the following steps in the sample root directory. This sample supports NPU run mode only.
+1. The executable directly launches all rank processes (in-process fork, see `examples/aicore/utils/process_manager.h`). The ranks exchange root info and create the communicator through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`).
+2. Each rank registers `sendBuf` and `recvBuf` through `HcclCommMemReg`.
+3. Obtains the link endpoint to `next` through `HcclRankGraphGetLayers`/`HcclRankGraphGetLinks`, calls `HcclChannelAcquire` to create the channel, and obtains the peer memory address through `HcclChannelGetRemoteMems`.
+4. The Kernel side submits the URMA operations according to the selected mode, then calls `Drain` to wait for completion.
+5. The Host side uses two barriers (`ready` and `sent`) over the control channel to ensure that all ranks finish registration and writing before reading back and validating.
+6. Validates the values fetched back in `sendBuf` and the data landed in `recvBuf`, and outputs PASS/FAIL.
 
-- Set Environment Variables
+## Compilation and Execution
 
-  The sample builds against the asc-comm headers installed into the CANN directory. If not yet
-  installed, generate and install the development verification run package from the repository root
-  (see [`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md)):
+Perform the following steps in the root directory of this sample to compile and run it. This sample supports NPU run mode only.
+
+- Configure environment variables
+
+  The sample builds against the asc-comm headers installed into the CANN directory. If they are not yet installed, generate and install the development verification run package from the repository root first. For parameter details, see [`docs/en/compilation/build_and_test.md`](../../../../docs/en/compilation/build_and_test.md):
 
   ```bash
   bash build.sh --pkg
   ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
   ```
 
-  Then load the CANN environment:
+  Then load the CANN environment variables:
 
   ```bash
   source ${install_path}/cann/set_env.sh
   ```
 
-  > **Note:** `${install_path}` is the CANN installation directory. If not specified, the default is
-  > `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN package installation directory. If not specified, the default installation directory is `/usr/local/Ascend`.
 
-- Run the Sample
+- Run the sample
 
-  The executable forks all rank processes internally:
+  Execute the following commands in the sample directory. The executable internally forks all rank processes, so it can be run directly:
 
   ```bash
   mkdir -p build
@@ -108,20 +109,24 @@ Perform the following steps in the sample root directory. This sample supports N
   cd .. && ./build/simt_urma tcp://127.0.0.1:29620 <nranks> [mode]
   ```
 
+- Launch parameter description
+
   | Parameter | Default | Description |
-  | --- | --- | --- |
-  | `<ip:port>` | Required | Control channel address that rank 0 listens on (`tcp://ip:port`); use different ports for parallel instances |
-  | `<nranks>` | Required | Number of ranks; must be >= 2 |
-  | `[mode]` | `single` | Test mode; see Test Modes above; unrecognized modes are rejected outright |
+  |-----------|---------|-------------|
+  | `<ip:port>` | None | Control channel address (`tcp://ip:port` format) that rank 0 listens on, used for root info exchange and Host-side barriers; use different ports when running multiple instances in parallel |
+  | `<nranks>` | None | Number of ranks in the communicator; must be an integer not less than 2 |
+  | `[mode]` | `single` | Test mode; for the allowed values, see Sample Description; an unrecognized mode is rejected directly instead of silently falling back |
 
-- Build Options
+- Build options description
 
-  | Option | Values | Description |
-  | --- | --- | --- |
+  | Option | Allowed Values | Description |
+  |--------|----------------|-------------|
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode; this sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to Ascend 950PR&950DT products |
 
-- Expected Output
+- Expected output
+
+  Taking a two-card run of `write_single` as an example, each rank prints one set of results:
 
   ```text
   [rank 0] simt_urma write_single | sent to rank 1, received from rank 1 | PASS
@@ -129,39 +134,12 @@ Perform the following steps in the sample root directory. This sample supports N
   RESULT | Example=simt_urma Mode=write_single | Status=PASS
   ```
 
-  The sample succeeds when all ranks print `PASS` and the final status is `PASS`.
+  The sample succeeds when all ranks print `PASS` and the final `Status=PASS` is printed.
 
-## Buffer Index Constraints
+## Notes
 
-The kernel resolves buffer base addresses through `AscendC::simt::LocalBufferAddr` and
-`RemoteBufferAddr`, both of which take an index into the channel's buffer table rather than an index
-into the `memHandles` array passed to `HcclChannelAcquire`. Local table index 0 is reserved for the
-CCL buffer, so the first explicitly registered `sendBuf` in this sample uses index 1. The remote
-`recvBuf` index is looked up by tag through `HcclChannelGetRemoteMems`, because the remote table may
-hold entries this sample did not register.
-
-Passing the `memHandles` position directly resolves to the CCL buffer instead: the WQE, the remote
-address, and the token are all valid, so the NIC completes it and returns a clean CQE, but the
-receiver observes the CCL buffer's contents rather than the payload.
-
-## Host-side Synchronization
-
-Two host barriers make the verification trustworthy. They use the `RankSyncContext` barrier
-primitives over the TCP control channel.
-
-| Barrier | Purpose |
-|---|---|
-| `ready` | Every rank has finished memory registration and channel creation before any writing starts |
-| `sent` | Every rank has passed `aclrtSynchronizeStream`, so it may now read its own recvBuf |
-
-The `sent` barrier is what makes the result trustworthy. Without it a rank runs straight from `ready`
-to `aclrtMemcpy` with no ordering constraint against the kernel of the rank writing into it, reads
-the zeroed buffer, and reports every slot as never landed even though all CQEs returned cleanly.
-
-## Runtime Constraints
-
-- Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
-- At least two NPUs are required to run; single-NPU environments only support compilation verification.
-- The executable captures `SIGINT`/`SIGTERM` and terminates all rank processes, so Ctrl+C does not
-  leave processes blocked on a host barrier still holding devices.
-- The build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library.
+- Running the sample requires at least two NPUs; a single-card environment supports compilation verification only.
+- When the Kernel side resolves buffer base addresses through `AscendC::simt::LocalBufferAddr` and `RemoteBufferAddr`, it passes an index into the channel buffer table, not an index into the `memHandles` array: local table index 0 is reserved by the CCL buffer, and the first explicitly registered buffer uses index 1. The remote buffer index is looked up by tag through `HcclChannelGetRemoteMems`. Passing a `memHandles` index directly resolves to the CCL buffer, in which case the CQE returns normally but the receiver sees the CCL buffer content instead of the payload.
+- The Host-side `sent` barrier is the key to trustworthy validation results: without it, a rank may read a zeroed buffer while the writer's kernel has not finished.
+- The executable captures `SIGINT`/`SIGTERM` and terminates all rank processes, so Ctrl+C does not leave processes blocked on a Host barrier and still holding devices.
+- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `hcomm` library.

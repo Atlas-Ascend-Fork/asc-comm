@@ -118,4 +118,4 @@ docs/zh/api/ ───使用流程──→ docs/zh/guide/hcomm_usage.md
 ## 更多信息
 
 - API文档贡献指南：[api_contributing.md](./api_contributing.md)
-- asc-comm贡献指南：[CONTRIBUTING.md](../CONTRIBUTING.md)
+- asc-comm贡献指南：[CONTRIBUTING.md](../../../CONTRIBUTING.md)

@@ -15,7 +15,7 @@ AlltoAllV中每对rank之间的收发数据量按公式定制、互不相同。H
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
 
 ## 目录结构介绍
 
@@ -121,7 +121,7 @@ ccResCtx
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
 
@@ -151,4 +151,4 @@ ccResCtx
 - AICPU KFC Server会阻塞等待AICore Client消息，`Mc2CcKernelLaunch`与AICore kernel必须
   使用两条不同的任务流，且先同步AICore任务流、再同步AICPU任务流。
 - AICore侧必须调用`Finalize`，AICPU KFC Server收到该消息后才会退出。
-- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR&950DT系列产品场景。

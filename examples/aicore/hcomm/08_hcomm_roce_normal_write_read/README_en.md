@@ -8,7 +8,7 @@ This sample calls the Hcomm RoCE interfaces directly in an Ascend C AIV kernel, 
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Files
 

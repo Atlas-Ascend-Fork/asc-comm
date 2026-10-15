@@ -30,7 +30,7 @@ API开发类贡献主要包括：
 - 补充构建、测试、依赖或样例说明。
 - 修复无效链接、格式问题或表述歧义。
 
-新增或修改API文档时，请参考[API文档贡献指南](./docs/api_contributing.md)。新增或修改README、docs、examples等资料文档时，请参考[资料贡献指南](./docs/doc_contributing.md)。
+新增或修改API文档时，请参考[API文档贡献指南](./docs/zh/contributing/api_contributing.md)。新增或修改README、docs、examples等资料文档时，请参考[资料贡献指南](./docs/zh/contributing/doc_contributing.md)。
 
 ## 开发者贡献场景主要包括
 

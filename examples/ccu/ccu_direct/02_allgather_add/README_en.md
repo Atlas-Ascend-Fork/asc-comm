@@ -12,7 +12,7 @@ first gathers all rank inputs to every rank and then uses the gathered data as t
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -92,7 +92,7 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 
@@ -112,5 +112,5 @@ Perform the following steps in the sample root directory. This sample supports N
 
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+- The sample uses `dav-3510` by default and covers Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE`.

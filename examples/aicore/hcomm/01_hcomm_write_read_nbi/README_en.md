@@ -10,7 +10,7 @@ The Host side is only responsible for creating the communication domain, registe
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -111,7 +111,7 @@ Follow the steps below in the root directory of this sample to compile and run i
   | Option | Allowed Values | Description |
   |--------|----------------|-------------|
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Execution mode; this sample only supports NPU execution |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU architecture: `dav-3510` corresponds to Ascend 950PR / Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU architecture: `dav-3510` corresponds to Ascend 950PR&950DT products |
 
 - Expected output
 

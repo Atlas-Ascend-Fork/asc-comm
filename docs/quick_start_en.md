@@ -25,13 +25,11 @@ Select the corresponding environment setup method according to **whether local N
   </tbody>
 </table>
 
-> [!TIP]
-> Recommendations
+> [!TIP] Recommendations
 >
 > - For stable development experience, it is recommended to prepare your environment using **containerization technology**.
 > - If you prefer not to use containers, you may set up the environment on a physical machine equipped with NPUs. Refer to [CANN Software Installation Guide - Physical Machine Installation](https://www.hiascend.com/cann/download).
-> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install).
-> - The `hcomm_write_read_nbi` sample requires at least two NPUs for runtime execution.
+> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install). The `hcomm_write_read_nbi` sample requires at least two NPUs for runtime execution.
 
 ### 1️⃣ Cloud Development Environment<a name="cloud-dev-env"></a>
 
@@ -61,11 +59,13 @@ Users without physical NPU hardware can directly use the **CANNLab Cloud Develop
 Users with physical NPU hardware can develop with the official CANN Docker image.
 
 1. Verify host prerequisites
+
    - Confirm NPU driver and firmware are installed. Run `npu-smi info` to check device status. If missing, follow the sections *Prepare Software Packages* and *Install NPU Driver and Firmware* in the [CANN Software Installation Guide](https://www.hiascend.com/document/redirect/CannCommunityInstWizard). Drivers and firmware are runtime dependencies; you may skip them if only compiling source code.
    - Confirm Docker is installed. Run `docker --version` to verify. If missing, follow the [official Docker installation guide](https://docs.docker.com/engine/install/).
 
 2. Pull the CANN image
-    Fetch the pre-integrated CANN image from the Ascend Hub repository:
+
+    Fetch the pre-integrated CANN image from the [Ascend Hub repository](https://www.hiascend.com/developer/ascendhub/detail/17da20d1c2b6493cb38765adeba85884):
 
     ```bash
     # Example: CANN community package tag 9.0.0-beta.2
@@ -79,6 +79,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
     > - Image size is large; downloading normally takes 5–10 minutes under standard network conditions.
 
 3. Launch the Docker container
+
     After pulling the image, start the container with dedicated parameters to grant access to host NPUs.
 
     ```bash
@@ -104,7 +105,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
     | `--ipc=host` | Share IPC namespace with host; required for NPU inter-process communication (shared memory, semaphores) | - |
     | `--net=host` | Use host network stack to avoid communication latency from container forwarding | - |
     | `--privileged` | Grant full device access permissions required for NPU driver operation | - |
-    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two Ascend 950PR/Ascend 950DT devices shall be mapped to run the `hcomm_write_read_nbi` sample. |
+    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two devices of the Ascend 950PR&950DT products shall be mapped to run the `hcomm_write_read_nbi` sample. |
     | `--device /dev/davinci_manager` | Mount NPU device management interface | - |
     | `--device /dev/devmm_svm` | Mount device memory management interface | - |
     | `--device /dev/hisi_hdc` | Mount host-device communication interface | - |
@@ -125,9 +126,11 @@ CANN packages include the CANN toolkit package and CANN ops package.
 #### Download CANN Packages
 
 1. <a name="download-cann-commercial-community"></a>Download CANN Commercial / Community Release
+
     To use officially published CANN builds, visit [CANN Download Page - Ascend Community](https://www.hiascend.com/cann/download) to obtain the corresponding release.
 
 2. <a name="download-cann-master"></a>Download CANN master
+
     To test CANN master branch builds, visit the [CANN master OBS mirror website](https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/software/master) and download the most recent CANN packages by date.
 
 #### Install CANN Packages
@@ -178,7 +181,7 @@ Verify environment and driver health:
     cat /usr/local/Ascend/cann/$(uname -m)-linux/ascend_toolkit_install.info
     ```
 
-## ⚡ Environment Variable Setup<a name="cann-env-setup"></a>
+## ⚙️ Environment Variable Setup<a name="cann-env-setup"></a>
 
 > [!NOTE]
 > Precondition
@@ -261,8 +264,7 @@ Third-party open-source software used for UT execution:
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`.
-The sample supports Ascend 950PR / Ascend 950DT and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
+[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:
 

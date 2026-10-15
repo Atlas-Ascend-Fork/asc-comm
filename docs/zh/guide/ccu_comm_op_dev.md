@@ -8,7 +8,7 @@
 
 **图1** AllGather语义<a id="fig-allgather"></a>
 
-![AllGather语义](./figures/allgather.png)
+![AllGather语义](./figures/allgather.svg)
 
 ## 支持范围
 
@@ -19,7 +19,7 @@
 
 <!-- npu="950" id1 -->
 > [!NOTE]说明
-> 本样例支持Ascend 950PR/Ascend 950DT系列产品，要求CANN版本不低于9.1.0；单卡环境仅支持编译验证，实际运行至少需要2张NPU。
+> 本样例支持Ascend 950PR&950DT系列产品，要求CANN版本不低于9.1.0；单卡环境仅支持编译验证，实际运行至少需要2张NPU。
 <!-- end id1 -->
 
 ## 总体流程
@@ -426,5 +426,5 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
-- 样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR&950DT系列产品场景。
 - 样例会使用环境中可见的全部NPU设备，设备数量不能超过`CCU_MAX_RANK_SIZE`。

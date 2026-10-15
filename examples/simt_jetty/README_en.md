@@ -14,7 +14,7 @@ The `mixed` mode uses a `__global__ __mix__` entry: the SIMT VF builds and submi
 
 | Item | Description |
 | --- | --- |
-| Product | `Ascend 950PR / Ascend 950DT` |
+| Product | `Ascend 950PR&950DT products` |
 | NPU architecture | `dav-3510` |
 | Communication protocol | `COMM_PROTOCOL_UB_CTP` |
 | Execution model | SIMT VF (the mixed mode additionally contains an AIV body) |
