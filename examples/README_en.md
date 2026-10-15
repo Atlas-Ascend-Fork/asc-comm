@@ -9,6 +9,7 @@ This directory contains usage samples for asc-comm APIs.
 | Sample | Description | Supported Products |
 | --- | --- | --- |
 | [aicore/ain/01_basic_ring](./aicore/ain/01_basic_ring/README_en.md) | Demonstrates AIV Kernel invoking `Put`/`Get` over the AIN interface for point-to-point one-sided communication in a multi-card ring scenario, with synchronization and result verification through `AinBarrierSession`. | Ascend 950PR / Ascend 950DT |
+| [aicore/ain/02_all_gather_matmul](./aicore/ain/02_all_gather_matmul/README_en.md) | Combines AIN Get and Blaze BlockMmad for FP16/BF16 AllGatherMatmul, with an overlapped pipeline, serial/HCCL baselines and numerical verification. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/01_hcomm_write_read_nbi](./aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a multi-card scenario, with communication result verification. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/02_hcomm_batch_write](./aicore/hcomm/02_hcomm_batch_write/README_en.md) | Demonstrates multiple URMA channels sharing a Jetty and submitting cross-peer writes through `MakeBatchHandle`, `GetHandleRef`, `BatchCommit`, and `Drain`. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/03_one_multi_path](./aicore/hcomm/03_one_multi_path/README_en.md) | Queries a `UB_MEM` link, creates one path/multi path channels for every peer, processes peers serially, and concurrently moves and verifies each peer's remote data over two streams. | Ascend 950PR / Ascend 950DT |
