@@ -105,7 +105,7 @@
     | `--ipc=host` | 与宿主机共享IPC命名空间，NPU进程间通信（共享内存、信号量）所需 | - |
     | `--net=host` | 使用宿主机网络栈，避免容器网络转发带来的通信延迟 | - |
     | `--privileged` | 赋予容器完整设备访问权限，NPU驱动正常工作所需 | - |
-    | `--device /dev/davinci<N>` | 将指定的NPU设备映射到容器内；如需使用多张设备，可多次使用`--device`参数 | 根据`npu-smi info`显示的设备号调整。运行`hcomm_write_read_nbi`样例时至少映射两张Ascend 950PR/Ascend 950DT设备。 |
+    | `--device /dev/davinci<N>` | 将指定的NPU设备映射到容器内；如需使用多张设备，可多次使用`--device`参数 | 根据`npu-smi info`显示的设备号调整。运行`hcomm_write_read_nbi`样例时至少映射两张Ascend 950PR&950DT系列产品的NPU设备。 |
     | `--device /dev/davinci_manager` | 映射NPU设备管理接口 | - |
     | `--device /dev/devmm_svm` | 映射设备内存管理接口 | - |
     | `--device /dev/hisi_hdc` | 映射主机与设备间的通信接口 | - |
@@ -264,7 +264,7 @@ cmake --build build/ut-hcomm
 
 ### 🧩 样例验证<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR&950DT系列产品，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 
 进入样例目录后执行：
 

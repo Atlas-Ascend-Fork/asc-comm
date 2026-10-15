@@ -14,7 +14,7 @@ This directory provides CCU samples integrated through direct ASC invocation. Th
 
 ## Usage Notes
 
-- The samples support Ascend 950PR/Ascend 950DT with CANN 9.1.0 or later.
+- The samples support Ascend 950PR&950DT products with CANN 9.1.0 or later.
 - At least two NPUs are required to run the samples. Single-NPU environments only support compilation verification.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the samples.
 - Each sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE`.

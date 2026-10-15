@@ -29,8 +29,8 @@ English | [简体中文](./README.md)
 
 ### 📖 Documentation
 
-- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/guide/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md).
-- Added [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md), covering all currently published Hcomm interfaces.
+- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/compilation/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/compilation/dependencies.md).
+- Added [Hcomm Usage Guide (Chinese)](./docs/zh/guide/hcomm_usage.md) and [API Reference (Chinese)](./docs/zh/api/README.md), covering all currently published Hcomm interfaces.
 - Added [Samples Directory](./examples/README_en.md), serving as the entry for AIV direct-drive Hcomm invocations and end-to-end communication samples.
 
 For detailed information on all historical releases and updates, please refer to [CHANGELOG.md](./CHANGELOG_en.md).
@@ -40,6 +40,10 @@ For detailed information on all historical releases and updates, please refer to
 asc-comm is an open-source repository targeting communication scenarios on Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
 
 The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`; the Ascend 950 UB_CTP path can also use a BatchHandle to add multiple communication tasks and submit them together through `BatchCommit`. The corresponding `Drain` overload manages completion for each workflow. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
+
+### Delivery and Build Method
+
+The asc-comm data plane artifacts are jointly compiled and delivered through the asc-devkit run package. This repository becomes a build subproject of asc-devkit through build hooking (the source repositories are independent and placed at the same level). Compilation does not depend on the hcomm source tree or installed hcomm headers. Cross-SO ABI headers are preserved as-is under `include/hcomm`. This repository also provides a development header hotfix package (`build.sh --pkg`, aicore headers only, without SO).
 
 ### Data Plane Capabilities
 
@@ -58,11 +62,13 @@ The public capabilities include `AscendC::Hcomm` point-to-point communication an
 ### How to Use Hcomm Interfaces
 
 Include the following header when invoking Hcomm on the Kernel side:
+
 ```cpp
 #include "hcomm/hcomm.h"
 ```
 
 Ordinary interface workflow:
+
 1. Instantiate an `AscendC::Hcomm` object and select the communication protocol.
 2. Call `Init` to initialize temporary workspace.
 3. Submit communication tasks via `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS`.
@@ -79,21 +85,24 @@ Ascend 950 UB_CTP batch interface workflow:
 While using a BatchHandle, the caller must exclusively own its associated channel resources and must not mix ordinary interfaces or use another BatchHandle concurrently. Remote addresses used by batch operations must belong to the remote registered memory selected when the batch handle is created or configured.
 
 Protocol capability matrix:
+
 | Protocol | Capability Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. `WriteWithNotifyNbi` and BatchHandle interfaces are not supported. |
 | `COMM_PROTOCOL_UB_CTP` | UBC CTP/URMA point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`; BatchHandle interfaces are additionally supported on Ascend 950. |
 
-Refer to [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
+Refer to [Hcomm Usage Guide (Chinese)](./docs/zh/guide/hcomm_usage.md) and [API Reference (Chinese)](./docs/zh/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ### How to Use Ain Interfaces
 
 Include the following header when invoking Ain on the Kernel side:
+
 ```cpp
 #include "ain/ain.h"
 ```
 
 Basic invocation workflow:
+
 1. Instantiate an `AscendC::Ain` object, binding it to a communication context index.
 2. Issue one-sided read/write via `Put`/`PutValue`/`Get`, or a remote atomic signal operation via `Signal`.
 3. If `AIN_COMMIT_DELAYED` is set at submission, submission is deferred until a subsequent `AIN_COMMIT_IMMED` task rings the doorbell; otherwise the task is submitted immediately.
@@ -102,16 +111,18 @@ Basic invocation workflow:
 6. For collective synchronization, use `AinBarrierSession::Sync` to perform a team-level barrier.
 
 Commit mode matrix:
+
 | Mode | Behavior |
 | --- | --- |
 | `AIN_COMMIT_IMMED` | Assembles the communication task and rings the doorbell immediately, submitting it to the underlying engine. |
 | `AIN_COMMIT_DELAYED` | Only assembles the communication task without ringing the doorbell; submission is deferred until a subsequent `AIN_COMMIT_IMMED` task. |
 
-Refer to [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
+Refer to [API Reference (Chinese)](./docs/zh/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
 
 This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
+
 ```text
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
@@ -138,11 +149,13 @@ This repository contains AICore communication data plane APIs, device-side imple
 ## ⚡️ Quick Start
 
 To quickly build the project and run UTs, configure the CANN environment first:
+
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
 Default build for basic environment validation. AICore Hcomm and Ain are header-only; no standalone library will be generated for non-UT builds:
+
 ```bash
 bash build.sh
 ```
@@ -154,6 +167,7 @@ bash build.sh --make_clean
 ```
 
 Build and execute Hcomm and Ain unit tests:
+
 ```bash
 bash build.sh -t
 ```
@@ -165,15 +179,16 @@ bash build.sh --pkg
 ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-The packaging script recursively collects headers under `include/` and `src/`. Hcomm is installed under `adv_api`; other headers preserve their relative paths under `comm_api`. See [Build & Test](./docs/en/guide/build_and_test.md) for installation paths, command options, permissions, and uninstallation instructions.
+The packaging script recursively collects headers under `include/` and `src/`. Hcomm is installed under `adv_api`; other headers preserve their relative paths under `comm_api`. See [Build & Test](./docs/en/compilation/build_and_test.md) for installation paths, command options, permissions, and uninstallation instructions.
 
 To build UTs directly via CMake, specify the CANN third-party library path:
+
 ```bash
 cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/build_and_test.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
+See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/compilation/build_and_test.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
 
 ## 🧰 Clangd / IDE Support
 
@@ -190,10 +205,10 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/b
   | --- | --- |
   | [Documentation Index](./docs/README_en.md) | Main entry for asc-comm documentation. |
   | [Quick Start](./docs/quick_start_en.md) | Environment setup, source compilation and UT verification. |
-  | [API Reference](./docs/en/api/README.md) | List of published asc-comm interfaces. |
-  | [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-  | [Build & Test](./docs/en/guide/build_and_test.md) | CANN environment, development run package, UT and sample build instructions. |
-  | [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
+  | [API Reference (Chinese)](./docs/zh/api/README.md) | List of published asc-comm interfaces. |
+  | [Hcomm Usage Guide (Chinese)](./docs/zh/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
+  | [Build & Test](./docs/en/compilation/build_and_test.md) | CANN environment, development run package, UT and sample build instructions. |
+  | [Third-party Dependencies & Compatibility](./docs/en/compilation/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
   | [Samples Directory](./examples/README_en.md) | Entry point for asc-comm API samples. |
 
 - **Contribution Guides**
@@ -202,8 +217,8 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/b
   | --- | --- |
   | [CANN Community Contribution Guide](https://gitcode.com/cann/community) | General workflow for CANN community Issues and PRs. |
   | [asc-comm Contribution Guide](./CONTRIBUTING_en.md) | Repository-specific rules for Issues, development, checks and PR submission. |
-  | [API Documentation Contribution Guide](./docs/api_contributing_en.md) | Structure, constraints and checklist for adding or updating API docs. |
-  | [Documentation Contribution Guide](./docs/doc_contributing_en.md) | Specification for maintaining README, docs, examples and other documentation. |
+  | [API Documentation Contribution Guide](./docs/en/contributing/api_contributing.md) | Structure, constraints and checklist for adding or updating API docs. |
+  | [Documentation Contribution Guide](./docs/en/contributing/doc_contributing.md) | Specification for maintaining README, docs, examples and other documentation. |
 
 - **Others**
 

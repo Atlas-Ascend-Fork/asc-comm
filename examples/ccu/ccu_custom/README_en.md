@@ -21,7 +21,7 @@ This directory provides samples where the host directly registers and launches c
 
 ## Usage Notes
 
-- The samples support Ascend 950PR/Ascend 950DT. See each sample README for the exact CANN version and scale constraints.
+- The samples support Ascend 950PR&950DT products. See each sample README for the exact CANN version and scale constraints.
 - At least two NPUs are required to run the samples. Single-NPU environments only support compilation verification.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running most samples. Follow each sample README.
 
