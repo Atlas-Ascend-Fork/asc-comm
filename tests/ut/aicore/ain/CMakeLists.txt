@@ -17,6 +17,7 @@
 #   ../../hcomm/impl/hcomm_impl_def.h            -> asc/impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h
 #   hcomm/hcomm_team_entity_defs.h               -> CANN pkg_inc/hcomm (sibling of the asc dir)
 set(AIN_UT_INCLUDE_DIRS
+    ${ASCCOMM_UT_ROOT}/aicore/stub
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
     ${ASCCOMM_UT_STAGE_INCLUDE_DIR}
