@@ -28,8 +28,7 @@ AsccommResult asccomm_rtsq_notify_record(HcommThreadEntity& thread, uint32_t not
 AsccommResult asccomm_rtsq_sdma_copy(HcommThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
 AsccommResult asccomm_rtsq_sdma_reduce(
     HcommThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
-AsccommResult asccomm_rtsq_ub_db_send(
-    HcommThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
+AsccommResult asccomm_rtsq_ub_db_send(HcommThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
 AsccommResult asccomm_rtsq_rdma_db_send(HcommThreadEntity& thread, uint64_t dbAddr, uint64_t dbValue);
 AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread);
 

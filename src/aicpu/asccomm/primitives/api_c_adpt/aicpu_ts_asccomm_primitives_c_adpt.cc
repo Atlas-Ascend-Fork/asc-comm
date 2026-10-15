@@ -44,7 +44,8 @@ AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t m
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
+AsccommResult get_thread_entity(
+    ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
@@ -254,8 +255,8 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
             CHK_RET(asccomm_rtsq_sdma_copy(
-                *threadEntity, reinterpret_cast<uintptr_t>(dst) + offset,
-                reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize)));
+                *threadEntity, reinterpret_cast<uintptr_t>(dst) + offset, reinterpret_cast<uintptr_t>(src) + offset,
+                static_cast<uint32_t>(realSize)));
             offset += realSize;
         }
         return ASCCOMM_SUCCESS;
@@ -279,8 +280,8 @@ int32_t asccomm_local_reduce_on_thread(
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
             CHK_RET(asccomm_rtsq_sdma_reduce(
-                *threadEntity, reinterpret_cast<uintptr_t>(dst) + offset,
-                reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize), reduceIn));
+                *threadEntity, reinterpret_cast<uintptr_t>(dst) + offset, reinterpret_cast<uintptr_t>(src) + offset,
+                static_cast<uint32_t>(realSize), reduceIn));
             offset += realSize;
         }
         return ASCCOMM_SUCCESS;

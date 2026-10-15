@@ -81,8 +81,7 @@ AsccommResult query_sq_base(uint32_t localDevId, const HcommRtsqContext& context
     CHK_PRT_RET(
         ret != 0,
         ASCCOMM_ERROR(
-            "[%s] halSqCqQuery failed, localDevId[%u], sqId[%u], ret[%d].", __func__, localDevId, context.sqId,
-            ret),
+            "[%s] halSqCqQuery failed, localDevId[%u], sqId[%u], ret[%d].", __func__, localDevId, context.sqId, ret),
         ASCCOMM_E_INTERNAL);
     value = (static_cast<uint64_t>(queryInfo.value[1]) << 32U) | queryInfo.value[0];
     return ASCCOMM_SUCCESS;
@@ -183,8 +182,8 @@ AsccommResult refresh_rtsq(HcommThreadEntity& thread)
 
 uint8_t* get_current_sqe(HcommThreadSqContext& contextOuter)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(contextOuter.contextInfo.RtsqContext.localSqAddr))
-           + contextOuter.contextInfo.RtsqContext.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
+    return reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(contextOuter.contextInfo.RtsqContext.localSqAddr)) +
+           contextOuter.contextInfo.RtsqContext.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
 }
 
 AsccommResult validate_thread_entity(HcommThreadEntity* thread)
@@ -222,7 +221,8 @@ AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
     CHK_PRT_RET(
         ret != 0,
         ASCCOMM_ERROR(
-            "[%s] drvGetLocalDevIDByHostDevID failed, devicePhyId[%u], ret[%d].", __func__, thread->devInfo.devPhyId, ret),
+            "[%s] drvGetLocalDevIDByHostDevID failed, devicePhyId[%u], ret[%d].", __func__, thread->devInfo.devPhyId,
+            ret),
         ASCCOMM_E_INTERNAL);
     CHK_RET(query_sq_base(localDevId, rtsq, rtsq.sqBaseAddr));
     CHK_RET(query_sq_value(localDevId, rtsq, DRV_SQCQ_PROP_SQ_DEPTH, rtsq.sqDepth));
