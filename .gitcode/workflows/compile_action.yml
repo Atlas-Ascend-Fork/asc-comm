@@ -67,14 +67,6 @@ jobs:
             BuildAccelerate bash compile.sh
           AC_SERVER_IP: ${{ vars.AC_SERVER_IP }}
       -
-        name: package_guard
-        identifier: package_guard
-        if: ${{ inputs.task_name != 'Pre_Compile' }}
-        run: |
-          source /home/jenkins/Ascend/cann/bin/setenv.bash
-          cd ${{ steps.process_checkout.outputs.path }}
-          bash scripts/package/build_package.sh --output-dir=build_out_guard
-      -
         name: rename_package
         if: ${{ inputs.task_name != 'Pre_Compile' }}
         run: |
