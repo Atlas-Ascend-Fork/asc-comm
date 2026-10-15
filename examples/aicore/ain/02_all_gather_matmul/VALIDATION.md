@@ -1,6 +1,8 @@
 # AIN + Blaze AllGatherMatmul 验证记录
 
-验证日期：2026-09-24。结论针对本示例当前工作区版本，不代表传统 MC2 算子或所有 shape。
+本文按日期保留实测记录。各节结论仅适用于对应源码、安装包和测试条件，不代表传统 MC2 算子或所有 shape。
+
+以下为 2026-09-24 初始验证；2026-10-15 六组性能复测见文末独立章节。
 
 ## 环境和版本
 
@@ -132,3 +134,88 @@ TCP 调用位于 event 外部，并不意味着启动偏斜不会进入 collecti
 已验证 2/4 rank，未验证跨互联组、8/16 rank、950DT 或其他 shape 的性能范围。参数允许的 rank
 上限不是设备验收范围。未进行 Get/Put A/B、完整传统 MC2 对照、转置/量化/ACLNN 接入和大规模
 随机压力测试；当前 tile 参数也未做全面调优。本记录对应完成上板验证时的源码，交付状态以关联 PR 为准。
+
+
+## 2026-10-15：四卡六组性能复测
+
+本次在 A5_4p 的同一互联组 `0,1,2,3` 上，对 FP16/BF16 各执行 AIN 串行、AIN 融合、
+HCCL 串行三种模式，**6/6 通过**。本节使用新的 CANN 安装包，独立于上面的 9 月记录。
+
+### 环境与产物
+
+| 项目 | 本次实际值 |
+| --- | --- |
+| 主机 / 系统 | SSH `A5_4p`，Linux x86_64，kernel `6.8.0-146-generic` |
+| 设备 / 核数 | Ascend950PR；rank 0～3 分别对应 ACL device 0～3；每卡 28 AIC |
+| 驱动工具 | `npu-smi 25.7.rc1.6` |
+| 源码核对提交 | `0970ad19564a620e4878501f6bd50de62e287a44`，分支 `feat/ain-blaze-all-gather-matmul` |
+| CANN 环境入口 | `/mnt/docker/jxy/Ascend/ascend-toolkit/set_env.sh` |
+| 实际 ASCEND_HOME_PATH | `/mnt/docker/jxy/Ascend/cann-9.3.0` |
+| 组件清单 | runtime / asc-devkit / hccl / hcomm 均为 `Version=9.2.0`，`timestamp=20261009_000323778` |
+| 二进制 | `/mnt/docker/jxy/ain-agmm-20261014.UJP9Cd/build/ain_all_gather_matmul` |
+| 二进制 SHA-256 | `85f254c8e295bfc84937d66ce22a1b76fd3804809bc17a4435b775fb69172a2c` |
+| 执行方式 | 单机 fork 四个 rank，无 MPI，无自定义 OPP 安装 |
+
+复用 10 月 14 日构建的二进制，本次没有编译、安装或修改源码。二进制 SHA-256 与该次构建记录一致；
+本次还比对了远端构建源码快照与上述提交的示例源码、CMake 和公共通信/进程/同步工具，文件摘要一致。
+上述提交包含后续 README 修改，不将它表述为二进制的原始构建提交。
+`ldd` 确认 HCOMM、HCCL、runtime 等库来自上述 CANN 目录，没有 `not found`。
+目录名中的 `9.3.0` 不作为组件版本结论。
+
+运行前及运行后，0～3 卡均无其他运行进程；结束后未残留本次样例进程。
+5～7 卡有 VLLM 业务运行，本次没有停止或修改这些进程。测试并非整机独占，不能排除共享 Host
+等资源的影响；不把本节与 9 月数据的微小差异归因为 CANN 包升级。
+
+### 参数、校验和计时范围
+
+- 每 rank 输入 `M=1024、K=4096、N=1024`，四卡输出为 `[4096,1024]`。
+- `tileM=256`，4 轮通信，28 核；每组预热 10 次、稳态测量 100 次。
+- `--verify-iters 2 --timeout 600`，使用默认周期输入并校验全部输出；未启用 `--random` 或 `--trace`。
+- 每组退出码为 0，最终 `Status=PASS`；每个 rank 有 3 条 `CHECK`（两次输入验证和最终结果校验），
+  每组共 12 条、六组共 72 条，全部 `errors=0`。本次没有重跑完整的 11 项功能回归。
+- 每次先取所有 rank 的 device event 耗时最大值，再统计 median/P95；不包含资源创建、CPU 校验和
+  Host 建域。串行模式包含通信与计算之间的启动间隔。Host 提交偏斜单独记录，不从耗时中扣除。
+
+| dtype | 模式 | median / us | P95 / us | Host 提交偏斜 P95 / us |
+| --- | --- | ---: | ---: | ---: |
+| FP16 | AIN serial | 408.555 | 411.576 | 7.250 |
+| FP16 | AIN fused | 256.699 | 259.894 | 5.899 |
+| FP16 | HCCL serial (`hccl`) | 488.683 | 502.571 | 7.201 |
+| BF16 | AIN serial | 408.636 | 410.487 | 6.570 |
+| BF16 | AIN fused | 257.094 | 261.015 | 6.480 |
+| BF16 | HCCL serial (`hccl`) | 483.095 | 498.044 | 6.570 |
+
+按中位耗时，降低比例为 `(1 - fused / baseline) * 100%`，加速比为 `baseline / fused`：
+
+| dtype | 相对 AIN 串行耗时降低 | 加速比 | 相对 HCCL 串行耗时降低 | 加速比 |
+| --- | ---: | ---: | ---: | ---: |
+| FP16 | 37.17% | 1.592x | 47.47% | 1.904x |
+| BF16 | 37.08% | 1.589x | 46.78% | 1.879x |
+
+HCCL 串行为 HCCL AllGather 后执行相同 Blaze Matmul，使用环境默认通信算法，不能等同于传统
+MC2 融合算子。此次未采集 Profiling 或 cycle trace，不由耗时差推断具体网络/Cube 重叠比例，
+也不把此前包上的阶段重叠采样当成本次的新证据。
+
+### 复现与证据
+
+环境和工作目录可变，按 [README 手动测试步骤](README.md#手动执行功能与性能测试) 设置
+`CANN_ENV`、`WORK`、`BIN`、`RESULT_DIR`、`DEVICES` 和 `BASE_PORT`；本次 `DEVICES=0,1,2,3`。
+六组依次为 `fp16/serial`、`fp16/fused`、`fp16/hccl`、`bf16/serial`、`bf16/fused`、`bf16/hccl`，
+实际端口为 30020～30025。单组命令如下，路径均通过变量传入：
+
+```bash
+"$BIN" "tcp://127.0.0.1:$port" 4 1024 4096 1024 \
+  --devices "$DEVICES" --tile-m 256 --dtype "$dtype" --mode "$mode" \
+  --warmup 10 --iters 100 --verify-iters 2 --timeout 600
+```
+
+以下是本次证据的实际保存位置，不是复现时必须使用的路径：
+
+- 远端日志目录：`/mnt/docker/jxy/ain-agmm-perf-0-3.SvAGPt`。
+- 本地归档目录：`/Users/izanaami/Documents/MC2_AICPU/logs/ain_agmm_perf_20261015_0_3`。
+- `results.json`、`run_perf.py`、`run.log`：六组完整命令、退出码及运行输出。
+- `{fp16,bf16}_{serial,fused,hccl}.log`：各 rank/device 映射、校验记录和性能字段。
+- `environment.log`、`devices-after.log`：组件版本、库加载路径、二进制摘要及设备状态。
+- 本地 `summary.json`、`REPORT.md`：性能汇总；`source-parity.json`、`process-check.txt`：源码摘要比对及进程退出检查。
+
+原始日志保留在上述环境中，未随本文提交到仓库。
