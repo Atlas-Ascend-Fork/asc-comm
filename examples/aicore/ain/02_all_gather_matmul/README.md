@@ -5,6 +5,9 @@
 本示例在一个 MIX AIC:AIV=1:1 kernel 中组合 AIN `Get` 和 Blaze `BlockMmad`，演示通信与计算重叠。
 Host 使用 HCCL 建域和对称 window/team 资源接口，数据面由 AIV 提交 AIN 通信，AIC 执行矩阵乘。
 
+初次阅读可先看[代码执行流程说明](ain_blaze_agmm_flow.md)：包含对应函数的程序整体流程图、
+融合 kernel 内 AIV/AIC 协作流程图，以及数据布局和 ready/free 通知的中文说明。
+
 ## 语义与边界
 
 每个 rank `r` 提供 `A_r[M,K]` 和 `B_r[K,N]`，得到：
