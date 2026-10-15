@@ -319,8 +319,8 @@ enum class RdmaOperation {
 };
 
 AsccommResult execute_rdma(
-    HcommThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr, uintptr_t remoteAddr,
-    uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
+    HcommThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr,
+    uintptr_t remoteAddr, uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
 {
     HcommRdmaSqContext* resourceSq = nullptr;
     HcommRdmaCqContext* resourceCq = nullptr;
