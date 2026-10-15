@@ -360,10 +360,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(const LocalTenso
 }
 
 __aicore__ inline bool HcommUrmaResolveBatchRemote(
-    const MultiChannelRemoteInfo& remoteInfo, GM_ADDR, BatchRemoteInfo& resolvedRemoteInfo)
+    const MultiChannelRemoteInfo& remoteInfo, GM_ADDR remoteAddr, BatchRemoteInfo& resolvedRemoteInfo)
 {
     auto* remoteBuffers = reinterpret_cast<RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
     if (remoteBuffers == nullptr || remoteInfo.remoteBufferNum == 0U) {
+        return false;
+    }
+    if (remoteAddr != nullptr &&
+        HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U) == HCOMM_FAILED) {
         return false;
     }
 
