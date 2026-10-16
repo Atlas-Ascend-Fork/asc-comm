@@ -505,6 +505,7 @@ static inline HcommResult HostDestroyMultiChannelHandle(MultiChannelHandle multi
         if (channels != NULL) {
             (void)aclrtFreeHost(channels);
         }
+        (void)aclrtFree((void*)(uintptr_t)multiChannel);
         return HCCL_E_MEMORY;
     }
     aclRet = aclrtMemcpy(
@@ -514,12 +515,14 @@ static inline HcommResult HostDestroyMultiChannelHandle(MultiChannelHandle multi
     if (aclRet != ACL_SUCCESS) {
         ASC_CPU_LOG_ERROR("[ERROR] [%s] copy owned channel handles from device failed, ret[%d].", __func__, aclRet);
         (void)aclrtFreeHost(channels);
+        (void)aclrtFree((void*)(uintptr_t)multiChannel);
         return HCCL_E_RUNTIME;
     }
 
     ret = DlHcommApi::LoadHcommApi();
     if (ret != HCCL_SUCCESS) {
         (void)aclrtFreeHost(channels);
+        (void)aclrtFree((void*)(uintptr_t)multiChannel);
         return ret;
     }
     ret = DlHcommApi::HcommChannelDestroy(channels, entity.channelNum);
