@@ -24,6 +24,8 @@
 
 #include <cstdint>
 
+#include "hcomm/hcomm_common.h"
+
 namespace AscendC {
 
 enum class MultiChannelHandle : uint64_t {};
@@ -65,7 +67,7 @@ static constexpr UrmaWqeEntry URMA_INLINE_CFG = {
     .inlineEn = 1,
 };
 
-static constexpr UrmaWqeEntry ROCE_DEFAULT_CFG = {
+static constexpr WqeEntry ROCE_DEFAULT_CFG = {
     .odr = 0,
     .fence = 1,
     .se = 0,
