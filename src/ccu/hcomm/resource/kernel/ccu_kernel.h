@@ -275,14 +275,14 @@ public:
     CcuResult loop_create(ccu_loop* loop);
     CcuResult loop_body_enter(ccu_loop loop);
     CcuResult loop_body_exit(ccu_loop loop);
-    CcuResult loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config);
+    CcuResult loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_cfg* cfg);
     CcuResult loop_group_create_from_var(
         ccu_loop_group* group, uint32_t max_loop_num, ccu_variable_handle parallel_var_handle,
         ccu_variable_handle offset_var_handle);
     CcuResult loop_group_create_from_var_v2(
         ccu_loop_group* group, uint32_t max_loop_num, ccu_variable_handle parallel_var_v2,
         ccu_variable_handle offset_var_v2, ccu_variable_handle var_offset_var);
-    CcuResult loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config);
+    CcuResult loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_cfg* cfg);
     CcuResult loop_group_add_loop_from_var(ccu_loop_group group, ccu_loop loop, ccu_variable_handle loop_param_var);
     CcuResult loop_group_add_loop_from_var_v2(
         ccu_loop_group group, ccu_loop loop, ccu_variable_handle iter_num_var, ccu_variable_handle addr_offset_var,
@@ -520,7 +520,7 @@ private:
     };
 
     struct loop_group_descriptor {
-        ccu_loop_group_config config;
+        ccu_loop_group_cfg config;
         uint64_t total_loop_num{0};
         uint32_t loop_count{0};
         ccu_rep::variable parallel_var;

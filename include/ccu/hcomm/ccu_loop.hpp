@@ -82,15 +82,39 @@ public:
 
     loop_group(const ccu_loop_group_config& loop_group_cfg, uint32_t max_loop_num, const std::vector<loop>& loops)
     {
-        ccu_loop_group_config local_cfg = loop_group_cfg;
+        // 旧 config 与版本化 cfg 都归一化为 ccu_loop_group_cfg，统一走 cfg 路径；
+        // 版本头由封装统一盖，用户无需关心。
+        ccu_loop_group_cfg local_cfg = to_cfg(loop_group_cfg);
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_loop_group_create(&handle_, max_loop_num, &local_cfg), "ccu_loop_group_create failed");
+            ::asc::ccu_loop_group_create_cfg(&handle_, max_loop_num, &local_cfg), "ccu_loop_group_create_cfg failed");
         add_loops(loops);
     }
 
     ccu_loop_group handle() const { return handle_; }
 
 private:
+    static ccu_loop_cfg to_cfg(const ccu_loop_config& config)
+    {
+        ccu_loop_cfg cfg{};
+        ccu_loop_cfg_init(&cfg);
+        cfg.addr_offset = config.addr_offset;
+        cfg.iter_num = config.iter_num;
+        return cfg;
+    }
+
+    static ccu_loop_group_cfg to_cfg(const ccu_loop_group_config& config)
+    {
+        ccu_loop_group_cfg cfg{};
+        ccu_loop_group_cfg_init(&cfg);
+        cfg.clone_num = config.clone_num;
+        cfg.clone_loop_offset = config.clone_loop_offset;
+        cfg.addr_offset = config.addr_offset;
+        cfg.ccu_buffer_offset = config.ccu_buffer_offset;
+        cfg.event_offset = config.event_offset;
+        cfg.var_offset = 0; // 旧 config 无 var_offset
+        return cfg;
+    }
+
     void add_loops(const std::vector<loop>& loops)
     {
         for (const auto& loop : loops) {
@@ -104,9 +128,10 @@ private:
                     ::asc::ccu_loop_group_add_loop_from_var(handle_, loop.handle(), loop_param_var->handle),
                     "ccu_loop_group_add_loop_from_var failed");
             } else {
+                ccu_loop_cfg local_cfg = to_cfg(*loop.config());
                 CCU_THROW_IF_FAILED(
-                    ::asc::ccu_loop_group_add_loop(handle_, loop.handle(), loop.config()),
-                    "ccu_loop_group_add_loop failed");
+                    ::asc::ccu_loop_group_add_loop_cfg(handle_, loop.handle(), &local_cfg),
+                    "ccu_loop_group_add_loop_cfg failed");
             }
         }
     }

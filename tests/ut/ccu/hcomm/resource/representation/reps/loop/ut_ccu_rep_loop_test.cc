@@ -488,7 +488,7 @@ protected:
     {
         ccu_ins_generater_v1 insGen;
         ccu_rep_loop_group_bundle::loop_entry entry;
-        entry.config = ccu_loop_config{};
+        entry.config = ccu_loop_cfg{};
         entry.executor_value = executor(nullptr);
         entry.rep_loop_block = std::make_shared<ccu_rep_loop_block>(&insGen, "loop_block");
         entry.rep_loop_block->append(std::make_shared<ccu_rep_nop>(&insGen));
@@ -506,7 +506,7 @@ protected:
 
 TEST_F(CcuRepLoopGroupBundleTest, Constructor)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
@@ -516,7 +516,7 @@ TEST_F(CcuRepLoopGroupBundleTest, Constructor)
 
 TEST_F(CcuRepLoopGroupBundleTest, get_offset_param)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
@@ -526,7 +526,7 @@ TEST_F(CcuRepLoopGroupBundleTest, get_offset_param)
 
 TEST_F(CcuRepLoopGroupBundleTest, translate)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
@@ -546,7 +546,7 @@ TEST_F(CcuRepLoopGroupBundleTest, translate)
 
 TEST_F(CcuRepLoopGroupBundleTest, get_start_loop_instr_id)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
@@ -565,7 +565,7 @@ TEST_F(CcuRepLoopGroupBundleTest, get_start_loop_instr_id)
 
 TEST_F(CcuRepLoopGroupBundleTest, describe)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
@@ -816,7 +816,7 @@ TEST_F(CcuRepLoopGroupBundleTest, TranslatePackedVarLayout)
 
 TEST_F(CcuRepLoopGroupBundleTest, InstrCount_ConfigLayout)
 {
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
