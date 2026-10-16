@@ -5,3 +5,5 @@
 ## 接口列表
 
 - [load_arg](load_arg.md)：在注册阶段完成声明，在执行阶段从Host Launch注入的`taskArgs`中加载参数。
+- [load](load.md)：从片上内存地址读取一个或多个`uint64_t`值写入`variable`，支持立即数地址与`variable`间接寻址。
+- [store](store.md)：将一个或多个`variable`的`uint64_t`值写入片上内存地址，支持立即数地址与`variable`间接寻址。

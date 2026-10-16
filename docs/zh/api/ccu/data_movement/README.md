@@ -6,11 +6,16 @@
 
 | 类型 | 适用场景 | 接口 |
 | --- | --- | --- |
-| 本地数据搬运 | 本端片上内存↔本端片上内存、本端片上内存↔本端CCU Buffer之间的拷贝 | [local_copy](local_copy.md) |
-| 远端数据搬运 | 通过channel将本端数据写入对端片上内存，可选归约 | [write](write.md)、[write_reduce](write_reduce.md) |
+| 本地操作 | 本端片上内存↔本端片上内存或本端片上内存↔本端CCU Buffer之间的拷贝与归约 | [local_copy](local_copy.md)、[local_reduce](local_reduce.md) |
+| 跨rank操作 | 通过channel在本端与对端片上内存之间读写数据，可选归约 | [read](read.md)、[read_reduce](read_reduce.md)、[write](write.md)、[write_reduce](write_reduce.md) |
+
+跨rank操作要求所有`ChannelHandle`属于同一die，由框架统一校验。
 
 ## 接口列表
 
 - [local_copy](local_copy.md)
+- [local_reduce](local_reduce.md)
+- [read](read.md)
+- [read_reduce](read_reduce.md)
 - [write](write.md)
 - [write_reduce](write_reduce.md)
