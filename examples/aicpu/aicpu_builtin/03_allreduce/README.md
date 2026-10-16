@@ -14,7 +14,7 @@ AICPU KFC Server交互，将通信域内所有rank的输入按元素求和后同
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
 
 ## 目录结构介绍
 
@@ -111,7 +111,7 @@ ccResCtx
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
 
@@ -141,5 +141,5 @@ ccResCtx
 - 归约类通信需要在Host侧通过`Mc2SetCcReduceType`设置归约类型，与AICore侧
   `Hccl::AllReduce`传入的`op`保持一致。
 - AICore侧必须调用`Finalize`，AICPU KFC Server收到该消息后才会退出。
-- 当前样例默认使用`dav-3510`架构，仅覆盖Ascend 950PR/Ascend 950DT场景。
+- 当前样例默认使用`dav-3510`架构，仅适用于Ascend 950PR&950DT系列产品。
 - 当前样例会使用环境中可见的全部NPU设备，设备数量不能超过`MC2_MAX_RANK_SIZE`。

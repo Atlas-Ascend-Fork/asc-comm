@@ -1,6 +1,7 @@
 # CCU AllGather Mesh1D Mem2Mem
 
-This sample registers and launches a CCU kernel directly from the host, demonstrating the Mesh1D Mem2Mem AllGather dataplane.
+This sample registers and launches a CCU kernel directly from the host, demonstrating the Mesh1D Mem2Mem
+AllGather data plane.
 
 ## Overview
 
@@ -17,9 +18,11 @@ Python generates input and golden data
   -> Python verifies the output of each rank
 ```
 
-Channels are acquired in one batch through a single `HcclChannelAcquire` call. Data transfer uses events grouped by rank: every 16 ranks share one event, and each rank occupies one event bit.
+Channels are acquired in one batch through a single `HcclChannelAcquire` call. Data transfer uses events grouped
+by rank: every 16 ranks share one event, and each rank occupies one event bit.
 
-The host and kernel share a unified 10-argument task ABI, keeping the per-round transfer size `chunkSize` separate from the rank stride `outputSliceStride`, which preserves the address layout for future host-side multi-round chunking.
+The host and kernel share a unified 10-argument task ABI, keeping the per-round transfer size `chunkSize` separate
+from the rank stride `outputSliceStride`, which preserves the address layout for future host-side multi-round chunking.
 
 ## Supported Scope
 
@@ -57,7 +60,8 @@ Verify the output of each rank:
 python3 scripts/verify_result.py --rank-size 2 --count 256
 ```
 
-The data generation and verification scripts require Python 3 and NumPy. `--rank-size` must match the number of devices specified by `DEVICES`, and `--count` must match the `COUNT` used when running the operator.
+The data generation and verification scripts require Python 3 and NumPy. `--rank-size` must match the number of
+devices specified by `DEVICES`, and `--count` must match the `COUNT` used when running the operator.
 
 `run.sh` only builds and runs the operator; it does not generate or verify data automatically. To build only:
 
@@ -79,9 +83,12 @@ The input of each rank is:
 input[i] = rank * 1000000 + i + 1
 ```
 
-Golden data is concatenated in source-rank order and written to `output/golden.bin`. The C++ program writes the result of each rank to `output/output_rank_<rank_id>.bin`, which `scripts/verify_result.py` then verifies element by element.
+Golden data is concatenated in source-rank order and written to `output/golden.bin`. The C++ program writes the
+result of each rank to `output/output_rank_<rank_id>.bin`, which
+`scripts/verify_result.py` then verifies element by element.
 
-After changing the rank count or `count`, regenerate the data and verify with the same parameters. For example, with 4 ranks and 256 input elements per rank:
+After changing the rank count or `count`, regenerate the data and verify with the same parameters.
+For example, with 4 ranks and 256 input elements per rank, run:
 
 ```bash
 python3 scripts/gen_data.py --rank-size 4 --count 256
@@ -91,7 +98,8 @@ python3 scripts/verify_result.py --rank-size 4 --count 256
 
 ## Sample Result
 
-The following is partial output with 2 ranks and 256 `float` elements per rank. Print order across ranks may vary with thread scheduling.
+The following is partial output with 2 ranks and 256 `float` elements per rank. Print order across
+ranks may vary with thread scheduling.
 
 ```text
 generated 2 rank inputs and golden data, 256 FP32 elements per rank
