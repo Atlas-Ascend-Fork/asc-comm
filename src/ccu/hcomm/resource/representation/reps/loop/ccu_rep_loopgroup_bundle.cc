@@ -16,7 +16,7 @@ namespace asc {
 namespace ccu_rep {
 
 ccu_rep_loop_group_bundle::ccu_rep_loop_group_bundle(
-    ccu_ins_generater_base* ins_gen_ptr, const ccu_loop_group_config& config, const variable& parallel_var,
+    ccu_ins_generater_base* ins_gen_ptr, const ccu_loop_group_cfg& config, const variable& parallel_var,
     const variable& offset_var)
     : ins_gen_ptr_(ins_gen_ptr), config_(config), parallel_var_(parallel_var), offset_var_(offset_var)
 {

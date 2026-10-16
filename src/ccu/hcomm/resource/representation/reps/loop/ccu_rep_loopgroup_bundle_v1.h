@@ -29,7 +29,7 @@ public:
     };
 
     struct loop_entry {
-        ccu_loop_config config;
+        ccu_loop_cfg config;
         executor executor_value;
         std::shared_ptr<ccu_rep_loop_block> rep_loop_block;
         variable loop_param_var;
@@ -40,7 +40,7 @@ public:
     };
 
     ccu_rep_loop_group_bundle(
-        ccu_ins_generater_base* ins_gen_ptr, const ccu_loop_group_config& config, const variable& parallel_var,
+        ccu_ins_generater_base* ins_gen_ptr, const ccu_loop_group_cfg& config, const variable& parallel_var,
         const variable& offset_var);
     explicit ccu_rep_loop_group_bundle(
         ccu_ins_generater_base* ins_gen_ptr, const variable& parallel_var, const variable& offset_var);
@@ -65,7 +65,7 @@ public:
     const variable& get_offset_param() const { return offset_var_; }
 
     const std::vector<loop_entry>& get_loops() const { return loops_; }
-    const ccu_loop_group_config& get_config() const { return config_; }
+    const ccu_loop_group_cfg& get_config() const { return config_; }
     const variable& get_parallel_var() const { return parallel_var_; }
     uint64_t get_repeat_loop_idx() const { return repeat_loop_idx_; }
     uint64_t get_total_loop_num() const { return total_loop_num_; }
@@ -78,7 +78,7 @@ private:
     uint16_t loop_group_instr_offset_in_bundle() const;
 
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};
-    ccu_loop_group_config config_;
+    ccu_loop_group_cfg config_;
     variable parallel_var_;
     variable offset_var_;
     uint64_t repeat_loop_idx_{0};

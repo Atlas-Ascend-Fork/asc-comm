@@ -22,6 +22,27 @@
 
 namespace asc {
 
+// 校验带版本头的 cfg POD：magic / version(1..max) / size 三元组均须匹配。
+static CcuResult validate_ccu_cfg_header(const ccu_cfg_header* header, uint32_t expect_size, uint32_t max_version)
+{
+    if (header == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    if (header->magic != CCU_CFG_MAGIC_WORD) {
+        HCCL_ERROR("[validate_ccu_cfg_header] bad magic 0x%x", header->magic);
+        return CcuResult::CCU_E_PARA;
+    }
+    if (header->version == 0 || header->version > max_version) {
+        HCCL_ERROR("[validate_ccu_cfg_header] bad version %u (max %u)", header->version, max_version);
+        return CcuResult::CCU_E_PARA;
+    }
+    if (header->size != expect_size) {
+        HCCL_ERROR("[validate_ccu_cfg_header] bad size %u (expect %u)", header->size, expect_size);
+        return CcuResult::CCU_E_PARA;
+    }
+    return CcuResult::CCU_SUCCESS;
+}
+
 // Alloc 相关接口
 CcuResult ccu_variable_alloc(ccu_variable_handle* var_handle)
 {
@@ -780,10 +801,31 @@ CcuResult ccu_loop_body_exit(ccu_loop loop)
 
 CcuResult ccu_loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config)
 {
+    if (config == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    // 旧 config 无 var_offset，在边界归一化为 cfg（var_offset=0），kernel 只认 cfg。
+    ccu_loop_group_cfg cfg{};
+    ccu_loop_group_cfg_init(&cfg);
+    cfg.clone_num = config->clone_num;
+    cfg.clone_loop_offset = config->clone_loop_offset;
+    cfg.addr_offset = config->addr_offset;
+    cfg.ccu_buffer_offset = config->ccu_buffer_offset;
+    cfg.event_offset = config->event_offset;
+    cfg.var_offset = 0;
+    return ccu_loop_group_create_cfg(group, max_loop_num, &cfg);
+}
+
+CcuResult ccu_loop_group_create_cfg(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_cfg* cfg)
+{
+    if (cfg == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    CCU_CHK_RET(validate_ccu_cfg_header(&cfg->header, sizeof(ccu_loop_group_cfg), CCU_LOOPGROUP_CFG_VERSION));
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->loop_group_create(group, max_loop_num, config));
+    CCU_CHK_RET(kernel->loop_group_create(group, max_loop_num, cfg));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -799,10 +841,26 @@ CcuResult ccu_loop_group_create_from_var(
 
 CcuResult ccu_loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config)
 {
+    if (config == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    ccu_loop_cfg cfg{};
+    ccu_loop_cfg_init(&cfg);
+    cfg.addr_offset = config->addr_offset;
+    cfg.iter_num = config->iter_num;
+    return ccu_loop_group_add_loop_cfg(group, loop, &cfg);
+}
+
+CcuResult ccu_loop_group_add_loop_cfg(ccu_loop_group group, ccu_loop loop, const ccu_loop_cfg* cfg)
+{
+    if (cfg == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    CCU_CHK_RET(validate_ccu_cfg_header(&cfg->header, sizeof(ccu_loop_cfg), CCU_LOOP_CFG_VERSION));
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->loop_group_add_loop(group, loop, config));
+    CCU_CHK_RET(kernel->loop_group_add_loop(group, loop, cfg));
     return CcuResult::CCU_SUCCESS;
 }
 

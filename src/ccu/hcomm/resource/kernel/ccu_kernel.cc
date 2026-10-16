@@ -2301,10 +2301,10 @@ CcuResult ccu_kernel::ensure_loop_engine_pool(uint32_t max_loop_num)
 }
 
 CcuResult ccu_kernel::loop_group_create(
-    ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config)
+    ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_cfg* cfg)
 {
     HCCL_INFO("[loop_group_create] max_loop_num=%u", max_loop_num);
-    if (group == nullptr || config == nullptr) {
+    if (group == nullptr || cfg == nullptr) {
         HCCL_ERROR("[ccu_kernel::loop_group_create] null pointer");
         return CcuResult::CCU_E_PTR;
     }
@@ -2323,13 +2323,13 @@ CcuResult ccu_kernel::loop_group_create(
     ccu_loop_group handle = ++loop_group_handle_counter_;
 
     loop_group_descriptor desc;
-    desc.config = *config;
+    desc.config = *cfg;
     desc.parallel_var = create_variable();
     desc.offset_var = create_variable();
     desc.is_var_based = false;
 
     auto bundle = std::make_shared<ccu_rep::ccu_rep_loop_group_bundle>(
-        ins_generator_, *config, desc.parallel_var, desc.offset_var);
+        ins_generator_, *cfg, desc.parallel_var, desc.offset_var);
     if (ccu_version_ == HCOMM_CCU_VERSION_V2) {
         bundle->set_xn_offset_var(create_variable());
     }
@@ -2474,11 +2474,11 @@ CcuResult ccu_kernel::lookup_loop_group_and_loop(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult ccu_kernel::loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config)
+CcuResult ccu_kernel::loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_cfg* cfg)
 {
     HCCL_INFO("[loop_group_add_loop] group=%llu, loop=%llu", group, loop);
-    if (config == nullptr) {
-        HCCL_ERROR("[ccu_kernel::loop_group_add_loop] null pointer for config");
+    if (cfg == nullptr) {
+        HCCL_ERROR("[ccu_kernel::loop_group_add_loop] null pointer for cfg");
         return CcuResult::CCU_E_PTR;
     }
 
@@ -2493,7 +2493,7 @@ CcuResult ccu_kernel::loop_group_add_loop(ccu_loop_group group, ccu_loop loop, c
     grp_desc->total_loop_num = grp_desc->loop_count;
 
     ccu_rep::ccu_rep_loop_group_bundle::loop_entry entry;
-    entry.config = *config;
+    entry.config = *cfg;
     entry.executor_value = loop_engine_pool[loop_idx];
     entry.rep_loop_block = loop_desc->rep_loop_block;
     entry.loop_param_var = create_variable();
