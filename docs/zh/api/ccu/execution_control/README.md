@@ -4,7 +4,7 @@
 
 | 子类 | 适用场景 | 接口 |
 | --- | --- | --- |
-| 软件分支 | 控制流逻辑复杂、有嵌套，循环体内可用任意CCU接口 | [CCU_IF](CCU_IF.md) |
+| 软件分支/循环 | 控制流逻辑复杂、有嵌套，循环体内可用任意CCU接口 | [CCU_IF](CCU_IF.md)、[CCU_ELSE](CCU_ELSE.md)、[CCU_WHILE](CCU_WHILE.md)、[CCU_DO](CCU_DO.md) |
 | 硬件Loop | 大量同结构迭代，循环体内只有本地搬运类操作，追求最小指令开销 | [loop](loop.md)、[loop_group](loop_group.md) |
 | 函数块 | 同一段逻辑在kernel内被调用两次或以上，只生成一份指令，节省指令空间 | [func](func.md)、[call_func](call_func.md) |
 
