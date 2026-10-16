@@ -27,8 +27,7 @@ The in-repository build of asc-comm is mainly used for environment verification,
 
 ## Sample Runtime Dependencies
 
-The `examples/aicore/hcomm/01_hcomm_write_read_nbi` sample supports Ascend 950PR / Ascend 950DT and requires at least two NPUs for runtime. Compilation verification can be completed on single-NPU environments, whereas two-card point-to-point communication runtime verification is unavailable.
-This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
+The `examples/aicore/hcomm/01_hcomm_write_read_nbi` sample supports Ascend 950PR&950DT products and requires at least two NPUs for runtime. Compilation verification can be completed on single-NPU environments, whereas two-card point-to-point communication runtime verification is unavailable. This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
 
 Sample build commands:
 

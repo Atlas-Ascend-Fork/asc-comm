@@ -14,7 +14,7 @@ The `mixed` mode uses a `__global__ __mix__` entry: the SIMT VF builds and submi
 
 | Item | Description |
 | --- | --- |
-| Product | `Ascend 950PR / Ascend 950DT` |
+| Product | `Ascend 950PR&950DT products` |
 | NPU architecture | `dav-3510` |
 | Communication protocol | `COMM_PROTOCOL_UB_CTP` |
 | Execution model | SIMT VF (the mixed mode additionally contains an AIV body) |
@@ -55,8 +55,7 @@ simt_jetty
 Run the following commands in this sample directory:
 
 ```bash
-# If CANN is installed in the default path, for example as root.
-# For a non-root user, replace /usr/local with ${HOME}.
+# If CANN is installed in the default path, for example as root (for a non-root user, replace /usr/local with ${HOME}).
 source /usr/local/Ascend/cann/set_env.sh
 # If CANN is installed in a custom path
 # source ${install_path}/cann/set_env.sh

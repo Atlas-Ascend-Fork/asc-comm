@@ -5,6 +5,7 @@
 This sample shows how to implement an AllGather operation with HCCL communication-domain APIs and CCU dataplane APIs.
 
 Runtime dependencies:
+
 - `libhcomm.so`: provides HCCL communication-domain, CCU control-plane, thread and channel resource APIs.
 - `libasccomm_ccu.so`: provides `asccomm_ccu_kernel_register*`, `asccomm_ccu_kernel_launch`, `asccomm_ccu_get_mem_token` and CCU dataplane programming APIs.
 

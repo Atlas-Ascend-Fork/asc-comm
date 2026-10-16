@@ -12,7 +12,7 @@ then synchronizes the computed result to all ranks through CCU AllGather.
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -29,8 +29,7 @@ then synchronizes the computed result to all ranks through CCU AllGather.
 ### Functionality
 
 Each rank input contains `sendCount` FP32 elements. The sample first writes the local Add result to `computeBuf`
-through an AICore vector kernel, and then uses `computeBuf` as the CCU AllGather input so that `recvBuf` on every
-rank contains all rank computation results.
+through an AICore vector kernel, and then uses `computeBuf` as the CCU AllGather input so that `recvBuf` on every rank contains all rank computation results.
 
 ```text
 sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
@@ -53,8 +52,7 @@ sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device and initialize the input buffer.
 3. Acquire CCU channels, a CCU instance, CCU variables, and CCU events from the HCCL communication domain.
-4. Directly launch the AICore vector kernel through `vector_add<<<1, nullptr, streamAiv>>>` to generate the local
-   computation result.
+4. Directly launch the AICore vector kernel through `vector_add<<<1, nullptr, streamAiv>>>` to generate the local computation result.
 5. Obtain the `computeBuf` memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
 6. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`.
 7. Synchronize the AIV and CCU streams, copy `recvBuf` back to the host, and print it.
@@ -73,8 +71,7 @@ Perform the following steps in the sample root directory. This sample supports N
   export HCCL_OP_EXPANSION_MODE=CCU_SCHED
   ```
 
-  > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is
-  > `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
 
 - Run the Sample
 
@@ -93,7 +90,7 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 
@@ -113,5 +110,5 @@ Perform the following steps in the sample root directory. This sample supports N
 
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE`.

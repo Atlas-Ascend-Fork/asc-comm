@@ -2,21 +2,20 @@
 
 ## Overview
 
-This sample demonstrates how to prepare CCU communication resources and start a CCU Server through the MC2
-builtin APIs, and then submit a ReduceScatter Client communication request from an AICore kernel through the
-HCCL high-level API.
+This sample demonstrates how to prepare CCU communication resources and start a CCU Server through the MC2 builtin APIs,
+and then submit a ReduceScatter Client communication request from an AICore kernel through the HCCL high-level API.
 
-The sample creates one rank for each available NPU device. Each rank provides `rankSize * 256` FP32 input
-elements. After SUM reduction and scatter, each rank receives 256 elements. On the host,
-`CheckOpResSufficient` first pre-checks CCU resources, `Mc2AcquireCcResCtx` then obtains the CCU resource
-context, and `Mc2CcKernelLaunch` starts the CCU Server. On the AICore, the same `ccResCtx` is passed to
-`Hccl::InitV2`, and `Hccl::ReduceScatter` completes the communication.
+The sample creates a communication domain based on the number of NPU devices, with one rank per device. Each rank inputs
+`rankSize * 256` FP32 elements, and after SUM reduction each rank receives 256 elements. On the host,
+`CheckOpResSufficient` first pre-checks CCU resources, `Mc2AcquireCcResCtx` then obtains the CCU resource context,
+and `Mc2CcKernelLaunch` starts the CCU Server.
+On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`, and `Hccl::ReduceScatter` completes the communication.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -30,10 +29,12 @@ context, and `Mc2CcKernelLaunch` starts the CCU Server. On the AICore, the same 
 
 ## Sample Description
 
-Each rank has `rankSize * 256` FP32 input elements, and every element on rank `d` is initialized to `d + 1`.
-ReduceScatter performs a SUM reduction and scatters the result by rank, so each rank receives 256 elements.
-The host configures the CCU communication engine, data types, SUM reduction type, and fallback algorithm.
-The AICore side submits the communication request through `Hccl::ReduceScatter<true>`.
+### Functionality
+
+Each rank input contains `rankSize * 256` FP32 elements, all initialized to `rankId + 1`.
+ReduceScatter performs a SUM reduction on the corresponding data of all ranks, scatters the result by rank, and each rank
+receives 256 elements. The host configures the CCU communication engine, data types, SUM reduction type, and fallback
+algorithm. The AICore side submits the communication request through `Hccl::ReduceScatter<true>`.
 
 ```text
 Host:
@@ -69,29 +70,22 @@ ccResCtx
 
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device, create the AICore stream, and allocate the input and output buffers.
-3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32
-   source and destination data types, `HCCL_REDUCE_SUM`, and the
-   `sole[mesh]` algorithm configuration.
-4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043
-   means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be
-   selected; any other non-zero code indicates a parameter error or an internal HCCL error, which
-   can be logged for fault handling. CCU resources can be acquired only when the result is
-   `HCCL_SUCCESS`.
+3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32 source and
+   destination data types, `HCCL_REDUCE_SUM`, and the `sole[mesh]` algorithm configuration.
+4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043 means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be selected; any other non-zero code indicates a parameter error or an internal HCCL error, which can be logged for fault handling. CCU resources can be acquired only when the result is `HCCL_SUCCESS`.
 5. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
-6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the
-   CCU Server. The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
+6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the CCU Server.
+   The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
 7. Launch the AICore kernel through `reduce_scatter_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
-8. The AICore side calls `Hccl::ReduceScatter<true>` to submit a SUM communication Client request, and calls
-   `Wait` and `SyncAll` to wait for completion.
+8. The AICore side calls `Hccl::ReduceScatter<true>` to submit the SUM communication Client request, and calls `Wait` and `SyncAll` to wait for completion.
 9. Synchronize the AICore stream, copy `recvBuf` back to the host, and verify that every element equals
    `1 + 2 + ... + rankSize`.
-10. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication
-    domain and does not need to be freed separately.
+10. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication domain and does not need to be freed separately.
 
 ## Build and Run
 
-Run the following commands in this sample directory. This sample supports NPU execution only.
+Run the following commands in this sample directory. This sample supports NPU run mode only.
 
 ```bash
 source ${install_path}/cann/set_env.sh
@@ -102,9 +96,9 @@ make -j
 ./demo
 ```
 
-`${install_path}` is the CANN installation directory. The default is `/usr/local/Ascend`.
+`${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
 
-In a two-device run, every output element should be `1 + 2 = 3`:
+In a two-device run, every output element on every rank should be `1 + 2 = 3`:
 
 ```text
 Found 2 NPU device(s) available
@@ -116,10 +110,9 @@ rankId: 1, expected: 3, validation: PASS
 
 ## Notes
 
-- `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only
-  to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
+- `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
-  `reduce_scatter_kernel`.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+  `reduce_scatter_kernel`; both must use the same resource context.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE` (8).

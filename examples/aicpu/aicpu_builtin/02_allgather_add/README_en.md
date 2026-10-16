@@ -3,24 +3,19 @@
 ## Overview
 
 This sample demonstrates how to prepare AICPU communication resources and start an AICPU KFC Server
-through the MC2 builtin APIs, and then perform an Add computation on an AICore kernel before submitting
-an AllGather Client communication request through the HCCL high-level API, overlapping computation
-with communication.
+through the MC2 builtin APIs, and then perform an Add computation on an AICore kernel before submitting an AllGather Client request through the HCCL high-level API, overlapping computation with communication.
 
-The sample creates one rank for each available NPU device. Each rank provides two FP32 inputs `x1`
-and `x2`. On the host, `Mc2AcquireCcResCtx` obtains the communication resource context, the unfold
-stream bound to the communication domain's unfold thread is acquired, and `Mc2CcKernelLaunch` starts
-the AICPU KFC Server on the unfold stream. On the AICore, the same
-`ccResCtx` is passed to `Hccl::InitV2`. The kernel first calls `Hccl::AllGather<false>` to prepare
-the communication request without triggering it, then computes `tmp = x1 + x2`, and finally calls
-`Commit` to trigger the communication, so the server-side task preparation overlaps with the Add
-computation.
+The sample creates one rank for each available NPU device. Each rank inputs two FP32 buffers `x1`
+and `x2`. On the host, `Mc2AcquireCcResCtx` obtains the communication resource context and the unfold
+stream bound to the communication domain's unfold thread, and `Mc2CcKernelLaunch` starts the AICPU
+KFC Server on the unfold stream. On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`, which
+first calls `Hccl::AllGather<false>` to prepare the request, computes `tmp = x1 + x2`, and calls `Commit` to trigger communication, overlapping server-side preparation with the Add computation.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -36,17 +31,16 @@ computation.
 
 ### Functionality
 
-Each rank input contains `sendCount` FP32 elements in two buffers `x1` and `x2`. The AICore kernel
-first calls `AllGather<false>` to send the task information to the server without triggering it, then
-computes `tmp = x1 + x2` to fill the send buffer, and finally calls `Commit` to start the data
-transfer. The `recvBuf` of every rank gathers the `tmp` of all ranks in rank id order.
+Each rank input contains `sendCount` FP32 elements in two buffers `x1` and `x2`. The AICore kernel first calls
+`AllGather<false>` to send the task information to the server without triggering it, then computes `tmp = x1 + x2` to fill the send
+buffer, and finally calls `Commit` to start the transfer. The `recvBuf` of every rank gathers the `tmp` of all ranks in rank id order.
 
 ```text
 Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
   -> Mc2AcquireCcResCtx
-  -> GetUnfoldThread/AcquireUnfoldStream (acquire the comm's unfold thread and its stream)
+  -> GetUnfoldThread/AcquireUnfoldStream (acquire the communication domain's unfold thread and its stream)
   -> Mc2CcKernelLaunch (start AICPU KFC Server on unfoldStream)
 
 AICore:
@@ -64,7 +58,7 @@ ccResCtx
 | --- | --- |
 | Communication mode | AICPU AllGather in an HCCL communication domain, fused with computation |
 | Communication engine | `AICPU_TS` (`OpExecuteConfig` value 2) |
-| AICPU Server launch | Host-side `Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)`, where the unfold stream is bound to the comm's unfold thread |
+| AICPU Server launch | Host-side `Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)`, where the unfold stream is bound to the communication domain's unfold thread |
 | Communication request | AICore-side `Hccl::AllGather<false>` + `Commit` |
 | AICore kernel | `all_gather_add_kernel<<<1, nullptr, streamAiv>>>` |
 | Computation | `tmp = x1 + x2`, tiled with a tile length of 256 |
@@ -77,28 +71,22 @@ ccResCtx
 
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device, create the AICore stream `streamAiv`, and allocate the `x1`,
-   `x2`, `tmp`, and receive buffers. The AICPU KFC Server runs on the unfold stream bound to the
-   communication domain's unfold thread, so no extra stream needs to be created for it.
-3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `AICPU_TS` communication engine
-   and the FP32 source and destination data types.
-4. Call `Mc2AcquireCcResCtx` to obtain the communication resource context `ccResCtx` and its size from
-   the HCCL communication domain.
-5. Release the MC2 argument object. Call `GetUnfoldThread` to obtain (or reuse) the unfold thread
-   persisted in the `COMM_ENGINE_CPU_TS` engine context with the `"%s_unfold"` tag, and call
-   `AcquireUnfoldStream` to get its bound unfold stream. Finally, call
-   `Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)` to start the KFC Server on the unfold
-   stream.
-6. Launch the AICore kernel through `all_gather_add_kernel<<<1, nullptr, streamAiv>>>`. Inside the
-   kernel, `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on
-   the host.
-7. The AICore side calls `Hccl::AllGather<false>` to prepare the communication request only, runs
-   `AddCompute` to compute `tmp = x1 + x2`, calls `Commit` to notify the server to execute, calls
-   `Wait` and `SyncAll` to wait for completion, and finally calls `Finalize` to notify the server to exit.
-8. Synchronize the AICore stream `streamAiv` first and then the unfold stream `unfoldStream`, copy
-   `recvBuf` back to the host, and print and validate the result.
-9. Destroy the HCCL communication domain, the AICore stream, and device memory. `ccResCtx` is owned by
-   the communication domain and does not need to be freed separately. The unfold stream is created and
-   managed by the communication domain and is released with it, so the caller must not destroy it.
+   `x2`, `tmp`, and receive buffers. The AICPU KFC Server runs on the unfold stream bound to the communication domain's unfold thread, so no extra stream needs to be created.
+3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `AICPU_TS` engine and FP32 source/destination data types.
+4. Call `Mc2AcquireCcResCtx` to obtain the communication resource context `ccResCtx` and its size from the HCCL communication domain.
+5. Release the MC2 argument object. Call `GetUnfoldThread` to obtain (or reuse) the unfold thread persisted in
+   the `COMM_ENGINE_CPU_TS` engine context with the `"%s_unfold"` tag, then call `AcquireUnfoldStream` to
+   obtain its bound unfold stream, and finally call `Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)` on
+   the unfold stream to start the KFC Server.
+6. Launch the AICore kernel through `all_gather_add_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
+   `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
+7. The AICore side calls `Hccl::AllGather<false>` to prepare the request only, runs `AddCompute` to compute
+   `tmp = x1 + x2`, calls `Commit` to notify the server to execute, calls `Wait` and `SyncAll` to wait for
+   completion, and finally calls `Finalize` to notify the server to exit.
+8. Synchronize the AICore stream `streamAiv` first and then the unfold stream `unfoldStream`, copy `recvBuf`
+   back to the host, and print and validate the result.
+9. Destroy the HCCL communication domain, the AICore stream, and device memory. `ccResCtx` is owned by the
+   communication domain and does not need to be freed separately. The unfold stream is created and managed by the communication domain and is released with it, so the caller must not destroy it.
 
 ## Build and Run
 
@@ -113,8 +101,7 @@ Perform the following steps in the sample root directory. This sample supports N
   source ${install_path}/cann/set_env.sh
   ```
 
-  > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is
-  > `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN installation directory. The default is `/usr/local/Ascend`.
 
 - Run the Sample
 
@@ -133,12 +120,12 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 
-  In a two-device run, the `x1` and `x2` input elements of rank `d` are initialized to `d + 1`, so
-  `tmp = x1 + x2` is `2 * (d + 1)`. The output is similar to:
+  In a two-device run, the `x1` and `x2` input elements of rank `d` are initialized to `d + 1`, and `tmp = x1 + x2` is `2 * (d + 1)`.
+  The output is similar to:
 
   ```text
   Found 2 NPU device(s) available
@@ -155,21 +142,17 @@ Perform the following steps in the sample root directory. This sample supports N
 
 ## Notes
 
-- At least two NPU devices are required to run the sample. Single-device environments support
-  compilation only.
+- At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
   `all_gather_add_kernel`.
-- The AICPU KFC Server blocks waiting for AICore Client messages. `Mc2CcKernelLaunch` and the AICore
-  kernel must use two different streams, and the AICore stream must be synchronized before the unfold
-  stream.
-- The unfold stream is created and managed by the HCCL communication domain and is released when the
-  domain is destroyed; the caller must not destroy it. The unfold thread is persisted in the
-  `COMM_ENGINE_CPU_TS` engine context with the `"%s_unfold"` tag and is reused if it already exists.
-- The KFC Server is launched on the comm's unfold stream rather than a self-created stream: when
-  running alongside HCCL's own communication tasks, reusing the unfold stream avoids launch-path
-  conflicts.
+- The AICPU KFC Server blocks waiting for AICore Client messages. `Mc2CcKernelLaunch` and the AICore kernel must
+  use two different streams, and the AICore stream must be synchronized before the unfold stream.
+- The unfold stream is created and managed by the HCCL communication domain and is released with the
+  domain; the caller must not destroy it. The unfold thread is persisted in the `COMM_ENGINE_CPU_TS` engine context with the `"%s_unfold"` tag and is reused if it already exists.
+- The KFC Server is dispatched on the communication domain unfold thread's unfold stream rather than a
+  self-created stream: when running alongside HCCL's own communication tasks, reusing the unfold stream avoids launch-path conflicts.
 - `AllGather<false>` only prepares the request. `Commit` must be called after the send buffer `tmp` is
   fully computed, otherwise the server may transfer data that is not ready.
 - The AICore side must call `Finalize`. The AICPU KFC Server exits only after receiving this message.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `MC2_MAX_RANK_SIZE`.

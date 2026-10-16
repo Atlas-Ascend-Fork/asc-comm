@@ -11,7 +11,7 @@ Channel共享同一个Jetty，通过`MakeBatchHandle`、`GetHandleRef`、`BatchC
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
 
 ## 目录结构介绍
 
@@ -90,7 +90,7 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
 
