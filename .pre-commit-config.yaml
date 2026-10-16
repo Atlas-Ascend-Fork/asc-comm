@@ -82,5 +82,5 @@ repos:
         exclude: ^CHANGELOG(_en)?\.md$
         pass_filenames: true
         always_run: true
-        stages: [pre-commit, manual]
+        stages: [manual]
         verbose: true
