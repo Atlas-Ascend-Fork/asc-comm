@@ -46,6 +46,13 @@ cmake --build build/rdv/rdv_hccl -j
 ./build/rdv/rdv_hccl/rdv_hccl 8
 ```
 
+## SQ深度指定
+
+- `rdv_hcomm`：环境变量`RDV_SQ_DEPTH`指定SQ深度（SQE条数，默认4096，范围16至8192，库自动对齐2的幂）。
+  注意kernel侧读到的深度为WQEBB数，按每个SQE占4个WQEBB（256 B）折算，如4096对应16384；
+- `rdv_hccl`：`HcclChannelDesc`无深度字段、channel config亦无深度项，`RDV_SQ_DEPTH`不生效，使用库默认深度
+  （8192 SQE，即32768 WQEBB），设置该变量时打告警提示。
+
 ## 链路层选择
 
 两个样例均支持`RDV_NET_LAYER`环境变量：不设置时从第0层开始扫描rank graph取每个Peer的首条UB_CTP链路；

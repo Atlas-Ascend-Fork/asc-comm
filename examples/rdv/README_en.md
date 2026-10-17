@@ -51,6 +51,14 @@ cmake --build build/rdv/rdv_hccl -j
 ./build/rdv/rdv_hccl/rdv_hccl 8
 ```
 
+## SQ depth
+
+- `rdv_hcomm`: the environment variable `RDV_SQ_DEPTH` requests an SQ depth (in SQE count, default 4096, range
+  16-8192, aligned to a power of two by the library). The kernel observes the WQEBB count, four per SQE (256 B),
+  so 4096 maps to 16384.
+- `rdv_hccl`: `HcclChannelDesc` has no depth field and the channel config has no depth entry, so `RDV_SQ_DEPTH` has
+  no effect and the library default (8192 SQEs, i.e. 32768 WQEBBs) is used; setting the variable prints a warning.
+
 ## Link layer selection
 
 Both samples honour the `RDV_NET_LAYER` environment variable: unset scans the rank graph from layer 0 and uses the
