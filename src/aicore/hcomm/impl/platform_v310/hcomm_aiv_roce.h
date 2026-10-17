@@ -174,7 +174,6 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::CheckChannelParam(__gm__ C
     if (chnlPtr->protocol != COMM_PROTOCOL_ROCE || sqDepth == 0 || cqDepth == 0 ||
         chnlPtr->sqContextAddr[0].contextInfo.roceSq.sqVa == 0 || wqeSize != HCOMM_ROCE_WQEBB_SIZE || sqDepth <= 1U ||
         sqDepth > ROCE_SQ_INDEX_MASK || (sqDepth & (sqDepth - 1U)) != 0 ||
-        chnlPtr->sqContextAddr[0].contextInfo.roceSq.dbSwVa == 0 ||
         chnlPtr->sqContextAddr[0].contextInfo.roceSq.dbHwVa == 0 ||
         chnlPtr->cqContextAddr[0].contextInfo.roceCq.cqVa == 0 ||
         chnlPtr->cqContextAddr[0].contextInfo.roceCq.dbSwVa == 0 || cqeSize < sizeof(RoceCqeEntry) ||
@@ -288,7 +287,7 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
     dbEntry.dw0.bs.qpn = qpn;
     dbEntry.dw0.bs.subType = 0;
     dbEntry.dw0.bs.resv = 0;
-    dbEntry.dw0.bs.pi = 0;
+    dbEntry.dw0.bs.pi = ((sqHead >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xff);
     dbEntry.dw0.bs.sgidIdx = ROCE_1825_SQ_DB_SGIT_IDX;
     dbEntry.dw0.bs.type = ROCE_1825_SQ_DB_TYPE;
     dbEntry.dw0.bs.mtuShift =
@@ -302,19 +301,12 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(
     __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t>& cqeItem)
 {
-    __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbSwVa);
-    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
-
     uint64_t dbValue = GetDbValue(
         sqHead, chnlPtr->sqContextAddr->contextInfo.roceSq.qpn,
         chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
-    uint64_t dbFinalVal =
-        dbValue | ((((uint64_t)(sqHead) >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xffULL) << ROCE_1825_SQ_DB_PI_FIELD_SHIFT);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: dbValue = %llu, dbFinalVal = %llu\n", dbValue, dbFinalVal);
-    st_dev(HtoNL(sqHead), dbSwAddr, 0);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write sw db ok, swDbVal = %u\n", sqHead);
-    st_dev(dbFinalVal, dbHwAddr, 0);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbFinalVal);
+    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
+    st_dev(dbFinalVal, dbHwAddr + ((sqHead & 0xff) << ROCE_1825_SQ_DB_ADDR_SHIFT), 0);
+    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbValue);
 
     uint32_t cqHead = chnlPtr->cqHead;
     uint32_t cqTail = chnlPtr->cqTail;
