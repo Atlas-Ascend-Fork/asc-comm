@@ -63,6 +63,7 @@ __aicore__ inline void WaitSignal(
 - `signalOffset`对应地址需要落在本rank对应的signal window注册内存范围内。
 - signal地址应按`uint64_t`访问要求准备。
 - `bits`用于生成低位掩码；取值范围为1-64，当`bits`为64时比较完整64位signal值。
+- `least`必须能由低`bits`位表示：`bits < 64`时，`least`不得大于`2^bits - 1`；`bits = 64`时允许整个`uint64_t`范围。例如`bits = 8`时，`least = 256`永远不可达，即使远端持续更新signal也会永久等待。
 - 当前仅支持`AIN_MEMORY_ORDER_RELAX`。该内存序只保证signal原子读写及阈值检查，不保证signal操作前后普通数据访问的内存序。
 - `WaitSignal`会持续轮询直到条件满足，调用方需要确保远端会更新该signal，避免Kernel永久等待。
 - 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。
