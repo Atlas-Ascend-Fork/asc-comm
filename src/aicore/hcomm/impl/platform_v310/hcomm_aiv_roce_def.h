@@ -72,6 +72,7 @@ constexpr uint32_t ROCE_1825_CQE_OPTYPE_INVALID = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_ERROR = 0x1e;       // op_type = error coding
 constexpr uint32_t ROCE_1825_CQE_UPDATE_CI_MASK = 0xffffff; // CQ consumer index is 24-bit
 constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31;          // owner bit at dw1[31]
+constexpr uint32_t ROCE_1825_CQE_QPN_BITS = 20U;
 
 constexpr uint32_t ROCE_1825_MAX_SGE_NUM = 24;
 
