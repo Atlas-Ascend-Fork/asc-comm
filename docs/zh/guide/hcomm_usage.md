@@ -41,6 +41,8 @@ Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`
    ret = hcomm.Commit(channel);
    ```
 
+   延迟提交时，URMA SQ容量以WQE block计数。`AtomicFAA`、`AtomicCAS`和`WriteWithNotifyNbi`每次占用2个block，普通读写每次占用1个。需计入通道已有的未完成任务，并在容量及轮询水位耗尽前提交；不能按`sqDepth`次原子调用安排一批任务。
+
 6. 调用普通`Drain`等待任务完成。
 
    ```cpp
