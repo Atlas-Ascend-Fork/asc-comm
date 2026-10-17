@@ -57,7 +57,7 @@ __aicore__ inline int32_t Sync(
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | `order` | 输入 | barrier signal等待内存序，当前支持`AIN_MEMORY_ORDER_RELAX`。 |
-| `timeoutCycles` | 输入 | 最大轮询次数，仅带超时重载使用。 |
+| `timeoutCycles` | 输入 | 每个peer首次读取后的最大追加轮询次数，仅带超时重载使用；不是硬件时钟周期或实际耗时上限。 |
 | `ubuf` | 输入 | 底层Hcomm使用的UBuf临时工作区描述。 |
 
 ## 返回值说明
@@ -78,7 +78,7 @@ __aicore__ inline int32_t Sync(
 - `ubuf.addr`和`ubuf.bytes`需要提供可供底层Hcomm初始化使用的UBuf临时工作区；`DescriptorUbuf`当前必须提供不小于512B的UBuf临时工作区。
 - 当前仅支持`AIN_MEMORY_ORDER_RELAX`。该内存序只保证signal原子读写及阈值检查，不保证signal操作前后普通数据访问的内存序。
 - 无超时重载会持续轮询直到所有其他rank到达barrier，调用方需要保证team内rank对称调用，避免Kernel永久等待。
-- 带超时重载的`timeoutCycles`表示轮询次数，返回`-1`时只表示本rank等待超时，不会回滚已经发出的signal。
+- 带超时重载对每个peer分别重置重试计数。尚未达到阈值时，首次读取之后最多追加`timeoutCycles`次轮询，即最多读取`timeoutCycles + 1`次；`timeoutCycles=0`仍会读取一次。该计数不表示时钟周期或耗时，也不是整个barrier共享的预算。返回`-1`不会回滚已经发出的signal。
 - 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。
 
 ## 调用示例
