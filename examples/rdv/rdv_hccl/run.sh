@@ -15,7 +15,6 @@ readonly MAX_AIV_CORE_NUM=56
 readonly DEFAULT_RANK_NUM=8
 readonly DEFAULT_IPPORT=127.0.0.1:8899
 readonly DEFAULT_FIRST_RANK=0
-readonly DEFAULT_LOCAL_RANKS=8
 readonly DEFAULT_FIRST_DEVICE=0
 readonly MAX_RANK_NUM=128
 
@@ -24,12 +23,23 @@ if [[ $# -gt 6 ]]; then
     exit 1
 fi
 
-readonly CORE_NUM=${1:-1}
-readonly RANK_NUM=${2:-${DEFAULT_RANK_NUM}}
-readonly IPPORT=${3:-${DEFAULT_IPPORT}}
-readonly FIRST_RANK=${4:-${DEFAULT_FIRST_RANK}}
-readonly LOCAL_RANKS=${5:-${DEFAULT_LOCAL_RANKS}}
-readonly FIRST_DEVICE=${6:-${DEFAULT_FIRST_DEVICE}}
+coreNum=${1:-1}
+rankNum=${2:-${DEFAULT_RANK_NUM}}
+ipPort=${3:-${DEFAULT_IPPORT}}
+firstRank=${4:-${DEFAULT_FIRST_RANK}}
+localRanks=${5:-}
+firstDevice=${6:-${DEFAULT_FIRST_DEVICE}}
+# Unset local_ranks lets this host run every remaining rank from first_rank, so single-host runs need no more
+# arguments than the core count and the rank count.
+if [[ -z ${localRanks} ]]; then
+    localRanks=$((rankNum - firstRank))
+fi
+readonly CORE_NUM=${coreNum}
+readonly RANK_NUM=${rankNum}
+readonly IPPORT=${ipPort}
+readonly FIRST_RANK=${firstRank}
+readonly LOCAL_RANKS=${localRanks}
+readonly FIRST_DEVICE=${firstDevice}
 
 if [[ ! ${CORE_NUM} =~ ^[0-9]+$ || ${CORE_NUM} -lt 1 || ${CORE_NUM} -gt ${MAX_AIV_CORE_NUM} ||
     ! ${RANK_NUM} =~ ^[0-9]+$ || ${RANK_NUM} -lt 2 || ${RANK_NUM} -gt ${MAX_RANK_NUM} ||
