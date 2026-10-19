@@ -39,7 +39,8 @@ __aicore__ inline constexpr uint32_t HtoNL(uint32_t x) { return __builtin_bswap3
 
 __aicore__ inline constexpr uint64_t HtoNLL(uint64_t x) { return __builtin_bswap64(x); }
 
-__aicore__ inline void SyncAction(pipe_t pipeSrc, pipe_t pipeDst, event_t id)
+template <pipe_t pipeSrc, pipe_t pipeDst>
+__aicore__ inline void SyncAction(event_t id)
 {
     asc_sync_notify(pipeSrc, pipeDst, id);
     asc_sync_wait(pipeSrc, pipeDst, id);
