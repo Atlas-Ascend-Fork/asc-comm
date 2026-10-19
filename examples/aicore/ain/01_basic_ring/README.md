@@ -89,15 +89,15 @@ basic_ring
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
-  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换；并行运行多个实例时错开端口 |
-  | `<nranks>` | 无默认 | 启动的rank数量，必须为不小于2的整数，且不超过当前可用NPU数量 |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换；并行运行多个实例时错开端口。 |
+  | `<nranks>` | 无默认 | 启动的rank数量，必须为不小于2的整数，且不超过当前可用NPU数量。 |
 
 - 编译选项说明
 
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
-  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
+  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行。 |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品。 |
 
 - 执行结果
 

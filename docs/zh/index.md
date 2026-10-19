@@ -8,6 +8,7 @@
   - [内存模型](./programming_model/memory_model.md)
   - [执行模型](./programming_model/execution_model.md)
   - [CCU编程](./programming_model/ccu_programming.md)
+
 - [CCU通算融合算子开发指南](./guide/ccu_comm_compute_op_dev.md)
 - [CCU通信算子开发指南](./guide/ccu_comm_op_dev.md)
 - [基于MC2的通信算子开发指南](./guide/mc2_operator_impl.md)
