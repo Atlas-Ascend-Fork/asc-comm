@@ -173,7 +173,7 @@ TEST_F(CcuRepContextTest, CollectProfilingReps_Assign_VarToVar)
 TEST_F(CcuRepContextTest, CollectProfilingReps_LoopGroup)
 {
     ccu_rep_context context_;
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     auto loopGroupPtr = std::make_shared<ccu_rep_loop_group_bundle>(&insGen, grpCfg, parallel_param, offsetParam);
@@ -301,7 +301,7 @@ TEST_F(CcuRepContextProfilingTest, AddProfiling_ChannelArrayBroadcast)
 TEST_F(CcuRepContextProfilingTest, AddProfiling_ChannelArrayReduce)
 {
     ccu_rep_context context_;
-    ccu_loop_group_config grpCfg{};
+    ccu_loop_group_cfg grpCfg{};
     variable parallel_param(nullptr);
     variable offsetParam(nullptr);
     auto loopGroupPtr = std::make_shared<ccu_rep_loop_group_bundle>(&insGen, grpCfg, parallel_param, offsetParam);
