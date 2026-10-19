@@ -320,8 +320,7 @@ private:
  * @brief Resolve the base address of a locally registered buffer on the channel.
  * @param [in] channel: The handle of the communication channel.
  * @param [in] bufferIdx: Index into the channel's local registered buffer table.
- * @return Base address of the requested local buffer, or nullptr when the channel, buffer table,
- *         or buffer index is invalid.
+ * @return Base address of the requested local buffer.
  */
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx);
 
@@ -329,8 +328,7 @@ __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, ui
  * @brief Resolve the base address of a remotely registered buffer on the channel.
  * @param [in] channel: The handle of the communication channel.
  * @param [in] bufferIdx: Index into the channel's remote registered buffer table.
- * @return Base address of the requested remote buffer, or nullptr when the channel, buffer table,
- *         or buffer index is invalid.
+ * @return Base address of the requested remote buffer.
  */
 __simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx);
 
