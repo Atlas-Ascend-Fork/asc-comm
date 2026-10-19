@@ -401,10 +401,10 @@ __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandl
     batchHandle.channelHandle = channel;
     batchHandle.sqContext = sqCtx;
     batchHandle.cqContext = cqCtx;
-    batchHandle.cursor.sqHead = channelEntity->sqHead;
-    batchHandle.cursor.sqTail = channelEntity->sqTail;
-    batchHandle.cursor.cqHead = channelEntity->cqHead;
-    batchHandle.cursor.cqTail = channelEntity->cqTail;
+    batchHandle.cursor.sqHead = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    batchHandle.cursor.sqTail = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    batchHandle.cursor.cqHead = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    batchHandle.cursor.cqTail = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
     batchHandle.cursor.preSqCnt = 0U;
     batchHandle.buffer.buffer = wqeBuffer;
     batchHandle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
@@ -435,10 +435,10 @@ __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatch
     UbcMultiBatchHandle multiBatchHandle{};
     multiBatchHandle.handle.sqContext = sqCtx;
     multiBatchHandle.handle.cqContext = cqCtx;
-    multiBatchHandle.handle.cursor.sqHead = channelEntity->sqHead;
-    multiBatchHandle.handle.cursor.sqTail = channelEntity->sqTail;
-    multiBatchHandle.handle.cursor.cqHead = channelEntity->cqHead;
-    multiBatchHandle.handle.cursor.cqTail = channelEntity->cqTail;
+    multiBatchHandle.handle.cursor.sqHead = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    multiBatchHandle.handle.cursor.sqTail = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    multiBatchHandle.handle.cursor.cqHead = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    multiBatchHandle.handle.cursor.cqTail = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
     multiBatchHandle.handle.buffer.buffer = wqeBuffer;
     multiBatchHandle.handle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
     multiBatchHandle.channelHandle = channel;
@@ -591,10 +591,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteWithNotifyNbi(
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenCqOverflow(
-    ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
+    ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt,
+    uint32_t cqTail)
 {
-    __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t cqTail = channelEntity->cqTail;
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
@@ -609,27 +608,25 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenCqOverflow(
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenSqOverflow(
-    ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead)
+    ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t sqTail, uint32_t cqHead)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t sqTail = channelEntity->sqTail;
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
     uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
-    if ((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
-        (void)PollCq<true>(channel, channelEntity->cqHead, sqHead, sqDepth, POLL_CQ_THRESHOLD);
+    if (unlikely((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth)) {
+        (void)PollCq<true>(channel, cqHead, sqHead, sqDepth, POLL_CQ_THRESHOLD);
     }
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::CommitImpl(
-    ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt)
+    ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt, uint32_t cqTail)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    PollCqWhenCqOverflow(channel, sqCtx, cqCtx, sqHead, cqeCnt);
+    PollCqWhenCqOverflow(channel, sqCtx, cqCtx, sqHead, cqeCnt, cqTail);
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, HcommUrmaOpCode opCode, auto const& config, typename T>
@@ -642,13 +639,16 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
 
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curHead = channelEntity->sqHead;
-    uint32_t cqeCnt = channelEntity->cqHead;
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    uint32_t curHead = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t cqeCnt = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t cqTail = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t curTail = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    PollCqWhenSqOverflow(channel, sqCtx, curHead, curTail, cqeCnt);
+
     HCOMM_KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remote buffer curHead=%u sqDepth=%u \n", curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    PollCqWhenSqOverflow(channel, sqCtx, curHead);
 
     // write SQE
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = (__ubuf__ HcommUrmaSqeCtx*)wqeItem_.GetPhyAddr();
@@ -695,17 +695,18 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     } else {
         DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
     }
-    Mutex::Unlock<PIPE_MTE3>(HCOMM_URMA_MUTEX_ID);
-
+    
     if constexpr (config.cqe != 0) {
         cqeCnt++;
-        channelEntity->cqHead = cqeCnt;
+        *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr) = cqeCnt;
     }
     curHead += wqeBbCnt;
-    channelEntity->sqHead = curHead;
+    *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr) = curHead;
+
+    Mutex::Unlock<PIPE_MTE3>(HCOMM_URMA_MUTEX_ID);
 
     if constexpr (commit) {
-        CommitImpl(channel, sqCtx, curHead, cqeCnt);
+        CommitImpl(channel, sqCtx, cqCtx, curHead, cqeCnt, cqTail);
     }
     HCOMM_DEBUG_FUNC(HcommUrmaDumpWqeCtx, sqeCtx, sizeof(T));
     return HCOMM_SUCCESS;
@@ -798,8 +799,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curTail = channelEntity->cqTail;
-    uint32_t sqTail = channelEntity->sqTail;
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    uint32_t curTail = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t sqTail = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
 
     uint32_t ret = PollCqImpl<sqSafeMode>(
         cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, expectIdx,
@@ -809,8 +811,8 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     }
 
     // update CQ tail
-    channelEntity->cqTail = curTail;
-    channelEntity->sqTail = sqTail;
+    *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr) = curTail;
+    *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr) = sqTail;
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
@@ -834,9 +836,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
     }
 
     batchHandle.cursor.cqTail = curTail;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    channelEntity->sqTail = batchHandle.cursor.sqTail;
-    channelEntity->cqTail = curTail;
+    *reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.tailAddr) =
+        batchHandle.cursor.sqTail;
+    *reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.tailAddr) = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
     return HCOMM_SUCCESS;
 }
@@ -925,7 +927,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Commit(ChannelHandle 
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    CommitImpl(channel, sqCtx, channelEntity->sqHead, channelEntity->cqHead);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto sqHead = *reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    auto cqHead = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    auto cqTail = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    CommitImpl(channel, sqCtx, cqCtx, sqHead, cqHead, cqTail);
     return HCOMM_SUCCESS;
 }
 
@@ -968,9 +974,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    channelEntity->sqHead = newSqHead;
-    channelEntity->cqHead = batchHandle.cursor.cqHead;
+    *reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.headAddr) = newSqHead;
+    *reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.headAddr) =
+        batchHandle.cursor.cqHead;
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
@@ -989,7 +995,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(ChannelHandle c
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t ret = PollCq(channel, channelEntity->cqHead);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqHead = *reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t ret = PollCq(channel, cqHead);
     if (ret != HCOMM_SUCCESS) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
         return ret;
@@ -1053,9 +1061,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Unlock(ChannelHandle 
     }
 
     __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
-    // Flush the four contiguous channel counters: sqHead, sqTail, cqHead, and cqTail.
-    CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    // Flush the four channel counters: sqHead, sqTail, cqHead, and cqTail.
+    CacheWriteThrough<uint8_t>(reinterpret_cast<__gm__ uint8_t*>(sqCtx.contextInfo.ubJfs.headAddr), sizeof(uint32_t));
+    CacheWriteThrough<uint8_t>(reinterpret_cast<__gm__ uint8_t*>(sqCtx.contextInfo.ubJfs.tailAddr), sizeof(uint32_t));
+    CacheWriteThrough<uint8_t>(reinterpret_cast<__gm__ uint8_t*>(cqCtx.contextInfo.ubJfc.headAddr), sizeof(uint32_t));
+    CacheWriteThrough<uint8_t>(reinterpret_cast<__gm__ uint8_t*>(cqCtx.contextInfo.ubJfc.tailAddr), sizeof(uint32_t));
 
     __gm__ uint32_t* lockAddr = HcommUrmaGetLockAddr(channelEntity);
     uint32_t oldValue = AtomicCas(lockAddr, HCOMM_LOCK_HELD, HCOMM_LOCK_FREE);
