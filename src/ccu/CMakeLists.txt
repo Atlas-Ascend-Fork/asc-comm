@@ -90,6 +90,7 @@ add_subdirectory(hcomm)
 # 单一交付物：libasccomm_ccu.so 同时承载 CCU 数据面实现与 host-launch 兼容 wrapper。
 add_library(asccomm_ccu_host_obj OBJECT
     ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp
+    ${ASCCOMM_CCU_ROOT}/ccu_profiling.cc
 )
 target_link_libraries(asccomm_ccu_host_obj PRIVATE
     asccomm_ccu_headers
@@ -148,6 +149,7 @@ target_link_libraries(asccomm_ccu PRIVATE
     unified_dlog
     c_sec
     pthread
+    ${CMAKE_DL_LIBS}
 )
 target_link_options(asccomm_ccu PRIVATE
     -Wl,--no-undefined
