@@ -261,6 +261,7 @@ endfunction()
 
 add_library(asccomm_ccu_host_launch STATIC
     ${ASCCOMM_ROOT}/src/ccu/ccu_host_launch.cpp
+    ${ASCCOMM_ROOT}/src/ccu/ccu_profiling.cc
 )
 target_include_directories(asccomm_ccu_host_launch
     PUBLIC
@@ -273,6 +274,7 @@ target_include_directories(asccomm_ccu_host_launch
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
+        ${ASCCOMM_ROOT}/src/ccu
 )
 target_compile_features(asccomm_ccu_host_launch PUBLIC cxx_std_17)
 target_compile_options(asccomm_ccu_host_launch PRIVATE
@@ -281,6 +283,8 @@ target_compile_options(asccomm_ccu_host_launch PRIVATE
     -Werror
 )
 
+target_link_libraries(asccomm_ccu_host_launch PUBLIC ${CMAKE_DL_LIBS})
+
 add_executable(asccomm_ut_ccu_host_launch
     ${ASCCOMM_UT_ROOT}/ccu/test_ccu_host_launch.cpp
 )
@@ -288,6 +292,7 @@ target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
@@ -308,6 +313,7 @@ target_include_directories(asccomm_ccu_launch_stub PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
