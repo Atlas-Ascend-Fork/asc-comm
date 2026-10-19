@@ -20,6 +20,14 @@
 
 namespace HcommRoceBatchWriteReadExample {
 
+constexpr AscendC::UrmaWqeEntry ROCE_BATCH_NO_CQE_CFG = {
+    .odr = 0,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+};
+
 class KernelRoceBatchWriteRead {
     using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_ROCE>;
 
@@ -47,9 +55,9 @@ public:
             return;
         }
 
-        for (uint32_t index = 0U; index < OPERATION_COUNT; ++index) {
+        for (uint32_t index = 0U; index + 1U < OPERATION_COUNT; ++index) {
             const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = hcomm_.WriteNbi(
+            context_->hcommResult = hcomm_.WriteNbi<ROCE_BATCH_NO_CQE_CFG>(
                 batchHandle, remoteBuffer_ + WRITE_RESULT_OFFSET + offset, localBuffer_ + SEND_DATA_OFFSET + offset,
                 TRANSFER_BYTES);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
@@ -58,15 +66,33 @@ public:
             }
         }
 
-        for (uint32_t index = 0U; index < OPERATION_COUNT; ++index) {
+        const uint64_t writeLastOffset = static_cast<uint64_t>(OPERATION_COUNT - 1U) * TRANSFER_BYTES;
+        context_->hcommResult = hcomm_.WriteNbi(
+            batchHandle, remoteBuffer_ + WRITE_RESULT_OFFSET + writeLastOffset,
+            localBuffer_ + SEND_DATA_OFFSET + writeLastOffset, TRANSFER_BYTES);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+            context_->result = KERNEL_WRITE_FAILED;
+            return;
+        }
+
+        for (uint32_t index = 0U; index + 1U < OPERATION_COUNT; ++index) {
             const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = hcomm_.ReadNbi(
+            context_->hcommResult = hcomm_.ReadNbi<ROCE_BATCH_NO_CQE_CFG>(
                 batchHandle, localBuffer_ + READ_RESULT_OFFSET + offset, remoteBuffer_ + SEND_DATA_OFFSET + offset,
                 TRANSFER_BYTES);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_READ_FAILED;
                 return;
             }
+        }
+
+        const uint64_t readLastOffset = static_cast<uint64_t>(OPERATION_COUNT - 1U) * TRANSFER_BYTES;
+        context_->hcommResult = hcomm_.ReadNbi(
+            batchHandle, localBuffer_ + READ_RESULT_OFFSET + readLastOffset,
+            remoteBuffer_ + SEND_DATA_OFFSET + readLastOffset, TRANSFER_BYTES);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+            context_->result = KERNEL_READ_FAILED;
+            return;
         }
 
         context_->hcommResult = hcomm_.BatchCommit(batchHandle);

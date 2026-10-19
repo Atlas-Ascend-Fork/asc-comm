@@ -17,8 +17,12 @@ This example creates an `UbcBatchHandle` on a RoCE channel with `MakeBatchHandle
   writes them to one 512-byte contiguous remote `dst`.
 - `ReadNbi` is called 128 times. Each call passes eight 64-byte scattered segments in `dstDescs` and
   reads from one 512-byte contiguous remote `src`.
-- Every four `WriteNbi` calls are submitted with one `BatchCommit` and completed with one `Drain`.
-  The 128 `ReadNbi` calls follow the same four-call commit-and-drain pattern.
+- All calls except the last `WriteNbi` and the last `ReadNbi` use the `cqe=0` configuration to
+  suppress completion events. Those two calls use the default config template parameter, whose
+  `cqe` is `1`, so the write path and read path each produce one CQE. The `PollCq` inside `Drain`
+  handles only the corresponding completion event.
+- All 128 `WriteNbi` calls are added to the same batch handle, then submitted with one `BatchCommit`
+  and completed with one `Drain`. The 128 `ReadNbi` calls follow the same one-shot pattern.
 - Rank 0 issues the writes and rank 1 verifies the remote data. Rank 1 then issues the reads and verifies its local scattered segments.
 
 ## Directory Structure
@@ -44,7 +48,7 @@ Each rank registers a 393216-byte communication buffer divided into four regions
 | `[196608, 262144)` | 65536B | Destination on rank 1 for the 128 contiguous 512B messages written by rank 0 |
 | `[262144, 393216)` | 131072B | Local scattered result of `ReadNbi`: 64B segments with 128B stride |
 
-The batch WQE buffer is `4 * 8 * 64` bytes in the kernel's VECOUT UB; one batch of WQEs is reused every four calls.
+The batch WQE buffer is `128 * 3 * 64` bytes in the kernel's VECOUT UB and holds every WQE in one submission.
 
 ## Build
 
@@ -91,5 +95,5 @@ RESULT | Example=hcomm_roce_multi_sge | Status=PASS
 - Running the sample requires at least two NPUs, and the local MPI rank count on each node must not exceed the available NPU count.
 - Rank 0 and rank 1 must have a RoCE link, and the channel protocol must be COMM_PROTOCOL_ROCE.
 - The CANN installation must contain the RoCE batch multi-SGE interfaces.
-- Every four WriteNbi or ReadNbi calls are submitted and drained once, keeping the batch WQEs within SQ capacity.
+- All 128 WriteNbi or ReadNbi calls are submitted through one batch handle and then drained together.
 - Local segment addresses and lengths are described by srcDescs/dstDescs; every segment must lie in registered communication memory.

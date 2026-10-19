@@ -17,8 +17,11 @@
   512B 连续数据区。
 - `ReadNbi` 调用 128 次。每次调用的 `dstDescs` 包含 8 个 64B 离散数据段，远端 `src` 是一个
   512B 连续数据区。
-- 每 4 次 `WriteNbi` 执行一次 `BatchCommit` 和 `Drain`；128 次 `ReadNbi` 同样按 4 次一组
-  提交和清排。
+- 除最后一次 `WriteNbi` 和最后一次 `ReadNbi` 外，其余调用均通过 `cqe=0` 配置关闭完成事件
+  生成；最后两次调用使用默认 config 模板参数，其 `cqe=1`。因此写侧和读侧各产生 1 个
+  CQE，`Drain` 内的 `PollCq` 只需处理对应的完成事件。
+- 128 次 `WriteNbi` 全部加入同一个 batch handle 后，执行一次 `BatchCommit` 和 `Drain`；
+  128 次 `ReadNbi` 同样一次性提交和清排。
 - rank 0 执行写请求，rank 1 校验落地数据；rank 1 再执行读请求并校验本端离散段内容。
 
 ## 目录结构
@@ -44,7 +47,7 @@
 | `[196608, 262144)` | 65536B | rank 1接收rank 0通过 `WriteNbi` 写入的128条512B连续消息 |
 | `[262144, 393216)` | 131072B | 保存 `ReadNbi` 写回的本地离散结果，每段64B、步长128B |
 
-批量WQE缓冲区位于Kernel的VECOUT UB，大小为 `4 * 8 * 64` 字节，即每4次调用复用一批WQE。
+批量WQE缓冲区位于Kernel的VECOUT UB，大小为 `128 * 3 * 64` 字节，可容纳一次提交的全部WQE。
 
 ## 编译
 
@@ -91,5 +94,5 @@ RESULT | Example=hcomm_roce_multi_sge | Status=PASS
 - 运行需要至少2张NPU，且每个节点上的MPI本地rank数不超过可用NPU数量。
 - rank 0与rank 1之间必须存在RoCE链路，且通道协议使用COMM_PROTOCOL_ROCE。
 - CANN安装包必须包含RoCE批量多SGE接口。
-- 每4次WriteNbi或ReadNbi调用执行一次BatchCommit和Drain，避免批量WQE超出SQ容量。
+- 128次WriteNbi或ReadNbi调用使用同一个batch handle一次性提交，然后统一Drain。
 - 本地段地址和长度由srcDescs/dstDescs描述，所有段必须位于已注册的通信内存内。

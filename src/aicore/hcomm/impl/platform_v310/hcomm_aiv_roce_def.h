@@ -159,8 +159,8 @@ private:
     __aicore__ inline bool EnContinue(
         uint32_t expectIdx, uint32_t cqTail, uint16_t sqHead, uint16_t sqTail, uint32_t sqDepth, uint32_t threshold);
     __aicore__ inline bool WaitCqeAndUpdateSqTail(
-        __gm__ ChannelEntity* chnlPtr, GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem,
-        uint32_t cqTail, uint32_t cqDepth, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType);
+        GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem, uint32_t cqTail, uint32_t cqDepth,
+        uint32_t expectedQpn, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType);
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <auto const& config, HCOMM_ROCE_OP_TYPE opType>
     __aicore__ inline __ubuf__ uint64_t* FillBatchWqeHeader(
