@@ -28,7 +28,24 @@
 
 #include "hcomm_simt_inner_def.h"
 
+#if defined(ASCENDC_DEBUG)
+#include "utils/debug/asc_assert.h"
+#include "utils/debug/asc_printf.h"
+#endif
+
 namespace AscendC::simt {
+
+#if defined(ASCENDC_DEBUG)
+#define HCOMM_SIMT_DEBUG_TRAP_IF(condition, fmt, ...) \
+    do { \
+        if (condition) { \
+            __asc_simt_vf::printf(fmt, ##__VA_ARGS__); \
+            __asc_simt_vf::__trap(); \
+        } \
+    } while (0)
+#else
+#define HCOMM_SIMT_DEBUG_TRAP_IF(condition, fmt, ...) ((void)0)
+#endif
 
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
@@ -83,17 +100,16 @@ __simt_callee__ inline bool HcommSimtTryReserve(
 
 __simt_callee__ inline __gm__ HcommSimtChannelEntity* HcommSimtGetChannelEntity(ChannelHandle channel)
 {
-    if (channel == 0U || (channel & (alignof(HcommSimtChannelEntity) - 1U)) != 0U) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        channel == 0U || (channel & (alignof(HcommSimtChannelEntity) - 1U)) != 0U, "invalid SIMT Hcomm channel\n");
     return reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtGetBufferTable(uint64_t bufferTableAddr)
 {
-    if (bufferTableAddr == 0U || (bufferTableAddr & (alignof(RegedBufferEntity) - 1U)) != 0U) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        bufferTableAddr == 0U || (bufferTableAddr & (alignof(RegedBufferEntity) - 1U)) != 0U,
+        "invalid SIMT Hcomm buffer table\n");
     return reinterpret_cast<__gm__ RegedBufferEntity*>(bufferTableAddr);
 }
 
@@ -101,47 +117,39 @@ __simt_callee__ inline __gm__ uint8_t* HcommSimtGetBufferAddr(
     uint64_t bufferTableAddr, uint32_t bufferNum, uint32_t bufferIdx)
 {
     __gm__ RegedBufferEntity* buffers = HcommSimtGetBufferTable(bufferTableAddr);
-    if (buffers == nullptr || bufferNum == 0U || bufferIdx >= bufferNum) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        buffers == nullptr || bufferNum == 0U || bufferIdx >= bufferNum, "invalid SIMT Hcomm buffer index\n");
 
     uint64_t bufferAddr = buffers[bufferIdx].bufferInfo.rma.addr;
-    return bufferAddr == 0U ? nullptr : reinterpret_cast<__gm__ uint8_t*>(bufferAddr);
+    HCOMM_SIMT_DEBUG_TRAP_IF(bufferAddr == 0U, "invalid SIMT Hcomm buffer address\n");
+    return reinterpret_cast<__gm__ uint8_t*>(bufferAddr);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
-    if (channelEntity == nullptr || channelEntity->localBufferNum == 0U) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr || channelEntity->localBufferNum == 0U, "invalid local buffer table\n");
     return HcommSimtGetBufferTable(channelEntity->localBufferAddr);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtRemoteBuffers(ChannelHandle channel)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
-    if (channelEntity == nullptr || channelEntity->remoteBufferNum == 0U) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr || channelEntity->remoteBufferNum == 0U, "invalid remote buffer table\n");
     return HcommSimtGetBufferTable(channelEntity->remoteBufferAddr);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtLocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
-    if (channelEntity == nullptr) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr, "invalid local buffer channel\n");
     return HcommSimtGetBufferAddr(channelEntity->localBufferAddr, channelEntity->localBufferNum, bufferIdx);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtRemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
-    if (channelEntity == nullptr) {
-        return nullptr;
-    }
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr, "invalid remote buffer channel\n");
     return HcommSimtGetBufferAddr(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, bufferIdx);
 }
 
