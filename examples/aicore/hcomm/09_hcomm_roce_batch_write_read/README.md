@@ -15,6 +15,9 @@
 `WriteNbi` 和 1000 次 `ReadNbi`；第 `i` 次调用使用 `i * 64` 字节的地址偏移。提交和
 完成等待结束后，各 rank 校验前一个 rank 写入的 1000 个数据片段以及从后一个 rank 读回的
 1000 个数据片段。
+除最后一次 `WriteNbi` 和最后一次 `ReadNbi` 外，其余 WQE 均通过 `cqe=0` 配置关闭完成事件
+生成；最后两次操作使用默认 config 模板参数，其 `cqe=1`。因此整批 2000 个 WQE 只产生
+2 个 CQE，`Drain` 内的 `PollCq` 只需等待并处理这 2 个完成事件。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -95,5 +98,5 @@ RESULT | Example=hcomm_roce_batch_write_read | Status=PASS
 - 运行需要至少2张NPU，且rank数不超过当前可用NPU数量。
 - 通道必须使用COMM_PROTOCOL_ROCE，与Kernel侧 `Hcomm<COMM_PROTOCOL_ROCE>` 保持一致。
 - HcclGetRootInfo生成的root info由MPI Bcast分发给所有rank。
-- 1000次WriteNbi和1000次ReadNbi使用同一个batch handle提交；Drain返回后才校验数据。
+- 1000次WriteNbi和1000次ReadNbi使用同一个batch handle提交；只有最后一次WriteNbi和最后一次ReadNbi使用默认config并请求CQE，Drain返回后才校验数据。
 - 当rank数为2时，环上的前一个rank和后一个rank是同一个对端。
