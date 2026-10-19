@@ -25,9 +25,9 @@
 
 头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
-设置当前AICPU执行线程通知等待的默认超时时间。该超时时间将应用于当前执行线程后续调用的[asccomm_channel_notify_wait_on_thread_with_default_timeout](./asccomm_channel_notify_wait_on_thread_with_default_timeout.md)和[asccomm_thread_notify_wait_on_thread_with_default_timeout](./asccomm_thread_notify_wait_on_thread_with_default_timeout.md)接口。
+设置当前AICPU执行线程通知等待的默认超时时间。该超时时间将应用于当前执行线程后续调用的[asccomm_channel_notify_wait_on_thread_with_default_timeout](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread_with_default_timeout.md)和[asccomm_thread_notify_wait_on_thread_with_default_timeout](../synchronization_and_barrier/asccomm_thread_notify_wait_on_thread_with_default_timeout.md)接口。
 
-手动指定超时时间的[asccomm_channel_notify_wait_on_thread](./asccomm_channel_notify_wait_on_thread.md)和[asccomm_thread_notify_wait_on_thread](./asccomm_thread_notify_wait_on_thread.md)接口不受本接口影响。
+手动指定超时时间的[asccomm_channel_notify_wait_on_thread](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread.md)和[asccomm_thread_notify_wait_on_thread](../synchronization_and_barrier/asccomm_thread_notify_wait_on_thread.md)接口不受本接口影响。
 
 ## 函数原型
 
@@ -53,7 +53,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
 ## 约束说明
 
 - 本接口设置的超时时间仅对当前AICPU执行线程的`*WithDefaultTimeout`系列接口生效。
-- 手动传入超时时间的[asccomm_channel_notify_wait_on_thread](asccomm_channel_notify_wait_on_thread.md)和[asccomm_thread_notify_wait_on_thread](asccomm_thread_notify_wait_on_thread.md)不受本接口影响。
+- 手动传入超时时间的[asccomm_channel_notify_wait_on_thread](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread.md)和[asccomm_thread_notify_wait_on_thread](../synchronization_and_barrier/asccomm_thread_notify_wait_on_thread.md)不受本接口影响。
 - 未设置时，当前实现默认超时时间为1836秒。
 - `timeOut`为非负浮点数时允许传入，但会向零截断为整数秒；负数、NaN和大于`UINT32_MAX`的取值返回`ASCCOMM_E_PARA`。
 

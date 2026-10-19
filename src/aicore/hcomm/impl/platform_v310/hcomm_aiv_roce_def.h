@@ -25,8 +25,9 @@
 #include "../../common/hcomm_inner_def.h"
 
 namespace AscendC {
-constexpr uint32_t ROCE_CQE_POS = 128;
-constexpr uint32_t HCOMM_ROCE_WQEBB_SIZE = 64;
+constexpr uint32_t ROCE_CQE_POS = 128U;
+constexpr uint32_t HCOMM_ROCE_WQEBB_SIZE = 64U;
+constexpr uint32_t HCOMM_ROCE_ADDR_ALIGNMENT = 32U;
 constexpr uint32_t HCOMM_ROCE_WQEBB_U32_NUM = HCOMM_ROCE_WQEBB_SIZE / sizeof(uint32_t);
 constexpr uint32_t HCOMM_ROCE_WQEBB_U64_SIZE = 8U;
 constexpr uint32_t HCOMM_ROCE_WQEBB_U64_NUM = HCOMM_ROCE_WQEBB_SIZE / HCOMM_ROCE_WQEBB_U64_SIZE;
@@ -38,43 +39,44 @@ constexpr uint32_t ROCE_1825_WQE_WORD_BITS = 32U;
 constexpr uint32_t ROCE_1825_WQE_CTRL_SEG_SIZE = 16U;
 constexpr uint32_t ROCE_1825_WQE_TASK_SEG_SIZE = 32U;
 constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SIZE = 16U;
-constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;    // owner_sl owner bit
+constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7U;   // owner_sl owner bit
 constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;  // owner_sl fixed part
 constexpr uint32_t ROCE_1825_WQE_SQ_VA_VALUE = 0x20; // df_tsl VA bit
-constexpr uint32_t ROCE_1825_WQE_SQ_SIGNAL_SHIFT = 7;
-constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7; // df_tsl CR bit
-constexpr uint32_t ROCE_1825_WQE_TASK_OPTYPE_SHIFT = 24;
-constexpr uint32_t ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT = 29;
-constexpr uint32_t ROCE_1825_WQE_TASK_FENCE_SHIFT = 30;
+constexpr uint32_t ROCE_1825_WQE_SQ_SIGNAL_SHIFT = 7U;
+constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7U; // df_tsl CR bit
+constexpr uint32_t ROCE_1825_WQE_TASK_OPTYPE_SHIFT = 24U;
+constexpr uint32_t ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT = 29U;
+constexpr uint32_t ROCE_1825_WQE_TASK_FENCE_SHIFT = 30U;
 constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN1 = 1U;
-constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN_SHIFT = 28; // cl_pi CL field
+constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN_SHIFT = 28U; // cl_pi CL field
 constexpr uint32_t ROCE_1825_WQE_TASK_SEG_ALIGN = HCOMM_ROCE_WQEBB_U64_SIZE;
-constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10;
-constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequence number
-constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_ssn field
-constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
-constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
-constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
-constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31; // data seg le_key L bit
+constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10U;
+constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3;  // low 2 bits of SQ WQE sequence number
+constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12U; // wf_bdsl wqe_ssn field
+constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4U;
+constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3U;
+constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4U;
+constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31U; // data seg le_key L bit
 constexpr uint64_t ROCE_1825_WQE_MAX_DATA_LEN = 1ULL << 31U;
 
-constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8;   // high 8 bits of the SQ producer index
-constexpr uint32_t ROCE_1825_SQ_DB_PI_FIELD_SHIFT = 32; // pi field offset in the 64-bit doorbell
-constexpr uint32_t ROCE_1825_SQ_DB_TYPE = 21;
-constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1;
-constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_COS_SHIFT = 24;
-constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_MTUSHIFT_SHIFT = 50;
+constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8U;   // high 8 bits of the SQ producer index
+constexpr uint32_t ROCE_1825_SQ_DB_PI_FIELD_SHIFT = 32U; // pi field offset in the 64-bit doorbell
+constexpr uint32_t ROCE_1825_SQ_DB_TYPE = 21U;
+constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1U;
+constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_COS_SHIFT = 24U;
+constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_MTUSHIFT_SHIFT = 50U;
 constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_FIELD_MASK = 0x7;
 constexpr uint32_t ROCE_1825_SQ_DB_ADDR_SHIFT = 3U;
 
-constexpr uint32_t ROCE_1825_CQE_OPCODE_SHIFT = 27;
+constexpr uint32_t ROCE_1825_CQE_OPCODE_SHIFT = 27U;
 constexpr uint32_t ROCE_1825_CQE_OPCODE_MASK = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_INVALID = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_ERROR = 0x1e;       // op_type = error coding
 constexpr uint32_t ROCE_1825_CQE_UPDATE_CI_MASK = 0xffffff; // CQ consumer index is 24-bit
-constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31;          // owner bit at dw1[31]
+constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31U;         // owner bit at dw1[31]
+constexpr uint32_t ROCE_1825_CQE_QPN_BITS = 20U;
 
-constexpr uint32_t ROCE_1825_MAX_SGE_NUM = 24;
+constexpr uint32_t ROCE_1825_MAX_SGE_NUM = 24U;
 
 enum class HCOMM_ROCE_OP_TYPE : uint32_t { WRITE = 4U, READ = 8U };
 
