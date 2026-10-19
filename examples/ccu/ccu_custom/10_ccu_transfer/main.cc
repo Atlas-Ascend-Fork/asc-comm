@@ -83,7 +83,17 @@ std::vector<float> GetExpected(uint32_t rank)
     return GetInput(rank);
 #elif SCENARIO_NUM == 2
     return GetInput(1U - rank);
+#elif SCENARIO_NUM == 4
+    // load/store/address 通路：input 经 address 组装的 local_addr 拷贝到 output，值不变
+    return GetInput(rank);
+#elif SCENARIO_NUM == 5
+    // read 通路：本端 output 读到对端输入值
+    return GetInput(1U - rank);
+#elif SCENARIO_NUM == 7
+    // 控制流宏 + local_notify 通路：与 SCENARIO 1 等价的本地搬运，值不变
+    return GetInput(rank);
 #else
+    // write_reduce / read_reduce 通路：两端输入 FP32 SUM
     return {6.0F, 8.0F, 10.0F, 12.0F};
 #endif
 }
