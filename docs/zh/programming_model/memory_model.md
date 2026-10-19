@@ -21,7 +21,7 @@
 
 **图1** 内存层级和通信能力<a id="fig-memory-hierarchy-communication-capability"></a>
 
-![内存层级和通信能力](./figures/memory_model.png "内存层级和通信能力")
+![内存层级和通信能力](./figures/memory_model.svg "内存层级和通信能力")
 
 [图1](#fig-memory-hierarchy-communication-capability)从上到下展示GM、L2 Cache和执行引擎片内资源之间的层级关系，本端和远端分别拥有各自的GM、L2 Cache和片内资源。
 [图1](#fig-memory-hierarchy-communication-capability)中的箭头仅表示通信相关的数据通路，不展开AI Core内部Unified Buffer、SIMD/SIMT寄存器与计算单元之间的计算数据流。[图1](#fig-memory-hierarchy-communication-capability)只绘制了从本端到远端的写入方向；从远端到本端的读取或写入通路与之对称。
@@ -36,7 +36,7 @@
 
 **图2** 通信内存的准备与组织<a id="fig-communication-memory-flow"></a>
 
-![通信内存的准备与组织](./figures/communication_memory_flow.png "通信内存的准备与组织")
+![通信内存的准备与组织](./figures/communication_memory_flow.svg "通信内存的准备与组织")
 
 下文依次说明通信内存如何建立远端可见性、访问凭据如何保护内存范围，以及程序如何组织通信内存并描述目标成员和内存位置。
 
@@ -82,7 +82,7 @@
 
 **图3** RoCE远端写访问过程<a id="fig-roce-remote-write"></a>
 
-![RoCE远端写访问过程](./figures/roce_remote_write.png "RoCE远端写访问过程")
+![RoCE远端写访问过程](./figures/roce_remote_write.svg "RoCE远端写访问过程")
 
 一次RoCE远端写同时使用发起端本地源内存的`lkey`和目标端目的内存的`rkey`。二者分别保护本地操作数和远端操作数，并与各自的注册内存范围匹配。
 
@@ -98,7 +98,7 @@
 
 **图4** UB类协议远端写访问过程<a id="fig-ub-remote-write"></a>
 
-![UB类协议远端写访问过程](./figures/ub_remote_write.png "UB类协议远端写访问过程")
+![UB类协议远端写访问过程](./figures/ub_remote_write.svg "UB类协议远端写访问过程")
 
 完成内存注册、Channel建立和访问凭据交换后，通信双方已经具备访问对端通信内存的基础条件。上层编程模型还需要向用户提供一种方式，用于指定目标成员及其内存位置。
 

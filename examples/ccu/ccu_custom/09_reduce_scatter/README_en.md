@@ -13,7 +13,6 @@ rank r recvBuf = SUM(segment_r of all ranks)
 
 The CCU kernel first copies the input segment of the local rank to the local output with `GroupCopy`, and then reduces the other input segments to the corresponding ranks' outputs with `ccu::write_reduce`.
 
-
 ## Directory Structure
 
 ```text

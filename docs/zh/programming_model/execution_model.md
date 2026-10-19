@@ -27,7 +27,7 @@ AICPU_TS采用任务描述符下发模式，执行流程如[图1](#fig-aicpu-ts-
 
 **图1** AICPU_TS直驱执行机制<a id="fig-aicpu-ts-direct-execution-model"></a>
 
-![AICPU_TS直驱执行机制](./figures/aicpu_ts_exec_model.png "AICPU_TS直驱执行机制")
+![AICPU_TS直驱执行机制](./figures/aicpu_ts_exec_model.svg "AICPU_TS直驱执行机制")
 
 1. Host提交AICPU Kernel至任务队列。
 2. 任务调度器将AICPU Kernel分发至AICPU执行。
@@ -46,7 +46,7 @@ CCU（Collective Communication Unit，集合通信加速单元）是位于IO Die
 
 **图2** CCU直驱执行机制<a id="fig-ccu-direct-execution-model"></a>
 
-![CCU直驱执行机制](./figures/ccu_exec_model.png "CCU直驱执行机制")
+![CCU直驱执行机制](./figures/ccu_exec_model.svg "CCU直驱执行机制")
 
 1. Host将CCU指令序列（由CCU可识别的指令组成）下发至CCU指令空间，同时提交CCU Kernel任务至任务队列。
 2. CCU Kernel被调度器调度后发送至CCU执行。
@@ -62,7 +62,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **图3** AIV直驱执行机制<a id="fig-aiv-direct-execution-model"></a>
 
-![AIV直驱执行机制](./figures/aiv_exec_model.png "AIV直驱执行机制")
+![AIV直驱执行机制](./figures/aiv_exec_model.svg "AIV直驱执行机制")
 
 1. Host提交AIV Kernel至任务队列。
 2. 任务调度器将AIV Kernel分发至Vector Core。
@@ -99,7 +99,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **图4** 代理模式执行机制<a id="fig-proxy-execution-model"></a>
 
-![代理模式执行机制](./figures/proxy_execution_model.png "代理模式执行机制")
+![代理模式执行机制](./figures/proxy_execution_model.svg "代理模式执行机制")
 
 代理模式包含以下参与方：
 
@@ -128,7 +128,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **图5** 代理模式下的通算融合编排<a id="fig-proxy-execution-parallel"></a>
 
-![代理模式下的通算融合编排](./figures/proxy_execution_parallel.png "代理模式下的通算融合编排")
+![代理模式下的通算融合编排](./figures/proxy_execution_parallel.svg "代理模式下的通算融合编排")
 
 在这种编排中，Commit发布任务执行条件后，服务端开始从源内存读取本轮数据并将通信结果写入目的内存，客户端继续使用其他数据区域执行与本轮通信没有数据依赖的计算。客户端在首次需要使用通信结果的位置执行Wait；Wait完成后，目的内存中的通信结果可以用于后续计算。通过将独立计算安排在Commit与Wait之间，通算融合算子可以重叠通信与计算的执行时间。
 
@@ -139,7 +139,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **图6** 通信任务下发执行流程<a id="fig-task-execution-model"></a>
 
-![通信任务下发执行流程](./figures/task_exec_model.png "通信任务下发执行流程")
+![通信任务下发执行流程](./figures/task_exec_model.svg "通信任务下发执行流程")
 
 硬件工作队列虽按提交顺序接收WQE，但受网络路由、DMA调度、硬件通道竞争等因素影响，事务实际完成顺序可能与提交顺序不一致。当存在一组具有依赖关系的事务时，若缺少保序机制，会出现操作乱序，引发数据错乱、业务逻辑异常等问题，因此需要定义事务间的**事务序**来约束其执行与完成顺序，保障任务按照预期逻辑执行。
 

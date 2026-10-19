@@ -16,7 +16,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 
 **图1** 通信算子基本流程<a id="fig-communication-operator-workflow"></a>
 
-![通信算子基本流程](./figures/communication_operator_workflow.png)
+![通信算子基本流程](./figures/communication_operator_workflow.svg)
 
 1. **资源准备**：根据通信成员和拓扑结构选择可用链路，建立通信关系，并准备通信内存和同步资源。
 2. **前同步**：在算子执行前确认源数据已就绪，并确保相关通信成员和执行单元满足通信条件。

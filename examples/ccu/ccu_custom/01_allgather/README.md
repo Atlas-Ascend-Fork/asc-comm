@@ -7,6 +7,7 @@ This sample shows how to use the ASC direct-launch syntax `<<<>>>` to implement 
 The sample creates one communication-domain rank for each visible NPU. Every rank sends `rankSize` FP32 elements initialized to its rank ID. After the CCU AllGather completes, each rank's receive buffer contains all rank inputs in rank order.
 
 Runtime dependencies:
+
 - `libhcomm.so`: provides HCCL communication-domain, channel and CCU instance query APIs.
 - `libasccomm_ccu.so`: provides CCU direct-launch support, memory-token APIs and CCU dataplane programming APIs.
 

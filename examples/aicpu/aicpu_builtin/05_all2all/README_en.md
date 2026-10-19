@@ -3,20 +3,18 @@
 ## Overview
 
 This sample demonstrates how to prepare AICPU communication resources and start an AICPU KFC Server
-through the MC2 builtin APIs, and then submit an AlltoAll Client communication request from an AICore
-kernel through the HCCL high-level API.
+through the MC2 builtin APIs, and then submit an AlltoAll Client request from an AICore kernel through the HCCL high-level API.
 
 The sample creates one rank for each available NPU device. Each rank sends `dataCount` FP32 elements
 to every target rank in the communication domain. On the host, `Mc2AcquireCcResCtx` obtains the
 communication resource context and `Mc2CcKernelLaunch` starts the AICPU KFC Server on a dedicated
-stream. On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`, and `Hccl::AlltoAll` completes
-the equal-length data exchange.
+stream. On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`, and `Hccl::AlltoAll` completes the equal-length data exchange.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR/Ascend 950DT | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -36,8 +34,7 @@ The send buffer of each rank is divided into `rankSize` blocks by target rank, e
 `dataCount` FP32 elements. The block destined for rank j is filled with `device * 1000 + j`. The host
 configures the `AICPU_TS` communication engine and the FP32 source/destination data types, and obtains
 the communication resource context. The AICore `all_to_all_kernel` then calls `Hccl::AlltoAll` to send
-block j to rank j and receive the blocks sent by all ranks, concatenated into `recvBuf` in source rank
-id order.
+block j to rank j and receive the blocks sent by all ranks, concatenated into `recvBuf` in source rank id order.
 
 ```text
 Host:
@@ -70,12 +67,9 @@ ccResCtx
 ### Implementation Flow
 
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
-2. Create one rank for each device, create the AICPU and AICore streams, and allocate the send and
-   receive buffers.
-3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `AICPU_TS` communication engine
-   and the FP32 source and destination data types.
-4. Call `Mc2AcquireCcResCtx` to obtain the communication resource context `ccResCtx` and its size from
-   the HCCL communication domain.
+2. Create one rank for each device, create the AICPU and AICore streams, and allocate the send and receive buffers.
+3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `AICPU_TS` engine and FP32 source/destination data types.
+4. Call `Mc2AcquireCcResCtx` to obtain the communication resource context `ccResCtx` and its size from the HCCL communication domain.
 5. Release the MC2 argument object and call `Mc2CcKernelLaunch(aicpuStream, ccResCtx, ccResCtxSize)` to
    start the KFC Server on the AICPU stream. The server blocks waiting for AICore Client messages, so it
    must not share the stream with the AICore kernel.
@@ -83,10 +77,8 @@ ccResCtx
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
 7. The AICore side calls `Hccl::AlltoAll<true>` to submit the communication Client request, calls
    `Wait` and `SyncAll` to wait for completion, and finally calls `Finalize` to notify the server to exit.
-8. Synchronize the AICore stream first and then the AICPU stream, copy `recvBuf` back to the host, and
-   print and validate the result.
-9. Destroy the HCCL communication domain, both streams, and device memory. `ccResCtx` is owned by the
-   communication domain and does not need to be freed separately.
+8. Synchronize the AICore stream first and then the AICPU stream, copy `recvBuf` back to the host, and print and validate the result.
+9. Destroy the HCCL communication domain, both streams, and device memory. `ccResCtx` is owned by the communication domain and does not need to be freed separately.
 
 ## Build and Run
 
@@ -101,8 +93,7 @@ Perform the following steps in the sample root directory. This sample supports N
   source ${install_path}/cann/set_env.sh
   ```
 
-  > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is
-  > `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN installation directory. The default is `/usr/local/Ascend`.
 
 - Run the Sample
 
@@ -121,12 +112,12 @@ Perform the following steps in the sample root directory. This sample supports N
   | Option | Values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
 
 - Expected Output
 
-  In a two-device run, the block that rank `d` sends to rank `j` is filled with `d * 1000 + j`, and
-  block `i` received by rank `d` should be `i * 1000 + d`. The output is similar to:
+  In a two-device run, the block that rank `d` sends to rank `j` is filled with `d * 1000 + j`, and block
+  `i` received by rank `d` should be `i * 1000 + d`. The output is similar to:
 
   ```text
   Found 2 NPU device(s) available
@@ -143,13 +134,11 @@ Perform the following steps in the sample root directory. This sample supports N
 
 ## Notes
 
-- At least two NPU devices are required to run the sample. Single-device environments support
-  compilation only.
+- At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
   `all_to_all_kernel`.
 - The AICPU KFC Server blocks waiting for AICore Client messages. `Mc2CcKernelLaunch` and the AICore
-  kernel must use two different streams, and the AICore stream must be synchronized before the AICPU
-  stream.
+  kernel must use two different streams, and the AICore stream must be synchronized before the AICPU stream.
 - The AICore side must call `Finalize`. The AICPU KFC Server exits only after receiving this message.
-- The sample uses `dav-3510` by default and covers Ascend 950PR/Ascend 950DT.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
 - The sample uses all visible NPU devices, and the device count must not exceed `MC2_MAX_RANK_SIZE`.
