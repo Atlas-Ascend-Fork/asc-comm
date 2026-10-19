@@ -304,12 +304,23 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
 }
 
-TEST_F(HcommRoCETestSuite, BatchHandleRejectsMisalignedBuffer)
+TEST_F(HcommRoCETestSuite, BatchHandleAccepts32ByteAlignedBuffer)
 {
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
     auto batchHandle = hcomm.MakeBatchHandle(
         channelHandle, tempTensor_[32], 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    EXPECT_NE(batchHandle.channelHandle, 0U);
+    EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+}
+
+TEST_F(HcommRoCETestSuite, BatchHandleRejectsMisalignedBuffer)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_[1], 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     EXPECT_EQ(batchHandle.channelHandle, 0U);
     EXPECT_EQ(batchHandle.buffer.bufferCapacity, 0U);
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
