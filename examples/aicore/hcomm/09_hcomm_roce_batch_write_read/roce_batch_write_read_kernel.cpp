@@ -27,8 +27,10 @@ public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
     {
         context_ = reinterpret_cast<__gm__ KernelContext*>(context);
-        localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBuffer);
-        remoteBuffer_ = reinterpret_cast<GM_ADDR>(context_->remoteBuffer);
+        for (uint32_t index = 0U; index < MEMORY_SLICE_COUNT; ++index) {
+            localBuffers_[index] = reinterpret_cast<GM_ADDR>(context_->localBuffers[index]);
+            remoteBuffers_[index] = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[index]);
+        }
         pipe->InitBuffer(batchBuffer_, BATCH_BUFFER_BYTES);
         batchTensor_ = batchBuffer_.Get<uint8_t>();
     }
@@ -38,56 +40,86 @@ public:
         context_->result = KERNEL_SUCCESS;
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
 
-        auto batchHandle = hcomm_.MakeBatchHandle(
-            static_cast<AscendC::ChannelHandle>(context_->channelHandle), batchTensor_, BATCH_BUFFER_BYTES,
-            remoteBuffer_ + SEND_DATA_OFFSET, localBuffer_ + SEND_DATA_OFFSET);
-        if (batchHandle.channelHandle == 0U) {
-            context_->result = KERNEL_MAKE_HANDLE_FAILED;
-            context_->hcommResult = AscendC::HCOMM_FAILED;
-            return;
-        }
+        const AscendC::ChannelHandle channel = static_cast<AscendC::ChannelHandle>(context_->channelHandle);
+        auto* channelEntity = reinterpret_cast<__gm__ AscendC::ChannelEntity*>(channel);
+        PrintChannelEntity(channelEntity);
 
-        for (uint32_t index = 0U; index < OPERATION_COUNT; ++index) {
-            const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = hcomm_.WriteNbi(
-                batchHandle, remoteBuffer_ + WRITE_RESULT_OFFSET + offset, localBuffer_ + SEND_DATA_OFFSET + offset,
-                TRANSFER_BYTES);
-            if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
-                context_->result = KERNEL_WRITE_FAILED;
+        for (uint32_t slice = 0U; slice < MEMORY_SLICE_COUNT; ++slice) {
+            auto batchHandle = hcomm_.MakeBatchHandle(
+                channel, batchTensor_, BATCH_BUFFER_BYTES, remoteBuffers_[slice] + SEND_DATA_OFFSET,
+                localBuffers_[slice] + SEND_DATA_OFFSET);
+            if (batchHandle.channelHandle == 0U) {
+                context_->result = KERNEL_MAKE_HANDLE_FAILED;
+                context_->hcommResult = AscendC::HCOMM_FAILED;
                 return;
             }
-        }
 
-        for (uint32_t index = 0U; index < OPERATION_COUNT; ++index) {
-            const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = hcomm_.ReadNbi(
-                batchHandle, localBuffer_ + READ_RESULT_OFFSET + offset, remoteBuffer_ + SEND_DATA_OFFSET + offset,
-                TRANSFER_BYTES);
+            const uint32_t begin = slice * OPERATION_PER_MEMORY;
+            const uint32_t end = begin + OPERATION_PER_MEMORY;
+            for (uint32_t index = begin; index < end; ++index) {
+                const uint64_t offset = static_cast<uint64_t>(index % OPERATION_PER_MEMORY) * TRANSFER_BYTES;
+                context_->hcommResult = hcomm_.WriteNbi(
+                    batchHandle, remoteBuffers_[slice] + WRITE_RESULT_OFFSET + offset,
+                    localBuffers_[slice] + SEND_DATA_OFFSET + offset, TRANSFER_BYTES);
+                if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+                    context_->result = KERNEL_WRITE_FAILED;
+                    return;
+                }
+            }
+
+            for (uint32_t index = begin; index < end; ++index) {
+                const uint64_t offset = static_cast<uint64_t>(index % OPERATION_PER_MEMORY) * TRANSFER_BYTES;
+                context_->hcommResult = hcomm_.ReadNbi(
+                    batchHandle, localBuffers_[slice] + READ_RESULT_OFFSET + offset,
+                    remoteBuffers_[slice] + SEND_DATA_OFFSET + offset, TRANSFER_BYTES);
+                if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+                    context_->result = KERNEL_READ_FAILED;
+                    return;
+                }
+            }
+
+            context_->hcommResult = hcomm_.BatchCommit(batchHandle);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
-                context_->result = KERNEL_READ_FAILED;
+                context_->result = KERNEL_COMMIT_FAILED;
                 return;
             }
-        }
 
-        context_->hcommResult = hcomm_.BatchCommit(batchHandle);
-        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_COMMIT_FAILED;
-            return;
-        }
-
-        context_->hcommResult = hcomm_.Drain(batchHandle);
-        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_DRAIN_FAILED;
+            context_->hcommResult = hcomm_.Drain(batchHandle);
+            if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+                context_->result = KERNEL_DRAIN_FAILED;
+                return;
+            }
         }
     }
 
 private:
+    __aicore__ inline void PrintChannelEntity(__gm__ AscendC::ChannelEntity* channelEntity)
+    {
+        AscendC::PRINTF(
+            "ChannelEntity localBufferNum=%u remoteBufferNum=%u\n", channelEntity->localBufferNum,
+            channelEntity->remoteBufferNum);
+        for (uint32_t index = 0U; index < channelEntity->localBufferNum; ++index) {
+            const auto& buffer = channelEntity->localBufferAddr[index];
+            AscendC::PRINTF(
+                "localBuffer[%u] addr=0x%llx size=%llu lkey=0x%x rkey=0x%x\n", index, buffer.bufferInfo.rma.addr,
+                buffer.bufferInfo.rma.size, buffer.bufferInfo.rma.protectionInfo.memInfo.roce.lkey,
+                buffer.bufferInfo.rma.protectionInfo.memInfo.roce.rkey);
+        }
+        for (uint32_t index = 0U; index < channelEntity->remoteBufferNum; ++index) {
+            const auto& buffer = channelEntity->remoteBufferAddr[index];
+            AscendC::PRINTF(
+                "remoteBuffer[%u] addr=0x%llx size=%llu lkey=0x%x rkey=0x%x\n", index, buffer.bufferInfo.rma.addr,
+                buffer.bufferInfo.rma.size, buffer.bufferInfo.rma.protectionInfo.memInfo.roce.lkey,
+                buffer.bufferInfo.rma.protectionInfo.memInfo.roce.rkey);
+        }
+    }
+
     AscendC::TBuf<AscendC::TPosition::VECOUT> batchBuffer_;
     AscendC::LocalTensor<uint8_t> batchTensor_;
     HcommType hcomm_;
     __gm__ KernelContext* context_{nullptr};
-    GM_ADDR localBuffer_{nullptr};
-    GM_ADDR remoteBuffer_{nullptr};
+    GM_ADDR localBuffers_[MEMORY_SLICE_COUNT]{};
+    GM_ADDR remoteBuffers_[MEMORY_SLICE_COUNT]{};
 };
 
 } // namespace HcommRoceBatchWriteReadExample
