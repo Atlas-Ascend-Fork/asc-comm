@@ -2,22 +2,22 @@
 
 English | [简体中文](./README.md)
 
-This directory provides samples where the host directly registers and launches custom CCU kernels. The samples acquire CCU threads, channels, and memory tokens through HCCL communicators, register kernels with `asccomm_ccu_kernel_register*`, and launch them with `asccomm_ccu_kernel_launch`.
+This directory provides custom CCU kernel samples. The samples acquire CCU threads, channels, instances, and memory tokens through HCCL communicators, then launch kernels with `<<<>>>` direct launch or `asccomm_ccu_kernel_launch`.
 
 ## Sample List
 
 | Sample | Description |
 | --- | --- |
-| [01_allgather](./01_allgather/README_en.md) | Demonstrates a custom CCU AllGather kernel. |
-| [02_allgather_mesh1d_mem2mem](./02_allgather_mesh1d_mem2mem/README_en.md) | Demonstrates the Mesh1D Mem2Mem AllGather dataplane. |
-| [03_allgather_nhr1d_mem2mem](./03_allgather_nhr1d_mem2mem/README_en.md) | Demonstrates the NHR1D Mem2Mem AllGather dataplane. |
-| [04_allreduce](./04_allreduce/README_en.md) | Demonstrates a custom AllReduce SUM kernel. |
-| [05_all_to_all](./05_all_to_all/README_en.md) | Demonstrates equal-length AllToAll data exchange. |
-| [06_all_to_allv](./06_all_to_allv/README_en.md) | Demonstrates variable-length AllToAllV data exchange. |
-| [07_all_to_all_vc](./07_all_to_all_vc/README_en.md) | Demonstrates AllToAllVC with a shared count matrix. |
-| [08_broadcast](./08_broadcast/README_en.md) | Demonstrates broadcasting data from the root rank to other ranks. |
-| [09_reduce_scatter](./09_reduce_scatter/README_en.md) | Demonstrates ReduceScatter SUM. |
-| [10_ccu_transfer](./10_ccu_transfer/README_en.md) | Demonstrates local copy, remote write, and remote reduce-write data movement APIs. |
+| [01_allgather](./01_allgather/README_en.md) | Demonstrates a CCU AllGather kernel launched with `<<<>>>` direct launch. |
+| [02_allgather_mesh1d_mem2mem](./02_allgather_mesh1d_mem2mem/README_en.md) | Demonstrates the Mesh1D Mem2Mem AllGather dataplane with `<<<>>>` direct launch. |
+| [03_allgather_nhr1d_mem2mem](./03_allgather_nhr1d_mem2mem/README_en.md) | Demonstrates the NHR1D Mem2Mem AllGather dataplane with `<<<>>>` direct launch. |
+| [04_allreduce](./04_allreduce/README_en.md) | Demonstrates an AllReduce SUM kernel with `<<<>>>` direct launch. |
+| [05_all_to_all](./05_all_to_all/README_en.md) | Demonstrates equal-length AllToAll data exchange with `<<<>>>` direct launch. |
+| [06_all_to_allv](./06_all_to_allv/README_en.md) | Demonstrates variable-length AllToAllV data exchange with `<<<>>>` direct launch. |
+| [07_all_to_all_vc](./07_all_to_all_vc/README_en.md) | Demonstrates AllToAllVC with a shared count matrix and `<<<>>>` direct launch. |
+| [08_broadcast](./08_broadcast/README_en.md) | Demonstrates Broadcast with `<<<>>>` direct launch. |
+| [09_reduce_scatter](./09_reduce_scatter/README_en.md) | Demonstrates ReduceScatter SUM with `<<<>>>` direct launch. |
+| [10_ccu_transfer](./10_ccu_transfer/README_en.md) | Demonstrates local copy, remote write, and remote reduce-write data movement APIs with `<<<>>>` direct launch. |
 
 ## Usage Notes
 

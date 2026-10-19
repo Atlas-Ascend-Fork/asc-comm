@@ -1,15 +1,14 @@
 # CCU AllGather Mesh1D Mem2Mem
 
-This sample registers and launches a CCU kernel directly from the host, demonstrating the Mesh1D Mem2Mem
-AllGather data plane.
+This sample launches a CCU kernel with the ASC `<<<>>>` direct-launch syntax, demonstrating the Mesh1D Mem2Mem AllGather data plane.
 
 ## Overview
 
 ```text
 Python generates input and golden data
-  -> initialize the HCCL communication domain
-  -> acquire CCU threads and UBC_CTP channels
-  -> register the CCU kernel
+ -> initialize the HCCL communication domain
+ -> acquire CCU threads and UBC_CTP channels
+  -> launch the CCU kernel with `<<<>>>`
   -> exchange output addresses and tokens
   -> write the local rank's slice to all peers
   -> GroupCopy the local slice
@@ -31,6 +30,20 @@ from the rank stride `outputSliceStride`, which preserves the address layout for
 - Data type: `float`
 - Communication scope: single die, single mission, 1 to 16 ranks
 - Data layout: out-of-place AllGather, equal slice size on every rank
+
+## Directory Structure
+
+```text
+02_allgather_mesh1d_mem2mem/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+├── main.asc
+└── scripts/
+    ├── gen_data.py
+    └── verify_result.py
+```
 
 ## Build and Run
 

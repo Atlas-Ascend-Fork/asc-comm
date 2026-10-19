@@ -3,6 +3,7 @@
 ## 样例介绍
 
 本样例展示如何基于 HCCL 通信域和 CCU 数据面接口实现 ReduceScatter SUM。
+Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
 
 每个 rank 的输入按目标 rank 分为 `rankSize` 段。所有 rank 的同位置数据完成求和后，rank `r` 仅保留第 `r` 段：
 
@@ -18,18 +19,9 @@ CCU kernel 先使用 `GroupCopy` 将本 rank 对应的输入段复制到本地�
 09_reduce_scatter/
 ├── CMakeLists.txt
 ├── README.md
+├── README_en.md
 ├── run.sh
-├── main.cc
-├── op_host/
-│   ├── CMakeLists.txt
-│   ├── alg_resource.cc
-│   ├── alg_resource.h
-│   ├── exec_op.cc
-│   └── exec_op.h
-└── op_kernel_ccu/
-    ├── CMakeLists.txt
-    ├── ccu_kernel.cc
-    └── ccu_kernel.h
+└── main.asc
 ```
 
 ## 构建和运行

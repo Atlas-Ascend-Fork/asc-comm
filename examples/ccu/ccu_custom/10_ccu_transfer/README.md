@@ -3,6 +3,7 @@
 ## 样例介绍
 
 本样例演示A5/V1 CCU数据面三类基础搬运接口：本地拷贝、远端写和远端归约写。样例固定使用2个rank，每个rank输入4个FP32元素，通过编译参数选择教学场景。
+Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
 
 - 场景1调用`ccu::local_copy`的三个重载：`local_addr`到`local_addr`、`local_addr`到`ccu_buffer`、`ccu_buffer`到`local_addr`。直接拷贝用于本rank内存搬运；`ccu_buffer`可作为暂存资源，适合先把数据写入CCU缓冲，再从缓冲写出。
 - 场景2调用`ccu::write`的两个重载：`local_addr`到远端`remote_addr`、`ccu_buffer`到远端`remote_addr`。远端写由本rank发起，直接写入对端内存。

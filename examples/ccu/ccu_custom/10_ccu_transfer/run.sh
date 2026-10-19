@@ -22,7 +22,7 @@ if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
 fi
 
 cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
-    -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}" \
+    -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
     -DSCENARIO_NUM="${SCENARIO}"
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 exec "${BUILD_DIR}/ccu_transfer"

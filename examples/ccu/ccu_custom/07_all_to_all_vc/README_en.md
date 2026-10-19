@@ -7,6 +7,8 @@ All ranks share one `rankSize * rankSize` count matrix; element `(src, dst)` spe
 
 The CCU kernel publishes the output address with the receive offset already applied to each peer; remote data is sent with `ccu::write`, and local data with a single `ccu::local_copy`.
 
+Dynamic `sendBytes/sendOffsets/recvOffsets` are carried by the struct referenced by `ccu_kernel_arg`, and the direct `<<<>>>` call passes only the kernel argument. This reuses the `ccu::variable = uint64_t` initialization approach verified in sample 06.
+
 The sample supports FP32 only, non-in-place operation, at most 16 ranks, and a per-peer data block of at most 256 MiB.
 
 ## Build and Run
