@@ -146,10 +146,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     FillTaskSeg<config, opType>(wqePtr, dst, len, rKey, lKey);
     FillDataSeg(wqePtr, src, len, lKey);
     WriteInvalidWqebb(sqAddrNext, nextWqebbIndex, sqDepth);
-    SyncAction(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    SyncAction<PIPE_S, PIPE_MTE3>(EVENT_ID0);
     DataCopy(sqGlobal, wqeUB_, sizeof(RoceWqeEntry) / sizeof(uint32_t));
     // Wait until MTE3 has finished reading wqeUB_ before Scalar can reuse it.
-    SyncAction(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID0);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm MakeWqe: set wqe to qp ok.\n");
     return HCOMM_SUCCESS;
 }
@@ -305,7 +305,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(
         sqHead, chnlPtr->sqContextAddr->contextInfo.roceSq.qpn,
         chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
     __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
-    st_dev(dbValue, dbHwAddr + ((sqHead & 0xff) << ROCE_1825_SQ_DB_ADDR_SHIFT), 0);
+    st_dev(dbValue, dbHwAddr + (sqHead & 0xff), 0);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbValue);
 
     uint32_t cqHead = chnlPtr->cqHead;
@@ -369,9 +369,9 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::WaitCqeAndUpdateSqTail(
     __gm__ ChannelEntity* chnlPtr, GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem,
     uint32_t cqTail, uint32_t cqDepth, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType)
 {
-    SyncAction(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    SyncAction<PIPE_S, PIPE_MTE2>(EVENT_ID0);
     DataCopy(cqeItem, cqeGlobalTensor, sizeof(RoceCqeEntry) / sizeof(uint32_t));
-    SyncAction(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    SyncAction<PIPE_MTE2, PIPE_S>(EVENT_ID0);
 
     __ubuf__ RoceCqeEntry* cqePtr = (__ubuf__ RoceCqeEntry*)(cqeItem.GetPhyAddr());
     cqeType = (cqePtr->opSrWqebb >> ROCE_1825_CQE_OPCODE_SHIFT) & ROCE_1825_CQE_OPCODE_MASK;
@@ -433,7 +433,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
         if (cqeType == ROCE_1825_CQE_OPTYPE_ERROR) {
             HCOMM_KERNEL_LOG(
                 KERNEL_ERROR, "Hcomm PollCq: failed, syndrome = 0x%x, errCode = %u, wqeCounter = %u\n",
-                cqePtr->syndrome, (cqePtr->ownerIdQpn >> 20U) & 0xfU, cqePtr->wqeCounter);
+                cqePtr->syndrome, (cqePtr->ownerIdQpn >> ROCE_1825_CQE_QPN_BITS) & 0xfU, cqePtr->wqeCounter);
             Trap();
         }
         cqTail += 1;
@@ -442,7 +442,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
     chnlPtr->cqTail = cqTail;
     chnlPtr->sqTail = wqebbTail;
     __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(cqContextInfo.roceCq.dbSwVa);
-    st_dev(cqTail & ROCE_1825_CQE_UPDATE_CI_MASK, dbSwAddr, 0);
+    st_dev(HtoNL(cqTail & ROCE_1825_CQE_UPDATE_CI_MASK), dbSwAddr, 0);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: knock cqDB ok, cqTail = %u, sqTail = %u\n", cqTail, chnlPtr->sqTail);
     return HCOMM_SUCCESS;
 }
@@ -487,7 +487,7 @@ __aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle
     __gm__ ChannelEntity* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     uintptr_t bufferAddr = reinterpret_cast<uintptr_t>(buff.GetPhyAddr());
     if (!CheckChannelParam(chnlPtr) || buffLen < HCOMM_ROCE_WQEBB_SIZE || buff.GetSize() * sizeof(U) < buffLen ||
-        (bufferAddr & (HCOMM_ROCE_WQEBB_SIZE - 1U)) != 0U) {
+        (bufferAddr & (HCOMM_ROCE_ADDR_ALIGNMENT - 1U)) != 0U) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid channel or buffer.\n");
         return batchHandle;
     }
@@ -714,7 +714,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
     GlobalTensor<uint32_t> firstDst;
     firstDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(firstWqeAddr));
 
-    SyncAction(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    SyncAction<PIPE_S, PIPE_MTE3>(EVENT_ID0);
     // Copy the first segment from startSlot to the end of the circular SQ, or the whole batch if it does not wrap.
     DataCopy(firstDst, batchHandle.buffer.buffer, firstWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM);
     if (secondWqebbCount != 0) {
@@ -724,10 +724,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
         // The batch crosses the SQ boundary; copy the remaining WQEBBs to the beginning of the circular SQ.
         DataCopy(secondDst, secondSrc, secondWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM);
     }
-    SyncAction(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID0);
     // MTE3 owns the batch staging buffer until the copy to SQ completes. Queue an MTE2 wait
     // so PollCq cannot overwrite the same UB area with a CQE while MTE3 is still reading it.
-    SyncAction(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+    SyncAction<PIPE_MTE3, PIPE_MTE2>(EVENT_ID0);
 
     chnlPtr->sqHead = newSqHead;
     chnlPtr->cqHead = batchHandle.cursor.cqHead;

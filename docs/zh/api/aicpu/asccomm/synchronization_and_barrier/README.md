@@ -1,0 +1,14 @@
+# 简介
+
+本节提供AICPU Asccomm的同步与屏障接口：Thread Notify用于线程间同步，Channel Notify用于通信通道两端同步，Fence用于保证屏障前后通信操作顺序，Drain用于等待已提交任务完成。
+
+## 接口列表
+
+- [asccomm_thread_notify_record_on_thread](asccomm_thread_notify_record_on_thread.md)
+- [asccomm_thread_notify_wait_on_thread](asccomm_thread_notify_wait_on_thread.md)
+- [asccomm_thread_notify_wait_on_thread_with_default_timeout](asccomm_thread_notify_wait_on_thread_with_default_timeout.md)
+- [asccomm_channel_notify_record_on_thread](asccomm_channel_notify_record_on_thread.md)
+- [asccomm_channel_notify_wait_on_thread](asccomm_channel_notify_wait_on_thread.md)
+- [asccomm_channel_notify_wait_on_thread_with_default_timeout](asccomm_channel_notify_wait_on_thread_with_default_timeout.md)
+- [asccomm_channel_fence_on_thread](asccomm_channel_fence_on_thread.md)
+- [asccomm_channel_drain_on_thread](asccomm_channel_drain_on_thread.md)

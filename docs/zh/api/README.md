@@ -11,9 +11,10 @@
 
 | 分类 | 内容 |
 | --- | --- |
-| [数据搬运](./aicpu/asccomm/data_movement/README.md) | 本地拷贝/归约，以及基于Channel的读写和归约读写接口。 |
-| [同步](./aicpu/asccomm/synchronization/README.md) | Thread、ACLRT Notify和Channel Notify同步，以及Fence、Drain和超时设置接口。 |
-| [批量操作](./aicpu/asccomm/batch_operations/README.md) | 批量模式控制和批量传输描述符提交接口。 |
+| [本地操作](./aicpu/asccomm/local_operations/README.md) | Thread上的本地拷贝和本地归约接口。 |
+| [远端操作](./aicpu/asccomm/remote_operations/README.md) | 基于Channel的读写、归约读写、带通知写和批量描述符传输接口。 |
+| [同步与屏障](./aicpu/asccomm/synchronization_and_barrier/README.md) | Thread Notify和Channel Notify同步，以及Fence、Drain接口。 |
+| [其他](./aicpu/asccomm/other_operations/README.md) | 批量模式控制、Notify等待默认超时时间设置和Thread资源获取超时时间设置接口。 |
 
 ## AICore Hcomm
 
