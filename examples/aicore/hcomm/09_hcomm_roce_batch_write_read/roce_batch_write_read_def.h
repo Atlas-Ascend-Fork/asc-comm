@@ -26,8 +26,10 @@ constexpr int32_t SUCCESS = 0;
 constexpr int32_t FAIL = -1;
 
 constexpr uint32_t OPERATION_COUNT = 1000U;
+constexpr uint32_t MEMORY_SLICE_COUNT = 4U;
+constexpr uint32_t OPERATION_PER_MEMORY = OPERATION_COUNT / MEMORY_SLICE_COUNT;
 constexpr uint32_t TRANSFER_BYTES = 64U;
-constexpr uint64_t SEGMENT_BYTES = static_cast<uint64_t>(OPERATION_COUNT) * TRANSFER_BYTES;
+constexpr uint64_t SEGMENT_BYTES = static_cast<uint64_t>(OPERATION_PER_MEMORY) * TRANSFER_BYTES;
 constexpr uint64_t COMM_BUF_SIZE = 3U * SEGMENT_BYTES;
 constexpr uint64_t SEND_DATA_OFFSET = 0U;
 constexpr uint64_t WRITE_RESULT_OFFSET = SEGMENT_BYTES;
@@ -35,12 +37,15 @@ constexpr uint64_t READ_RESULT_OFFSET = 2U * SEGMENT_BYTES;
 
 constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_ROCE;
 
-// RoCE batch WQEs occupy one 64-byte basic block. The batch contains 1000 writes and 1000 reads.
+// RoCE batch WQEs occupy one 64-byte basic block. One slice batch contains 250 writes and 250 reads.
 constexpr uint32_t ROCE_WQEBB_BYTES = 64U;
-constexpr uint32_t BATCH_WQE_COUNT = 2U * OPERATION_COUNT;
+constexpr uint32_t BATCH_WQE_COUNT = 2U * OPERATION_PER_MEMORY;
 constexpr uint32_t BATCH_BUFFER_BYTES = BATCH_WQE_COUNT * ROCE_WQEBB_BYTES;
 
 constexpr char MEMORY_TAG[] = "asccomm_roce_batch_write_read";
+
+// The first 250 operations use memory slice 0, and each following group of 250 operations uses
+// the next slice. Within a slice, the operation index restarts at 0.
 
 // The host and device exchange only fixed-width fields in this structure.
 enum KernelResult : uint32_t {
@@ -54,8 +59,8 @@ enum KernelResult : uint32_t {
 
 struct KernelContext {
     uint64_t channelHandle;
-    uint64_t localBuffer;
-    uint64_t remoteBuffer;
+    uint64_t localBuffers[MEMORY_SLICE_COUNT];
+    uint64_t remoteBuffers[MEMORY_SLICE_COUNT];
     KernelResult result;
     int32_t hcommResult;
 };
