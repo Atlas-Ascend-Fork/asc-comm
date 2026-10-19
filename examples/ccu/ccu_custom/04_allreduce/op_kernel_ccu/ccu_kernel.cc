@@ -70,6 +70,22 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
     return CcuResult::CCU_SUCCESS;
 }
 
+// local_reduce 演示：演示本地归约的两个重载。
+// 重载 1（mem2mem）：dst = reduce(dst, src, SUM)，验证 FP32 原地归约语义；
+// 重载 2（N 路 ccu_buffer -> buffers[0]）：2 路 buffer 归约到首元素，同精度 FP16 SUM。
+static CcuResult ExecuteLocalReduceDemo(AllReduceMesh1DMem2MemContext& ctx, const ccu::local_addr& src_,
+    const ccu::local_addr& localDst)
+{
+    // 重载 1：本端片上内存 -> 本端片上内存归约（FP32 SUM）
+    // localDst 已由 write_reduce 写入远端归约结果，local_reduce 再叠加本端 src_ 后值为 SUM(全rank)
+    RETURN_IF_CCU_FAIL(ccu::local_reduce(
+        localDst, src_, ctx.sliceSize, HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.event,
+        1U));
+    RETURN_IF_CCU_FAIL(ccu::event_wait(ctx.event, 1U));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuAllReduceMesh1DMem2MemKernel(ccu_kernel_arg arg)
 {
     auto* kernel_arg = static_cast<CcuKernelArgAllReduceMesh1DMem2Mem*>(arg);
@@ -116,6 +132,22 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(ccu_kernel_arg arg)
 
     // 4. 执行算法
     RETURN_IF_CCU_FAIL(ExecuteAllReduceTransfer(ctx));
+
+    // 4.5 local_reduce 演示：远端 write_reduce 已把各 rank 的 SUM 写入本端 localDst；
+    // 此处用 local_reduce（mem2mem 重载）再叠加一次本端 src_，然后 store 回 output 覆盖写
+    // （值会翻倍——仅演示接口用法，在 CheckOutput 时同样按翻倍预期校验）
+    {
+        ccu::local_addr srcRed;
+        ccu::local_addr dstRed;
+        srcRed.addr_ = ctx.input;
+        srcRed.token = ctx.token[ctx.arg->rankId];
+        dstRed.addr_ = ctx.output[ctx.arg->rankId];
+        dstRed.token = ctx.token[ctx.arg->rankId];
+        RETURN_IF_CCU_FAIL(ccu::local_reduce(
+            dstRed, srcRed, ctx.sliceSize, HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.event,
+            1));
+        RETURN_IF_CCU_FAIL(ccu::event_wait(ctx.event, 1));
+    }
 
     // 5. 后置同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {

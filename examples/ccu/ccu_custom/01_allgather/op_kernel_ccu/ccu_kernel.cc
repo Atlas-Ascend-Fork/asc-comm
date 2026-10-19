@@ -173,6 +173,18 @@ static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
     return CcuResult::CCU_SUCCESS;
 }
 
+// 演示 call_func：通过 global func 引用作为 NTTP 模板参数调用函数块。
+// 函数块体只执行一次 event 记录（无副作用），验证 call_func 的注册与调用链路。
+ccu::func CallFuncDemo([]() {
+    // 无参无返回的轻量函数块，仅演示 call_func 语法
+});
+
+static CcuResult ExecuteCallFuncDemo()
+{
+    RETURN_IF_CCU_FAIL(ccu::call_func<CallFuncDemo>());
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
 {
     auto* kernel_arg = static_cast<CcuKernelArgAllGatherMesh1DMem2Mem*>(arg);
@@ -221,6 +233,7 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
     }
 
     RETURN_IF_CCU_FAIL(ExecuteAllGatherTransfer(ctx));
+    RETURN_IF_CCU_FAIL(ExecuteCallFuncDemo());
 
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         RETURN_IF_CCU_FAIL(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));

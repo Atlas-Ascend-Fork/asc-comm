@@ -7,9 +7,6 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-set -euo pipefail
-
-
 cmake_minimum_required(VERSION 3.16.0)
 project(asccomm_examples_ccu_transfer)
 
@@ -25,9 +22,9 @@ if(NOT ASCEND_CANN_PACKAGE_PATH)
     set(ASCEND_CANN_PACKAGE_PATH "${ASCEND_HOME_PATH}")
 endif()
 
-set(SCENARIO_NUM "1" CACHE STRING "Transfer scenario: 1 local copy, 2 remote write, 3 remote write reduce")
-if(NOT SCENARIO_NUM MATCHES "^[1-3]$")
-    message(FATAL_ERROR "SCENARIO_NUM must be 1, 2, or 3")
+set(SCENARIO_NUM "1" CACHE STRING "Transfer scenario: 1 local copy, 2 remote write, 3 write reduce, 4 load/store/address, 5 read, 6 read reduce, 7 control flow + local notify")
+if(NOT SCENARIO_NUM MATCHES "^[1-7]$")
+    message(FATAL_ERROR "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, or 7")
 endif()
 
 add_executable(ccu_transfer
@@ -37,6 +34,7 @@ add_executable(ccu_transfer
 target_include_directories(ccu_transfer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../include
     ${ASCEND_HOME_PATH}/aarch64-linux/include
     ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/include

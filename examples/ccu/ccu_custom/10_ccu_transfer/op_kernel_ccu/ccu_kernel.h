@@ -14,9 +14,12 @@
 #include <memory>
 
 #include <ccu/hcomm/ccu_api_types.h>
+#include <ccu/hcomm/ccu_address.hpp>
 #include <ccu/hcomm/ccu_buffer.hpp>
 #include <ccu/hcomm/ccu_event.hpp>
+#include <ccu/hcomm/ccu_local_addr.hpp>
 #include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/hcomm/ccu_remote_addr.hpp>
 #include <ccu/hcomm/ccu_variable.hpp>
 #include <hccl/hcomm_primitives.h>
 
