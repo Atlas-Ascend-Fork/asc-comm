@@ -21,6 +21,14 @@
 
 namespace HcommRoceMultiSge {
 
+constexpr AscendC::UrmaWqeEntry ROCE_MULTI_SGE_NO_CQE_CFG = {
+    .odr = 0,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+};
+
 class KernelHcommRoceMultiSge {
     using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_ROCE>;
 
@@ -76,7 +84,7 @@ private:
     __aicore__ inline void RunWrite(AscendC::UbcBatchHandle& batchHandle)
     {
         AscendC::BufDesc srcDescs[SGE_COUNT];
-        for (uint32_t call = 0U; call < CALL_COUNT; ++call) {
+        for (uint32_t call = 0U; call + 1U < CALL_COUNT; ++call) {
             const uint64_t localBase = reinterpret_cast<uint64_t>(localBuffer_);
             const uint64_t remoteBase = reinterpret_cast<uint64_t>(remoteBuffer_);
             const uint64_t scatteredOffset = SOURCE_SCATTERED_OFFSET + call * SGE_COUNT * SEGMENT_STRIDE;
@@ -86,18 +94,32 @@ private:
                     reinterpret_cast<GM_ADDR>(localBase + scatteredOffset + segment * SEGMENT_STRIDE);
                 srcDescs[segment].len = SEGMENT_SIZE;
             }
-            context_->hcommResult = hcomm_.WriteNbi(batchHandle, dst, srcDescs, SGE_COUNT);
+            context_->hcommResult = hcomm_.WriteNbi<ROCE_MULTI_SGE_NO_CQE_CFG>(batchHandle, dst, srcDescs, SGE_COUNT);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_WRITE_FAILED;
                 return;
             }
+        }
+
+        const uint64_t localBase = reinterpret_cast<uint64_t>(localBuffer_);
+        const uint64_t remoteBase = reinterpret_cast<uint64_t>(remoteBuffer_);
+        const uint64_t lastCall = CALL_COUNT - 1U;
+        const uint64_t scatteredOffset = SOURCE_SCATTERED_OFFSET + lastCall * SGE_COUNT * SEGMENT_STRIDE;
+        GM_ADDR dst = reinterpret_cast<GM_ADDR>(remoteBase + WRITE_DST_OFFSET + lastCall * MESSAGE_SIZE);
+        for (uint32_t segment = 0U; segment < SGE_COUNT; ++segment) {
+            srcDescs[segment].addr = reinterpret_cast<GM_ADDR>(localBase + scatteredOffset + segment * SEGMENT_STRIDE);
+            srcDescs[segment].len = SEGMENT_SIZE;
+        }
+        context_->hcommResult = hcomm_.WriteNbi(batchHandle, dst, srcDescs, SGE_COUNT);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+            context_->result = KERNEL_WRITE_FAILED;
         }
     }
 
     __aicore__ inline void RunRead(AscendC::UbcBatchHandle& batchHandle)
     {
         AscendC::BufDesc dstDescs[SGE_COUNT];
-        for (uint32_t call = 0U; call < CALL_COUNT; ++call) {
+        for (uint32_t call = 0U; call + 1U < CALL_COUNT; ++call) {
             const uint64_t localBase = reinterpret_cast<uint64_t>(localBuffer_);
             const uint64_t remoteBase = reinterpret_cast<uint64_t>(remoteBuffer_);
             const uint64_t scatteredOffset = READ_DST_OFFSET + call * SGE_COUNT * SEGMENT_STRIDE;
@@ -107,11 +129,25 @@ private:
                     reinterpret_cast<GM_ADDR>(localBase + scatteredOffset + segment * SEGMENT_STRIDE);
                 dstDescs[segment].len = SEGMENT_SIZE;
             }
-            context_->hcommResult = hcomm_.ReadNbi(batchHandle, dstDescs, SGE_COUNT, src);
+            context_->hcommResult = hcomm_.ReadNbi<ROCE_MULTI_SGE_NO_CQE_CFG>(batchHandle, dstDescs, SGE_COUNT, src);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_READ_FAILED;
                 return;
             }
+        }
+
+        const uint64_t localBase = reinterpret_cast<uint64_t>(localBuffer_);
+        const uint64_t remoteBase = reinterpret_cast<uint64_t>(remoteBuffer_);
+        const uint64_t lastCall = CALL_COUNT - 1U;
+        const uint64_t scatteredOffset = READ_DST_OFFSET + lastCall * SGE_COUNT * SEGMENT_STRIDE;
+        GM_ADDR src = reinterpret_cast<GM_ADDR>(remoteBase + SOURCE_CONTIGUOUS_OFFSET + lastCall * MESSAGE_SIZE);
+        for (uint32_t segment = 0U; segment < SGE_COUNT; ++segment) {
+            dstDescs[segment].addr = reinterpret_cast<GM_ADDR>(localBase + scatteredOffset + segment * SEGMENT_STRIDE);
+            dstDescs[segment].len = SEGMENT_SIZE;
+        }
+        context_->hcommResult = hcomm_.ReadNbi(batchHandle, dstDescs, SGE_COUNT, src);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+            context_->result = KERNEL_READ_FAILED;
         }
     }
 

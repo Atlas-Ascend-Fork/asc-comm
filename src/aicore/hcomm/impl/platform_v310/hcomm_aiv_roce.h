@@ -374,8 +374,8 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::EnContinue(
 }
 
 __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::WaitCqeAndUpdateSqTail(
-    __gm__ ChannelEntity* chnlPtr, GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem,
-    uint32_t cqTail, uint32_t cqDepth, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType)
+    GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem, uint32_t cqTail, uint32_t cqDepth,
+    uint32_t expectedQpn, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType)
 {
     SyncAction<PIPE_S, PIPE_MTE2>(EVENT_ID0);
     DataCopy(cqeItem, cqeGlobalTensor, sizeof(RoceCqeEntry) / sizeof(uint32_t));
@@ -384,7 +384,6 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::WaitCqeAndUpdateSqTail(
     __ubuf__ RoceCqeEntry* cqePtr = (__ubuf__ RoceCqeEntry*)(cqeItem.GetPhyAddr());
     cqeType = (cqePtr->opSrWqebb >> ROCE_1825_CQE_OPCODE_SHIFT) & ROCE_1825_CQE_OPCODE_MASK;
     uint32_t cqeQpn = cqePtr->ownerIdQpn & 0xfffffU;
-    uint32_t expectedQpn = chnlPtr->sqContextAddr[0].contextInfo.roceSq.qpn & 0xfffffU;
     bool cqeReady =
         cqeType != ROCE_1825_CQE_OPTYPE_INVALID && CheckCqeOwner(cqePtr, cqTail, cqDepth) && cqeQpn == expectedQpn;
     if (!cqeReady) {
@@ -415,6 +414,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
     uint16_t wqebbHead = static_cast<uint16_t>(chnlPtr->sqHead);
     uint16_t wqebbTail = static_cast<uint16_t>(chnlPtr->sqTail);
     uint32_t sqDepth = chnlPtr->sqContextAddr[0].contextInfo.roceSq.depth;
+    uint32_t expectedQpn = chnlPtr->sqContextAddr[0].contextInfo.roceSq.qpn & 0xfffffU;
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: cqTail= %u expectIdx = %u\n", cqTail, expectIdx);
     __gm__ uint8_t* cqBaseBuf = (__gm__ uint8_t*)(cqContextInfo.roceCq.cqVa);
     AscendC::GlobalTensor<uint32_t> cqeGlobalTensor;
@@ -429,7 +429,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
         uint32_t cqeType = ROCE_1825_CQE_OPTYPE_INVALID;
         for (; loop < HCOMM_POLLCQ_MAX_RETRY_TIMES; loop++) {
             if (WaitCqeAndUpdateSqTail(
-                    chnlPtr, cqeGlobalTensor, cqeItem, cqTail, cqDepth, wqebbHead, wqebbTail, cqeType)) {
+                    cqeGlobalTensor, cqeItem, cqTail, cqDepth, expectedQpn, wqebbHead, wqebbTail, cqeType)) {
                 break;
             }
         }

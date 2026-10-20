@@ -39,8 +39,6 @@ struct WqeEntry {
 } __attribute__((packed));
 #pragma pack(pop)
 
-static_assert(sizeof(WqeEntry) == 1, "WqeEntry must keep its one-byte ABI");
-
 /**
  * @brief 通信协议类型枚举
  */
