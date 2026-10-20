@@ -28,7 +28,7 @@
 
 #include "hcomm_simt_urma_jetty_def.h"
 #include "../../../hcomm/common/hcomm_inner_def.h"
-#include "../../../hcomm/common/hcomm_log.h"
+#include "../../../hcomm/common/hcomm_simt_utils.h"
 #include "../../../hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
 #include "../../../utils/simt_utils.h"
 
@@ -111,14 +111,15 @@ private:
     __simt_callee__ __forceinline__ void Init(__ubuf__ HcommPeerInfo* info, __gm__ void* jettyTable, uint32_t jettyIdx)
     {
         const uint64_t table = reinterpret_cast<uint64_t>(jettyTable);
-        HCOMM_DEBUG_TRAP_IF(table == 0U || info == nullptr, "invalid SIMT HcommPeer initialization\n");
+        HCOMM_SIMT_DEBUG_TRAP_IF(table == 0U || info == nullptr, "invalid SIMT HcommPeer initialization\n");
         const uint64_t channelAddr = *reinterpret_cast<__gm__ uint64_t*>(table + jettyIdx * sizeof(uint64_t));
         Attach(info);
-        HCOMM_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommPeer channel\n");
+        HCOMM_SIMT_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommPeer channel\n");
         const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
         const uint64_t rbAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, remoteBufferAddr));
         const uint32_t rbNum = detail::Load<uint32_t>(channelAddr, offsetof(ChannelEntity, remoteBufferNum));
-        HCOMM_DEBUG_TRAP_IF(sqCtxAddr == 0U || rbAddr == 0U || rbNum == 0U, "invalid SIMT HcommPeer channel context\n");
+        HCOMM_SIMT_DEBUG_TRAP_IF(
+            sqCtxAddr == 0U || rbAddr == 0U || rbNum == 0U, "invalid SIMT HcommPeer channel context\n");
         auto* sq = reinterpret_cast<__gm__ SqContext*>(sqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* rb = reinterpret_cast<__gm__ RegedBufferEntity*>(rbAddr) + rbNum - 1U;
         info->tpIdNumSgesRemoteTokenId =
@@ -222,12 +223,12 @@ __simt_callee__ __forceinline__ void JettyImpl::AdvanceImplicitSq() const
     const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead));
     const uint32_t begin = implicitBeginHead_;
     const uint32_t submittedWqebbs = implicitWqebbs_;
-    HCOMM_DEBUG_TRAP_IF(
+    HCOMM_SIMT_DEBUG_TRAP_IF(
         end <= begin || submittedWqebbs > HCOMM_SIMT_SLOT_WQEBBS || submittedWqebbs > end - begin,
         "invalid SIMT HcommJetty advance range\n");
     const uint32_t last = end - submittedWqebbs;
     const uint32_t payloadWqebbs = implicitPayloadWqebbs_ == 0U ? submittedWqebbs : implicitPayloadWqebbs_;
-    HCOMM_DEBUG_TRAP_IF(payloadWqebbs > submittedWqebbs, "invalid SIMT HcommJetty payload range\n");
+    HCOMM_SIMT_DEBUG_TRAP_IF(payloadWqebbs > submittedWqebbs, "invalid SIMT HcommJetty payload range\n");
     auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
     const uint32_t idx = last & (info->sqDepth - 1U);
     uint64_t header = HCOMM_SIMT_WRITE_HEADER | idx;
@@ -251,7 +252,7 @@ __simt_callee__ __forceinline__ void JettyImpl::AdvanceImplicitSq() const
 __simt_callee__ __forceinline__ void JettyImpl::PublishSq() const
 {
     auto* info = Info();
-    HCOMM_DEBUG_TRAP_IF(
+    HCOMM_SIMT_DEBUG_TRAP_IF(
         info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U || info->sqDepth == 0U,
         "invalid SIMT HcommJetty publish state\n");
     const uint64_t packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
@@ -292,7 +293,7 @@ template <int64_t kTimeout>
 __simt_callee__ __forceinline__ int32_t JettyImpl::Drain() const
 {
     auto* info = Info();
-    HCOMM_DEBUG_TRAP_IF(
+    HCOMM_SIMT_DEBUG_TRAP_IF(
         info == nullptr || info->cqTailAddr == 0U || info->cqBaseAddr == 0U || info->cqDepth == 0U ||
             info->numCqeBytes == 0U || info->completionTailAddr == 0U || info->cqDoorbellAddr == 0U,
         "invalid SIMT HcommJetty CQ state\n");
@@ -336,7 +337,7 @@ __simt_callee__ __forceinline__ void JettyImpl::Init(
     __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
 {
     const uint64_t tableAddr = reinterpret_cast<uint64_t>(table);
-    HCOMM_DEBUG_TRAP_IF(tableAddr == 0U || info == nullptr, "invalid SIMT HcommJetty initialization\n");
+    HCOMM_SIMT_DEBUG_TRAP_IF(tableAddr == 0U || info == nullptr, "invalid SIMT HcommJetty initialization\n");
     const uint64_t channelAddr = *reinterpret_cast<__gm__ uint64_t*>(tableAddr + index * sizeof(uint64_t));
     Attach(info, stage, channelAddr);
     if (stage != nullptr) {
@@ -345,10 +346,10 @@ __simt_callee__ __forceinline__ void JettyImpl::Init(
         batch->lastOffset = 0U;
         batch->failed = 0U;
     }
-    HCOMM_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommJetty channel\n");
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommJetty channel\n");
     const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
     const uint64_t cqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, cqContextAddr));
-    HCOMM_DEBUG_TRAP_IF(sqCtxAddr == 0U || cqCtxAddr == 0U, "invalid SIMT HcommJetty channel context\n");
+    HCOMM_SIMT_DEBUG_TRAP_IF(sqCtxAddr == 0U || cqCtxAddr == 0U, "invalid SIMT HcommJetty channel context\n");
     auto* sq = reinterpret_cast<__gm__ SqContext*>(sqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
     auto* cq = reinterpret_cast<__gm__ CqContext*>(cqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
     info->sqBaseAddr = sq->contextInfo.ubJfs.sqVa;
@@ -362,7 +363,7 @@ __simt_callee__ __forceinline__ void JettyImpl::Init(
     info->numCqeBytes = cq->contextInfo.ubJfc.cqeSize;
     info->sqDepth = sq->contextInfo.ubJfs.sqDepth;
     info->cqDepth = cq->contextInfo.ubJfc.cqDepth;
-    HCOMM_DEBUG_TRAP_IF(info->sqHeadAddr == 0U, "invalid SIMT HcommJetty SQ head\n");
+    HCOMM_SIMT_DEBUG_TRAP_IF(info->sqHeadAddr == 0U, "invalid SIMT HcommJetty SQ head\n");
     info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
 }
 

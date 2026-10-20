@@ -28,7 +28,24 @@
 
 #include "hcomm_simt_inner_def.h"
 
+#if defined(ASCENDC_DEBUG)
+#include "utils/debug/asc_assert.h"
+#include "utils/debug/asc_printf.h"
+#endif
+
 namespace AscendC::simt {
+
+#if defined(ASCENDC_DEBUG)
+#define HCOMM_SIMT_DEBUG_TRAP_IF(condition, fmt, ...)  \
+    do {                                               \
+        if (condition) {                               \
+            __asc_simt_vf::printf(fmt, ##__VA_ARGS__); \
+            __asc_simt_vf::__trap();                   \
+        }                                              \
+    } while (0)
+#else
+#define HCOMM_SIMT_DEBUG_TRAP_IF(condition, fmt, ...) ((void)0)
+#endif
 
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
@@ -64,40 +81,78 @@ __simt_callee__ inline bool HcommSimtTryReserve(
         return false;
     }
 
+    uint32_t curHead = HcommSimtHeadIdx(headVal);
+
     // Both counters are free-running, so the subtraction is done in modular arithmetic; the
     // usedBbCnt > sqDepth guard rejects a head/tail pair that cannot be consistent.
-    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    uint32_t usedBbCnt = curHead - *tailAddr;
     if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
         return false;
     }
 
-    uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    *headAddr = headVal + delta;
+    // The two halves of headAddr wrap independently. In particular, a 64-bit add would carry
+    // from a wrapping curHead into wqeCnt and make PollCq expect a completion that never occurs.
+    uint32_t nextHead = curHead + bbCnt;
+    uint32_t nextWqeCnt = HcommSimtWqeCnt(headVal) + cqeCnt;
+    *headAddr = static_cast<uint64_t>(nextHead) | (static_cast<uint64_t>(nextWqeCnt) << 32U);
     return true;
+}
+
+__simt_callee__ inline __gm__ HcommSimtChannelEntity* HcommSimtGetChannelEntity(ChannelHandle channel)
+{
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        channel == 0U || (channel & (alignof(HcommSimtChannelEntity) - 1U)) != 0U, "invalid SIMT Hcomm channel\n");
+    return reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+}
+
+__simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtGetBufferTable(uint64_t bufferTableAddr)
+{
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        bufferTableAddr == 0U || (bufferTableAddr & (alignof(RegedBufferEntity) - 1U)) != 0U,
+        "invalid SIMT Hcomm buffer table\n");
+    return reinterpret_cast<__gm__ RegedBufferEntity*>(bufferTableAddr);
+}
+
+__simt_callee__ inline __gm__ uint8_t* HcommSimtGetBufferAddr(
+    uint64_t bufferTableAddr, uint32_t bufferNum, uint32_t bufferIdx)
+{
+    __gm__ RegedBufferEntity* buffers = HcommSimtGetBufferTable(bufferTableAddr);
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        buffers == nullptr || bufferNum == 0U || bufferIdx >= bufferNum, "invalid SIMT Hcomm buffer index\n");
+
+    uint64_t bufferAddr = buffers[bufferIdx].bufferInfo.rma.addr;
+    HCOMM_SIMT_DEBUG_TRAP_IF(bufferAddr == 0U, "invalid SIMT Hcomm buffer address\n");
+    return reinterpret_cast<__gm__ uint8_t*>(bufferAddr);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
 {
-    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-    return reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->localBufferAddr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        channelEntity == nullptr || channelEntity->localBufferNum == 0U, "invalid local buffer table\n");
+    return HcommSimtGetBufferTable(channelEntity->localBufferAddr);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtRemoteBuffers(ChannelHandle channel)
 {
-    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-    return reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->remoteBufferAddr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    HCOMM_SIMT_DEBUG_TRAP_IF(
+        channelEntity == nullptr || channelEntity->remoteBufferNum == 0U, "invalid remote buffer table\n");
+    return HcommSimtGetBufferTable(channelEntity->remoteBufferAddr);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtLocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
-    __gm__ RegedBufferEntity* localBuffers = HcommSimtLocalBuffers(channel);
-    return reinterpret_cast<__gm__ uint8_t*>(localBuffers[bufferIdx].bufferInfo.rma.addr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr, "invalid local buffer channel\n");
+    return HcommSimtGetBufferAddr(channelEntity->localBufferAddr, channelEntity->localBufferNum, bufferIdx);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtRemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
-    __gm__ RegedBufferEntity* remoteBuffers = HcommSimtRemoteBuffers(channel);
-    return reinterpret_cast<__gm__ uint8_t*>(remoteBuffers[bufferIdx].bufferInfo.rma.addr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    HCOMM_SIMT_DEBUG_TRAP_IF(channelEntity == nullptr, "invalid remote buffer channel\n");
+    return HcommSimtGetBufferAddr(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, bufferIdx);
 }
 
 } // namespace AscendC::simt
