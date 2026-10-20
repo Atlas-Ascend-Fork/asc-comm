@@ -18,8 +18,10 @@
 #include <functional>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "ccu/hcomm/ccu_launch.h"
+#include "ccu_profiling.h"
 #include "xxhash_impl.inc"
 
 namespace {
@@ -250,12 +252,36 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
         return ret;
     }
 
+    (void)asc::ccu_profiling::init_ccu_profiling_once();
+    asc::ccu_profiling::ccu_prof_report_context profCtx{};
+    profCtx.kernel_func = kernel_func;
+    profCtx.kernel_name = kernel_name;
+    profCtx.die_id = get_die_id_by_mask(cfg->ccu_schd.phy_die_mask);
+    const bool profEnabled = asc::ccu_profiling::is_ccu_prof_report_ready();
+    if (profEnabled) {
+        profCtx.begin_time = asc::ccu_profiling::msprof_sys_cycle_time();
+    }
+
     ret = asccomm_ccu_kernel_launch(cfg->stream, kernel_handle, args, task_args_num);
     if (ret != CCU_SUCCESS) {
         ASCCOMM_CCU_LOG_ERROR(
             "[%s] asccomm_ccu_kernel_launch failed, ret[%d], kernel_handle[0x%llx], stream[%p].", __func__, ret,
             static_cast<unsigned long long>(kernel_handle), cfg->stream);
         return ret;
+    }
+
+    if (profEnabled) {
+        profCtx.end_time = asc::ccu_profiling::msprof_sys_cycle_time();
+        std::vector<asc::ccu_profiling::profiling_detail> profiling_details;
+        const CcuResult detail_ret = asc::ccu_profiling::get_ccu_profiling_details(
+            kernel_handle, args, task_args_num, profiling_details);
+        if (detail_ret != CCU_SUCCESS) {
+            ASCCOMM_CCU_LOG_ERROR(
+                "[%s] get_ccu_profiling_details failed, ret[%d], profiling report skipped.", __func__,
+                detail_ret);
+        } else {
+            asc::ccu_profiling::report_ccu_data_plane_after_launch(profCtx, profiling_details);
+        }
     }
     return CCU_SUCCESS;
 }
