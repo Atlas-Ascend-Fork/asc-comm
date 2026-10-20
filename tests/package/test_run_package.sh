@@ -168,12 +168,14 @@ COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f -name '*.h
 COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f -name '*.h' \
     ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
-    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT))
+    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + 2))
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_ccu.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_aicpu.so" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
 diff -u <(printf '%s\t%s\n' \

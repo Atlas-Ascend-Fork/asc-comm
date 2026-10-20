@@ -61,7 +61,7 @@ const HcommRegedBufferEntity* find_buffer(
     return nullptr;
 }
 
-AsccommResult get_rtsq(ThreadEntity& thread, HcommRtsqContext*& rtsq)
+AsccommResult get_rtsq(HcommThreadEntity& thread, HcommThreadSqContext*& rtsq)
 {
     CHK_PTR_NULL(thread.sqContextAddr);
     rtsq = thread.sqContextAddr;
@@ -107,6 +107,20 @@ AsccommResult build_ub_slices(
     remote = Asc::RmtRmaBufSliceLite(
         remoteAddr, len, 0, remoteResource.protectionInfo.memInfo.ub.tokenId,
         remoteResource.protectionInfo.memInfo.ub.tokenValue, std::numeric_limits<uint32_t>::max());
+    return ASCCOMM_SUCCESS;
+}
+
+AsccommResult build_ub_local_slice(
+    const ChannelEntity& channel, uintptr_t localAddr, uint64_t len, Asc::RmaBufSliceLite& local)
+{
+    const HcommRegedBufferEntity* localBuffer =
+        find_buffer(channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
+    CHK_PTR_NULL(localBuffer);
+    const auto& localResource = localBuffer->bufferInfo.rma;
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
+        ASCCOMM_ERROR("[%s] UB buffer requires URMA protection.", __func__), ASCCOMM_E_PARA);
+    local = Asc::RmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
     return ASCCOMM_SUCCESS;
 }
 
@@ -157,12 +171,12 @@ void export_ub_state(Asc::UbConnLite& connection, HcommJfsContext& jfs)
 }
 
 AsccommResult ring_ub_doorbell(
-    ThreadEntity& thread, const ChannelEntity& channel, const HcommJfsContext& jfs, uint16_t pi)
+    HcommThreadEntity& thread, const ChannelEntity& channel, const HcommJfsContext& jfs, uint16_t pi)
 {
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     const Asc::UbJettyLiteId jettyId(channel.devInfo.dieId, channel.devInfo.funcId, jfs.jfsID);
-    return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
+    return asccomm_rtsq_ub_db_send(thread, jettyId, pi);
 }
 
 Asc::SqeConfigLite get_ub_config(ChannelEntity& channel)
@@ -181,7 +195,7 @@ Asc::SqeConfigLite get_ub_config(ChannelEntity& channel)
 
 template <typename Operation>
 AsccommResult execute_ub_rma(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     Operation operation)
 {
     HcommJfsContext* jfs = nullptr;
@@ -319,8 +333,8 @@ enum class RdmaOperation {
 };
 
 AsccommResult execute_rdma(
-    ThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr, uintptr_t remoteAddr,
-    uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
+    HcommThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr,
+    uintptr_t remoteAddr, uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
 {
     HcommRdmaSqContext* resourceSq = nullptr;
     HcommRdmaCqContext* resourceCq = nullptr;
@@ -388,9 +402,9 @@ AsccommResult execute_rdma(
     bool cqDbFlush = false;
     ops.export_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail, cqDbFlush);
     resourceCq->cqDbFlush = cqDbFlush ? 1 : 0;
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_RET(asccomm_rtsq_rdma_db_send(*rtsq, dbAddr, dbValue));
+    CHK_RET(asccomm_rtsq_rdma_db_send(thread, dbAddr, dbValue));
 
     const int32_t pollNum =
         (operation == RdmaOperation::WRITE_WITH_NOTIFY || operation == RdmaOperation::WRITE_REDUCE_WITH_NOTIFY) ? 2 : 1;
@@ -491,7 +505,7 @@ AsccommResult convert_batch_reduce(
 } // namespace
 
 AsccommResult asccomm_write(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(
@@ -504,7 +518,7 @@ AsccommResult asccomm_write(
 }
 
 AsccommResult asccomm_write_reduce(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -520,7 +534,7 @@ AsccommResult asccomm_write_reduce(
 }
 
 AsccommResult asccomm_write_with_notify(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -539,7 +553,7 @@ AsccommResult asccomm_write_with_notify(
 }
 
 AsccommResult asccomm_write_reduce_with_notify(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn, uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -560,7 +574,7 @@ AsccommResult asccomm_write_reduce_with_notify(
 }
 
 AsccommResult asccomm_read(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(
@@ -573,7 +587,7 @@ AsccommResult asccomm_read(
 }
 
 AsccommResult asccomm_read_reduce(
-    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -588,7 +602,50 @@ AsccommResult asccomm_read_reduce(
     return channel.protocol == COMM_PROTOCOL_ROCE ? ASCCOMM_SUCCESS : ASCCOMM_E_NOT_SUPPORT;
 }
 
-AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
+AsccommResult asccomm_send(HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommJfsContext* jfs = nullptr;
+    CHK_RET(get_ub_context(channel, jfs));
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    CHK_RET(build_ub_local_slice(channel, localAddr, len, local));
+    Asc::UbConnLiteParam param{};
+    fill_ub_param(*jfs, param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
+    import_ub_state(*jfs, connection);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    connection.send(local, cfg, out);
+    export_ub_state(connection, *jfs);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
+}
+
+AsccommResult asccomm_send_with_imm(
+    HcommThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t immData)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommJfsContext* jfs = nullptr;
+    CHK_RET(get_ub_context(channel, jfs));
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    CHK_RET(build_ub_local_slice(channel, localAddr, len, local));
+    Asc::UbConnLiteParam param{};
+    fill_ub_param(*jfs, param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
+    import_ub_state(*jfs, connection);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    connection.send_with_imm(local, immData, cfg, out);
+    export_ub_state(connection, *jfs);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
+}
+
+AsccommResult asccomm_notify_record(HcommThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
 {
     if (!is_ub_protocol(channel.protocol)) {
         return execute_rdma(thread, channel, RdmaOperation::NOTIFY_RECORD, 0, 0, 0, nullptr, remoteNotifyIdx);
@@ -616,7 +673,7 @@ AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel
 }
 
 AsccommResult asccomm_notify_wait(
-    ThreadEntity& thread, const ChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
+    HcommThreadEntity& thread, const ChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
 {
     CHK_PRT_RET(
         channel.localNotifyAddr == nullptr || channel.localNotifyNum <= 1U ||
@@ -625,7 +682,7 @@ AsccommResult asccomm_notify_wait(
             "[%s] local notify index[%u] out of range[%u].", __func__, localNotifyIdx,
             channel.localNotifyNum > 0 ? channel.localNotifyNum - 1U : 0U),
         ASCCOMM_E_PARA);
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     const HcommRegedNotifyEntity& notify = channel.localNotifyAddr[localNotifyIdx + 1U];
     CHK_PRT_RET(
@@ -633,7 +690,7 @@ AsccommResult asccomm_notify_wait(
         ASCCOMM_E_PARA);
     const int32_t notifyId = notify.notifyInfo.rmaRt.notifyId;
     CHK_PRT_RET(notifyId < 0, ASCCOMM_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), ASCCOMM_E_PARA);
-    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
+    return asccomm_rtsq_notify_wait(thread, static_cast<uint32_t>(notifyId), timeout);
 }
 
 AsccommResult asccomm_fence(ChannelEntity& channel)
@@ -645,7 +702,7 @@ AsccommResult asccomm_fence(ChannelEntity& channel)
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel)
+AsccommResult asccomm_drain(HcommThreadEntity& thread, ChannelEntity& channel)
 {
     if (channel.protocol == COMM_PROTOCOL_ROCE) {
         return ASCCOMM_SUCCESS;
@@ -697,16 +754,16 @@ AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel)
     connection.read(local, remote, cfg, out);
     export_ub_state(connection, *jfs);
     CHK_RET(ring_ub_doorbell(thread, channel, *jfs, out.pi));
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(
         localResource.notifyId < 0,
         ASCCOMM_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), ASCCOMM_E_PARA);
-    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
+    return asccomm_rtsq_notify_wait(thread, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
 }
 
 AsccommResult asccomm_batch_transfer(
-    ThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
+    HcommThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
     uint32_t transferDescNum)
 {
     CHK_PTR_NULL(transferDescs);
