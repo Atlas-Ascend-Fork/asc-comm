@@ -11,7 +11,7 @@ Channel共享同一个Jetty，通过`MakeBatchHandle`、`GetHandleRef`、`BatchC
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 

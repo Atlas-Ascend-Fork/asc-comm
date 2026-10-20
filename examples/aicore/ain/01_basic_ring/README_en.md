@@ -13,7 +13,7 @@ the Kernel side only submits data-plane communication tasks through the AIN inte
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 

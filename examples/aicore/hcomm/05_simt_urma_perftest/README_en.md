@@ -16,7 +16,7 @@ All operations are issued by a single lane, and one channel must be driven by on
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Directory Structure
 
@@ -91,7 +91,7 @@ Perform the following steps in the root directory of this sample to compile and 
 
   ```bash
   bash build.sh --pkg
-  ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
+  ./build_out/cann-asc-comm_9.3.0_linux-<arch>.run --full
   ```
 
   Then load the CANN environment variables:

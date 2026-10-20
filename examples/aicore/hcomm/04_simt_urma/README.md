@@ -17,7 +17,7 @@
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 
@@ -99,7 +99,7 @@ simt_urma
 
   ```bash
   bash build.sh --pkg
-  ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
+  ./build_out/cann-asc-comm_9.3.0_linux-<arch>.run --full
   ```
 
   然后加载CANN环境变量：
