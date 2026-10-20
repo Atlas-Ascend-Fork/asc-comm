@@ -20,7 +20,7 @@ slices read back from the next rank.
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Files
 

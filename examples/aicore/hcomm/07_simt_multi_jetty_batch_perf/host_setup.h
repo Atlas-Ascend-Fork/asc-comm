@@ -9,37 +9,15 @@
  */
 
 #pragma once
-#include <array>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <string>
 #include <vector>
-#include "acl/acl.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
+#include "utils/check.h"
 #include "multi_jetty_batch_perf_common.h"
-
-#define CHECK_ACL(expression)                                                                                 \
-    do {                                                                                                      \
-        const aclError result = (expression);                                                                 \
-        if (result != ACL_SUCCESS) {                                                                          \
-            std::cerr << "ACL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result << std::endl; \
-            return result;                                                                                    \
-        }                                                                                                     \
-    } while (0)
-
-#define CHECK_HCCL(expression)                                                                                 \
-    do {                                                                                                       \
-        const HcclResult result = (expression);                                                                \
-        if (result != HCCL_SUCCESS) {                                                                          \
-            std::cerr << "HCCL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result << std::endl; \
-            return result;                                                                                     \
-        }                                                                                                      \
-    } while (0)
 
 namespace multi_jetty_batch_perf {
 constexpr CommProtocol kProtocol = COMM_PROTOCOL_UBC_CTP;
@@ -48,7 +26,7 @@ constexpr const char* kRecvTag = "multiJettyBatchPerfRecv";
 
 HcclResult BuildChannelDesc(HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, HcclChannelDesc& desc)
 {
-    CHECK_HCCL(HcclChannelDescInit(&desc, 1U));
+    EXAMPLES_HCCLCHECK(HcclChannelDescInit(&desc, 1U));
     desc.remoteRank = peer;
     desc.channelProtocol = kProtocol;
     desc.notifyNum = 0U;
@@ -56,11 +34,11 @@ HcclResult BuildChannelDesc(HcclComm comm, uint32_t rank, uint32_t peer, HcclMem
     desc.memHandleNum = 2U;
     uint32_t* layers = nullptr;
     uint32_t layerCount = 0U;
-    CHECK_HCCL(HcclRankGraphGetLayers(comm, &layers, &layerCount));
+    EXAMPLES_HCCLCHECK(HcclRankGraphGetLayers(comm, &layers, &layerCount));
     for (uint32_t layer = 0U; layer < layerCount; ++layer) {
         CommLink* links = nullptr;
         uint32_t linkCount = 0U;
-        CHECK_HCCL(HcclRankGraphGetLinks(comm, layers[layer], rank, peer, &links, &linkCount));
+        EXAMPLES_HCCLCHECK(HcclRankGraphGetLinks(comm, layers[layer], rank, peer, &links, &linkCount));
         for (uint32_t link = 0U; link < linkCount; ++link) {
             if (links[link].linkAttr.linkProtocol == kProtocol) {
                 desc.localEndpoint = links[link].srcEndpointDesc;
@@ -78,7 +56,7 @@ HcclResult ResolveRemoteRecv(
     uint32_t memoryCount = 0U;
     CommMem* remoteMemories = nullptr;
     char** tags = nullptr;
-    CHECK_HCCL(HcclChannelGetRemoteMems(comm, channel, &memoryCount, &remoteMemories, &tags));
+    EXAMPLES_HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memoryCount, &remoteMemories, &tags));
     for (uint32_t memory = 0U; memory < memoryCount; ++memory) {
         if (tags[memory] != nullptr && std::strcmp(tags[memory], kRecvTag) == 0) {
             remoteRecvAddress = reinterpret_cast<uint64_t>(remoteMemories[memory].addr);
@@ -99,11 +77,11 @@ HcclResult AcquireChannels(
     }
     std::vector<HcclChannelDesc> descs(channelCount);
     for (uint32_t channel = 0U; channel < channelCount; ++channel) {
-        CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles, descs[channel]));
+        EXAMPLES_HCCLCHECK(BuildChannelDesc(comm, rank, peer, handles, descs[channel]));
     }
-    CHECK_HCCL(HcclChannelAcquire(comm, COMM_ENGINE_AIV, descs.data(), channelCount, channels.data()));
+    EXAMPLES_HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, descs.data(), channelCount, channels.data()));
     for (uint32_t channel = 0U; channel < channelCount; ++channel) {
-        CHECK_HCCL(
+        EXAMPLES_HCCLCHECK(
             ResolveRemoteRecv(comm, channels[channel], remoteRecvAddresses[channel], remoteRecvIndices[channel]));
     }
     return HCCL_SUCCESS;

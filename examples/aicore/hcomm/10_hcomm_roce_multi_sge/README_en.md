@@ -9,7 +9,7 @@ This example creates an `UbcBatchHandle` on a RoCE channel with `MakeBatchHandle
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Example Behavior
 
