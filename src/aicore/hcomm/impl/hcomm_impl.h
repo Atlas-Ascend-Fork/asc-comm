@@ -41,13 +41,28 @@ template <CommProtocol commProtocol>
 template <typename T>
 __aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, uint32_t len)
 {
-    return impl_.Init(buff, len);
+    if (static_cast<uint64_t>(len) > static_cast<uint64_t>(buff.GetSize()) * sizeof(T)) {
+        return HCOMM_FAILED;
+    }
+    return Init(reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), len);
 }
 
 template <CommProtocol commProtocol>
 template <typename T, typename U>
 __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
+{
+    if (static_cast<uint64_t>(buffLen) > static_cast<uint64_t>(buff.GetSize()) * sizeof(U)) {
+        return BatchHandle<T>{};
+    }
+    return MakeBatchHandle(
+        channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buffLen, remoteAddr, localAddr);
+}
+
+template <CommProtocol commProtocol>
+template <typename T>
+__aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
+    T channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     static_assert(
         commProtocol == COMM_PROTOCOL_UB_CTP || commProtocol == COMM_PROTOCOL_ROCE,

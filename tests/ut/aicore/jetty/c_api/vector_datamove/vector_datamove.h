@@ -11,7 +11,7 @@
 #define INCLUDE_C_API_VECTOR_DATAMOVE_VECTOR_DATAMOVE_H
 
 #if !defined(ASCENDC_CPU_DEBUG) || !ASCENDC_CPU_DEBUG
-#error "This byte-copy shim is only for Jetty CPU-debug unit tests."
+#error "This byte-copy shim is only for Hcomm CPU-debug unit tests."
 #endif
 
 #include <cstdint>
@@ -20,7 +20,17 @@
 #include "c_api/defs/defs.h"
 
 // Avoid the unsupported 3510 vector helpers pulled in by the CANN 9.2.0
-// datamove header. Only the byte-copy overload used by Jetty is replaced.
+// datamove header. Model the Hcomm/Jetty byte-copy overloads synchronously.
+__aicore__ inline void asc_copy_gm2ub(__ubuf__ void* dst, __gm__ void* src, uint32_t size)
+{
+    std::memcpy(dst, src, size);
+}
+
+__aicore__ inline void asc_copy_ub2gm_align(__gm__ uint8_t* dst, __ubuf__ uint8_t* src, uint32_t size)
+{
+    std::memcpy(dst, src, size);
+}
+
 __aicore__ inline void asc_copy_ub2gm_align(
     __gm__ uint8_t* dst, __ubuf__ uint8_t* src, uint32_t burst_count, uint32_t burst_len, asc_store_l2_cache_mode,
     uint64_t dst_stride, uint32_t src_stride)

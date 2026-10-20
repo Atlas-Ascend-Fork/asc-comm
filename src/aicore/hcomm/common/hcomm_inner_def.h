@@ -308,7 +308,7 @@ typedef struct {
 static_assert(sizeof(RoceMrKey) <= sizeof(BatchRemoteInfo), "RoCE MR key cache must not grow UbcBatchHandle");
 
 typedef struct {
-    LocalTensor<uint32_t> buffer;
+    __ubuf__ uint32_t* buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
 

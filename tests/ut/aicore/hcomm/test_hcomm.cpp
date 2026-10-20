@@ -60,6 +60,9 @@ TEST_F(HcommCommonTestSuite, Aiv_Read)
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
     int32_t ret = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
+    EXPECT_EQ(head_, 1U);
+    EXPECT_EQ(*reinterpret_cast<const uint32_t*>(sqVa_) & 0x1fU, 5U);
+    EXPECT_EQ(*reinterpret_cast<const uint64_t*>(dbVa_), 1ULL | (1ULL << 32U) | (1ULL << 48U));
 }
 
 TEST_F(HcommCommonTestSuite, Aiv_Write)
@@ -68,6 +71,8 @@ TEST_F(HcommCommonTestSuite, Aiv_Write)
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
     int32_t ret = hcomm.WriteNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
+    EXPECT_EQ(head_, 1U);
+    EXPECT_EQ(*reinterpret_cast<const uint32_t*>(sqVa_) & 0x1fU, 3U);
 }
 
 TEST_F(HcommCommonTestSuite, Aiv_WriteWithNotifyNbi)

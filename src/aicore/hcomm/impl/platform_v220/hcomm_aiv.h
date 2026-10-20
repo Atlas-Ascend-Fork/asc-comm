@@ -28,16 +28,7 @@
 
 namespace AscendC {
 
-__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::HcommImpl()
-{
-    TBuf<TPosition::VECOUT> rdmaInBuf;
-    GetTPipePtr()->InitBuffer(rdmaInBuf, ONE_BLK_SIZE);
-    ubLocal_ = rdmaInBuf.Get<uint64_t>();
-
-    TBuf<TPosition::VECOUT> rdmaInBuf2;
-    GetTPipePtr()->InitBuffer(rdmaInBuf2, ONE_BLK_SIZE);
-    ubLocalHead_ = rdmaInBuf2.Get<uint32_t>();
-}
+__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::HcommImpl() {}
 
 __aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::~HcommImpl() {}
 
@@ -106,11 +97,11 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(__gm__ ChannelEnt
     __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbHwVa);
     KERNEL_LOG(KERNEL_INFO, "Hcomm doorBell doorBellAddr:%p, doorBellInfo:%llu", doorBellAddr, doorBellInfo);
 
-    ubLocal_.SetValue(0, doorBellInfo);
-    AscendC::GlobalTensor<uint64_t> DBGlobalTensor;
-    DBGlobalTensor.SetGlobalBuffer(doorBellAddr);
-    AscendC::DataCopyExtParams copyParams{1, 1 * sizeof(uint64_t), 0, 0, 0};
-    AscendC::DataCopyPad(DBGlobalTensor, ubLocal_, copyParams);
+    alignas(32) __ubuf__ uint8_t doorBellBuffer[ONE_BLK_SIZE];
+    *reinterpret_cast<__ubuf__ uint64_t*>(doorBellBuffer) = doorBellInfo;
+    SyncAction<PIPE_S, PIPE_MTE3>(EVENT_ID0);
+    asc_copy_ub2gm_align(reinterpret_cast<__gm__ uint8_t*>(doorBellAddr), doorBellBuffer, sizeof(doorBellInfo));
+    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID0);
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
@@ -176,11 +167,11 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     // Post doorbell
     doorBell(channel, curHead);
 
-    ubLocalHead_.SetValue(0, (uint32_t)curHead);
-    AscendC::GlobalTensor<uint32_t> HeadGlobalTensor;
-    HeadGlobalTensor.SetGlobalBuffer((__gm__ uint32_t*)curHardwareHead);
-    AscendC::DataCopyExtParams copyParamsHead{1, 1 * sizeof(uint32_t), 0, 0, 0};
-    AscendC::DataCopyPad(HeadGlobalTensor, ubLocalHead_, copyParamsHead);
+    alignas(32) __ubuf__ uint8_t headBuffer[ONE_BLK_SIZE];
+    *reinterpret_cast<__ubuf__ uint32_t*>(headBuffer) = static_cast<uint32_t>(curHead);
+    SyncAction<PIPE_S, PIPE_MTE3>(EVENT_ID0);
+    asc_copy_ub2gm_align(reinterpret_cast<__gm__ uint8_t*>(curHardwareHead), headBuffer, sizeof(uint32_t));
+    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID0);
     KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend finish");
 }
 

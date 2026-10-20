@@ -37,14 +37,6 @@ public:
         return HCOMM_FAILED;
     }
 
-    template <typename T>
-    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len)
-    {
-        (void)buff;
-        (void)len;
-        return HCOMM_FAILED;
-    }
-
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>

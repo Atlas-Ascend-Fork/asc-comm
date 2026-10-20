@@ -75,14 +75,10 @@ public:
     __aicore__ inline HcommImpl();
     __aicore__ inline ~HcommImpl();
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
-    template <typename T>
-    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
-    template <typename U>
     __aicore__ inline UbcBatchHandle MakeBatchHandle(
-        ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
-    template <typename U>
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     __aicore__ inline UbcMultiBatchHandle MakeBatchHandle(
-        MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR remoteAddr,
         GM_ADDR localAddr);
     __aicore__ inline UbcBatchHandle& GetHandleRef(
         UbcBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
@@ -165,7 +161,7 @@ private:
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCqImpl(
         uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectTail, uint32_t& curTail,
-        LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
+        __ubuf__ uint32_t* cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
         uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCq(
@@ -173,8 +169,8 @@ private:
     __aicore__ inline uint32_t PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectTail);
 
 private:
-    LocalTensor<uint32_t> wqeItem_;
-    LocalTensor<uint32_t> cqeItem_;
+    __ubuf__ uint32_t* wqeItem_ = nullptr;
+    __ubuf__ uint32_t* cqeItem_ = nullptr;
 };
 } // namespace AscendC
 

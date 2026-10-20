@@ -91,8 +91,6 @@ public:
     __aicore__ inline HcommImpl() {}
     __aicore__ inline ~HcommImpl() {}
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
-    template <typename T>
-    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
@@ -116,9 +114,8 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
     __aicore__ inline int32_t Lock(ChannelHandle channel);
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
-    template <typename U>
     __aicore__ inline RoceBatchHandle MakeBatchHandle(
-        ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     __aicore__ inline RoceBatchHandle& GetHandleRef(
         RoceBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
     template <auto const& config = ROCE_DEFAULT_CFG>
@@ -150,16 +147,16 @@ private:
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
     __aicore__ inline void KnockDoorBell(
-        __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t>& cqeItem);
+        __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, __ubuf__ uint32_t* cqeItem);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
     template <bool sqSafeMode = false>
     __aicore__ inline int32_t PollCq(
-        __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, LocalTensor<uint32_t>& cqeItem, uint32_t threshold = 0);
+        __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, __ubuf__ uint32_t* cqeItem, uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline bool EnContinue(
         uint32_t expectIdx, uint32_t cqTail, uint16_t sqHead, uint16_t sqTail, uint32_t sqDepth, uint32_t threshold);
     __aicore__ inline bool WaitCqeAndUpdateSqTail(
-        GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem, uint32_t cqTail, uint32_t cqDepth,
+        __gm__ uint32_t* cqeGlobal, __ubuf__ uint32_t* cqeItem, uint32_t cqTail, uint32_t cqDepth,
         uint32_t expectedQpn, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType);
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <auto const& config, HCOMM_ROCE_OP_TYPE opType>
@@ -178,8 +175,8 @@ private:
     __aicore__ inline uint32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
-    LocalTensor<uint32_t> wqeUB_;
-    LocalTensor<uint32_t> cqeUB_;
+    __ubuf__ uint32_t* wqeUB_ = nullptr;
+    __ubuf__ uint32_t* cqeUB_ = nullptr;
 };
 } // namespace AscendC
 

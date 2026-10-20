@@ -23,7 +23,9 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_UTIL_H
 
 #include "hcomm_inner_def.h"
+#include <c_api/cache_ctrl/cache_ctrl.h>
 #include <c_api/sync/sync.h>
+#include <c_api/vector_datamove/vector_datamove.h>
 
 namespace AscendC {
 
@@ -53,6 +55,15 @@ __aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
     uintptr_t alignedAddr = (addr + alignment - 1) & ~(alignment - 1);
     return reinterpret_cast<__ubuf__ uint8_t*>(alignedAddr);
 }
+
+#if defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
+__aicore__ inline void HcommCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ uint32_t* src, uint32_t byteCount)
+{
+    // The simple asc_copy_ub2gm overload narrows its byte count to uint16_t on V310.
+    asc_copy_ub2gm_align(
+        dst, reinterpret_cast<__ubuf__ uint8_t*>(src), 1, byteCount, asc_store_l2_cache_mode::NORMAL_FIRST_VICTIM, 0, 0);
+}
+#endif
 
 __aicore__ inline int32_t HcommFindBufferIdx(
     RegedBufferEntity* bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
@@ -89,12 +100,11 @@ __aicore__ inline void CacheWriteThrough(__gm__ T* sourceAddr, uint64_t length)
     if (length == 0) {
         return;
     }
-    __gm__ T* start = (__gm__ T*)((uint64_t)sourceAddr / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
-    __gm__ T* end = (__gm__ T*)(((uint64_t)sourceAddr + length) / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
-    GlobalTensor<T> global;
-    global.SetGlobalBuffer(start);
-    for (uint32_t i = 0; i <= end - start; i += CACHE_LINE_SIZE) {
-        DataCacheCleanAndInvalid<T, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(global[i]);
+    uintptr_t addr = reinterpret_cast<uintptr_t>(sourceAddr);
+    uintptr_t start = addr / CACHE_LINE_SIZE * CACHE_LINE_SIZE;
+    uint64_t lineCount = (addr - start + length - 1U) / CACHE_LINE_SIZE + 1U;
+    for (uint64_t i = 0; i < lineCount; ++i) {
+        ::__asc_aicore::asc_dcci_single(reinterpret_cast<__gm__ void*>(start + i * CACHE_LINE_SIZE));
     }
 }
 
