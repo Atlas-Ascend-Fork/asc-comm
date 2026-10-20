@@ -116,6 +116,7 @@ public:
     uint64_t GetCqDoorbellAddr() const { return reinterpret_cast<uint64_t>(&cqDoorbell_); }
 
     void SetSqHead(uint32_t sqHead) { channel_.sqHead = sqHead; }
+    void SetSqTail(uint32_t sqTail) { channel_.sqTail = sqTail; }
 
     void SetQueueState(uint32_t sqHead, uint32_t cqHead, uint32_t cqTail)
     {
@@ -658,8 +659,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
+    invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH + 1U;
+    invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH + 1U;
     invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = URMA_BATCH_QUEUE_DEPTH;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
@@ -672,6 +673,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
 {
     UrmaChannelResource channel(URMA_BATCH_QUEUE_DEPTH);
     channel.SetSqHead(URMA_BATCH_QUEUE_DEPTH - 1U);
+    // Keep sqTail aligned with sqHead so the wrap test is not rejected by the overflow check.
+    channel.SetSqTail(URMA_BATCH_QUEUE_DEPTH - 1U);
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
     alignas(32) std::array<uint8_t, 128> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
@@ -714,6 +717,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
 {
     UrmaChannelResource channel(URMA_BATCH_QUEUE_DEPTH);
     channel.SetSqHead(URMA_BATCH_QUEUE_DEPTH - 1U);
+    // Keep sqTail aligned with sqHead so the wrap test is not rejected by the overflow check.
+    channel.SetSqTail(URMA_BATCH_QUEUE_DEPTH - 1U);
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(

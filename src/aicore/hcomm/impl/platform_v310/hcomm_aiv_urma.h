@@ -976,19 +976,42 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Commit(ChannelHandle 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchHandle& batchHandle)
 {
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid WQEBB count\n");
+    if (batchHandle.channelHandle == 0U || preSqCnt == 0U || preSqCnt > batchHandle.buffer.bufferCapacity) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid handle or WQEBB count\n");
         return HCOMM_FAILED;
     }
 
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     uint32_t sqDepth = batchHandle.sqContext.contextInfo.ubJfs.sqDepth;
-    if (sqDepth == 0 || preSqCnt >= sqDepth) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed because batch must be smaller than SQ capacity\n");
+    uint32_t cqDepth = batchHandle.cqContext.contextInfo.ubJfc.cqDepth;
+    uint32_t sqOutstanding = batchHandle.cursor.sqHead - batchHandle.cursor.sqTail;
+    bool sqOverflow = sqOutstanding > sqDepth || preSqCnt > sqDepth - sqOutstanding;
+    uint32_t cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
+    bool cqOverflow = cqAfterCommit > cqDepth;
+
+    // The batch would overflow the SQ or CQ: reclaim finished work from the CQ first.
+    if (sqOverflow || cqOverflow) {
+        uint32_t committedCqHead = channelEntity->cqHead;
+        if (batchHandle.cursor.cqTail != committedCqHead) {
+            uint32_t ret = PollBatchCq(batchHandle, committedCqHead);
+            if (ret != HCOMM_SUCCESS) {
+                return ret;
+            }
+        }
+    }
+
+    // Re-check after the reclaim; refuse to submit if the queues still cannot hold the batch.
+    sqOutstanding = batchHandle.cursor.sqHead - batchHandle.cursor.sqTail;
+    sqOverflow = sqOutstanding > sqDepth || preSqCnt > sqDepth - sqOutstanding;
+    cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
+    cqOverflow = cqAfterCommit > cqDepth;
+    if (sqOverflow || cqOverflow) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with insufficient queue capacity\n");
         return HCOMM_FAILED;
     }
 
     uint32_t sqHead = batchHandle.cursor.sqHead;
-    uint32_t startSlot = sqHead % sqDepth;
+    uint32_t startSlot = sqHead & (sqDepth - 1U);
     uint32_t tailWqebbCount = sqDepth - startSlot;
     uint32_t firstWqebbCount = preSqCnt < tailWqebbCount ? preSqCnt : tailWqebbCount;
     uint32_t secondWqebbCount = preSqCnt - firstWqebbCount;
@@ -1012,7 +1035,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     channelEntity->sqHead = newSqHead;
     channelEntity->cqHead = batchHandle.cursor.cqHead;
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
