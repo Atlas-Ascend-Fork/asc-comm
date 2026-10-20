@@ -51,7 +51,8 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note URMA uses buff as its temporary workspace after 32-byte alignment.
+     * @note URMA and RoCE use buff as their temporary workspace after 32-byte alignment. The aligned remainder
+     *       must hold the protocol workspace; alignment padding is included in len.
      */
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -66,20 +67,29 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
-     * @brief Create a batch handle and bind a LocalTensor workspace.
+     * @brief Create a batch handle and bind a UB workspace.
      * @tparam T: The communication channel handle type.
-     * @tparam U: The element type of the LocalTensor.
      * @param [in] channel: The handle of the communication channel.
-     * @param [in] buff: The LocalTensor workspace used by batch operations.
+     * @param [in] buff: The UB workspace used by batch operations. Start address must be 32-byte aligned.
      * @param [in] buffLen: The workspace length in bytes.
      * @param [in] remoteAddr: For ChannelHandle, an address in the remote registered memory to select. If it is null,
      *                         the first remote registered buffer is selected. Ignored for MultiChannelHandle.
      * @param [in] localAddr: Reserved parameter. Not used in the current version.
-     * @return A batch handle for commProtocol. Returns a zero-valued invalid handle if the multi-channel handle is
-     *         invalid or remote registered-memory selection fails.
+     * @return A batch handle for commProtocol. Returns a zero-valued invalid handle if the workspace is smaller
+     *         than 64 bytes, its address is not 32-byte aligned, or handle/memory selection fails.
      * @note For MultiChannelHandle, call GetHandleRef to select a logical channel and remote registered memory.
      *       The 64-byte task slots used by one batch must be fewer than the channel task-submission capacity, which is
      *       determined when channel resources are created on the Host.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandle<T> MakeBatchHandle(
+        T channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
+        GM_ADDR localAddr = nullptr);
+
+    /*!
+     * @brief Compatibility overload accepting a LocalTensor workspace; otherwise follows the pointer overload.
+     * @tparam T: The communication channel handle type.
+     * @tparam U: The tensor element type. buffLen is in bytes and must not exceed the tensor byte capacity.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
