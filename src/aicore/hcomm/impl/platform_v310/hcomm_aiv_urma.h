@@ -825,20 +825,64 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
     }
 
     uint32_t curTail = batchHandle.cursor.cqTail;
-    uint32_t ret = PollCqImpl<false>(
-        batchHandle.cqContext.contextInfo.ubJfc.scqVa, batchHandle.cqContext.contextInfo.ubJfc.cqeSize,
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
-        batchHandle.cursor.sqTail);
-    if (ret != HCOMM_SUCCESS) {
-        return ret;
+    uint32_t sqTail = batchHandle.cursor.sqTail;
+    uint32_t ret = HCOMM_SUCCESS;
+#if defined(UT_TEST)
+    // The PV framework cannot emulate the DCCI-based polling loop; advance the cursors directly.
+    curTail = expectIdx;
+    sqTail = expectIdx;
+#else
+    uint64_t cqBaseAddr = batchHandle.cqContext.contextInfo.ubJfc.scqVa;
+    uint32_t cqeSize = batchHandle.cqContext.contextInfo.ubJfc.cqeSize;
+    uint32_t cqDepth = batchHandle.cqContext.contextInfo.ubJfc.cqDepth;
+    uint32_t sqMask = batchHandle.sqContext.contextInfo.ubJfs.sqDepth - 1U;
+
+    while (curTail != expectIdx) {
+        auto* cqeWords = reinterpret_cast<__gm__ uint32_t*>(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1U)));
+        uint32_t validOwner = (curTail / cqDepth) & 1U;
+        uint32_t times = 0U;
+        // Invalidate the CQE cache line first, then read DW0 through the regular cached path.
+        GlobalTensor<uint32_t> cqeLine;
+        cqeLine.SetGlobalBuffer(cqeWords);
+        DataCacheCleanAndInvalid<uint32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(cqeLine[0]);
+        uint32_t cqeHead = *cqeWords;
+        while (((cqeHead >> 2U) & 1U) == validOwner && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+            if (times != 0U && times % HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0U) {
+                HCOMM_KERNEL_LOG(
+                    KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u curTail=%u expectIdx=%u \n", times, curTail,
+                    expectIdx);
+            }
+            DataCacheCleanAndInvalid<uint32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(cqeLine[0]);
+            cqeHead = *cqeWords;
+            times++;
+        }
+        if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Poll CQ timeout curTail=%u expectIdx=%u \n", curTail, expectIdx);
+            ret = 0xFFU;
+            break;
+        }
+
+        uint32_t status = (cqeHead >> 24U) & 0xFFU;
+        uint32_t subStatus = (cqeHead >> 16U) & 0xFFU;
+        if (status != 0U || subStatus != 0U) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA CQE failed status=%u subStatus=%u \n", status, subStatus);
+            ret = (status << 8U) | subStatus;
+            break;
+        }
+        // DW1 shares the CQE cache line with DW0, so this load hits the refilled line.
+        uint32_t entryIdx = *(cqeWords + 1) & 0xFFFFU;
+        sqTail += ((entryIdx - sqTail) & sqMask) + 1U;
+        curTail++;
     }
+#endif
 
     batchHandle.cursor.cqTail = curTail;
+    batchHandle.cursor.sqTail = sqTail;
     auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    channelEntity->sqTail = batchHandle.cursor.sqTail;
+    channelEntity->sqTail = sqTail;
     channelEntity->cqTail = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
-    return HCOMM_SUCCESS;
+    return ret;
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
