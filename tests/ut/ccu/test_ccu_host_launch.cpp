@@ -19,6 +19,7 @@ namespace {
 constexpr const char* DUMMY_KERNEL_NAME = "DummyKernel";
 uint32_t g_dummyKernelCallCount = 0;
 const void* g_dummyKernelObservedArg = nullptr;
+HcommCcuInstanceEntity g_defaultCcuInstance{};
 
 void DummyKernel(void* arg)
 {
@@ -30,7 +31,8 @@ asccomm_launch_kernel_cfg MakeLaunchCfg()
 {
     asccomm_launch_kernel_cfg cfg{};
     cfg.ccu_schd = {1, 0, 0x01, 0};
-    cfg.ccu_ins = nullptr;
+    g_defaultCcuInstance.ccuInsKey = 0x01U;
+    cfg.ccu_ins = &g_defaultCcuInstance;
     cfg.stream = reinterpret_cast<aclrtStream>(0x22);
     cfg.attrs = nullptr;
     return cfg;
@@ -92,6 +94,19 @@ TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
         CCU_E_PARA);
+}
+
+TEST_F(TestCcuHostLaunch, NullInstanceWithBinaryCacheTagReturnsPtr)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    cfg.ccu_schd.binary_cache_tag = 0x5701U;
+    cfg.ccu_ins = nullptr;
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
+        CCU_E_PTR);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
 }
 
 TEST_F(TestCcuHostLaunch, LaunchHashTagReturnsStableNonZeroValue)
@@ -250,6 +265,50 @@ TEST_F(TestCcuHostLaunch, DifferentCacheTagsRegisterIndependently)
     EXPECT_EQ(observed.calls.registerEnd, 2U);
     EXPECT_EQ(observed.calls.getTaskArgsNum, 2U);
     EXPECT_EQ(observed.calls.kernelLaunch, 2U);
+}
+
+TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
+{
+    asccomm_launch_kernel_cfg firstCfg = MakeLaunchCfg();
+    asccomm_launch_kernel_cfg secondCfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    constexpr uint64_t SHARED_BINARY_TAG = 0x5701U;
+    HcommCcuInstanceEntity firstInstance{};
+    HcommCcuInstanceEntity secondInstance{};
+    firstCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
+    secondCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
+    firstInstance.ccuInsKey = 0x11U;
+    firstCfg.ccu_ins = &firstInstance;
+    secondInstance.ccuInsKey = 0x22U;
+    secondCfg.ccu_ins = &secondInstance;
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
+        CCU_SUCCESS);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
+        CCU_SUCCESS);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &secondCfg, args),
+        CCU_SUCCESS);
+    CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
+    EXPECT_EQ(observed.calls.registerKernel, 2U);
+    EXPECT_EQ(observed.lastInsHandle, secondCfg.ccu_ins);
+    EXPECT_EQ(observed.lastDieId, 0U);
+
+    asccomm_launch_kernel_cfg thirdCfg = firstCfg;
+    thirdCfg.ccu_schd.phy_die_mask = 0x02U;
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &thirdCfg, args),
+        CCU_SUCCESS);
+    observed = GetCcuLaunchStubObservations();
+    EXPECT_EQ(observed.calls.registerKernel, 3U);
+    EXPECT_EQ(observed.lastInsHandle, thirdCfg.ccu_ins);
+    EXPECT_EQ(observed.lastDieId, 1U);
 }
 
 int main(int argc, char** argv)

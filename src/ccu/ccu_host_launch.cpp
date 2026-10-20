@@ -12,7 +12,10 @@
 
 #include "base/dlog_pub.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 
@@ -106,6 +109,39 @@ CcuResult register_ccu_kernel(
     return CCU_SUCCESS;
 }
 
+struct CcuInstanceCacheIdentity {
+    uint64_t key;
+    std::uintptr_t instance;
+
+    bool operator==(const CcuInstanceCacheIdentity& other) const
+    {
+        return key == other.key && instance == other.instance;
+    }
+};
+
+struct KernelCacheKey {
+    uint64_t binary_cache_tag;
+    CcuInstanceCacheIdentity instance;
+    uint64_t phy_die_mask;
+
+    bool operator==(const KernelCacheKey& other) const
+    {
+        return binary_cache_tag == other.binary_cache_tag && instance == other.instance &&
+               phy_die_mask == other.phy_die_mask;
+    }
+};
+
+struct KernelCacheKeyHash {
+    std::size_t operator()(const KernelCacheKey& key) const
+    {
+        std::size_t hash = std::hash<uint64_t>{}(key.binary_cache_tag);
+        hash ^= std::hash<uint64_t>{}(key.instance.key) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<std::uintptr_t>{}(key.instance.instance) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<uint64_t>{}(key.phy_die_mask) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        return hash;
+    }
+};
+
 class KernelHandleCache {
 public:
     CcuResult match(
@@ -116,9 +152,19 @@ public:
         if (cache_tag == 0U) {
             return register_and_get_task_args_num(kernel_func, kernel_name, cfg, args, kernel_handle, task_args_num);
         }
+        if (cfg->ccu_ins == nullptr) {
+            ASCCOMM_CCU_LOG_ERROR("[%s] ccu_ins is null while binary cache is enabled.", __func__);
+            return CCU_E_PTR;
+        }
+
+        const auto* ccu_instance = static_cast<const HcommCcuInstanceEntity*>(cfg->ccu_ins);
+        const KernelCacheKey cache_key{
+            cache_tag,
+            {ccu_instance->ccuInsKey, reinterpret_cast<std::uintptr_t>(ccu_instance)},
+            cfg->ccu_schd.phy_die_mask};
 
         std::lock_guard<std::mutex> lock(mutex_);
-        auto iter = cache_.find(cache_tag);
+        auto iter = cache_.find(cache_key);
         if (iter != cache_.end()) {
             kernel_handle = iter->second;
             return asccomm_ccu_get_task_args_num(kernel_handle, &task_args_num);
@@ -129,7 +175,7 @@ public:
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        cache_[cache_tag] = kernel_handle;
+        cache_[cache_key] = kernel_handle;
         return CCU_SUCCESS;
     }
 
@@ -153,7 +199,7 @@ private:
     }
 
     std::mutex mutex_;
-    std::unordered_map<uint64_t, ccu_kernel_handle> cache_;
+    std::unordered_map<KernelCacheKey, ccu_kernel_handle, KernelCacheKeyHash> cache_;
 };
 
 KernelHandleCache& get_kernel_handle_cache()
