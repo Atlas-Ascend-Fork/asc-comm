@@ -174,7 +174,6 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::CheckChannelParam(__gm__ C
     if (chnlPtr->protocol != COMM_PROTOCOL_ROCE || sqDepth == 0 || cqDepth == 0 ||
         chnlPtr->sqContextAddr[0].contextInfo.roceSq.sqVa == 0 || wqeSize != HCOMM_ROCE_WQEBB_SIZE || sqDepth <= 1U ||
         sqDepth > ROCE_SQ_INDEX_MASK || (sqDepth & (sqDepth - 1U)) != 0 ||
-        chnlPtr->sqContextAddr[0].contextInfo.roceSq.dbSwVa == 0 ||
         chnlPtr->sqContextAddr[0].contextInfo.roceSq.dbHwVa == 0 ||
         chnlPtr->cqContextAddr[0].contextInfo.roceCq.cqVa == 0 ||
         chnlPtr->cqContextAddr[0].contextInfo.roceCq.dbSwVa == 0 || cqeSize < sizeof(RoceCqeEntry) ||
@@ -223,7 +222,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     }
     uint32_t nextWqebbHead = (wqebbHead + 1U) & ROCE_SQ_INDEX_MASK;
     chnlPtr->sqHead = nextWqebbHead;
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update SQ PI sqHead = 0x%x\n", chnlPtr->sqHead);
+    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update SQ PI sqHead = %u\n", chnlPtr->sqHead);
 
     if constexpr (commit) {
         KnockDoorBell(chnlPtr, nextWqebbHead, cqeUB_);
@@ -288,7 +287,7 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
     dbEntry.dw0.bs.qpn = qpn;
     dbEntry.dw0.bs.subType = 0;
     dbEntry.dw0.bs.resv = 0;
-    dbEntry.dw0.bs.pi = 0;
+    dbEntry.dw0.bs.pi = ((sqHead >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xff);
     dbEntry.dw0.bs.sgidIdx = ROCE_1825_SQ_DB_SGIT_IDX;
     dbEntry.dw0.bs.type = ROCE_1825_SQ_DB_TYPE;
     dbEntry.dw0.bs.mtuShift =
@@ -302,19 +301,12 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(
     __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t>& cqeItem)
 {
-    __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbSwVa);
-    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
-
     uint64_t dbValue = GetDbValue(
         sqHead, chnlPtr->sqContextAddr->contextInfo.roceSq.qpn,
         chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
-    uint64_t dbFinalVal =
-        dbValue | ((((uint64_t)(sqHead) >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xffULL) << ROCE_1825_SQ_DB_PI_FIELD_SHIFT);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: dbValue = %llu, dbFinalVal = %llu\n", dbValue, dbFinalVal);
-    st_dev(HtoNL(sqHead), dbSwAddr, 0);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write sw db ok, swDbVal = %u\n", sqHead);
-    st_dev(dbFinalVal, dbHwAddr, 0);
-    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbFinalVal);
+    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
+    st_dev(dbValue, dbHwAddr + (sqHead & 0xff), 0);
+    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbValue);
 
     uint32_t cqHead = chnlPtr->cqHead;
     uint32_t cqTail = chnlPtr->cqTail;
@@ -390,13 +382,14 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::WaitCqeAndUpdateSqTail(
         return false;
     }
 
-    uint16_t wqebbIndex = static_cast<uint16_t>(cqePtr->opSrWqebb & ROCE_SQ_INDEX_MASK);
-    uint16_t wqebbAdvance = static_cast<uint16_t>(wqebbIndex - wqebbTail);
+    uint16_t completedWqebbIndex = static_cast<uint16_t>(cqePtr->opSrWqebb & ROCE_SQ_INDEX_MASK);
+    uint16_t nextWqebbTail = static_cast<uint16_t>(completedWqebbIndex + 1U);
+    uint16_t wqebbAdvance = static_cast<uint16_t>(nextWqebbTail - wqebbTail);
     uint16_t wqebbOutstanding = static_cast<uint16_t>(wqebbHead - wqebbTail);
     HCOMM_DEBUG_TRAP_IF(
         wqebbAdvance == 0U || wqebbAdvance > wqebbOutstanding,
-        "Hcomm PollCq: invalid SQ completion, wqebbIndex = %u.\n", wqebbIndex);
-    wqebbTail = wqebbIndex;
+        "Hcomm PollCq: invalid SQ completion, wqebbIndex = %u.\n", completedWqebbIndex);
+    wqebbTail = nextWqebbTail;
     return true;
 }
 

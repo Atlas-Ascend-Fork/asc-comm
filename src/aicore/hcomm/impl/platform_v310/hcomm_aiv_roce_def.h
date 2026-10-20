@@ -66,6 +66,7 @@ constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1U;
 constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_COS_SHIFT = 24U;
 constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_MTUSHIFT_SHIFT = 50U;
 constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_FIELD_MASK = 0x7;
+constexpr uint32_t ROCE_1825_SQ_DB_ADDR_SHIFT = 3U;
 
 constexpr uint32_t ROCE_1825_CQE_OPCODE_SHIFT = 27U;
 constexpr uint32_t ROCE_1825_CQE_OPCODE_MASK = 0x1f;
