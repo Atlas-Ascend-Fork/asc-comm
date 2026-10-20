@@ -867,15 +867,18 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
         auto* cqeWords = reinterpret_cast<__gm__ uint32_t*>(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1U)));
         uint32_t validOwner = (curTail / cqDepth) & 1U;
         uint32_t times = 0U;
-        // Read DW0 bypassing DataCache on every retry; owner is bit 2.
-        uint32_t cqeHead = ld_dev(cqeWords, 0);
+        // Read DW0 and DW1 in one bypassing 64-bit load: every ld_dev is a full-latency GM round trip,
+        // so pairing the two adjacent words halves the round trips per CQE. Owner is DW0 bit 2.
+        uint64_t cqePair = ld_dev(reinterpret_cast<__gm__ uint64_t*>(cqeWords), 0);
+        uint32_t cqeHead = static_cast<uint32_t>(cqePair);
         while (((cqeHead >> 2U) & 1U) == validOwner && times < HCOMM_URMA_MAX_RETRY_TIMES) {
             if (times != 0U && times % HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0U) {
                 HCOMM_KERNEL_LOG(
                     KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u curTail=%u expectIdx=%u \n", times, curTail,
                     expectIdx);
             }
-            cqeHead = ld_dev(cqeWords, 0);
+            cqePair = ld_dev(reinterpret_cast<__gm__ uint64_t*>(cqeWords), 0);
+            cqeHead = static_cast<uint32_t>(cqePair);
             times++;
         }
         if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
@@ -893,8 +896,8 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
             ret = (status << 8U) | subStatus;
             break;
         }
-        // Read DW1 only after owner is valid; entryIdx identifies the last completed WQEBB.
-        uint32_t entryIdx = ld_dev(cqeWords + 1, 0) & 0xFFFFU;
+        // entryIdx lives in the upper half of the paired load; it identifies the last completed WQEBB.
+        uint32_t entryIdx = static_cast<uint32_t>(cqePair >> 32U) & 0xFFFFU;
         sqTail += ((entryIdx - sqTail) & sqMask) + 1U;
         curTail++;
     }
