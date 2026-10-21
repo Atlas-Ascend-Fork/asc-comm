@@ -67,7 +67,7 @@ CCU编程对象与硬件资源的对应关系如[表2](#tab-ccu-programming-reso
 - 单个资源创建：默认构造函数直接创建。
 - 批量连续资源创建：使用`ccu::array`创建。
 
-```c++
+```cpp
 // 单个资源创建
 ccu::variable var;
 ccu::ccu_buffer buf;
@@ -91,7 +91,7 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
 
 - 立即数赋值
 
-    ```c++
+    ```cpp
     // 通用寄存器
     ccu::variable x; x = 5;
 
@@ -103,7 +103,7 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
 
 - variable赋值
 
-    ```c++
+    ```cpp
     ccu::variable x, y;
     ccu::variable v;
     // 通用寄存器
@@ -116,7 +116,7 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
 
 - 加法
 
-    ```c++
+    ```cpp
     // 通用寄存器
     ccu::variable x, y, z;
     x = 5;
@@ -133,7 +133,7 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
 
     仅通用寄存器支持，左移和右移的移位数需用`variable`给出，不支持立即数。
 
-    ```c++
+    ```cpp
     ccu::variable x, y, z;
     x = 256;
     y = 4;
@@ -181,7 +181,7 @@ CCU的同步资源由同步寄存器在硬件侧实现，基于其事件位提�
 | event | 单个Device的本地操作。 |
 | notify | 不同Device之间的通信操作。 |
 
-本节的event和notify是CCU基于同步寄存器提供的机制；通信场景中通用的完成队列轮询、点对点同步和屏障同步参见[执行模型](./execution_model.md)的“同步机制”。
+本节的event和notify是CCU基于同步寄存器提供的机制；通信场景中通用的完成队列轮询、点对点同步和屏障同步参见[《执行模型》](./execution_model.md)的“同步机制”。
 
 #### event
 
@@ -190,7 +190,7 @@ event用于本地同步，编程对象为`ccu::event`，持有本端同步寄存
 - `event_record`：置位本端同步寄存器中对应的事件位，表示当前操作或阶段已完成。
 - `event_wait`：等待本端同步寄存器中对应事件位被置位，即等待异步操作完成或其他任务发出的完成信号。
 
-```c++
+```cpp
 ccu::event evt;
 
 ccu::event_record(evt, 0x01);
@@ -205,7 +205,7 @@ notify用于不同Device之间的通信操作，不引入新的编程对象：�
 - `notify_record`：向对端发送通知，置位对端同步寄存器中对应的事件位。
 - `notify_wait`：等待来自对端的通知，即等待本端同步寄存器中对应事件位被对端置位。
 
-```c++
+```cpp
 ChannelHandle channel_handle;
 
 // 发送通知到远端
@@ -236,7 +236,7 @@ ccu::notify_wait(channel_handle, 0, 0x12);
 
 - 条件分支
 
-  ```c++
+  ```cpp
   ccu::variable counter;
   counter = 0;
 
@@ -250,7 +250,7 @@ ccu::notify_wait(channel_handle, 0, 0x12);
 
 - 循环
 
-  ```c++
+  ```cpp
   ccu::variable counter, accumulator, step, one;
   counter = 0;
   accumulator = 0;
@@ -265,7 +265,7 @@ ccu::notify_wait(channel_handle, 0, 0x12);
 
 - 函数块
 
-  ```c++
+  ```cpp
   // 定义函数块
   static ccu::func my_func([](ccu::variable x, ccu::variable y){
      ...
@@ -311,10 +311,11 @@ LoopGroup复制Loop的关系如[图6](#fig-ccu-loopgroup)所示。左侧实线�
 
 **使用示例**
 
-```c++
+```cpp
 ChannelHandle chann;     // 建链后由kernel参数传入
 ccu::remote_addr remote_mem;  // 远端地址，建链时获取
-// ccu_buffer和event需按LoopGroup的偏移递推预留足够数量
+// ccu_buffer和event需按LoopGroup的偏移递推预留足够数量：
+// 共5个克隆实例，实例间ccu_buffer/event偏移均为10，最大用到第40片/槽，因此预留41
 ccu::array<ccu::ccu_buffer> local_ccu_buf(41);
 ccu::array<ccu::event> evts(41);
 ccu::variable len;
@@ -326,6 +327,7 @@ ccu::func func([&]() {
 ccu::loop loop({4096, 10}, func);
 
 // 对LoopGroup中的Loop，从第0个Loop开始到最后一个，都复制5次
+// 配置字段依次为：复制份数5、克隆起始Loop偏移0、实例间address偏移4096*10B、实例间ccu_buffer偏移10片、实例间event偏移10个
 ccu::loop_group group({5, 0, 4096*10, 10, 10}, 1, {loop});
 ```
 

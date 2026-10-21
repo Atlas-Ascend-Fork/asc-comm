@@ -211,7 +211,7 @@ Kernel入口函数如下，team与对称window句柄以指针形式传入，后�
   AscendC::Ain ain(0);
   AscendC::AinBarrierSession ainBarrier(&ain, team, 0);
   // 读取同步信号signal初始值
-  uint64_t signalVal = ain.ReadSignal(team, signalWin, 0, 32);
+  uint64_t signalVal = ain.ReadSignal(team, signalWin, 0);
   ```
 
 ### 前同步
@@ -245,7 +245,7 @@ AllGather：向其他rank提交`Put`通信任务，并向对端发送`Signal`同
   // 本端同步：等待Put通信任务完成
   ain.Flush(team);
   // 远端点对点同步：阻塞直至收到其他所有rank发来的数据
-  ain.WaitSignal(team, signalWin, 0, signalVal + rankNum - 1, 32);
+  ain.WaitSignal(team, signalWin, 0, signalVal + rankNum - 1);
   // 屏障同步：阻塞直至所有rank都接收到来自其他rank的数据
   ainBarrier.Sync(AscendC::AinMemoryOrder::AIN_MEMORY_ORDER_RELAX, hcommUbuf);
   ```
@@ -257,18 +257,18 @@ AllGather：向其他rank提交`Put`通信任务，并向对端发送`Signal`同
   ```cpp
   // 延迟提交Config
   static constexpr struct AscendC::UrmaWqeEntry COMMIT_DELAYED_CONFIG = {
-    .odr = 5,
-    .fence = 1,
-    .se = 0,
-    .cqe = 0, // 延迟提交场景不产生cqe
+    .odr = 5,   // 弱序（Relax Order）
+    .fence = 1, // 启用fence，等待前面的读操作或原子操作完成后才能执行
+    .se = 0,    // 不产生请求事件
+    .cqe = 0,   // 延迟提交场景不产生cqe
     .inlineEn = 0,
   };
   // 最后一次提交Config
   static constexpr struct AscendC::UrmaWqeEntry COMMIT_IMMED_CONFIG = {
-    .odr = 5,
-    .fence = 1,
-    .se = 0,
-    .cqe = 1, // 最后一次提交产生cqe
+    .odr = 6,   // 强序（Strong Order）
+    .fence = 1, // 启用fence，等待前面的读操作或原子操作完成后才能执行
+    .se = 0,    // 不产生请求事件
+    .cqe = 1,   // 最后一次提交产生cqe
     .inlineEn = 0,
   };
   // 延迟提交：只组装WQE，不提交

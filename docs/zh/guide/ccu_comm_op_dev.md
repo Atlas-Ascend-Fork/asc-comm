@@ -123,7 +123,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 - 为每个对端rank申请Channel
 
-    `kernelChannels`为保存Channel句柄的容器，对本通信域内除本rank外的每一个对端rank，查询链路信息、选取UBC_CTP协议链路填充Channel描述符并申请Channel。
+    `kernelChannels`为保存Channel句柄的容器，对本通信域内除本rank外的每一个对端rank，查询链路信息、选取UB_CTP协议链路填充Channel描述符并申请Channel。
 
     ```cpp
     kernelChannels.resize(rankSize - 1);
@@ -335,7 +335,7 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
     ```
 
     > [!CAUTION]注意
-    > 不可将"写Variable"与"notify_record"拆分为两步调用。硬件不保证两条独立操作的到达顺序，对端收到Notify后读取Variable时存在读到旧值的风险，仅`write_variable_with_notify`能从硬件层保证"先写值后发Notify"的顺序。
+    > 不可将“写Variable”与“notify_record”拆分为两步调用。硬件不保证两条独立操作的到达顺序，对端收到Notify后读取Variable时存在读到旧值的风险，仅`write_variable_with_notify`能从硬件层保证“先写值后发Notify”的顺序。
 
     前同步完成后，所有rank都持有了对端output地址和token，可以组装远端地址发起搬运。
 
@@ -385,7 +385,7 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
 - 本地拷贝
 
-    本rank数据通过`ccu::local_copy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[CCU编程](../programming_model/ccu_programming.md)的"并发执行"一节，样例中封装为`GroupCopy`）：
+    本rank数据通过`ccu::local_copy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[《CCU编程》](../programming_model/ccu_programming.md)的“并发执行”一节，样例中封装为`GroupCopy`）：
 
     ```cpp
     // Loop执行体：片上内存 -> CcuBuffer -> 片上内存，两段搬运间用event_wait确认完成

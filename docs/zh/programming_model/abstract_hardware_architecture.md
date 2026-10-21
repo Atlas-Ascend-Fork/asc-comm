@@ -28,7 +28,7 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 | --- | --- | --- |
 | AIV | Vector Core | 执行通信Kernel中的算法逻辑，以及数据处理、搬运和归约等操作。 |
 | AI CPU+TS | AI CPU+TS | 采用[AI CPU+TS执行模式](./execution_model.md#aicpu_ts直驱执行机制)。STARS是Device侧的任务调度器，负责调度AI CPU Kernel以及提交到任务队列中的通信任务。AI CPU Kernel由STARS调度执行后，向任务队列提交数据搬运等通信任务，再由STARS调度到相应的执行器。 |
-| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部CCU Buffer完成数据暂存、搬运、同步和片上归约等操作。CCU的架构及内部组件可参考[CCU编程](./ccu_programming.md#基础概念)。 |
+| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部CCU Buffer完成数据暂存、搬运、同步和片上归约等操作。CCU的架构及内部组件可参考[《CCU编程》](./ccu_programming.md#基础概念)。 |
 
 ### 存储单元
 
@@ -67,7 +67,7 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 - **超节点内连接**：各AI机柜通过上联链路接入L2灵衢交换机或以太网交换机。上层交换网络汇聚多个AI机柜，跨机柜数据经过接入层和汇聚层到达目标NPU，不要求所有NPU之间建立物理直连。
 - **超节点间连接**：UBoE（UB over Ethernet）通过以太网交换网络延伸UB通信，外置DPU提供的RoCE通路也可以连接不同超节点。两种通路对应不同的端口和协议栈，实际使用哪一种取决于部署的端口、交换网络和可达链路。
 
-上述通信连接共同建立本端到对端的硬件可达路径。可用协议由端口类型和实际链路确定，不能脱离组网任意选择；协议能力及对应编程枚举请参见[通信方式分类及选择](./communication_pattern_selection.md#通信协议分类与选择)。
+上述通信连接共同建立本端到对端的硬件可达路径。可用协议由端口类型和实际链路确定，不能脱离组网任意选择；协议能力及对应编程枚举请参见[《通信方式分类及选择》](./communication_pattern_selection.md#通信协议分类与选择)。
 
 ### 组网拓扑
 

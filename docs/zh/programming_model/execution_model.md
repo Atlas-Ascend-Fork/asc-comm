@@ -13,7 +13,7 @@
 | 直驱模式 | 通信引擎 | 通信引擎 | 通信引擎直接下发并执行通信任务，用户通过数据面接口控制任务提交、保序与同步。 | 对通信时序和资源占用有精细控制需求的场景 |
 | 代理模式 | AI Core客户端 | AICPU_TS或CCU服务端 | 发起方与执行方分离，客户端描述任务并发布执行条件，服务端解析任务、展开通信算法并通过Channel执行。 | AI Core Kernel内融合计算与通信的场景 |
 
-两种模式均建立在[通信模型](./communication_model.md)定义的通信设备（Endpoint）、通信通道（Channel）、通信内存（CommMem）等概念之上，跨Rank数据搬运均通过Channel完成。直驱模式下通信引擎直接操作Channel；代理模式下由服务端操作Channel，客户端通过代理介质（消息区或CCU寄存器）与服务端交互。
+两种模式均建立在[《通信模型》](./communication_model.md)定义的通信设备（Endpoint）、通信通道（Channel）、通信内存（CommMem）等概念之上，跨Rank数据搬运均通过Channel完成。直驱模式下通信引擎直接操作Channel；代理模式下由服务端操作Channel，客户端通过代理介质（消息区或CCU寄存器）与服务端交互。
 
 本文首先介绍直驱模式下AICPU_TS、CCU、AIV三类通信引擎的执行机制；随后介绍代理模式的执行机制，以及代理模式下通信与计算的通算融合编排方式；最后介绍约束事务执行与完成顺序的事务序，以及控制多个执行实体执行时序的本端同步与远端同步机制。
 
@@ -93,7 +93,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 2. **任务提交**：客户端描述通信操作、数据位置和数据量，在源数据就绪后，通过代理介质向服务端传递任务参数和执行条件。
 3. **数据传输与完成**：服务端取得任务参数，展开通信算法，并通过Channel完成本端与对端之间的数据传输。通信完成后，服务端将完成状态反馈给客户端。任务提交后，客户端可以继续执行与本轮通信没有数据依赖的计算，并在需要使用通信结果时等待任务完成。
 
-服务端类型以及通信请求的传递方式参见[通信模型](./communication_model.md)。
+服务端类型以及通信请求的传递方式参见[《通信模型》](./communication_model.md)。
 
 代理模式的执行机制如[图4](#fig-proxy-execution-model)所示。
 
@@ -210,7 +210,7 @@ extern "C" __global__ __aicore__ void local_sync_kernel(
     __gm__ void* team,
     __gm__ void* dstWin, // 目的对称window
     __gm__ void* srcWin, // 源对称window
-    uint32_t peer)       // 对端rank ID
+    uint32_t peer)       // 对端Rank ID
 {
     __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
     AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
@@ -245,7 +245,7 @@ extern "C" __global__ __aicore__ void p2p_sync_kernel(
     __gm__ void* sendWin,   // 发送数据所在对称window
     __gm__ void* recvWin,   // 接收数据所在对称window
     __gm__ void* signalWin, // 同步signal所在对称window
-    uint32_t rankId,        // 本端rank ID
+    uint32_t rankId,        // 本端Rank ID
     uint64_t signalVal)     // 同步signal初始值
 {
     __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
@@ -259,7 +259,7 @@ extern "C" __global__ __aicore__ void p2p_sync_kernel(
         ain.Flush(team);
     } else if (rankId == 1) {
         // 点对点同步：Rank 1阻塞等待signal计数值加1，确保Rank 0的数据已完整写入。
-        ain.WaitSignal(team, signalWin, 0, signalVal + 1, 32);
+        ain.WaitSignal(team, signalWin, 0, signalVal + 1);
         // 点对点同步完成，后续Process可安全访问。
         Process(recvWin);
     }
@@ -285,7 +285,7 @@ extern "C" __global__ __aicore__ void barrier_sync_kernel(
     __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
     AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
     AscendC::Ain ain(0);
-    // 创建屏障会话
+    // 创建屏障会话：第3个参数为barrier资源索引，需与Ain构造时的contextIndex（0）保持一致
     AscendC::AinBarrierSession ainBarrier(&ain, team, 0);
     // 预处理发送数据
     PreProcess(sendWin);
