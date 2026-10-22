@@ -16,20 +16,6 @@
 // original definitions from the CANN package and append the missing UT-only types.
 #include_next "stub_def.h"
 
-namespace float8_e6m2 {
-struct Fp8e6m2T {
-    uint8_t val;
-};
-} // namespace float8_e6m2
-using fp8_e6m2_t = float8_e6m2::Fp8e6m2T;
-using vector_f8e6m2 = std::array<fp8_e6m2_t, ConstantsInternal::b8EleSize>;
-using vector_fp8_e6m2_t = vector_f8e6m2;
-
-struct hifloat4x2_t {
-    uint8_t val = 0;
-};
 using hif4x2_t = hifloat4x2_t;
-
-using vector_hif4x2 = std::array<hifloat4x2_t, ConstantsInternal::b8EleSize>;
 
 #endif // ASCCOMM_UT_STUB_DEF_H
