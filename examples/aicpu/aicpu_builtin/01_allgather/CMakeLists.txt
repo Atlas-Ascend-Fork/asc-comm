@@ -69,4 +69,5 @@ target_link_libraries(demo PRIVATE
     ascendcl
     acl_rt
     ascendc_runtime
+    pthread
 )
