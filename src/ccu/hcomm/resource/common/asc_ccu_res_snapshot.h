@@ -25,10 +25,9 @@ namespace asc {
  * @note HcommCcuInstanceEntity.ascCustom 数组中函数槽位的固定含义，仅 hcomm 与 asc-comm 内部约定。
  */
 enum HcommCcuControlSlot {
-    HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY = 0,     /**< 槽 0：获取 ChannelEntity 接口 */
-    HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE = 1,   /**< 槽 1：按设备和 die 申请 CCU 指令空间 */
-    HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS = 2,       /**< 槽 2：下发 CCU 指令接口 */
-    HCOMM_CCU_CONTROL_SLOT_RELEASE_INST_SPACE = 3, /**< 槽 3：归还 CCU 指令空间 */
+    HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY = 0,   /**< 槽 0：获取 ChannelEntity 接口 */
+    HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE = 1, /**< 槽 1：按设备和 die 申请 CCU 指令空间 */
+    HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS = 2,     /**< 槽 2：下发 CCU 指令接口 */
 };
 
 /**

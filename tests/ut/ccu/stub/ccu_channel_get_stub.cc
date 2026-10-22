@@ -14,7 +14,7 @@
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 // 本文件底部提供的 stub 入口（控制操作槽 0：填充实体快照）
-extern "C" int32_t HcommCcuGetChannelEntity(ChannelHandle channel, HcommCcuChannelEntity* channelEntity);
+extern "C" int32_t HcommCcuChannelGetEntity(ChannelHandle channel, HcommCcuChannelEntity* channelEntity);
 
 namespace asc {
 namespace {
@@ -33,7 +33,7 @@ void SetHcommCcuChannelGetEntityStub(const HcommCcuChannelEntity& channelEntity)
 
     // 仅注入本 stub 关心的槽 0（getChannelEntity）
     uint64_t ops[8]{};
-    ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuGetChannelEntity);
+    ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuChannelGetEntity);
     asc::set_current_ccu_control_ops(ops);
 }
 
@@ -50,7 +50,7 @@ void ResetHcommCcuChannelGetEntityStub()
 } // namespace asc
 
 // 填充预置快照
-int32_t HcommCcuGetChannelEntity(ChannelHandle, HcommCcuChannelEntity* channelEntity)
+int32_t HcommCcuChannelGetEntity(ChannelHandle, HcommCcuChannelEntity* channelEntity)
 {
     if (channelEntity == nullptr || !asc::channelEntityStubConfigured) {
         return static_cast<int32_t>(HCCL_E_PTR);

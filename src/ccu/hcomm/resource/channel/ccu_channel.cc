@@ -26,7 +26,7 @@ const ccu_channel* ccu_channel::operator->() const { return this; }
 HcclResult ccu_channel::init(ChannelHandle channel)
 {
     HcommCcuChannelEntity entity{};
-    const auto channel_query = reinterpret_cast<HcommCcuGetChannelEntityCallBack>(
+    const auto channel_query = reinterpret_cast<HcommCcuChannelGetEntityCallBack>(
         get_current_ccu_control_ops()[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY]);
     if (channel_query == nullptr) {
         return HCCL_E_INTERNAL;
