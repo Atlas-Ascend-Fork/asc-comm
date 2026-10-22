@@ -10,7 +10,7 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
-project(hccl_examples_custom_ops_allgather_ccu_direct LANGUAGES CXX ASC)
+project(asccomm_examples_ccu_allgather LANGUAGES CXX ASC)
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
@@ -22,47 +22,46 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
-add_executable(demo
+add_executable(ccu_allgather
     main.asc
 )
 
-target_include_directories(demo PRIVATE
+target_include_directories(ccu_allgather PRIVATE
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     # 样例公共辅助头（ccu_instance.h）
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../common
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
 )
 
-target_compile_features(demo PRIVATE cxx_std_14)
-target_compile_options(demo PRIVATE
+target_compile_features(ccu_allgather PRIVATE cxx_std_14)
+target_compile_options(ccu_allgather PRIVATE
     -Werror
     -fstack-protector-strong
     -fPIE
     -O2
-    # -s
 )
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "CMAKE_ASC_ARCHITECTURES, e.g. dav-3510")
-target_compile_options(demo PRIVATE
+target_compile_options(ccu_allgather PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
 )
 
-target_compile_definitions(demo PRIVATE
+target_compile_definitions(ccu_allgather PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
 )
-target_link_options(demo PRIVATE
+target_link_options(ccu_allgather PRIVATE
     -pie
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
     -Wl,-rpath,${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
-target_link_directories(demo PRIVATE
+target_link_directories(ccu_allgather PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
-target_link_libraries(demo PRIVATE
+target_link_libraries(ccu_allgather PRIVATE
     hcomm
     asccomm_ccu
     c_sec

@@ -1,0 +1,80 @@
+# CCU AllToAll Direct Run Sample
+
+## Overview
+
+This sample shows how to implement equal-length AllToAll with HCCL communication-domain APIs and CCU dataplane APIs.
+The kernel is launched with the `<<<>>>` direct-launch syntax instead of kernel registration and `asccomm_ccu_kernel_launch`.
+
+The input of each rank is split into `rankSize` segments by destination rank, and `perCount` elements are sent to each destination rank. The output of a destination rank stores segments in source-rank order:
+
+```text
+rank r sendBuf = [to_rank_0 | to_rank_1 | ... | to_rank_N-1]
+rank p recvBuf = [from_rank_0 | from_rank_1 | ... | from_rank_N-1]
+```
+
+The CCU kernel uses `GroupCopy` for the local segment copy and `ccu::write` to write the other input segments to remote outputs. AllToAll performs no reduction.
+
+Sample constraints:
+
+- `HCCL_DATA_TYPE_FP32` only
+- The element count from each source to each destination is specified by `perCount`
+- Input and output use separate device buffers; in-place operation is not supported
+- Single-host 1D full mesh with at most 16 ranks
+- Run with `HCCL_OP_EXPANSION_MODE=CCU_SCHED`
+
+## Supported Products and CANN Versions
+
+| Product | CANN Version |
+| --- | --- |
+| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+
+## Directory Structure
+
+```text
+05_all_to_all/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+└── main.asc
+```
+
+## Sample Description
+
+The sample acquires CCU resources from an HCCL communication domain and completes communication or data movement by directly launching a CCU kernel with ASC `<<<>>>`.
+
+## Build and Run
+
+Set the CANN runtime environment and CCU scheduling mode before running:
+
+```bash
+source ${ASCEND_HOME_PATH}/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+```
+
+Then run the sample from the sample directory:
+
+```bash
+bash run.sh
+```
+
+`run.sh` configures CMake, builds, and runs the sample.
+
+## Expected Result
+
+The test uses `perCount = rankSize`, and input element `i` of rank `d` is initialized to `d * 100 + i`. In a two-card run:
+
+```text
+rankId: 0, input: [ 0 1 2 3 ]
+rankId: 1, input: [ 100 101 102 103 ]
+rankId: 0, output: [ 0 1 100 101 ]
+rankId: 0 PASS
+rankId: 1, output: [ 2 3 102 103 ]
+rankId: 1 PASS
+```
+
+## Notes
+
+- At least two NPU devices are required to run the sample. Single-device environments support compilation only.
+- Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
+- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.

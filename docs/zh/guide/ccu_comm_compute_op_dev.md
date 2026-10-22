@@ -2,7 +2,7 @@
 
 ## 概述
 
-通算融合算子将AI Core上的计算与CCU上的集合通信融合到同一个算子内，本指南基于[add_allgather](../../../examples/ccu/ccu_direct/03_add_allgather/README.md)样例，以Add + AllGather为例，介绍如何以`<<<>>>`直调方式开发通算融合算子。
+通算融合算子将AI Core上的计算与CCU上的集合通信融合到同一个算子内，本指南基于[add_allgather](../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，以Add + AllGather为例，介绍如何以`<<<>>>`直调方式开发通算融合算子。
 
 ## 支持范围
 
@@ -18,7 +18,7 @@
 
 ## 总体流程
 
-以[add_allgather](../../../examples/ccu/ccu_direct/03_add_allgather/README.md)样例为例，通算融合算子的完整实现流程分为Host侧资源准备与Kernel侧通信执行两个阶段，通信完成后销毁资源。
+以[add_allgather](../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例为例，通算融合算子的完整实现流程分为Host侧资源准备与Kernel侧通信执行两个阶段，通信完成后销毁资源。
 
 **Host侧资源准备**（控制面）：在Host侧完成通算融合任务执行所需的资源准备、任务下发与资源回收。
 
@@ -41,7 +41,7 @@
 
 Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第4、6步分别将AI Core与CCU Kernel直调下发到计算与通信两条Stream，并将Channel句柄、共享变量与事件句柄、任务参数（taskArgs、kernelArg）随任务下发；Kernel侧AI Core完成计算后将通信地址写入共享变量并置事件，CCU侧通过`ccu::load_arg`加载任务参数、`ccu::get_res_by_channel`绑定Variable，再依次执行前同步、算子执行、后同步，完成后置事件通知AI Core退出轮询。其中第3步申请的共享变量与事件，以及第4、6步将计算与通信Kernel分别下发到两条Stream，是通算融合区别于纯通信算子的关键：AI Core计算与CCU通信由两条Stream承载，通过共享变量传递通信地址、通过事件完成双向同步。
 
-本章后续内容按此流程展开，代码关键片段均取自[add_allgather](../../../examples/ccu/ccu_direct/03_add_allgather/README.md)样例。
+本章后续内容按此流程展开，代码关键片段均取自[add_allgather](../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例。
 
 ## Host侧资源准备
 

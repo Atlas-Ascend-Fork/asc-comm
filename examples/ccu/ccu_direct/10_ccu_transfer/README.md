@@ -1,0 +1,61 @@
+# CCU数据搬运样例
+
+## 概述
+
+本样例演示A5/V1 CCU数据面三类基础搬运接口：本地拷贝、远端写和远端归约写。样例固定使用2个rank，每个rank输入4个FP32元素，通过编译参数选择教学场景。
+Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
+
+- 场景1调用`ccu::local_copy`的三个重载：`local_addr`到`local_addr`、`local_addr`到`ccu_buffer`、`ccu_buffer`到`local_addr`。直接拷贝用于本rank内存搬运；`ccu_buffer`可作为暂存资源，适合先把数据写入CCU缓冲，再从缓冲写出。
+- 场景2调用`ccu::write`的两个重载：`local_addr`到远端`remote_addr`、`ccu_buffer`到远端`remote_addr`。远端写由本rank发起，直接写入对端内存。
+- 场景3调用`ccu::write_reduce`，远端写入时按元素执行SUM归约。该接口与`ccu::write`的区别是：目标数据不是被覆盖，而是与源数据逐元素累加。
+
+所有场景都使用event跟踪搬运完成状态，rank之间通过channel交换输出地址和token，并在kernel结束前同步远端写入完成。
+
+## 本样例支持的产品及CANN软件版本
+
+| 产品 | CANN软件版本 |
+| --- | --- |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+
+## 目录结构介绍
+
+```text
+10_ccu_transfer/
+├── CMakeLists.txt
+├── README.md
+├── README_en.md
+├── run.sh
+└── main.asc
+```
+
+## 样例描述
+
+本样例基于HCCL通信域申请CCU资源，并通过ASC `<<<>>>` 直调CCU Kernel完成数据通信或搬运。
+
+## 编译运行
+
+```bash
+source ${ASCEND_HOME_PATH}/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+SCENARIO_NUM=1 bash run.sh
+```
+
+将`SCENARIO_NUM`分别设置为`1`、`2`、`3`可以编译并运行三个教学场景。样例要求当前环境至少可见2个NPU。
+
+## 执行结果
+
+rank0输入为`[1, 2, 3, 4]`，rank1输入为`[5, 6, 7, 8]`。
+
+| 场景 | 接口 | rank0输出 | rank1输出 |
+| --- | --- | --- | --- |
+| 1 | `local_copy`三个重载 | `[1, 2, 3, 4]` | `[5, 6, 7, 8]` |
+| 2 | `write`两个重载 | `[5, 6, 7, 8]` | `[1, 2, 3, 4]` |
+| 3 | `write_reduce` | `[6, 8, 10, 12]` | `[6, 8, 10, 12]` |
+
+每个rank都会输出`PASS`。若任意rank输出`FAIL`，说明搬运结果与预期不一致。
+
+## 注意事项
+
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
+- 当前样例默认使用`dav-3510`架构，仅适用于Ascend 950PR&950DT系列产品。

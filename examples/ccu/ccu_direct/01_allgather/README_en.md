@@ -2,24 +2,29 @@
 
 ## Overview
 
-This sample demonstrates how to implement AllGather collective communication over an HCCL communication domain and CCU data-plane APIs by directly launching the CCU kernel with `<<<>>>`.
+This sample shows how to implement AllGather with HCCL communication-domain resources and CCU dataplane APIs through the direct-launch syntax `<<<>>>`.
 
-The sample creates one rank for each available NPU device. Each rank provides one FP32 input segment. After the
-CCU kernel completes AllGather, the output buffer on every rank contains all rank input segments in rank order.
+The sample creates one communication-domain rank for each visible NPU. Each rank inputs `rankSize` FP32 elements initialized to its rank ID. After AllGather, each rank output buffer contains all rank inputs in rank order.
 
-## Supported Products and CANN Software Versions
+Runtime dependencies:
 
-| Product | CANN Software Version |
+- `libhcomm.so`: provides HCCL communication-domain, channel, and CCU instance query APIs.
+- `libasccomm_ccu.so`: provides CCU direct-launch, memory-token, and CCU dataplane APIs.
+
+## Supported Products and CANN Versions
+
+| Product | CANN Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
 
 ## Directory Structure
 
 ```text
-01_allgather
-├── CMakeLists.txt    // Build configuration file
-├── README.md         // Chinese documentation
-├── README_en.md      // English documentation
+01_allgather/
+├── CMakeLists.txt    // CMake build file
+├── README.md         // Chinese sample description
+├── README_en.md      // English sample description
+├── run.sh            // Build-and-run script
 └── main.asc          // Host flow and CCU AllGather kernel implementation
 ```
 
@@ -27,82 +32,73 @@ CCU kernel completes AllGather, the output buffer on every rank contains all ran
 
 ### Functionality
 
-Each rank input contains `sendCount` FP32 elements. After AllGather, `recvBuf` on every rank stores all rank input
-segments in rank order:
+Each rank inputs `rankSize` FP32 elements:
 
 ```text
-rank r sendBuf = segment_r
+rank r sendBuf = [r, r, ..., r]
 rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 ```
 
-### Specifications
+### Sample Specification
 
 | Item | Description |
 | --- | --- |
 | Communication mode | CCU AllGather in an HCCL communication domain |
-| Launch mode | Direct CCU kernel launch with `<<<>>>` |
+| Invocation | Direct CCU kernel launch with `<<<>>>` |
 | Data type | FP32 |
-| Input size per rank | 256 FP32 elements |
-| Output size | `rankSize * 256` FP32 elements |
+| Per-rank input size | `rankSize` FP32 elements |
+| Output size | `rankSize * rankSize` FP32 elements |
 | Supported ranks | No more than `CCU_MAX_RANK_SIZE`, which is 16 in this sample |
 
 ### Implementation Flow
 
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device and initialize the input buffer.
-3. Acquire CCU channels and CCU instance resources from the HCCL communication domain.
+3. Acquire CCU channels and a CCU instance from the HCCL communication domain.
 4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Synchronize the stream, copy the result back to the host, and print it.
-7. Destroy the HCCL communication domain, streams, and device memory.
+7. Destroy the HCCL communication domain, stream, and device memory.
 
 ## Build and Run
 
-Perform the following steps in the sample root directory. This sample supports NPU run mode only.
+Set the CANN runtime environment and CCU scheduling mode before running:
 
-- Set Environment Variables
+```bash
+source ${install_path}/cann/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+```
 
-  Configure CANN environment variables according to your installation and enable CCU scheduling mode.
+Run from this sample directory:
 
-  ```bash
-  source ${install_path}/cann/set_env.sh
-  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
-  ```
+```bash
+bash run.sh
+```
 
-  > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
+Equivalent manual commands are:
 
-- Run the Sample
+```bash
+mkdir -p build
+cd build
+cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+cmake --build . -j$(nproc)
+cd ..
+exec build/ccu_allgather
+```
 
-  Run the following commands in the sample directory.
+## Expected Result
 
-  ```bash
-  mkdir -p build
-  cd build
-  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-  make -j
-  ./demo
-  ```
+In a two-NPU run, successful execution prints information similar to:
 
-- Build Options
+```text
+Found 2 NPU device(s) available
+rankId: 0, input: [ 0 0 ]
+rankId: 1, input: [ 1 1 ]
+rankId: 0, recvBuf: [ 0 0 1 1 ]
+rankId: 1, recvBuf: [ 0 0 1 1 ]
+```
 
-  | Option | Values | Description |
-  | --- | --- | --- |
-  | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode. This sample supports NPU execution only |
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR&950DT products |
-
-- Expected Output
-
-  In a two-device run, the input elements of rank `d` are initialized to `d + 1`. The output is similar to:
-
-  ```text
-  Found 2 NPU device(s) available
-  rankId: 0, input: [ 1 1 1 ... ]
-  rankId: 1, input: [ 2 2 2 ... ]
-  rankId: 0, recvBuf: [ 1 1 1 ... 2 2 2 ... ]
-  rankId: 1, recvBuf: [ 1 1 1 ... 2 2 2 ... ]
-  ```
-
-  The sample succeeds when `recvBuf` on every rank contains all rank input segments.
+Each rank's `recvBuf` contains inputs from all ranks, indicating that the sample succeeded.
 
 ## Notes
 
