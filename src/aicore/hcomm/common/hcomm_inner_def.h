@@ -309,6 +309,7 @@ static_assert(sizeof(RoceMrKey) <= sizeof(BatchRemoteInfo), "RoCE MR key cache m
 
 typedef struct {
     LocalTensor<uint32_t> buffer;
+    __ubuf__ uint32_t* rawBuffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
 

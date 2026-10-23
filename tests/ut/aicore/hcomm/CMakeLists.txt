@@ -36,6 +36,14 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             ${ASCCOMM_UT_ROOT}/aicore/jetty
         )
     endif()
+    if(target_name MATCHES "_urma")
+        # Same CANN 9.2.0 CPU-debug limitation as Jetty: the URMA implementation
+        # uses raw-address c_api copies. Use the focused UT shim for the
+        # UB-to-GM and GM-to-UB copy primitives required by this target.
+        target_include_directories(${target_name} BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+    endif()
     target_compile_options(${target_name} PRIVATE
         -fno-access-control
         -Werror
