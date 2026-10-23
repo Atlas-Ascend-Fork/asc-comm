@@ -61,7 +61,7 @@ const HcommRegedBufferEntity* find_buffer(
     return nullptr;
 }
 
-AsccommResult get_rtsq(ThreadEntity& thread, HcommRtsqContext*& rtsq)
+AsccommResult get_rtsq(ThreadEntity& thread, HcommThreadSqContext*& rtsq)
 {
     CHK_PTR_NULL(thread.sqContextAddr);
     rtsq = thread.sqContextAddr;
@@ -159,10 +159,10 @@ void export_ub_state(Asc::UbConnLite& connection, HcommJfsContext& jfs)
 AsccommResult ring_ub_doorbell(
     ThreadEntity& thread, const ChannelEntity& channel, const HcommJfsContext& jfs, uint16_t pi)
 {
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     const Asc::UbJettyLiteId jettyId(channel.devInfo.dieId, channel.devInfo.funcId, jfs.jfsID);
-    return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
+    return asccomm_rtsq_ub_db_send(thread, jettyId, pi);
 }
 
 Asc::SqeConfigLite get_ub_config(ChannelEntity& channel)
@@ -388,9 +388,9 @@ AsccommResult execute_rdma(
     bool cqDbFlush = false;
     ops.export_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail, cqDbFlush);
     resourceCq->cqDbFlush = cqDbFlush ? 1 : 0;
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_RET(asccomm_rtsq_rdma_db_send(*rtsq, dbAddr, dbValue));
+    CHK_RET(asccomm_rtsq_rdma_db_send(thread, dbAddr, dbValue));
 
     const int32_t pollNum =
         (operation == RdmaOperation::WRITE_WITH_NOTIFY || operation == RdmaOperation::WRITE_REDUCE_WITH_NOTIFY) ? 2 : 1;
@@ -625,7 +625,7 @@ AsccommResult asccomm_notify_wait(
             "[%s] local notify index[%u] out of range[%u].", __func__, localNotifyIdx,
             channel.localNotifyNum > 0 ? channel.localNotifyNum - 1U : 0U),
         ASCCOMM_E_PARA);
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     const HcommRegedNotifyEntity& notify = channel.localNotifyAddr[localNotifyIdx + 1U];
     CHK_PRT_RET(
@@ -633,7 +633,7 @@ AsccommResult asccomm_notify_wait(
         ASCCOMM_E_PARA);
     const int32_t notifyId = notify.notifyInfo.rmaRt.notifyId;
     CHK_PRT_RET(notifyId < 0, ASCCOMM_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), ASCCOMM_E_PARA);
-    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
+    return asccomm_rtsq_notify_wait(thread, static_cast<uint32_t>(notifyId), timeout);
 }
 
 AsccommResult asccomm_fence(ChannelEntity& channel)
@@ -697,12 +697,12 @@ AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel)
     connection.read(local, remote, cfg, out);
     export_ub_state(connection, *jfs);
     CHK_RET(ring_ub_doorbell(thread, channel, *jfs, out.pi));
-    HcommRtsqContext* rtsq = nullptr;
+    HcommThreadSqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(
         localResource.notifyId < 0,
         ASCCOMM_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), ASCCOMM_E_PARA);
-    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
+    return asccomm_rtsq_notify_wait(thread, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
 }
 
 AsccommResult asccomm_batch_transfer(

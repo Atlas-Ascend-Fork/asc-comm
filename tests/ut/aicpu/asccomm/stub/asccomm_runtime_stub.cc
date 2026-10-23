@@ -22,26 +22,26 @@ AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread)
     return g_runtimeStubState.resolveResult;
 }
 
-AsccommResult asccomm_rtsq_sdma_copy(HcommRtsqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
+AsccommResult asccomm_rtsq_sdma_copy(ThreadEntity& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
 {
     g_runtimeStubState.copyCalls.push_back({&context, dstAddr, srcAddr, size});
     return g_runtimeStubState.copyResult;
 }
 
 AsccommResult asccomm_rtsq_sdma_reduce(
-    HcommRtsqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn)
+    ThreadEntity& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn)
 {
     g_runtimeStubState.reduceCalls.push_back({&context, dstAddr, srcAddr, size, reduceIn.dataType, reduceIn.reduceOp});
     return g_runtimeStubState.reduceResult;
 }
 
-AsccommResult asccomm_rtsq_notify_record(HcommRtsqContext& context, uint32_t notifyId)
+AsccommResult asccomm_rtsq_notify_record(ThreadEntity& context, uint32_t notifyId)
 {
     g_runtimeStubState.notifyRecordCalls.push_back({&context, notifyId});
     return g_runtimeStubState.notifyRecordResult;
 }
 
-AsccommResult asccomm_rtsq_notify_wait(HcommRtsqContext& context, uint32_t notifyId, uint32_t timeout)
+AsccommResult asccomm_rtsq_notify_wait(ThreadEntity& context, uint32_t notifyId, uint32_t timeout)
 {
     g_runtimeStubState.notifyWaitCalls.push_back({&context, notifyId, timeout});
     return g_runtimeStubState.notifyWaitResult;

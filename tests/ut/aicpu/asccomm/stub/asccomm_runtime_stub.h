@@ -20,14 +20,14 @@
 struct AicpuRuntimeStubState {
     std::vector<ThreadEntity*> resolveCalls;
     struct CopyCall {
-        HcommRtsqContext* context;
+        ThreadEntity* context;
         uint64_t dst;
         uint64_t src;
         uint32_t size;
     };
     std::vector<CopyCall> copyCalls;
     struct ReduceCall {
-        HcommRtsqContext* context;
+        ThreadEntity* context;
         uint64_t dst;
         uint64_t src;
         uint32_t size;
@@ -36,12 +36,12 @@ struct AicpuRuntimeStubState {
     };
     std::vector<ReduceCall> reduceCalls;
     struct NotifyRecordCall {
-        HcommRtsqContext* context;
+        ThreadEntity* context;
         uint32_t notifyId;
     };
     std::vector<NotifyRecordCall> notifyRecordCalls;
     struct NotifyWaitCall {
-        HcommRtsqContext* context;
+        ThreadEntity* context;
         uint32_t notifyId;
         uint32_t timeout;
     };

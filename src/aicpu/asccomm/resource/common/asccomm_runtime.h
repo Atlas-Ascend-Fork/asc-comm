@@ -21,15 +21,15 @@ namespace Asc {
 struct UbJettyLiteId;
 }
 
-AsccommResult asccomm_rtsq_launch(HcommRtsqContext& context);
-AsccommResult asccomm_rtsq_try_launch(HcommRtsqContext& context);
-AsccommResult asccomm_rtsq_notify_wait(HcommRtsqContext& context, uint32_t notifyId, uint32_t timeout);
-AsccommResult asccomm_rtsq_notify_record(HcommRtsqContext& context, uint32_t notifyId);
-AsccommResult asccomm_rtsq_sdma_copy(HcommRtsqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
+AsccommResult asccomm_rtsq_launch(ThreadEntity& thread);
+AsccommResult asccomm_rtsq_try_launch(ThreadEntity& thread);
+AsccommResult asccomm_rtsq_notify_wait(ThreadEntity& thread, uint32_t notifyId, uint32_t timeout);
+AsccommResult asccomm_rtsq_notify_record(ThreadEntity& thread, uint32_t notifyId);
+AsccommResult asccomm_rtsq_sdma_copy(ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
 AsccommResult asccomm_rtsq_sdma_reduce(
-    HcommRtsqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
-AsccommResult asccomm_rtsq_ub_db_send(HcommRtsqContext& context, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
-AsccommResult asccomm_rtsq_rdma_db_send(HcommRtsqContext& context, uint64_t dbAddr, uint64_t dbValue);
+    ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
+AsccommResult asccomm_rtsq_ub_db_send(ThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
+AsccommResult asccomm_rtsq_rdma_db_send(ThreadEntity& thread, uint64_t dbAddr, uint64_t dbValue);
 AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread);
 
 // RTSQ硬件属性由数据面在首次使用Thread resource时懒解析。
