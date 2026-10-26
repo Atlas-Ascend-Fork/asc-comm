@@ -206,7 +206,7 @@ public:
 
     /*!
      * @brief Synchronize with all peers in the team, blocking until completion.
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
+     * @param [in] order: Memory order.
      * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
      * @note Implements a ring barrier: Signal every other rank, then WaitSignal from each.
      */
@@ -215,7 +215,7 @@ public:
 
     /*!
      * @brief Synchronize with all peers in the team with a timeout.
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
+     * @param [in] order: Memory order.
      * @param [in] timeoutCycles: Maximum cycles to wait.
      * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
      * @return 0 on success, -1 on timeout.
