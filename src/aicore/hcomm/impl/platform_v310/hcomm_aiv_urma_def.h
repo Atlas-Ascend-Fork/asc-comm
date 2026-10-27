@@ -145,9 +145,9 @@ public:
     __aicore__ inline int32_t BatchCommit(UbcMultiBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
-    template <pipe_t pipe = PIPE_MTE3>
+    template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Drain(UbcBatchHandle& batchHandle);
-    template <pipe_t pipe = PIPE_MTE3>
+    template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Drain(UbcMultiBatchHandle& batchHandle);
     __aicore__ inline int32_t Lock(ChannelHandle channel);
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
@@ -170,8 +170,7 @@ private:
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCqImpl(
         uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectTail, uint32_t& curTail,
-        __ubuf__ uint32_t* cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
-        uint32_t threshold = 0);
+        uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0, uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCq(
         ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead = 0, uint32_t sqDepth = 0, uint32_t threshold = 0);
@@ -179,7 +178,6 @@ private:
 
 private:
     __ubuf__ uint32_t* wqeItem_ = nullptr;
-    __ubuf__ uint32_t* cqeItem_ = nullptr;
 };
 } // namespace AscendC
 

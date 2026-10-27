@@ -394,7 +394,7 @@ public:
 
     /*!
      * @brief Block Aicore until all completion records generated through a batch handle are available.
-     * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
+     * @tparam pipe: The pipe type to use for drain, PIPE_S supported as default.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle whose generated completion records are awaited.
      * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UB_CTP, 0xFF indicates a
@@ -402,7 +402,7 @@ public:
      * @note This overload does not require Init. It must be called after all tasks in the current batch are submitted
      *       through BatchCommit. Multiple batches may be submitted before one Drain if channel capacity permits.
      */
-    template <pipe_t pipe = PIPE_MTE3, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    template <pipe_t pipe = PIPE_S, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
 
     /*!

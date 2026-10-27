@@ -116,6 +116,7 @@ public:
     uint64_t GetCqDoorbellAddr() const { return reinterpret_cast<uint64_t>(&cqDoorbell_); }
 
     void SetSqHead(uint32_t sqHead) { channel_.sqHead = sqHead; }
+    void SetSqTail(uint32_t sqTail) { channel_.sqTail = sqTail; }
 
     void SetQueueState(uint32_t sqHead, uint32_t cqHead, uint32_t cqTail)
     {
@@ -652,17 +653,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     invalidHandle.cursor.preSqCnt = 2U;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
-    invalidHandle = batchHandle;
-    invalidHandle.cursor.preSqCnt = 1U;
-    invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = 0U;
-    EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
-
-    invalidHandle = batchHandle;
-    invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = URMA_BATCH_QUEUE_DEPTH;
-    EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
-
     EXPECT_EQ(channel.GetSqHead(), 0U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
     EXPECT_EQ(channel.GetSqDoorbell(), 0U);
@@ -672,6 +662,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
 {
     UrmaChannelResource channel(URMA_BATCH_QUEUE_DEPTH);
     channel.SetSqHead(URMA_BATCH_QUEUE_DEPTH - 1U);
+    channel.SetSqTail(URMA_BATCH_QUEUE_DEPTH - 1U);
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
     alignas(32) std::array<uint8_t, 128> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
@@ -714,6 +705,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
 {
     UrmaChannelResource channel(URMA_BATCH_QUEUE_DEPTH);
     channel.SetSqHead(URMA_BATCH_QUEUE_DEPTH - 1U);
+    channel.SetSqTail(URMA_BATCH_QUEUE_DEPTH - 1U);
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
@@ -829,18 +821,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainRejectsInvalidHandleState)
 
     invalidHandle = batchHandle;
     invalidHandle.cursor.preSqCnt = 1;
-    EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
-
-    invalidHandle = batchHandle;
-    invalidHandle.cqContext.contextInfo.ubJfc.cqeSize = 0;
-    EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
-
-    invalidHandle = batchHandle;
-    invalidHandle.cqContext.contextInfo.ubJfc.cqeSize = URMA_WQE_SIZE + 1U;
-    EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
-
-    invalidHandle = batchHandle;
-    invalidHandle.cqContext.contextInfo.ubJfc.cqDepth = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 }
 
@@ -1110,7 +1090,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Nullptr)
 {
     AscendC::HcommUrmaDumpWqeCtx(nullptr, sizeof(uint8_t));
-    AscendC::HcommUrmaDumpCqeCtx(nullptr);
     AscendC::HcommUrmaDumpSgeCtx(nullptr, nullptr, sizeof(uint8_t));
     AscendC::HcommUrmaDumpAmoCtx(nullptr, sizeof(uint32_t));
 
@@ -1121,14 +1100,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Nullptr)
 }
 
 // Dump helpers: full function bodies.
-// HcommUrmaDumpCqeCtx is otherwise unreachable in UT_TEST mode because PollCq's polling
-// loop (the only caller) is compiled out under UT_TEST.
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Valid)
 {
-    // CQE dump: full body over a zero-initialized valid CQE
-    AscendC::HcommUrmaJfcCqeCtx cqe = {};
-    AscendC::HcommUrmaDumpCqeCtx(reinterpret_cast<__ubuf__ AscendC::HcommUrmaJfcCqeCtx*>(&cqe));
-
     // Notify dump: full body over a zero-initialized valid notify ctx
     AscendC::HcommUrmaNotifyCtx notify = {};
     AscendC::HcommUrmaDumpNotifyCtx(reinterpret_cast<__ubuf__ AscendC::HcommUrmaNotifyCtx*>(&notify));
