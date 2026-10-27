@@ -105,7 +105,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillTaskSeg(
     wqePtr->task.dw3.value = dw3Value;
     wqePtr->task.vaRemote = HtoNLL((uint64_t)dst);
     wqePtr->task.rKey = HtoNL(rKey);
-    wqePtr->task.ulp = HtoNL(lKey & 0xffffU);
+    wqePtr->task.ulp = HtoNL(lKey & 0xffffff00U);
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillDataSeg(
@@ -518,7 +518,7 @@ __aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle
     batchHandle.mrKey.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     batchHandle.mrKey.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     const uint32_t remoteKeyBe = HtoNL(batchHandle.mrKey.rKey);
-    const uint32_t localKeyBe = HtoNL(batchHandle.mrKey.lKey & 0xffffU);
+    const uint32_t localKeyBe = HtoNL(batchHandle.mrKey.lKey & 0xffffff00U);
     const uint32_t dataKeyBe =
         HtoNL((batchHandle.mrKey.lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
     batchHandle.mrKey.keyWord =
