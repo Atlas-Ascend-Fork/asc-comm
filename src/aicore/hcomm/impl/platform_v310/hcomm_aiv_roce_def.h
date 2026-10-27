@@ -25,7 +25,6 @@
 #include "../../common/hcomm_inner_def.h"
 
 namespace AscendC {
-constexpr uint32_t ROCE_CQE_POS = 128U;
 constexpr uint32_t HCOMM_ROCE_WQEBB_SIZE = 64U;
 constexpr uint32_t HCOMM_ROCE_ADDR_ALIGNMENT = 32U;
 constexpr uint32_t HCOMM_ROCE_WQEBB_U32_NUM = HCOMM_ROCE_WQEBB_SIZE / sizeof(uint32_t);
@@ -36,14 +35,10 @@ constexpr uint32_t ROCE_SQ_INDEX_MASK = 0xffffU;
 constexpr uint32_t ROCE_1825_WQE_BYTE_BITS = 8U;
 constexpr uint32_t ROCE_1825_WQE_HALFWORD_BITS = 16U;
 constexpr uint32_t ROCE_1825_WQE_WORD_BITS = 32U;
-constexpr uint32_t ROCE_1825_WQE_CTRL_SEG_SIZE = 16U;
-constexpr uint32_t ROCE_1825_WQE_TASK_SEG_SIZE = 32U;
-constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SIZE = 16U;
 constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7U;   // owner_sl owner bit
 constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;  // owner_sl fixed part
 constexpr uint32_t ROCE_1825_WQE_SQ_VA_VALUE = 0x20; // df_tsl VA bit
 constexpr uint32_t ROCE_1825_WQE_SQ_SIGNAL_SHIFT = 7U;
-constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7U; // df_tsl CR bit
 constexpr uint32_t ROCE_1825_WQE_TASK_OPTYPE_SHIFT = 24U;
 constexpr uint32_t ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT = 29U;
 constexpr uint32_t ROCE_1825_WQE_TASK_FENCE_SHIFT = 30U;
@@ -59,8 +54,7 @@ constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4U;
 constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31U; // data seg le_key L bit
 constexpr uint64_t ROCE_1825_WQE_MAX_DATA_LEN = 1ULL << 31U;
 
-constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8U;   // high 8 bits of the SQ producer index
-constexpr uint32_t ROCE_1825_SQ_DB_PI_FIELD_SHIFT = 32U; // pi field offset in the 64-bit doorbell
+constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8U; // high 8 bits of the SQ producer index
 constexpr uint32_t ROCE_1825_SQ_DB_TYPE = 21U;
 constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1U;
 constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_COS_SHIFT = 24U;
@@ -74,16 +68,26 @@ constexpr uint32_t ROCE_1825_CQE_OPTYPE_ERROR = 0x1e;       // op_type = error c
 constexpr uint32_t ROCE_1825_CQE_UPDATE_CI_MASK = 0xffffff; // CQ consumer index is 24-bit
 constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31U;         // owner bit at dw1[31]
 constexpr uint32_t ROCE_1825_CQE_QPN_BITS = 20U;
+constexpr uint32_t ROCE_1825_CQE_QPN_MASK = (1U << ROCE_1825_CQE_QPN_BITS) - 1U;
+constexpr uint32_t ROCE_1825_CQE_SYNDROME_WORD_INDEX = 7U; // dw8, zero-based word index
+constexpr uint32_t ROCE_1825_CQE_SYNDROME_MASK = 0xffU;
+constexpr uint32_t ROCE_1825_CQE_WQE_COUNTER_SHIFT = 16U;
+constexpr uint32_t ROCE_1825_CQE_ERR_CODE_MASK = 0xfU;
+constexpr uint32_t ROCE_1825_CQE_OP_SR_WQEBB_SHIFT = ROCE_1825_WQE_WORD_BITS; // dw1 in the dw0/dw1 pair
 
 constexpr uint32_t ROCE_1825_MAX_SGE_NUM = 24U;
+constexpr int64_t ROCE_1825_SYSTEM_CYCLE_HZ = 1000ULL * 1000 * 1000;
+constexpr int64_t ROCE_1825_POLL_CQ_TIMEOUT_SECONDS = 60ULL;
+constexpr int64_t ROCE_1825_POLL_CQ_TIMEOUT_CYCLES = ROCE_1825_POLL_CQ_TIMEOUT_SECONDS * ROCE_1825_SYSTEM_CYCLE_HZ;
 
 enum class HCOMM_ROCE_OP_TYPE : uint32_t { WRITE = 4U, READ = 8U };
 
-#if defined(UT_TEST)
-constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 26U;
-#else
-constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 30U;
-#endif
+enum class HcommCqeStatus : int32_t {
+    NOT_READY = 0,
+    SUCCESS = 1,
+    ERROR = 2,
+    INVALID = 3,
+};
 
 template <>
 class HcommImpl<COMM_PROTOCOL_ROCE> {
@@ -149,18 +153,16 @@ private:
     template <bool commit, auto const& config, HCOMM_ROCE_OP_TYPE opType>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
-    __aicore__ inline void KnockDoorBell(
-        __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t>& cqeItem);
-    __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
+    __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
+    __aicore__ inline bool CheckCqeOwner(uint32_t ownerIdQpn, uint32_t cqTail, uint32_t depth);
     template <bool sqSafeMode = false>
-    __aicore__ inline int32_t PollCq(
-        __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, LocalTensor<uint32_t>& cqeItem, uint32_t threshold = 0);
+    __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline bool EnContinue(
         uint32_t expectIdx, uint32_t cqTail, uint16_t sqHead, uint16_t sqTail, uint32_t sqDepth, uint32_t threshold);
-    __aicore__ inline bool WaitCqeAndUpdateSqTail(
-        GlobalTensor<uint32_t>& cqeGlobalTensor, LocalTensor<uint32_t>& cqeItem, uint32_t cqTail, uint32_t cqDepth,
-        uint32_t expectedQpn, uint16_t wqebbHead, uint16_t& wqebbTail, uint32_t& cqeType);
+    __aicore__ inline HcommCqeStatus WaitCqeAndUpdateSqTail(
+        __gm__ uint32_t* cqeWords, uint32_t cqTail, uint32_t cqDepth, uint32_t expectedQpn, uint16_t wqebbHead,
+        uint16_t& wqebbTail, uint32_t& cqeType);
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <auto const& config, HCOMM_ROCE_OP_TYPE opType>
     __aicore__ inline __ubuf__ uint64_t* FillBatchWqeHeader(
@@ -170,16 +172,18 @@ private:
         __ubuf__ uint64_t* sge, GM_ADDR addr, uint32_t len, uint32_t dataKeyBe, bool lastSge);
     template <auto const& config>
     __aicore__ inline void UpdateBatchCursor(RoceBatchHandle& batchHandle, uint32_t wqebbAdvance);
+    __aicore__ inline bool HasBatchSqCapacity(
+        __gm__ ChannelEntity* chnlPtr, const RoceBatchHandle& batchHandle, uint32_t additionalWqebbNum = 0U);
+    __aicore__ inline bool IsBatchSqNearFull(__gm__ ChannelEntity* chnlPtr, const RoceBatchHandle& batchHandle);
     template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
     __aicore__ inline int32_t BatchPostSend(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
         RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t segNum);
-    __aicore__ inline uint32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
+    __aicore__ inline int32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
     LocalTensor<uint32_t> wqeUB_;
-    LocalTensor<uint32_t> cqeUB_;
 };
 } // namespace AscendC
 
