@@ -4,7 +4,7 @@
 
 English | [简体中文](./README.md)
 
-<h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
+<h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Huawei Ascend AI Processors</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -37,7 +37,7 @@ For detailed information on all historical releases and updates, please refer to
 
 ## 🚀 Overview
 
-asc-comm is an open-source repository targeting communication scenarios on Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
+asc-comm is an open-source repository targeting communication scenarios on Huawei Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
 
 The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`; the Ascend 950 UB_CTP path can also use a BatchHandle to add multiple communication tasks and submit them together through `BatchCommit`. The corresponding `Drain` overload manages completion for each workflow. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
 
