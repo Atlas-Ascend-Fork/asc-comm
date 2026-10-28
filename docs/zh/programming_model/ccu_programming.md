@@ -26,17 +26,15 @@ CCU内部组件的参数规格及职责如[表1](#tab-ccu-components)所示，�
 
 | 组件 | 参数规格 | 职责 |
 | --- | --- | --- |
-| 片上缓存 | 1536个4KB分片，共6MB | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作。 |
-| 通用寄存器 | 3072个，位宽64bit | 存放CCU执行过程中的参数或数据（长度和循环控制等参数、`token`信息），支持赋值、加法和移位运算。 |
-| 同步寄存器 | 1024个，位宽16bit | 实现类似信号量的同步操作，支持Set和Wait操作，保存指令依赖和同步状态。 |
-| 地址寄存器 | 3072个，位宽64bit | 存放通信操作的内存地址；未来会取消，由通用寄存器替代。 |
-| 并发执行引擎 | 200个 | 提供CCU并发与循环执行指令的能力。 |
-| 指令空间 | 32K条指令，单条32字节，共1MB | 存储CCU执行的指令序列。 |
-| Channel表 | 128个表项 | 存放Channel表项，每个表项包含用于UB通信的上下文信息。 |
+| 片上缓存 | 1536个4KB分片，共6MB | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作 |
+| 通用寄存器 | 3072个，位宽64bit | 存放CCU执行过程中的参数或数据（长度和循环控制等参数、`token`信息），支持赋值、加法和移位运算 |
+| 同步寄存器 | 1024个，位宽16bit | 实现类似信号量的同步操作，支持Set和Wait操作，保存指令依赖和同步状态 |
+| 地址寄存器 | 3072个，位宽64bit | 存放通信操作的内存地址；未来会取消，由通用寄存器替代 |
+| 并发执行引擎 | 200个 | LoopEngine，提供CCU并发与循环执行指令的能力 |
+| 指令空间 | 32K条指令，单条32字节，共1MB | 存储CCU执行的指令序列 |
+| Channel表 | 128个表项 | 存放Channel表项，每个表项包含用于UB通信的上下文信息 |
 
 ## CCU编程模型
-
-CCU程序是一段由LoopEngine执行的指令序列。任务经SQE递交：CCU解析SQE后，按其中的Mission编号找到对应的任务执行上下文（Mission），从SQE指定的起始指令开始执行。一个CCU kernel对应一个Mission，kernel内部的并发由Loop和LoopGroup提供；每个IO Die提供16个Mission，不同kernel的Mission可以并发执行。
 
 本节分别从以下六个方面进行介绍：
 
@@ -45,7 +43,7 @@ CCU程序是一段由LoopEngine执行的指令序列。任务经SQE递交：CCU�
 - [数据搬运](#数据搬运)：本地内存、CCU Buffer和远端内存之间的数据传输。
 - [同步机制](#同步机制)：为异步操作建立先后关系。
 - [任务编排](#任务编排)：用流程控制和并发原语把上述操作组织为完整的通信任务。
-- [核函数](#核函数)：核函数的调用方式（`<<<>>>`）与函数签名。
+- [核函数](#核函数)：核函数的定义与调用方式。
 
 ### 资源抽象
 
@@ -169,8 +167,8 @@ CCU的同步资源由同步寄存器在硬件侧实现，基于其事件位提�
 
 | 操作 | 说明 |
 | --- | --- |
-| record | 置位掩码对应的事件位，表示一个条件已经达成。 |
-| wait | 阻塞等待掩码对应的事件位被置位后才继续执行。 |
+| record | 置位掩码对应的事件位，表示一个条件已经达成 |
+| wait | 阻塞等待掩码对应的事件位被置位后才继续执行 |
 
 按同步范围的不同，这两类操作抽象为两种同步机制，如[表4](#tab-ccu-sync-objects)所示：
 
@@ -178,8 +176,8 @@ CCU的同步资源由同步寄存器在硬件侧实现，基于其事件位提�
 
 | 同步机制 | 适用场景 |
 | --- | --- |
-| event | 单个Device的本地操作。 |
-| notify | 不同Device之间的通信操作。 |
+| event | 单个Device的本地操作 |
+| notify | 不同Device之间的通信操作 |
 
 本节的event和notify是CCU基于同步寄存器提供的机制；通信场景中通用的完成队列轮询、点对点同步和屏障同步参见[《执行模型》](./execution_model.md)的“同步机制”。
 
@@ -333,64 +331,106 @@ ccu::loop_group group({5, 0, 4096*10, 10, 10}, 1, {loop});
 
 ### 核函数
 
-CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务发起者，通过`<<<>>>`直调CCU Kernel下发任务，Kernel侧随后由CCU硬件执行通信任务。
+CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务发起者，通过`<<<>>>`直调CCU Kernel下发任务（任务被封装为SQE：send queue element，发送队列元素）；Kernel在CCU侧被抽象为mission，由CCU硬件执行通信任务。
 
-`<<<>>>`是内核调用符，通过在函数名与参数列表之间插入`<<<...>>>`下发执行配置，实现Host侧跨界调用设备侧Kernel，其通用概念可参见Ascend C的[核函数](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)介绍。CCU直调沿用该语法，执行配置为`schd`、`insHandle`、`stream`三个CCU专用参数，下面介绍其用法。
+#### 核函数定义
 
-#### <<<>>> 语法与参数
+定义CCU Kernel时需要遵循以下规则。
 
-Host侧通过内核调用符<<<...>>>的语法形式调用核函数（Kernel），如下所示：
+- **使用函数类型限定符**
 
+    必须使用`__ccu_host__`函数类型限定符来标识该函数是一个CCU Kernel，可以被`<<<...>>>`调用。
+
+- **参数规则**
+
+    参数列表由SQE参数与`kernelArg`两类参数构成：
+
+    - SQE参数`sqeArgs1`~`sqeArgsN`：类型为`uint64_t`，携带通信地址、`token`、切分参数等执行期参数，需在Kernel最开始通过`ccu::load_arg`按声明顺序加载到CCU变量中。
+    - `kernelArg`：类型为`ccu_kernel_arg`，为编排上下文，持有Channel句柄、rankSize、rankId等；与SQE参数不同，`kernelArg`随Kernel注册一次性下发，不随每次调用重复传递。
+
+- **其他规则**
+
+    返回类型必须为`void`。
+
+- 代码示例如下：
+
+    ```cpp
+    __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
+        uint64_t sqeArgs1, uint64_t sqeArgs2, ..., uint64_t sqeArgs10, ccu_kernel_arg arg)
+    {
+        // kernelArg为编排上下文，持有Channel句柄、rankSize、rankId等
+        auto* kernelArg = static_cast<CcuKernelArgAllGatherMesh1DMem2Mem*>(arg);
+
+        // ctx为Kernel上下文，保存input/output/token及切分参数等编程对象
+        AllGatherMesh1DMem2MemContext ctx;
+        ctx.arg = kernelArg;
+
+        // 后续通过ccu::load_arg加载SQE参数，再编排通信任务
+    }
+    ```
+
+#### 核函数调用
+
+`<<<>>>`是内核调用符，在函数名与参数列表之间插入`<<<...>>>`即可下发执行配置，概念和用法与[Ascend C核函数](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)一致。代码示例如下：
+       
 ```cpp
-kernel_name<<<schd, insHandle, stream>>>(argument list)
+kernel_name<<<schd, insHandle, stream>>>(argument list);
 ```
 
-`<<<...>>>`内的参数为核函数（Kernel）的执行配置，由3个参数决定：
+`<<<...>>>`内的参数为核函数（Kernel）的执行配置，由3个CCU专用参数决定：
 
 - **schd**：类型为`asccomm_ccu_schd`，CCU任务调度配置，包含以下字段：
 
     | 字段 | 说明 |
     | --- | --- |
-    | num_blocks | mission个数 |
+    | num_blocks | 规定了一次调用启动的mission个数，类比于Ascend C中的block_num，当前仅支持1，参见[mission](#mission) |
     | reserved | 保留字段，置0 |
-    | phy_die_mask | 按位表示CCU所在的IO Die，`0x01`表示die0，`0x02`表示die1。一个CCU不能跨Die使用另一个IO Die的网络设备，因此当前仅支持配置单个Die |
-    | binary_cache_tag | Kernel句柄缓存标签。非0时，相同标签的重复调用会复用已注册的Kernel句柄，避免重复注册；置0则每次调用都重新注册 |
+    | phy_die_mask | 按位表示CCU所在的IO Die，`0x01`表示die0，`0x02`表示die1；一个CCU不能跨Die使用另一个IO Die的网络设备，因此当前仅支持配置单个Die |
+    | binary_cache_tag | Kernel句柄缓存标签；非0时，相同标签的重复调用会复用已注册的Kernel句柄，避免重复注册；置0则每次调用都重新注册 |
 
-- **insHandle**：类型为`void*`，不透明的CCU实例句柄，通过`HcclCommQueryCcuIns`查询通信域获得（样例公共辅助函数`QueryCcuInstance`封装了该调用）。Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上，实例需在直调前创建并绑定到通信域。
-- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序，通过`aclrtSynchronizeStream`等待完成。
+- **insHandle**：类型为`void*`，不透明的CCU实例句柄，指向hcomm持有的CCU实例实体。Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上。通过`HcclCommQueryCcuIns`查询通信域获得，样例公共辅助函数`QueryCcuInstance`封装了该调用：
 
-#### <<<>>> 函数签名
+    ```cpp
+    void* insHandle = nullptr;
+    asccomm_examples::QueryCcuInstance(comm, insHandle);
+    ```
 
-CCU Kernel使用`__ccu_host__`限定符修饰，其中SQE参数`sqeArgs1`~`sqeArgs10`与Host侧taskArgs一一对应，通过`ccu::load_arg`按序加载；`kernelArg`为编排上下文，随Kernel注册一次性下发。
+    若通信域尚未创建CCU实例，该调用会自动创建后返回；返回的句柄由通信域管理，仅供借用，调用方不得销毁。
+
+- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序。
+
+调用示例如下（调用上文定义的AllGather Kernel，`taskArgs`与`sqeArgs1`~`sqeArgs10`一一对应，`insHandle`和`stream`需在直调前创建）：
+
+```cpp
+
+const uint32_t dieId = 0;                    // CCU所在的IO Die编号（die0或die1），由建链时查询得到
+const uint64_t dieMask = 1ULL << dieId;      // 按位选中CCU所在的IO Die
+uint64_t taskArgs[10] = {...};               // 执行期参数，与sqeArgs1~sqeArgs10一一对应
+auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();  // 编排上下文
+// insHandle为void*（不透明CCU实例句柄），通过HcclCommQueryCcuIns查询通信域获得；stream为aclrtStream，需在直调前创建
+
+asccomm_ccu_schd schd = {1, 0, dieMask, 0};  // 1个mission，不缓存Kernel句柄
+CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>(
+    taskArgs[0], taskArgs[1], taskArgs[2], taskArgs[3], taskArgs[4], taskArgs[5], taskArgs[6], taskArgs[7],
+    taskArgs[8], taskArgs[9], kernelArg.get());  // 最后一个参数为kernelArg
+```
+
+核函数的调用是异步的，调用后控制权立刻返回Host侧；Host侧可调用`aclrtSynchronizeStream`等待Stream上的CCU任务执行完毕。
+
+#### mission
+
+mission表示CCU执行的程序，是Kernel在CCU侧的抽象，类比于Ascend C中的block。Host侧编排的Kernel代码不能被CCU直接执行：Kernel注册时对应一个mission，其中的计算、搬运和同步操作被翻译为CCU指令序列并加载到指令空间中。
+
+任务下发后，CCU根据SQE中携带的mission标识和指令入口，执行该mission的指令序列，完成通信任务。
 
 ## 编程约束与限制
 
 ### 参数加载约束
 
-- SQE支持32B（携带1个64bit参数）和128B（携带13个64bit参数）两种格式，即单个SQE最多携带13个64bit参数。
-- 参数超过13个时拆分为多个SQE，这些SQE共用同一个Mission，各自携带一段指令，按首尾相接的顺序执行。
-- 参数加载指令`load_arg`必须在程序最开始调用，以保证每个SQE的指令段恰好完成该SQE所携参数的加载。
-
-### 资源创建约束
-
-资源创建出来后，不支持动态回收；比如在局部作用域中定义的资源`variable`，在局部作用域结束后`variable`对象本身会销毁，但是对应的寄存器资源不会回收。
-
-### 数据搬运约束
-
-- 数据搬运类操作长度不能等于0，否则硬件行为不可预知。
-- 本地内存到远端内存搬运，长度要小于256MB。
-- 涉及CCU Buffer的数据搬运操作，单分片长度要小于等于4096B。
-- 不支持读写其他设备的CCU Buffer。
-
-### 并发操作约束
-
-- Loop内只能放置数据搬运指令和`event_wait/notify_wait`指令，其他均不支持。
-- Loop的循环次数必须大于0。
-- 创建Loop和LoopGroup时，如果使用立即数作为参数，创建后的Loop和LoopGroup会消耗`variable`资源用于保存配置参数。
-- 创建Loop和LoopGroup前，需要提前计算好需要使用的资源并申请，避免越界。
+- 单个SQE最多携带13个64bit参数。
+- 参数加载指令`load_arg`必须在程序最开始调用。
 
 ### 指令部署约束
 
-CCU位于一个设备的IO Die上。一个设备可能包含多个IO Die，不同IO Die包含不同的网络设备。实际组网中，不同的网络设备可能与不同的其他设备互联。一个CCU不能跨Die使用另一个IO Die的网络设备进行通信。
-
-因此，在开发运行于某个CCU上的程序时，需要保证它使用的网络设备都在一个Die上，CCU翻译器会根据它使用的网络设备推导出翻译后的指令序列应该部署到哪个CCU设备上。
+- CCU位于一个设备的IO Die上。一个设备可能包含多个IO Die，不同IO Die包含不同的网络设备。实际组网中，不同的网络设备可能与不同的其他设备互联。一个CCU不能跨Die使用另一个IO Die的网络设备进行通信。
+- 一个Kernel对应一个mission，当前单个Die仅支持一个mission，因此执行配置`schd`中的`num_blocks`当前仅支持1。

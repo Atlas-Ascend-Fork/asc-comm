@@ -70,6 +70,8 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 - 对端`remote`内存须在调用前已写入有效初值，否则归约结果未定义。
 - 参数顺序为目的端在前、源端在后：`write_reduce(ch, remote, local, ...)`，顺序写反会因类型不同在编译期报错。
+- `len`必须大于0，否则硬件会发生未定义行为；该约束须由调用方自行保证。
+- `len`须小于256MB；该上限须由调用方自行保证，超出时硬件会发生未定义行为，超长数据须拆分为多次搬运。
 - 同一kernel内所有channel须属于同一die，该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
 - `data_type`仅支持`HCCL_DATA_TYPE_INT8`、`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_UINT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_UINT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`。
 - `op_type`仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`。
