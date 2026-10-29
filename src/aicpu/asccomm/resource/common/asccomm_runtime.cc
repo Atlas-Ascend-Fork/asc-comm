@@ -254,6 +254,9 @@ AsccommResult asccomm_rtsq_launch(ThreadEntity& thread)
         drvGetLocalDevIDByHostDevID(thread.devInfo.devPhyId, &localDevId) != 0,
         ASCCOMM_ERROR("[%s] resolve local device failed.", __func__), ASCCOMM_E_INTERNAL);
     CHK_RET(ensure_queue_space(localDevId, rtsq));
+    if (rtsq.pendingSqeCnt == 0) {
+        return ASCCOMM_SUCCESS;
+    }
     CHK_RET(copy_pending_sqes(rtsq));
     const uint32_t newTail = (rtsq.sqTail + rtsq.pendingSqeCnt) % rtsq.sqDepth;
     CHK_RET(config_sq_tail(localDevId, rtsq, newTail));
