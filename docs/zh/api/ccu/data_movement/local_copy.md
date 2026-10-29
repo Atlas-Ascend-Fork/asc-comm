@@ -65,7 +65,7 @@
 | --- | --- | --- |
 | dst | 输入 | 目的地址，数据写入其指向的内存。<br>&bull;本端片上内存 -> 本端片上内存、本端CCU Buffer -> 本端片上内存：类型为`local_addr`。<br>&bull;本端片上内存 -> 本端CCU Buffer：类型为`ccu_buffer`。 |
 | src | 输入 | 源地址，<br>&bull;本端片上内存 -> 本端片上内存、本端片上内存 -> 本端CCU Buffer：类型为`local_addr`。<br>&bull;本端CCU Buffer -> 本端片上内存：类型为`ccu_buffer`。 |
-| len | 输入 | 拷贝字节数，类型为`variable`，实际值在执行阶段取自对应的通用寄存器。 |
+| len | 输入 | 拷贝字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
 | event | 输入 | 完成事件对象，硬件搬运完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
@@ -76,8 +76,8 @@
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`dst`/`src`/`len`/`event`句柄未在当前kernel注册。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`dst`/`src`/`len`/`event`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 

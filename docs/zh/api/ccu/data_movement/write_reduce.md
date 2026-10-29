@@ -50,7 +50,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 | ch | 输入 | 跨rank通道句柄。 |
 | remote | 输入 | 对端片上内存目标地址。对端内存在调用前须已写入有效初值，由对端kernel负责；硬件完成后该地址内容更新为归约结果。 |
 | local | 输入 | 本端片上内存源地址。 |
-| len | 输入 | 操作字节数，类型为`variable`，实际值在执行阶段取自对应的通用寄存器。 |
+| len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
 | data_type | 输入 | 数据类型，取值见`HcclDataType`枚举。 |
 | op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。当采用SUM操作时，低精度输入数据的求和结果会先升精度、再调整为与输入数据相同的精度。 |
 | event | 输入 | 完成事件对象，硬件归约写完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
@@ -63,8 +63,8 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`remote`/`local`/`len`/`event`句柄未在当前kernel注册。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`remote`/`local`/`len`/`event`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 

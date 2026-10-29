@@ -31,7 +31,7 @@
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
-> 资源分配采用“先虚后实”两阶段模型：`local_addr()`构造仅产生虚拟句柄，真正的物理资源在注册阶段统一分配。
+> 资源分配采用“先虚后实”两阶段模型：`local_addr()`构造仅产生虚拟句柄，真正的物理资源在编译阶段统一分配。
 
 CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`asccomm_ccu_get_mem_token`换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
 
@@ -71,8 +71,8 @@ public:
 > [!CAUTION]注意
 > `token`属于安全信息，host/device日志均不允许打印，禁止以明文形式跨rank透传。
 
-- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address/variable`物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在编译阶段构造；编译阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在编译阶段内恒成功不抛异常；`address/variable`物理资源不足时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段，不申请新的`address/variable`，`local_addr l2 = l1;`后两个对象指向同一组寄存器；`operator=(const local_addr&)`则会发出两条device端寄存器赋值指令（把`other.addr`、`other.token`的值搬移过来），两者语义不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
@@ -95,16 +95,16 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的m
     auto* params = static_cast<my_kernel_arg*>(arg);
 
     local_addr src;
-    // 方式1：从注册阶段的kernelArg赋值（固化为立即数）
+    // 方式1：从编译阶段的kernelArg赋值（固化为立即数）
     src.addr = params->src_addr;
     src.token = params->src_token;
 
-    // 方式2：通过taskArgs在执行阶段注入（更灵活）
+    // 方式2：通过taskArgs在下发阶段注入（更灵活）
     variable addrVar, tokenVar;
     load_arg(addrVar, 0);    // taskArgs[0]为地址
     load_arg(tokenVar, 1);   // taskArgs[1]为token
     local_addr src2;
-    src2.addr = addrVar;     // 执行阶段动态地址
+    src2.addr = addrVar;     // 下发阶段动态地址
     src2.token = tokenVar;
 
     return CCU_SUCCESS;

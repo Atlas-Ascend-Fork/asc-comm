@@ -59,8 +59,8 @@ CcuResult write_variable_with_notify(ChannelHandle channel, variable var,
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_NOT_FOUND` | `var`对应的variable句柄未在当前kernel注册。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | `var`对应的variable句柄未在当前kernel内创建。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
 
 ## 约束说明
 

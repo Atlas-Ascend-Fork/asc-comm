@@ -62,7 +62,7 @@
 | data_type | 输入 | 输入数据类型，取值见`HcclDataType`枚举。仅支持以下6种：`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_FP32`、`HCCL_DATA_TYPE_BFP16`。其他取值会被拒绝并抛出异常（携带错误码）。 |
 | output_data_type | 输入 | 输出数据类型（仅“N个本端CCU Buffer -> `buffers[0]`”通路），取值见`HcclDataType`枚举。支持两种组合：①同精度——取值与`data_type`相同；②升精度——仅在`op_type == HCCL_REDUCE_SUM`时支持，将低精度输入归约后升至高精度输出（如`HCCL_DATA_TYPE_INT8`→`HCCL_DATA_TYPE_FP32`，见“调用示例 - 场景2”）。其他`data_type`/`output_data_type`组合返回`CCU_E_NOT_SUPPORT`（见返回值表）。升精度场景下`buffers`须按精度膨胀比例预留ccu_buffer，详见`buffers`参数说明。 |
 | op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`；`HCCL_REDUCE_PROD`不支持，传入会被拒绝并抛出异常（携带错误码）。 |
-| len | 输入 | 操作字节数，类型为`variable`，实际值在执行阶段取自对应的通用寄存器。<br>&bull;本端片上内存 -> 本端片上内存：操作的总字节数。<br>&bull;N个本端CCU Buffer -> `buffers[0]`：每个ccu_buffer参与归约的字节数，不可超过单片大小（4096字节）。 |
+| len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。<br>&bull;本端片上内存 -> 本端片上内存：操作的总字节数。<br>&bull;N个本端CCU Buffer -> `buffers[0]`：每个ccu_buffer参与归约的字节数，不可超过单片大小（4096字节）。 |
 | event | 输入 | 完成事件对象，硬件归约完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 

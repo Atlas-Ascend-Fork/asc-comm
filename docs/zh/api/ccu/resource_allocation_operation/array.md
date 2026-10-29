@@ -101,10 +101,10 @@ public:
 
 ## 约束说明
 
-- `array(count)`和`array(acq_handle, count)`只能在注册阶段构造。
-- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- `array(count)`和`array(acq_handle, count)`只能在编译阶段构造。
+- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - `array<T>`仅特化`variable`、`event`、`ccu_buffer`三种类型；预约构造只对`variable`、`event`可用，其他类型实例化或使用预约构造会在编译期失败。
-- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法时抛出异常，被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，本轮注册被中止。
+- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法时抛出异常，被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，本轮编译被中止。
 - `count`须不大于预约句柄名下的资源个数；`count`为0时直接构造成空`array`（`size() == 0`），不绑定资源，也不校验`acq_handle`。
 - 不应在kernel之外保存元素的`handle`值，翻译完成后句柄即失效。
 

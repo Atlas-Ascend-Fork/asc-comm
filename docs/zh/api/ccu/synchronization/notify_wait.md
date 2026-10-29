@@ -55,7 +55,7 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
 
 ## 约束说明
 

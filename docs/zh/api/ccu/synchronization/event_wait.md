@@ -44,7 +44,7 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| e | 输入 | 本地事件对象，对应同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在注册阶段统一分配。 |
+| e | 输入 | 本地事件对象，对应同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在编译阶段统一分配。 |
 | mask | 输入 | 16位事件掩码，指定要等待的`event`标志位。默认值为`1`，即bit0。支持多bit合并等待，例如`mask = 0x3`表示等待bit0和bit1全部置位。 |
 
 ## 返回值说明
@@ -54,8 +54,8 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel注册。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 

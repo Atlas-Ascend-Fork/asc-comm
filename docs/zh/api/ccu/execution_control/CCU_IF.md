@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-在CCU kernel内开始一个软件条件分支块。条件在执行阶段由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
+在CCU kernel内开始一个软件条件分支块。条件在下发阶段由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
 
 ## 函数原型
 
@@ -58,7 +58,7 @@ CCU_IF(cond_expr) {
 ```cpp
 using namespace AscendC::ccu;
 
-// 场景：根据执行阶段变量值选择不同的执行路径
+// 场景：根据下发阶段变量值选择不同的执行路径
 CcuResult my_kernel(ccu_kernel_arg arg) {
     variable flag;
     load_arg(flag, 0);   // 每次下发时从taskArgs[0]加载标志值

@@ -50,7 +50,7 @@ CCU_DO {
 
 | 参数名 | 描述 |
 | --- | --- |
-| cond_expr | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`counter == 10`。条件在执行阶段由CCU硬件计算。 |
+| cond_expr | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`counter == 10`。条件在下发阶段由CCU硬件计算。 |
 
 `cond_expr`的定义与生成方式请参见[CCU_IF](CCU_IF.md#参数说明)。
 

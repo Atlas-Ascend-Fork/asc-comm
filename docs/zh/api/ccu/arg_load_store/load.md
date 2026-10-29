@@ -34,7 +34,7 @@
 - variable地址（间接寻址）-> 单个variable
 - variable地址（间接寻址）-> variable数组
 
-立即数地址在注册阶段确定，执行阶段不可变；variable地址在运行期从硬件寄存器读出。
+立即数地址在编译阶段确定，下发阶段不可变；variable地址在运行期从硬件寄存器读出。
 
 ## 函数原型
 
@@ -66,7 +66,7 @@
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| addr | 输入 | 立即数片上内存地址（`uint64_t`，立即数地址通路）。须为CCU可访问的物理地址或经token化的VA，在注册阶段确定，执行阶段不可变。 |
+| addr | 输入 | 立即数片上内存地址（`uint64_t`，立即数地址通路）。须为CCU可访问的物理地址或经token化的VA，在编译阶段确定，下发阶段不可变。 |
 | addr_var | 输入 | 地址variable（`variable`，variable地址通路）。运行期该variable中存储的值被用作片上内存地址，须已赋有效地址值。 |
 | v | 输入/输出 | 目标variable（单个variable通路）。运行期从片上内存地址处读取8字节写入该variable。 |
 | v_arr | 输入/输出 | 目标variable数组首元素（variable数组通路）。须通过`ccu::array<variable>`申请以保证物理连续。 |
@@ -80,8 +80,8 @@
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
 | `CCU_E_PARA` | 参数错误：`num`为0或大于`v_arr.size()`；或`num>1`时`v_arr`元素物理不连续。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`v`/`v_arr`句柄（或`v_arr[1..num-1]`的相邻句柄）未在当前kernel注册。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`v`/`v_arr`句柄（或`v_arr[1..num-1]`的相邻句柄）未在当前kernel内创建。 |
 
 ## 约束说明
 
@@ -89,7 +89,7 @@
 - `num`须满足`1 ≤ num ≤ v_arr.size()`。本接口在访问`v_arr[0]`之前完成该校验，传入0或超过`v_arr.size()`时返回`CCU_E_PARA`，不会触达底层接口；空`array`（`v_arr.size()`为0）传入任意`num`同样返回`CCU_E_PARA`。
 - `num>1`时（variable数组通路），`v_arr`须指向物理连续的variable数组，必须通过`ccu::array<variable>`申请。单独声明多个`variable`对象不保证物理连续，违反时在`load(...)`调用处即返回`CCU_E_PARA`。
 - `addr_var`（variable地址通路）在调用本接口前须已被赋予有效地址值（通过`load_arg`、立即数赋值或算术运算）。
-- 立即数地址通路在注册阶段确定，执行阶段不可变；需运行期动态地址时使用variable地址通路。
+- 立即数地址通路在编译阶段确定，下发阶段不可变；需运行期动态地址时使用variable地址通路。
 
 ## 调用示例
 

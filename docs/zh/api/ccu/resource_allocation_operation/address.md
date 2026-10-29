@@ -29,10 +29,10 @@
 
 - 构造即分配：默认构造只申请虚拟句柄。
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
-- 运算符即device操作：赋值与算术运算符描述的是device端执行的操作，执行阶段操作对应的地址寄存器，而非host端立即计算。
+- 运算符即device操作：赋值与算术运算符描述的是device端执行的操作，下发阶段操作对应的地址寄存器，而非host端立即计算。
 
 > [!NOTE]说明
-> 资源分配采用“先虚后实”两阶段模型：`address()`构造仅产生虚拟句柄，真正的物理地址寄存器在注册阶段统一分配。
+> 资源分配采用“先虚后实”两阶段模型：`address()`构造仅产生虚拟句柄，真正的物理地址寄存器在编译阶段统一分配。
 
 与[`variable`](variable.md)保存标量值不同，`address`专门保存地址值，即片上内存物理地址，承载的是device端地址值，不能在host端直接解引用；典型用法是将基地址与偏移量相加得到目标地址，供数据搬运接口使用。
 
@@ -77,8 +77,8 @@ public:
 
 | 表达式写法 | 硬件语义 |
 | --- | --- |
-| `addr = imm;`（`imm`为`uint64_t`） | `addr ← imm`。地址立即数在注册阶段确定，执行阶段不可变。 |
-| `addr = var;`（`var`为`variable`） | `addr ← var`。将variable在执行阶段的值写入地址寄存器，适用于执行阶段动态地址。 |
+| `addr = imm;`（`imm`为`uint64_t`） | `addr ← imm`。地址立即数在编译阶段确定，下发阶段不可变。 |
+| `addr = var;`（`var`为`variable`） | `addr ← var`。将variable在下发阶段的值写入地址寄存器，适用于下发阶段动态地址。 |
 | `dst = src;`（`src`为`address`） | `dst ← src`。address间寄存器赋值。 |
 
 ### 算术运算符
@@ -92,8 +92,8 @@ public:
 
 ## 约束说明
 
-- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address`物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在编译阶段构造；编译阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在编译阶段内恒成功不抛异常；`address`物理资源不足时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的`address`，`address a2 = a1;`后两个对象指向同一个地址寄存器；`operator=(const address&)`则会发出device端寄存器赋值指令。如需独立的`address`，必须显式默认构造。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - `address`不可被赋值到`variable`，即不提供`variable = address`操作。
@@ -109,13 +109,13 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     address base, dst;
     variable offset, stride;
 
-    // 赋立即数地址（注册阶段固化）
+    // 赋立即数地址（编译阶段固化）
     base = 0x80000000ULL;
 
-    // 赋variable值到address（执行阶段动态地址）
+    // 赋variable值到address（下发阶段动态地址）
     // offset通过load_arg在下发时注入
     load_arg(offset, 0);
-    dst = offset;         // dst ← offset（执行阶段确定）
+    dst = offset;         // dst ← offset（下发阶段确定）
 
     // address + variable偏移（两种等价写法）
     stride = 4096;

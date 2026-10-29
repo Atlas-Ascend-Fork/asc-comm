@@ -27,7 +27,7 @@
 
 `load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次通过`<<<>>>`下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
 
-本接口在注册阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已注册的Kernel每次下发可携带不同参数，无须重复注册。
+本接口在编译阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已编译的Kernel每次下发可携带不同参数，无须重新编译。
 
 ## 函数原型
 
@@ -53,8 +53,8 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`v`句柄未在当前kernel注册。 |
+| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`v`句柄未在当前kernel内创建。 |
 
 > [!NOTE]说明
 > 本接口不会返回`CCU_E_PARA`。`arg_id`相关的约束错误不在本接口处返回，而是由`<<<>>>`统一校验后返回`CCU_E_INTERNAL`，详见[约束说明](#约束说明)。
@@ -72,7 +72,7 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 // 为简化示例，省略返回值接收与错误处理
 using namespace AscendC::ccu;
 
-// 场景：注册时声明循环次数n和起始偏移offset由host在Launch时传入
+// 场景：编译时声明循环次数n和起始偏移offset由host在Launch时传入
 CcuResult my_kernel(ccu_kernel_arg arg) {
     variable n, offset;
 

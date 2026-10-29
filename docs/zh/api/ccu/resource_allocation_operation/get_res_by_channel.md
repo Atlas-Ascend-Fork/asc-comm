@@ -53,7 +53,7 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | channel | 输入 | 跨rank通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)，须已完成建链。 |
-| var_index | 输入 | 通道内变量索引（0起），对应channel建链时预分配的一组variable槽位中的一个。 |
+| var_index | 输入 | 通道内变量索引（0起），对应channel建链时预分配的一组variable槽位中的一个。当前每条channel固定预留4个variable槽位（`var_index`取值范围为`[0, 3]`），超出该范围返回`CCU_E_PARA`。 |
 
 ## 返回值说明
 
@@ -63,12 +63,12 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 
 | 情形 | 错误码 |
 | --- | --- |
-| `channel == nullptr`、channel类型非法、接口在注册阶段之外被调用 | `CCU_E_PTR` |
+| `channel == nullptr`、channel类型非法、接口在编译阶段之外被调用 | `CCU_E_PTR` |
 | `var_index`越界（超过channel预分配variable池大小） | `CCU_E_PARA` |
 
 ## 约束说明
 
-- 只能在注册阶段调用。
+- 只能在编译阶段调用。
 - 与`variable v;`（普通构造）的分配行为完全不同，不可互换。
 - 返回的`variable`生命周期归channel管理，在channel销毁前有效。
 - 当前仅支持`T = variable`，对其他类型调用编译期失败。

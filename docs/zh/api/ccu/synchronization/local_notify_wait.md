@@ -51,7 +51,7 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | `notify_tag`为空指针，或接口在注册阶段之外被调用。 |
+| `CCU_E_PTR` | `notify_tag`为空指针，或接口在编译阶段之外被调用。 |
 
 ## 约束说明
 

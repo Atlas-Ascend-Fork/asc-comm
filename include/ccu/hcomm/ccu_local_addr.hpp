@@ -55,7 +55,7 @@ public:
         this->token.handle = other.token.handle;
     }
 
-    address addr;
+    address addr_;
     variable token;
     ccu_local_addr_handle handle{0};
 
