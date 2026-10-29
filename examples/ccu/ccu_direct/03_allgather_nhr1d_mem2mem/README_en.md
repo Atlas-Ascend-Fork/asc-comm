@@ -1,143 +1,125 @@
-# CCU AllGather NHR1D Mem2Mem
-
-This sample launches a CCU kernel with the `<<<>>>` direct-launch syntax, demonstrating the NHR1D Mem2Mem AllGather data plane.
+# CCU Direct AllGather NHR1D Mem2Mem Sample
 
 ## Overview
 
-```text
-Python generates input and golden data
- -> initialize the HCCL communication domain
- -> generate NHR steps and the rank-to-channel mapping
- -> acquire CCU channels in one batch
-  -> launch the CCU kernel with `<<<>>>`
-  -> GroupCopy the local slice
-  -> write and forward slices remotely per NHR step
-  -> C++ writes out the result of each rank
-  -> Python verifies the output of each rank
-```
+This sample shows how to issue a CCU kernel with the direct-launch `<<<>>>` approach to implement NHR1D Mem2Mem AllGather.
 
-NHR uses `ceil(log2(rankSize))` steps. The peers of step `step` are:
-
-```text
-delta    = 1 << (stepNum - 1 - step)
-toRank   = (rank + delta) % rankSize
-fromRank = (rank + rankSize - delta) % rankSize
-```
-
-For example, with 2 ranks:
-
-```text
-step 0:
-  rank0 -> rank1: slice0
-  rank1 -> rank0: slice1
-```
-
-After each non-final step, peers synchronize to ensure the data to be forwarded in the next step has already been written to the local output.
-
-The host and kernel share a unified 10-argument task ABI, keeping the per-round transfer size `chunkSize`
-separate from the rank stride `outputSliceStride`, which preserves the address layout for future host-side multi-round chunking.
+The inputs of all ranks are concatenated in rank order, and each rank obtains a complete copy of the data.
 
 ## Supported Products and CANN Versions
 
-- Compilation architecture: `dav-3510`
-- CANN version: 9.1 or later
-- Data type: `float`
-- Communication scope: single die, single mission, 1 to 16 ranks
-- Data layout: out-of-place AllGather, equal slice size on every rank
+| Product | CANN Version |
+| --- | --- |
+| Ascend 950PR&950DT series products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
 ```text
-03_allgather_nhr1d_mem2mem/
-├── CMakeLists.txt
-├── README.md
-├── README_en.md
-├── run.sh
-├── main.asc
-└── scripts/
-    ├── gen_data.py
-    └── verify_result.py
+03_allgather_nhr1d_mem2mem
+├── CMakeLists.txt    // CMake build file
+├── README.md         // Chinese sample description
+├── README_en.md      // English sample description
+├── run.sh            // One-step build-and-run script
+├── main.asc          // Host flow and NHR1D Mem2Mem AllGather kernel implementation
+└── scripts
+    ├── gen_data.py       // Input and golden data generation script
+    └── verify_result.py  // Output verification script
 ```
 
 ## Sample Description
 
-The sample acquires CCU resources from an HCCL communication domain and completes communication or data movement by directly launching a CCU kernel with ASC `<<<>>>`.
+### Sample Specification
+
+| Item | Description |
+| --- | --- |
+| Communication mode | CCU NHR1D Mem2Mem AllGather in an HCCL communication domain |
+| Invocation | Direct CCU kernel launch with `<<<>>>` |
+| NHR steps | `ceil(log2(rankSize))` |
+| Data type | FP32 |
+| Per-rank input size | `COUNT` FP32 elements, 256 by default |
+| Output size | `rankSize * COUNT` FP32 elements |
+| Supported ranks | 1 to 16, no more than `CCU_MAX_RANK_SIZE` |
+
+### Implementation Flow
+
+1. Initialize ACL and the HCCL communication domain. The number of ranks is determined by the number of devices specified by `DEVICES`.
+2. Each rank reads data from the input file and copies it to the device-side input buffer.
+3. The host generates the NHR steps and the rank-to-channel mapping, and acquires CCU channel and CCU instance resources based on the HCCL communication domain.
+4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+5. Directly launch the CCU kernel through `CcuAllGatherNhr1DMem2MemKernel<<<schd, insHandle, stream>>>`.
+6. Inside the kernel, first copy the local slice through `GroupCopy`; then write and forward slices remotely through `ccu::write` per NHR step, and synchronize with the peer through `notify` after each non-final step.
+7. Synchronize the stream, copy the result back to the host, and print it.
+8. Destroy the HCCL communication domain, stream, and device memory.
 
 ## Build and Run
 
-Set the CANN runtime environment and CCU scheduling mode before running:
+Perform the following steps in the sample root directory to build and run the sample. This sample supports only the NPU run mode.
 
-```bash
-source ${ASCEND_HOME_PATH}/set_env.sh
-export HCCL_OP_EXPANSION_MODE=CCU_SCHED
-cd examples/ccu/ccu_direct/03_allgather_nhr1d_mem2mem
-```
+- Configure environment variables
 
-Generate input and golden data:
+  Configure the development environment according to how the CANN development kit package is installed, and enable CCU scheduling mode.
 
-```bash
-python3 scripts/gen_data.py --rank-size 2 --count 256
-```
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+  ```
 
-Build and run the operator:
+  > **Note:** `${install_path}` is the CANN package installation directory. If no installation directory is specified, the package is installed in `/usr/local/Ascend` by default.
 
-```bash
-env DEVICES=0,1 COUNT=256 ./run.sh
-```
+- Run the sample
 
-Verify the output of each rank:
+  Generate the input and golden data. The data generation and verification scripts require Python 3 and NumPy.
 
-```bash
-python3 scripts/verify_result.py --rank-size 2 --count 256
-```
+  ```bash
+  python3 scripts/gen_data.py --rank-size 2 --count 256
+  ```
 
-## Input and Verification
+  Build and run the sample:
 
-`scripts/gen_data.py` generates one FP32 input file per rank:
+  ```bash
+  env DEVICES=0,1 COUNT=256 ./run.sh
+  ```
 
-```text
-input/input_rank_<rank_id>.bin
-```
+  Verify the output of each rank:
 
-The input of each rank is:
+  ```bash
+  python3 scripts/verify_result.py --rank-size 2 --count 256
+  ```
 
-```text
-input[i] = rank * 1000000 + i + 1
-```
+  `--rank-size` must match the number of devices specified by `DEVICES`, and `--count` must match the `COUNT` used when running the sample.
+  `run.sh` only builds and runs the sample and does not automatically generate or verify data. To build the sample only, run `env BUILD_ONLY=1 ./run.sh`.
+  After each change to the rank count or `count`, regenerate the data and run and verify it with the same parameters.
 
-Golden data is concatenated in source-rank order and written to `output/golden.bin`. The C++ program writes the
-result of each rank to `output/output_rank_<rank_id>.bin`, which
-`scripts/verify_result.py` then verifies element by element.
+- Build options
 
-The data generation and verification scripts require Python 3 and NumPy. `--rank-size` must match the number of
-devices specified by `--devices`, and `--count` must match the value used when running the operator.
+  | Option | Possible values | Description |
+  | --- | --- | --- |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to the Ascend 950PR&950DT series products |
 
-`run.sh` does not generate or verify data automatically. After changing the rank count or `count`,
-regenerate the input and golden data.
+- Expected result
 
-## Expected Result
+  The following is partial output with 2 ranks and 256 FP32 elements per rank. The two-NPU case contains one communication step. The print order across ranks may vary with thread scheduling.
 
-The following is sample output with 2 ranks and 256 `float` elements per rank. The 2-card case contains
-1 communication step. Print order across ranks may vary with thread scheduling.
+  ```text
+  rank 1 NHR schedule: step0(to=0,from=0,tx=[1])
+  rank 0 NHR schedule: step0(to=1,from=1,tx=[0])
+  rank 1: launched, waiting for stream
+  rank 0: launched, waiting for stream
+  rank 0: stream completed
+  rank 1: stream completed
+  rank 0 input : [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(256) ]
+  rank 0 output: [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(512) ]
+  rank 0: output saved to <sample_path>/output/output_rank_0.bin
+  rank 1: output saved to <sample_path>/output/output_rank_1.bin
+  rank 0 verify pass
+  rank 1 verify pass
+  test pass!
+  ```
 
-```text
-rank 1 NHR schedule: step0(to=0,from=0,tx=[1])
-rank 0 NHR schedule: step0(to=1,from=1,tx=[0])
-rank 1: launched, waiting for stream
-rank 0: launched, waiting for stream
-rank 0: stream completed
-rank 1: stream completed
-rank 0 input : [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(256) ]
-rank 0 output: [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(512) ]
-rank 0: output saved to <sample_path>/output/output_rank_0.bin
-rank 1: output saved to <sample_path>/output/output_rank_1.bin
-rank 0 verify pass
-rank 1 verify pass
-test pass!
-```
+  Every rank passes verification and prints `verify pass`, and `test pass!` is printed at the end, indicating that the sample ran successfully.
 
 ## Notes
 
-- At least two NPU devices are required to run the sample. Single-device environments support compilation only.
+- At least two NPUs are required to run the sample. A single-NPU environment supports compilation verification only.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
-- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
+- This sample uses the `dav-3510` architecture by default and applies only to the Ascend 950PR&950DT series products.

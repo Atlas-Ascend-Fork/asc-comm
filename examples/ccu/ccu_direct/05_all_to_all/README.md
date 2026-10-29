@@ -1,26 +1,10 @@
-# CCU AllToAll 直接执行样例
+# CCU Direct AllToAll样例
 
 ## 概述
 
-本样例展示如何基于 HCCL 通信域和 CCU 数据面接口实现等长 AllToAll。
-Kernel 通过 ASC `<<<>>>` 直调方式下发，不再使用注册和 `asccomm_ccu_kernel_launch` 接口。
+本样例展示如何基于HCCL通信域和CCU数据面接口，以直调`<<<>>>`方式实现等长AllToAll。
 
-每个 rank 的输入按目标 rank 分为 `rankSize` 段，并向每个目标 rank 发送 `perCount` 个元素。目标 rank 的输出按源 rank 顺序保存：
-
-```text
-rank r sendBuf = [to_rank_0 | to_rank_1 | ... | to_rank_N-1]
-rank p recvBuf = [from_rank_0 | from_rank_1 | ... | from_rank_N-1]
-```
-
-CCU kernel 使用 `GroupCopy` 完成本地段复制，并使用 `ccu::write` 将其他输入段写入远端输出。AllToAll 不执行归约。
-
-样例约束：
-
-- 仅支持 `HCCL_DATA_TYPE_FP32`
-- 每个源到每个目标的元素数由 `perCount` 指定
-- 输入和输出使用不同的 Device buffer，不支持原地操作
-- 支持最多 16 个 rank 的单机 1D full mesh
-- 使用 `HCCL_OP_EXPANSION_MODE=CCU_SCHED` 运行
+每个rank把输入均分成rankSize段，其中第r段发给rank r，收到的数据段按源rank顺序拼接成输出。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -31,47 +15,86 @@ CCU kernel 使用 `GroupCopy` 完成本地段复制，并使用 `ccu::write` 将
 ## 目录结构介绍
 
 ```text
-05_all_to_all/
-├── CMakeLists.txt
-├── README.md
-├── README_en.md
-├── run.sh
-└── main.asc
+05_all_to_all
+├── CMakeLists.txt    // 编译工程文件
+├── README.md         // 中文样例说明
+├── README_en.md      // 英文样例说明
+├── run.sh            // 一键构建运行脚本
+└── main.asc          // Host侧流程和CCU AllToAll Kernel实现
 ```
 
 ## 样例描述
 
-本样例基于HCCL通信域申请CCU资源，并通过ASC `<<<>>>` 直调CCU Kernel完成数据通信或搬运。
+### 样例规格
+
+| 项目 | 说明 |
+| --- | --- |
+| 通信模式 | HCCL通信域内CCU AllToAll |
+| 调用方式 | CCU Kernel直调`<<<>>>` |
+| 数据类型 | FP32 |
+| 单rank输入规模 | `rankSize * perCount`个FP32元素，样例中`perCount = rankSize` |
+| 输出规模 | `rankSize * perCount`个FP32元素 |
+| 支持rank数 | 不超过`CCU_MAX_RANK_SIZE`，当前样例中为16 |
+
+### 实现流程
+
+1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
+2. 每个Device创建一个rank，输入元素`i`初始化为`device * 100 + i`。
+3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
+4. 通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
+5. 通过`CcuAllToAllMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
+6. Kernel内先通过`GroupCopy`将本rank的输入段复制到本地输出，再通过`ccu::write`将其他输入段写入
+   对应rank的输出，并等待全部远端写入完成。
+7. 同步Stream后将结果拷贝回Host侧，按`src * 100 + device * perCount + elementIdx`逐元素校验，
+   打印`PASS`或`FAIL`。
+8. 销毁HCCL通信域、Stream和Device侧内存。
 
 ## 编译运行
 
-执行前先设置 CANN 运行环境和 CCU 调度模式：
+在本样例根目录下执行如下步骤，编译并运行样例。本样例仅支持NPU运行模式。
 
-```bash
-source ${ASCEND_HOME_PATH}/set_env.sh
-export HCCL_OP_EXPANSION_MODE=CCU_SCHED
-```
+- 配置环境变量
 
-然后在样例目录执行：
+  请根据当前环境上CANN开发套件包的安装方式配置开发环境，并开启CCU调度模式。
 
-```bash
-bash run.sh
-```
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+  ```
 
-`run.sh` 会执行 CMake 配置、编译并运行样例。
+  > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-## 执行结果
+- 样例执行
 
-测试使用 `perCount = rankSize`，rank `d` 的输入元素 `i` 初始化为 `d * 100 + i`。两卡场景下：
+  在本样例目录下执行如下命令。
 
-```text
-rankId: 0, input: [ 0 1 2 3 ]
-rankId: 1, input: [ 100 101 102 103 ]
-rankId: 0, output: [ 0 1 100 101 ]
-rankId: 0 PASS
-rankId: 1, output: [ 2 3 102 103 ]
-rankId: 1 PASS
-```
+  ```bash
+  bash run.sh
+  ```
+
+  `run.sh`会完成CMake配置、编译并运行样例。
+
+- 编译选项说明
+
+  | 选项 | 可选值 | 说明 |
+  | --- | --- | --- |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
+
+- 执行结果
+
+  两卡场景下，rank `d`的输入元素`i`初始化为`d * 100 + i`。运行成功后终端会输出类似以下信息：
+
+  ```text
+  Found 2 NPU device(s) available
+  rankId: 0, input: [ 0 1 2 3 ]
+  rankId: 1, input: [ 100 101 102 103 ]
+  rankId: 0, output: [ 0 1 100 101 ]
+  rankId: 0 PASS
+  rankId: 1, output: [ 2 3 102 103 ]
+  rankId: 1 PASS
+  ```
+
+  每个rank的输出均按源rank顺序保存各rank发往本rank的数据，并输出`PASS`，表示样例执行成功。
 
 ## 注意事项
 

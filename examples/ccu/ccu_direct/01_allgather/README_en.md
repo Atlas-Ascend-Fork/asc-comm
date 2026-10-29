@@ -2,20 +2,15 @@
 
 ## Overview
 
-This sample shows how to implement AllGather with HCCL communication-domain resources and CCU dataplane APIs through the direct-launch syntax `<<<>>>`.
+This sample shows how to implement AllGather with the direct-launch `<<<>>>` approach, based on an HCCL communication domain and CCU dataplane APIs.
 
-The sample creates one communication-domain rank for each visible NPU. Each rank inputs `rankSize` FP32 elements initialized to its rank ID. After AllGather, each rank output buffer contains all rank inputs in rank order.
-
-Runtime dependencies:
-
-- `libhcomm.so`: provides HCCL communication-domain, channel, and CCU instance query APIs.
-- `libasccomm_ccu.so`: provides CCU direct-launch, memory-token, and CCU dataplane APIs.
+The inputs of all ranks are concatenated in rank order, and each rank obtains a complete copy of the data.
 
 ## Supported Products and CANN Versions
 
 | Product | CANN Version |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT series products | >= CANN 9.1.0 |
 
 ## Directory Structure
 
@@ -24,20 +19,11 @@ Runtime dependencies:
 ├── CMakeLists.txt    // CMake build file
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
-├── run.sh            // Build-and-run script
+├── run.sh            // One-step build-and-run script
 └── main.asc          // Host flow and CCU AllGather kernel implementation
 ```
 
 ## Sample Description
-
-### Functionality
-
-Each rank inputs `rankSize` FP32 elements:
-
-```text
-rank r sendBuf = [r, r, ..., r]
-rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
-```
 
 ### Sample Specification
 
@@ -52,9 +38,9 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 
 ### Implementation Flow
 
-1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
+1. Initialize ACL and the HCCL communication domain, and obtain the number of NPUs in the current environment.
 2. Create one rank for each device and initialize the input buffer.
-3. Acquire CCU channels and a CCU instance from the HCCL communication domain.
+3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
 4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Synchronize the stream, copy the result back to the host, and print it.
@@ -62,47 +48,61 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 
 ## Build and Run
 
-Set the CANN runtime environment and CCU scheduling mode before running:
+Perform the following steps in the sample root directory to build and run the sample. This sample supports only the NPU run mode.
 
-```bash
-source ${install_path}/cann/set_env.sh
-export HCCL_OP_EXPANSION_MODE=CCU_SCHED
-```
+- Configure environment variables
 
-Run from this sample directory:
+  Configure the development environment according to how the CANN development kit package is installed, and enable CCU scheduling mode.
 
-```bash
-bash run.sh
-```
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+  ```
 
-Equivalent manual commands are:
+  > **Note:** `${install_path}` is the CANN package installation directory. If no installation directory is specified, the package is installed in `/usr/local/Ascend` by default.
 
-```bash
-mkdir -p build
-cd build
-cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-cmake --build . -j$(nproc)
-cd ..
-exec build/ccu_allgather
-```
+- Run the sample
 
-## Expected Result
+  Run the following command in the sample directory:
 
-In a two-NPU run, successful execution prints information similar to:
+  ```bash
+  bash run.sh
+  ```
 
-```text
-Found 2 NPU device(s) available
-rankId: 0, input: [ 0 0 ]
-rankId: 1, input: [ 1 1 ]
-rankId: 0, recvBuf: [ 0 0 1 1 ]
-rankId: 1, recvBuf: [ 0 0 1 1 ]
-```
+  The equivalent manual commands are:
 
-Each rank's `recvBuf` contains inputs from all ranks, indicating that the sample succeeded.
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  cmake --build . -j$(nproc)
+  cd ..
+  exec build/ccu_allgather
+  ```
+
+- Build options
+
+  | Option | Possible values | Description |
+  | --- | --- | --- |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to the Ascend 950PR&950DT series products |
+
+- Expected result
+
+  In a two-NPU run, successful execution prints information similar to the following:
+
+  ```text
+  Found 2 NPU device(s) available
+  rankId: 0, input: [ 0 0 ]
+  rankId: 1, input: [ 1 1 ]
+  rankId: 0, recvBuf: [ 0 0 1 1 ]
+  rankId: 1, recvBuf: [ 0 0 1 1 ]
+  ```
+
+  The `recvBuf` of each rank contains the inputs of all ranks, indicating that the sample ran successfully.
 
 ## Notes
 
-- At least two NPU devices are required to run the sample. Single-device environments support compilation only.
+- At least two NPUs are required to run the sample. A single-NPU environment supports compilation verification only.
 - Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
-- The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.
-- The sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE`.
+- This sample uses the `dav-3510` architecture by default and applies only to the Ascend 950PR&950DT series products.
+- This sample uses all NPU devices visible in the environment, and the number of devices must not exceed `CCU_MAX_RANK_SIZE`.

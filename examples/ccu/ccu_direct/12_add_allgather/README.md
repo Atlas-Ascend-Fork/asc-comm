@@ -5,8 +5,8 @@
 本样例展示如何先通过AICore vector kernel执行Add计算，再以计算结果作为输入，通过CCU以直调`<<<>>>`
 方式执行AllGather通信。
 
-样例会根据当前环境中的NPU数量创建通信域，每个Device对应一个rank。每个rank先对本地输入执行AICore
-Add计算，再将计算结果通过CCU AllGather同步到所有rank。
+每个rank先对本地输入逐元素加上标量1.0，各rank的计算结果再按rank顺序拼接，每个rank
+都得到一份完整的数据。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -26,15 +26,6 @@ Add计算，再将计算结果通过CCU AllGather同步到所有rank。
 ```
 
 ## 样例描述
-
-### 功能说明
-
-每个rank的输入为`sendCount`个FP32元素。样例先通过AICore vector kernel将本地输入写入`computeBuf`，
-再以`computeBuf`作为CCU AllGather输入，将所有rank的计算结果同步到每个rank的`recvBuf`。
-
-```text
-sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
-```
 
 ### 样例规格
 
@@ -80,6 +71,7 @@ sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
 
   ```bash
   bash run.sh
+  ```
 
   等价的手动命令为：
 
@@ -112,10 +104,6 @@ sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
   ```
 
   每个rank的`recvBuf`均包含所有rank执行AICore Add后的结果，表示样例执行成功。
-
-## 执行结果
-
-样例执行成功时，各rank输出`PASS`。若任意rank输出`FAIL`，表示执行结果与预期不一致。
 
 ## 注意事项
 

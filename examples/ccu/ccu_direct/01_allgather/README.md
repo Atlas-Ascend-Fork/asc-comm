@@ -4,12 +4,7 @@
 
 本样例展示如何基于HCCL通信域和CCU数据面接口，以直调`<<<>>>`方式实现AllGather。
 
-样例会根据当前环境中的NPU数量创建通信域，每个Device对应一个rank。每个rank输入`rankSize`个FP32元素，元素值初始化为rank id。AllGather完成后，每个rank的输出Buffer按rank顺序保存所有rank输入。
-
-运行时依赖：
-
-- `libhcomm.so`：提供HCCL通信域、Channel和CCU实例查询接口。
-- `libasccomm_ccu.so`：提供CCU直调、内存Token和CCU数据面编程接口。
+所有rank的输入按rank顺序拼接，每个rank都得到一份完整的数据。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -29,15 +24,6 @@
 ```
 
 ## 样例描述
-
-### 功能说明
-
-每个rank的输入为`rankSize`个FP32元素：
-
-```text
-rank r sendBuf = [r, r, ..., r]
-rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
-```
 
 ### 样例规格
 
@@ -62,43 +48,57 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 
 ## 编译运行
 
-执行前先设置CANN运行环境和CCU调度模式：
+在本样例根目录下执行如下步骤，编译并运行样例。本样例仅支持NPU运行模式。
 
-```bash
-source ${install_path}/cann/set_env.sh
-export HCCL_OP_EXPANSION_MODE=CCU_SCHED
-```
+- 配置环境变量
 
-在本样例目录下执行：
+  请根据当前环境上CANN开发套件包的安装方式配置开发环境，并开启CCU调度模式。
 
-```bash
-bash run.sh
-```
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+  ```
 
-等价的手动命令为：
+  > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-```bash
-mkdir -p build
-cd build
-cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-cmake --build . -j$(nproc)
-cd ..
-exec build/ccu_allgather
-```
+- 样例执行
 
-## 执行结果
+  在本样例目录下执行如下命令。
 
-两卡场景下，运行成功后终端输出类似以下信息：
+  ```bash
+  bash run.sh
+  ```
 
-```text
-Found 2 NPU device(s) available
-rankId: 0, input: [ 0 0 ]
-rankId: 1, input: [ 1 1 ]
-rankId: 0, recvBuf: [ 0 0 1 1 ]
-rankId: 1, recvBuf: [ 0 0 1 1 ]
-```
+  等价的手动命令为：
 
-每个rank的`recvBuf`均包含所有rank输入，表示样例执行成功。
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  cmake --build . -j$(nproc)
+  cd ..
+  exec build/ccu_allgather
+  ```
+
+- 编译选项说明
+
+  | 选项 | 可选值 | 说明 |
+  | --- | --- | --- |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
+
+- 执行结果
+
+  两卡场景下，运行成功后终端输出类似以下信息：
+
+  ```text
+  Found 2 NPU device(s) available
+  rankId: 0, input: [ 0 0 ]
+  rankId: 1, input: [ 1 1 ]
+  rankId: 0, recvBuf: [ 0 0 1 1 ]
+  rankId: 1, recvBuf: [ 0 0 1 1 ]
+  ```
+
+  每个rank的`recvBuf`均包含所有rank输入，表示样例执行成功。
 
 ## 注意事项
 

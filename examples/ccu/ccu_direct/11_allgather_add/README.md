@@ -5,8 +5,7 @@
 本样例展示如何先通过CCU以直调`<<<>>>`方式完成AllGather通信，再通过AICore vector kernel对AllGather
 结果执行Add计算。
 
-样例会根据当前环境中的NPU数量创建通信域，每个Device对应一个rank。每个rank输入一段FP32数据，先完成
-跨rank AllGather，再将聚合后的结果作为AICore计算输入。
+所有rank的输入先按rank顺序拼接，每个rank再对拼接结果逐元素加上标量8.0。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -26,15 +25,6 @@
 ```
 
 ## 样例描述
-
-### 功能说明
-
-每个rank的输入为`sendCount`个FP32元素。样例先将各rank输入AllGather到每个rank的`recvBuf`，再通过
-AICore vector kernel读取`recvBuf`并将Add结果写入`computeBuf`。
-
-```text
-sendBuf -> CCU AllGather -> recvBuf -> AICore Add -> computeBuf
-```
 
 ### 样例规格
 
@@ -80,6 +70,7 @@ sendBuf -> CCU AllGather -> recvBuf -> AICore Add -> computeBuf
 
   ```bash
   bash run.sh
+  ```
 
   等价的手动命令为：
 
@@ -96,7 +87,6 @@ sendBuf -> CCU AllGather -> recvBuf -> AICore Add -> computeBuf
 
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
-  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
   | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
 
 - 执行结果
@@ -112,10 +102,6 @@ sendBuf -> CCU AllGather -> recvBuf -> AICore Add -> computeBuf
   ```
 
   每个rank均完成AllGather并输出AICore Add后的结果，表示样例执行成功。
-
-## 执行结果
-
-样例执行成功时，各rank输出`PASS`。若任意rank输出`FAIL`，表示执行结果与预期不一致。
 
 ## 注意事项
 
