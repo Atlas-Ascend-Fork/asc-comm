@@ -195,9 +195,11 @@ extern CcuResult ccu_loop_body_exit(ccu_loop loop);
 // 因此池子按"取最大值"被动扩容，不会按组累加。
 extern CcuResult ccu_loop_group_create(
     ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config);
+extern CcuResult ccu_loop_group_create_cfg(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_cfg* cfg);
 extern CcuResult ccu_loop_group_create_from_var(
     ccu_loop_group* group, uint32_t max_loop_num, ccu_variable_handle parallel_var, ccu_variable_handle offset_var);
 extern CcuResult ccu_loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config);
+extern CcuResult ccu_loop_group_add_loop_cfg(ccu_loop_group group, ccu_loop loop, const ccu_loop_cfg* cfg);
 extern CcuResult ccu_loop_group_add_loop_from_var(
     ccu_loop_group group, ccu_loop loop, ccu_variable_handle loop_param_var);
 

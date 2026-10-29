@@ -37,7 +37,7 @@ struct functor_traits<R (C::*)(A...) const> {
     using return_t = R;
     template <std::size_t I>
     struct Arg {
-        using type_ = typename std::tuple_element<I, std::tuple<A...>>::type_;
+        using type = typename std::tuple_element<I, std::tuple<A...>>::type;
     };
 };
 
@@ -93,7 +93,7 @@ private:
 // ccu::call_func：global / static ccu::func 引用 NTTP（C++14 合法）。
 // 用法：static ccu::func MyAdd(lambda); ... ccu::call_func<MyAdd>(x, y);
 template <func& Obj, typename... args>
-inline CcuResult call_func(args... args_)
+inline CcuResult call_func(args... args)
 {
     constexpr std::size_t arg_num = sizeof...(args);
     if (static_cast<uint32_t>(arg_num) != Obj.num_in()) {
@@ -106,7 +106,7 @@ inline CcuResult call_func(args... args_)
         // 第一次进入：合成 func_block
         CCU_THROW_IF_FAILED(::asc::ccu_func_block_begin(Obj.key(), &handle), "call_func: ccu_func_block_begin failed");
 
-        // 形参：按 lambda 形参个数 alloc，并注册为 func_block 的 in args_
+        // 形参：按 lambda 形参个数 alloc，并注册为 func_block 的 in args
         std::vector<variable> formals(Obj.num_in());
         for (uint32_t i = 0; i < Obj.num_in(); i++) {
             CCU_THROW_IF_FAILED(::asc::ccu_variable_alloc(&formals[i].handle), "call_func: ccu_variable_alloc failed");
@@ -126,7 +126,7 @@ inline CcuResult call_func(args... args_)
         std::size_t i = 0;
         // C++14 兼容的参数包展开
         using expand_t = int[];
-        (void)expand_t{0, ((void)(actuals[i++] = args_.handle), 0)...};
+        (void)expand_t{0, ((void)(actuals[i++] = args.handle), 0)...};
         (void)i;
     }
     return ::asc::ccu_func_call(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(arg_num));

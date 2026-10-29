@@ -69,6 +69,7 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 ## 调用示例
 
 ```cpp
+// 为简化示例，省略返回值接收与错误处理
 using namespace AscendC::ccu;
 
 // 场景：注册时声明循环次数n和起始偏移offset由host在Launch时传入

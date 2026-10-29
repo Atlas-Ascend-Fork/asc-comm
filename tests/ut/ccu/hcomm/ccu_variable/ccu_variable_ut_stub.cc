@@ -696,8 +696,7 @@ CcuResult ccu_kernel::loop_body_exit(ccu_loop loop)
     return ut::take_result();
 }
 
-CcuResult ccu_kernel::loop_group_create(
-    ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config)
+CcuResult ccu_kernel::loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_cfg* cfg)
 {
     ut::record("loop_group_create", {max_loop_num});
     if (group != nullptr) {
@@ -717,7 +716,7 @@ CcuResult ccu_kernel::loop_group_create_from_var(
     return ut::take_result();
 }
 
-CcuResult ccu_kernel::loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config)
+CcuResult ccu_kernel::loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_cfg* cfg)
 {
     ut::record("loop_group_add_loop", {group, loop});
     return ut::take_result();

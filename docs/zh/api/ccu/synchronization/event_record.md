@@ -67,6 +67,7 @@ CcuResult event_record(event e, uint16_t mask = 1);
 ## 调用示例
 
 ```cpp
+// 为简化示例，省略返回值接收与错误处理
 using namespace AscendC::ccu;
 
 // CCU kernel函数体内

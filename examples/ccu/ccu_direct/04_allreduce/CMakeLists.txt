@@ -12,6 +12,11 @@ cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
 project(asccomm_examples_ccu_allreduce LANGUAGES CXX ASC)
 
+set(SCENARIO_NUM "1" CACHE STRING "AllReduce scenario: 1 allreduce sum, 2 allreduce sum plus local_reduce demo")
+if(NOT SCENARIO_NUM MATCHES "^[1-2]$")
+    message(FATAL_ERROR "SCENARIO_NUM must be 1 or 2")
+endif()
+
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
         set(ASCEND_CANN_PACKAGE_PATH $ENV{ASCEND_HOME_PATH})
@@ -49,6 +54,7 @@ target_compile_options(ccu_allreduce PRIVATE
 
 target_compile_definitions(ccu_allreduce PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
+    SCENARIO_NUM=${SCENARIO_NUM}
 )
 target_link_options(ccu_allreduce PRIVATE
     -pie

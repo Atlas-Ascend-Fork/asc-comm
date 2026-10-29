@@ -6,6 +6,11 @@
 
 所有rank的输入逐元素求和，每个rank都得到相同的求和结果。
 
+通过编译参数`SCENARIO_NUM`选择教学场景：
+
+- 场景1（推荐）：经典AllReduce SUM流程（`write_reduce`散射归约），每个rank的output为所有rank输入的逐元素和。
+- 场景2（性能和扩展性不如场景1，主要用作接口示例）：独立的"聚合-归约"流程——先`read`把各rank输入搬运到本地`ccu_buffer`，再`local_reduce`（N路`ccu_buffer`重载）本地归约，输出与场景1相同。
+
 ## 本样例支持的产品及CANN软件版本
 
 | 产品 | CANN软件版本 |
@@ -31,6 +36,7 @@
 | --- | --- |
 | 通信模式 | HCCL通信域内CCU AllReduce |
 | 调用方式 | CCU Kernel直调`<<<>>>` |
+| 教学场景 | 通过编译参数`SCENARIO_NUM`选择，取值1/2 |
 | 数据类型 | FP32（`HCCL_DATA_TYPE_FP32`） |
 | 归约操作 | SUM（`HCCL_REDUCE_SUM`） |
 | 单rank输入规模 | `rankSize`个FP32元素 |
@@ -38,6 +44,8 @@
 | 支持rank数 | 不超过`CCU_MAX_RANK_SIZE`，当前样例中为16 |
 
 ### 实现流程
+
+场景1（经典AllReduce SUM，`write_reduce`散射归约）：
 
 1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 每个Device创建一个rank，输入元素`i`初始化为`device * rankSize + i`。
@@ -48,6 +56,14 @@
    输入按SUM累加写入其它rank的输出，并等待全部远端写入完成。
 7. 同步Stream后将结果拷贝回Host侧并打印。
 8. 销毁HCCL通信域、Stream和Device侧内存。
+
+场景2（独立的"聚合-归约"流程）：
+
+1. 前同步仅交换本端input地址与token（无远端写，不交换output地址）。
+2. 本端input经`ccu::local_copy`拷入`bufs[rankId]`。
+3. 逐个对端`ccu::read`：对端input -> `bufs[对端rankId]`，把各rank数据搬运到本地。
+4. `ccu::local_reduce`（N路`ccu_buffer`重载）把`bufs[0..N-1]`归约到`bufs[0]`。
+5. `bufs[0]`拷回本端output，结果与场景1相同（全rank逐元素和）。
 
 ## 编译运行
 
@@ -66,23 +82,34 @@
 
 - 样例执行
 
-  在本样例目录下执行如下命令。
+  在本样例目录下执行如下命令。将`SCENARIO_NUM`分别设置为`1`、`2`可以编译并运行两个教学场景。
 
   ```bash
-  bash run.sh
+  SCENARIO_NUM=1 bash run.sh
   ```
-
-  `run.sh`会完成CMake配置、编译并运行样例。
 
 - 编译选项说明
 
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
+  | `SCENARIO_NUM` | `1`/`2` | 教学场景：1经典AllReduce SUM、2独立聚合-归约流程，默认为`1` |
 
 - 执行结果
 
-  两卡场景下，rank `d`的输入元素`i`初始化为`d * rankSize + i`。运行成功后终端会输出类似以下信息：
+  两卡场景下，rank `d`的输入元素`i`初始化为`d * rankSize + i`。两个场景的预期输出相同：
+
+  场景1（默认）：
+
+  ```text
+  Found 2 NPU device(s) available
+  rankId: 0, input: [ 0 1 ]
+  rankId: 1, input: [ 2 3 ]
+  rankId: 0, output: [ 2 4 ]
+  rankId: 1, output: [ 2 4 ]
+  ```
+
+  场景2采用独立的"聚合-归约"流程，输出与场景1相同：
 
   ```text
   Found 2 NPU device(s) available
@@ -97,5 +124,6 @@
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- 场景2的`ccu_buffer`归约重载支持2~8路（rank数即设备数），设备数超过8时场景2不支持；场景1不受影响。
 - 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
 - 当前样例默认使用`dav-3510`架构，仅适用于Ascend 950PR&950DT系列产品。

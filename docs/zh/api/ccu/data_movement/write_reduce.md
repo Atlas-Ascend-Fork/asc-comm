@@ -81,6 +81,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 ## 调用示例
 
 ```cpp
+// 为简化示例，省略返回值接收与错误处理
 using namespace AscendC::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧建链后通过<<<>>>的kernelArg传入

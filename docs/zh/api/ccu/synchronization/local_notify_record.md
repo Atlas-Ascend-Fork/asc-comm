@@ -1,0 +1,91 @@
+# local_notify_record
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+
+在CCU kernel内发出同die内跨kernel同步信号的生产者侧接口，以字符串tag标识配对：相同tag的生产/消费两侧自动绑定到同一同步资源。
+
+> [!NOTE]说明
+> 本接口在C++层实现为`AscendC::ccu::event_record(const char* notify_tag, uint16_t mask)`重载，与`event_record(event, mask)`共用同一函数名，通过入参类型区分。适用于同一die内不同kernel之间的顺序同步（同device跨kernel），不适用于跨die或跨rank场景，跨die场景请使用[notify_record](notify_record.md)。
+
+## 函数原型
+
+```cpp
+// local_notify_record 对应 event_record 的 const char* 重载
+CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
+```
+
+## 参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| notify_tag | 输入 | 字符串tag，与消费侧`local_notify_wait`的`notify_tag`保持一致即可完成配对，无需提前分配编号。不可为空指针。必须在Kernel函数体执行期间保持有效（需为字符串字面量或kernel内的`static`存储），不可使用栈上临时数组。 |
+| mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`。同一tag的不同bit相互独立。 |
+
+## 返回值说明
+
+[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `CCU_SUCCESS` | 操作成功。 |
+| `CCU_E_PTR` | `notify_tag`为空指针，或接口在注册阶段之外被调用。 |
+| `CCU_E_NOT_SUPPORT` | 在硬件loop body内调用，不支持。 |
+
+## 约束说明
+
+- 不可在硬件loop body内调用，否则将返回`CCU_E_NOT_SUPPORT`。loop body会被硬件并行展开为N份，notify记录语义在并行环境中不唯一。
+- `notify_tag`必须在Kernel函数体执行期间保持有效，应使用字符串字面量（如`"phase1_done"`）或kernel内的`static char[]`，禁止使用栈上临时`char[]`。
+- 生产侧`local_notify_record`与消费侧`local_notify_wait`必须使用完全相同的`notify_tag`字符串内容进行配对。
+- 同一tag可承载多组配对，由`mask`的不同bit区分；等待侧`mask`必须与此处一致。
+- `local_notify_record`与对应的`local_notify_wait`必须成对出现，且`local_notify_wait`位于`local_notify_record`的后序位置。任何无配对的`local_notify_wait`将永久阻塞，导致硬件级死锁。
+
+## 调用示例
+
+> 下面示例中调用的`event_record("phase1_done", 0x1)`即本文档所述的`local_notify_record`——在C++层它与[event_record](event_record.md)（`event`对象重载）共用同一函数名，通过入参类型（`const char*` vs `event`）区分。
+
+```cpp
+// 为简化示例，省略返回值接收与错误处理
+using namespace AscendC::ccu;
+
+// 场景：同die内，phase_producer_kernel完成阶段1操作后通知phase_consumer_kernel继续
+// core 0 上的CCU kernel函数体内
+CcuResult phase_producer_kernel(ccu_kernel_arg arg) {
+    // ... 阶段1操作 ...
+
+    // 通知同die内的phase_consumer_kernel，阶段1已完成（即local_notify_record语义）
+    event_record("phase1_done", 0x1);
+    return CCU_SUCCESS;
+}
+
+// core 1 上的CCU kernel函数体内
+CcuResult phase_consumer_kernel(ccu_kernel_arg arg) {
+    // 等待phase_producer_kernel发出的阶段1完成信号
+    event_wait("phase1_done", 0x1);
+
+    // 此后可安全使用phase_producer_kernel阶段1的结果
+    return CCU_SUCCESS;
+}
+```

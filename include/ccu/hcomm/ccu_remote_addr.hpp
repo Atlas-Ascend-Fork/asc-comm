@@ -55,7 +55,7 @@ public:
         this->token.handle = other.token.handle;
     }
 
-    address addr_;
+    address addr;
     variable token;
     ccu_remote_addr_handle handle{0};
 

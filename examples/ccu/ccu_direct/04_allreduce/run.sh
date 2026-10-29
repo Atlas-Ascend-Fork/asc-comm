@@ -11,11 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${SCRIPT_DIR}/build"
-
-if [ -d "${BUILD_DIR}" ]; then
-    rm -rf "${BUILD_DIR}"
-fi
+SCENARIO="${SCENARIO_NUM:-1}"
+BUILD_DIR="${SCRIPT_DIR}/build-${SCENARIO}"
 
 if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
     echo "ASCEND_HOME_PATH is not set. Please set environment before running this script." >&2
@@ -23,7 +20,8 @@ if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
 fi
 
 cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
+    -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
+    -DSCENARIO_NUM="${SCENARIO}"
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
 
 exec "${BUILD_DIR}/ccu_allreduce"

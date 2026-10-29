@@ -66,6 +66,7 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 ## 调用示例
 
 ```cpp
+// 为简化示例，省略返回值接收与错误处理
 using namespace AscendC::ccu;
 
 // 场景：等待本端片上内存→片上内存拷贝完成后再继续

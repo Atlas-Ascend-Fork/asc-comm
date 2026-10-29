@@ -39,19 +39,19 @@ CCU_IF(cond_expr) {
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| cond_expr | 输入 | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`v != limit`。 |
+| cond_expr | 输入 | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`counter != 10`。 |
 
 ## 返回值说明
 
-`CCU_IF`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断注册：失败时代码块被跳过，注册仍然成功。错误不通过返回值反馈，调试时需留意。
+`CCU_IF`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断kernel生成：失败时代码块被跳过，kernel生成仍然成功。错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 
 - `CCU_IF(cond_expr)`后须紧跟`{}`包裹的then代码块。
-- `cond_expr`仅支持`==`和`!=`两种比较运算。
+- `cond_expr`仅支持`==`和`!=`两种比较运算，`<`、`>`、`<=`、`>=`在所有产品上均不支持。
 - 支持嵌套：`CCU_IF`代码块内可以再嵌套`CCU_IF`。
 - 不可在硬件Loop的循环体内使用。虽然代码不会报错，但硬件会发生未定义行为。
-- `cond_expr`中比较的立即数须为`uint64_t`类型，不支持`variable`与`variable`之间的比较。
+- `cond_expr`中比较的一方须为`uint64_t`立即数。针对Ascend 950PR&950DT系列产品，不支持`variable`与`variable`之间的比较。
 
 ## 调用示例
 

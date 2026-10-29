@@ -27,7 +27,7 @@ class remote_addr;
 template <typename u>
 class array;
 template <typename t>
-t get_res_by_channel(ChannelHandle channel_, uint32_t index);
+t get_res_by_channel(ChannelHandle channel, uint32_t index);
 
 struct cond_expr {
     variable* var_{nullptr};
@@ -60,10 +60,10 @@ public:
 
     void operator=(variable&& other) { this->handle = other.handle; }
 
-    void operator=(uint64_t immediate_) const
+    void operator=(uint64_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_assign_imm(this->handle, immediate_),
+            ::asc::ccu_variable_assign_imm(this->handle, immediate),
             "variable::operator=(uint64_t): ccu_variable_assign_imm failed");
     }
 
@@ -136,24 +136,24 @@ public:
             "variable::operator*=(variable): ccu_variable_mul_var_to_var failed");
     }
 
-    void operator+=(uint16_t immediate_) const
+    void operator+=(uint16_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_add_imm_to_var(this->handle, this->handle, immediate_),
+            ::asc::ccu_variable_add_imm_to_var(this->handle, this->handle, immediate),
             "variable::operator+=(uint16_t): ccu_variable_add_imm_to_var failed");
     }
 
-    void operator-=(uint16_t immediate_) const
+    void operator-=(uint16_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_sub_imm_to_var(this->handle, this->handle, immediate_),
+            ::asc::ccu_variable_sub_imm_to_var(this->handle, this->handle, immediate),
             "variable::operator-=(uint16_t): ccu_variable_sub_imm_to_var failed");
     }
 
-    void operator*=(uint16_t immediate_) const
+    void operator*=(uint16_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_mul_imm_to_var(this->handle, this->handle, immediate_),
+            ::asc::ccu_variable_mul_imm_to_var(this->handle, this->handle, immediate),
             "variable::operator*=(uint16_t): ccu_variable_mul_imm_to_var failed");
     }
 
@@ -175,22 +175,22 @@ public:
             *this, that, detail::ccu_arithmetic_operator_type::multiplication);
     }
 
-    detail::ccu_arithmetic_operator<variable, uint16_t> operator+(uint16_t immediate_) const
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator+(uint16_t immediate) const
     {
         return detail::ccu_arithmetic_operator<variable, uint16_t>(
-            *this, immediate_, detail::ccu_arithmetic_operator_type::addition);
+            *this, immediate, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    detail::ccu_arithmetic_operator<variable, uint16_t> operator-(uint16_t immediate_) const
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator-(uint16_t immediate) const
     {
         return detail::ccu_arithmetic_operator<variable, uint16_t>(
-            *this, immediate_, detail::ccu_arithmetic_operator_type::subtraction);
+            *this, immediate, detail::ccu_arithmetic_operator_type::subtraction);
     }
 
-    detail::ccu_arithmetic_operator<variable, uint16_t> operator*(uint16_t immediate_) const
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator*(uint16_t immediate) const
     {
         return detail::ccu_arithmetic_operator<variable, uint16_t>(
-            *this, immediate_, detail::ccu_arithmetic_operator_type::multiplication);
+            *this, immediate, detail::ccu_arithmetic_operator_type::multiplication);
     }
 
     void operator=(detail::ccu_logic_operator<variable, variable> op) const
@@ -313,17 +313,17 @@ public:
             "variable::operator>>=(variable): ccu_variable_shr_var_to_var failed");
     }
 
-    cond_expr operator==(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_eq, false}; }
+    cond_expr operator==(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_eq, false}; }
 
-    cond_expr operator!=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_ne, false}; }
+    cond_expr operator!=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_ne, false}; }
 
-    cond_expr operator<(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_lt, false}; }
+    cond_expr operator<(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_lt, false}; }
 
-    cond_expr operator<=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_le, false}; }
+    cond_expr operator<=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_le, false}; }
 
-    cond_expr operator>(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_gt, false}; }
+    cond_expr operator>(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_gt, false}; }
 
-    cond_expr operator>=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_ge, false}; }
+    cond_expr operator>=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_ge, false}; }
 
     cond_expr operator==(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_eq, true}; }
 
@@ -346,7 +346,7 @@ private:
     friend class local_addr;
     friend class remote_addr;
     template <typename t>
-    friend t get_res_by_channel(ChannelHandle channel_, uint32_t index);
+    friend t get_res_by_channel(ChannelHandle channel, uint32_t index);
 };
 
 } // namespace ccu
