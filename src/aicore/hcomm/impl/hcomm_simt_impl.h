@@ -44,20 +44,19 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff,
 
 template <CommProtocol commProtocol>
 __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb);
+    return impl_.MakeBatchHandle(channel, buff, buffLen);
 }
 
 template <CommProtocol commProtocol>
 template <typename Group>
 __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-    const Group& group)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, group);
+    return impl_.MakeBatchHandle(channel, buff, buffLen, group);
 }
 
 template <CommProtocol commProtocol>
@@ -232,40 +231,6 @@ template <auto pipe>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::Drain(UbcCtpBatchHandle& batchHandle)
 {
     return impl_.template Drain<pipe>(batchHandle);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::InitCompletionSet(
-    UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace, uint64_t bytes)
-{
-    return impl_.InitCompletionSet(set, channels, count, workspace, bytes);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::PrepareCompletion(
-    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount)
-{
-    return impl_.PrepareCompletion(set, channelIndex, wqeCount, bbCount);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::Progress(
-    UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed)
-{
-    return impl_.Progress(set, budget, processed);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::WaitCompletion(
-    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls)
-{
-    return impl_.WaitCompletion(set, channelIndex, maxIdlePolls);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::Drain(UbcCtpCompletionSet& set)
-{
-    return impl_.Drain(set);
 }
 
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)

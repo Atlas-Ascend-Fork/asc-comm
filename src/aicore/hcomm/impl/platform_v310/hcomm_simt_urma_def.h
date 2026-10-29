@@ -77,14 +77,12 @@ public:
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen);
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-        uint32_t groupRank, uint32_t groupSize);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, uint32_t groupRank, uint32_t groupSize);
     template <typename Group>
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-        const Group& group);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
@@ -146,23 +144,12 @@ public:
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
-    __simt_callee__ inline int32_t InitCompletionSet(
-        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,
-        uint64_t bytes);
-    __simt_callee__ inline int32_t PrepareCompletion(
-        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
-    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
-    __simt_callee__ inline int32_t WaitCompletion(
-        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
-    __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
-
 private:
     bool initialized_ = false;
     // Reads the channel entity and SQ context from global memory on every post. Nothing is
     // cached across calls: a channel may change from one post to the next, so a cache would
     // rarely hit while still costing a validity check and an invalidation on each post.
-    __simt_callee__ inline int32_t ResolvePost(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtResolvedPost& post);
+    __simt_callee__ inline int32_t ResolvePost(ChannelHandle channel, HcommSimtResolvedPost& post);
 
     // Claims SQ space for one submission, draining completed CQEs to release capacity when the
     // queue is full. commit selects how much free space the claim requires: a deferred post also

@@ -30,7 +30,7 @@
 namespace AscendC::simt {
 
 // Bit layout of HcommUrmaSqeCtx::flag, matching the SIMD path's expression in
-// HcommUrmaFillSqeCtx. URMA_DEFAULT_CFG evaluates to 0b00101101.
+// HcommUrmaFillSqeCtx.
 template <auto const& config>
 __simt_callee__ inline uint32_t HcommSimtUrmaFlag()
 {
@@ -93,7 +93,7 @@ struct alignas(sizeof(ulonglong2)) HcommSimtBatchStaticContext {
     uint32_t sqWqeSize;
     uint32_t sqDepth;
     uint32_t cachedSqTail;
-    uint32_t itemBb;
+    uint32_t itemBb; // WQE width in basic blocks, re-declared by each appended request; 0 until the first append.
     uint32_t groupSize;
     int32_t reservationStatus;
 };
@@ -216,9 +216,6 @@ __simt_callee__ inline void HcommSimtWriteNotifyWqe(
 // Writes a NOP WQE into the second basic block (words 8..15) of a 2BB staging buffer. A NOP
 // occupies one BB and produces no CQE; it pads the DWQE window when a 1BB inline Write needs to be
 // published through the doorbell.
-//
-// Placeholder layout: only the opcode and owner bit are set. As with other unused WQE words, the
-// remaining fields are ignored according to the NOP opcode and are not initialized.
 template <uint32_t wordCnt, typename WordPtr>
 __simt_callee__ inline void HcommSimtWriteNopWqe(
     WordPtr words, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t nextHead)
@@ -226,14 +223,8 @@ __simt_callee__ inline void HcommSimtWriteNopWqe(
     static_assert(wordCnt == HCOMM_SIMT_WQE_WORDS, "NOP padding requires a 2BB staging buffer");
     constexpr uint32_t nopFirstWord = HCOMM_SIMT_BB_WORDS; // Second BB starts at word 8
 
-    // The NOP occupies slot nextHead, one BB beyond the inline Write at curHead, so its owner bit
-    // is computed from nextHead. Same power-of-two assumption as HcommSimtWriteSqeHeader.
     uint64_t owner = (nextHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
-
-    // Minimal NOP header: opcode=0x11, owner bit, nextHead index.
-    words[nopFirstWord] = static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) |
-                          (1ULL << 28U) | // descriptor valid flag (bit 28)
-                          (1ULL << 29U) | // another control bit, copied from Write header
+    words[nopFirstWord] = static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) | (1ULL << 28U) | (1ULL << 29U) |
                           (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(HcommUrmaOpCode::NOP)) << 40U);
 }
 
@@ -270,7 +261,6 @@ __simt_callee__ inline void HcommSimtWriteInlineWqe(
         words[HCOMM_SIMT_INLINE_FIRST_WORD + word] = packed;
     }
 
-    // Pad the DWQE window with a NOP so the doorbell has a full 128B to publish.
     if constexpr (commit) {
         HcommSimtWriteNopWqe<wordCnt>(words, sqeTemplate, nextHead);
     }
@@ -346,26 +336,6 @@ __simt_callee__ inline __ubuf__ uint64_t* HcommSimtBatchPublisherWords(__ubuf__ 
         reinterpret_cast<__ubuf__ uint8_t*>(context) + HCOMM_SIMT_BATCH_CONTEXT_BYTES);
 }
 
-__simt_callee__ inline void HcommSimtFlushBatchLaneSq(
-    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size)
-{
-    const bool publisher = rank + 1U == size;
-    const uint32_t curHead = HcommSimtHeadIdx(context->reservedHead) + rank * context->itemBb;
-    __gm__ uint8_t* firstBb =
-        reinterpret_cast<__gm__ uint8_t*>(context->sqBaseAddr + context->sqWqeSize * (curHead % context->sqDepth));
-    __gm__ uint8_t* secondBb = (curHead % context->sqDepth) + 1U == context->sqDepth ?
-                                   reinterpret_cast<__gm__ uint8_t*>(context->sqBaseAddr) :
-                                   firstBb + HCOMM_URMA_WQE_BB_SIZE;
-
-    // Each producer maintains its own SQ lines before the publisher advances the shared head.
-    asc_threadfence();
-    asc_dcci_single(firstBb);
-    if (publisher || context->itemBb == HCOMM_URMA_DWQE_BB_CNT) {
-        asc_dcci_single(secondBb);
-    }
-    asc_threadfence();
-}
-
 template <HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline uint64_t HcommSimtBatchSqeWord0(
     const __ubuf__ HcommSimtBatchStaticContext* context, uint32_t curHead, uint32_t nextHead,
@@ -405,9 +375,19 @@ __simt_callee__ inline uint32_t HcommSimtBatchTotalBb(uint32_t groupSize, uint32
 
 // Advance the private producer cursor without publishing it. The cached tail is sufficient on the
 // normal path; it is refreshed from GM only when the cached free range has been exhausted.
-__simt_callee__ inline bool HcommSimtPlanBatchFromHead(__ubuf__ HcommSimtBatchStaticContext* context, uint64_t headVal)
+// itemBb overrides context->itemBb for this planning pass without storing it, so MakeBatchHandle can
+// pre-check capacity with the widest request layout before the first request fixes the actual width.
+__simt_callee__ inline bool HcommSimtPlanBatchFromHead(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint64_t headVal, uint32_t itemBb = 0U)
 {
-    const uint32_t totalBb = HcommSimtBatchTotalBb(context->groupSize, context->itemBb);
+    const uint32_t plannedItemBb = itemBb == 0U ? context->itemBb : itemBb;
+    if (plannedItemBb == 0U) {
+        // A zero width means no request has fixed the WQE size yet; a zero-width plan would pass every
+        // capacity check, so fail the reservation instead.
+        context->reservationStatus = HCOMM_FAILED;
+        return false;
+    }
+    const uint32_t totalBb = HcommSimtBatchTotalBb(context->groupSize, plannedItemBb);
     const uint32_t head = HcommSimtHeadIdx(headVal);
     uint32_t usedBb = head - context->cachedSqTail;
     if (usedBb > context->sqDepth || totalBb > context->sqDepth - usedBb) {
@@ -437,10 +417,11 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(__gm__ uint8_t* dwqeAddr, con
     asc_threadfence();
     __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dwqeAddr);
 #pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
+    for (uint32_t i = 1; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
         const uint32_t word = i * 2U;
         asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
     }
+    asc_stwt(&dstWords[0], make_ulonglong2(words[0], words[1U]));
     asc_threadfence();
     asc_dcci_single(dwqeAddr);
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
@@ -460,7 +441,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(__ubuf__ ui
 }
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
-    ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtResolvedPost& post)
+    ChannelHandle channel, HcommSimtResolvedPost& post)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
     __gm__ RegedBufferEntity* remoteBuffers =
@@ -498,19 +479,17 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
 }
 
 __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
-    return MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, 0U, 1U);
+    return MakeBatchHandle(channel, buff, buffLen, 0U, 1U);
 }
 
 __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-    uint32_t groupRank, uint32_t groupSize)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, uint32_t groupRank, uint32_t groupSize)
 {
     UbcCtpBatchHandle batchHandle;
     constexpr uint32_t workspaceBytes = HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
-    if (buff == nullptr || buffLen < workspaceBytes ||
-        (itemBb != HCOMM_URMA_WQE_BB_CNT && itemBb != HCOMM_URMA_DWQE_BB_CNT)) {
+    if (buff == nullptr || buffLen < workspaceBytes) {
         return batchHandle;
     }
     __ubuf__ HcommSimtBatchStaticContext* context = reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(buff);
@@ -523,8 +502,7 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBa
     }
     context->headAddr = 0U;
     HcommSimtResolvedPost post;
-    __gm__ uint8_t* remoteAddr = reinterpret_cast<__gm__ uint8_t*>(remoteBase);
-    if (ResolvePost(channel, remoteAddr, 1U, post) != HCOMM_SUCCESS) {
+    if (ResolvePost(channel, post) != HCOMM_SUCCESS) {
         return batchHandle;
     }
 
@@ -542,9 +520,11 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBa
     asc_dcci_single(post.sqTailAddr);
     asc_dcci_single(post.headAddr);
     context->cachedSqTail = *post.sqTailAddr;
-    context->itemBb = itemBb;
+    context->itemBb = 0U;
     context->groupSize = groupSize;
-    HcommSimtPlanBatchFromHead(context, *post.headAddr);
+    // Pre-check capacity with the widest request layout; every appended request re-plans with its
+    // actual width.
+    HcommSimtPlanBatchFromHead(context, *post.headAddr, HCOMM_URMA_DWQE_BB_CNT);
 
     batchHandle.channel = channel;
     batchHandle.context = reinterpret_cast<__ubuf__ uint64_t*>(context);
@@ -555,20 +535,18 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBa
 
 template <typename Group>
 __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-    const Group& group)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group)
 {
     UbcCtpBatchHandle batchHandle;
     constexpr uint32_t workspaceBytes = HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
     // All lanes must supply the same arguments; reject invalid storage before any lane reads it.
-    if (buff == nullptr || buffLen < workspaceBytes ||
-        (itemBb != HCOMM_URMA_WQE_BB_CNT && itemBb != HCOMM_URMA_DWQE_BB_CNT)) {
+    if (buff == nullptr || buffLen < workspaceBytes) {
         return batchHandle;
     }
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
     if (rank == 0U) {
-        (void)MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, 0U, size);
+        (void)MakeBatchHandle(channel, buff, buffLen, 0U, size);
     }
     group.sync();
 
@@ -585,11 +563,6 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBa
 
 // Each operator prepares its request-specific values at final WQE offsets. The same-BB contract
 // lets Group Commit derive every final SQ position directly from group rank.
-//
-// bbCnt is 2 for every operator except a deferred Write/Read: those are the only WQEs that
-// fit in one basic block, and they must stay inside it because the next block may already
-// hold another lane's WQE. An immediate Write/Read instead splits its payload across two
-// SGEs so the WQE fills the whole 128B DWQE window that publishes it.
 template <bool commitFlag, HcommUrmaOpCode opCode, auto const& config>
 struct HcommSimtDataDesc {
     static constexpr bool commit = commitFlag;
@@ -783,8 +756,22 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
     HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 2U, operand0, operand1, 0U, 0U);
 }
 
+// Sets the WQE width to the appended request's layout and replans the SQ range for that width.
+// The collective path runs this pass on rank 0 only and publishes the results with a group sync
+// before any lane reads them back; the single-lane path needs no barrier because no other lane
+// shares the context.
 template <typename Desc>
-__simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
+__simt_callee__ inline void HcommSimtPlanBatchAppend(__ubuf__ HcommSimtBatchStaticContext* context)
+{
+    context->itemBb = Desc::bbCnt;
+    HcommSimtPlanBatchFromHead(context, context->reservedHead);
+}
+
+// Emits one lane's WQE from the shared plan. The caller guarantees that the plan has been
+// published to every lane, so the check below sees the same itemBb and reservationStatus on all
+// lanes and the append decision is uniform across the group.
+template <typename Desc>
+__simt_callee__ inline int32_t HcommSimtAppendPlannedBatchWqe(
     __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc)
 {
     static_assert(Desc::cqeCnt == 1U, "SIMT batch requests require CQE");
@@ -809,317 +796,28 @@ __simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
     return HCOMM_SUCCESS;
 }
 
-// Shared CQ completion implementation. The owner is a caller-selected lane, not a lock.
-__simt_callee__ inline __gm__ HcommSimtCompletionState* HcommSimtCompletionHeader(const UbcCtpCompletionSet& set)
+// Single-lane append: no other lane races the plan, so no barrier is needed between the passes.
+template <typename Desc>
+__simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc)
 {
-    return reinterpret_cast<__gm__ HcommSimtCompletionState*>(set.workspace);
+    HcommSimtPlanBatchAppend<Desc>(context);
+    return HcommSimtAppendPlannedBatchWqe<Desc>(context, rank, size, desc);
 }
-__simt_callee__ inline __gm__ HcommSimtCompletionChannel* HcommSimtCompletionChannels(const UbcCtpCompletionSet& set)
+
+// Collective append: rank 0 re-plans with the appended request's width and the sync publishes the
+// plan, so every lane reads the same itemBb and reservationStatus before deciding whether to
+// write its WQE.
+template <typename Desc, typename Group>
+__simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc, const Group& group)
 {
-    return reinterpret_cast<__gm__ HcommSimtCompletionChannel*>(set.workspace + 128U);
-}
-__simt_callee__ inline __gm__ HcommSimtCompletionCq* HcommSimtCompletionCqs(const UbcCtpCompletionSet& set)
-{
-    return reinterpret_cast<__gm__ HcommSimtCompletionCq*>(
-        set.workspace + 128ULL * (1ULL + HcommSimtCompletionHeader(set)->channelCount));
-}
-__simt_callee__ inline bool HcommSimtCompletionReady(const UbcCtpCompletionSet& set)
-{
-    return set.workspace != nullptr && HcommSimtCompletionHeader(set)->version == HCOMM_SIMT_COMPLETION_VERSION &&
-           HcommSimtCompletionHeader(set)->fault == 0U;
-}
-__simt_callee__ inline void HcommSimtCompletionFlush(const UbcCtpCompletionSet& set)
-{
-    asc_threadfence();
-    auto* state = HcommSimtCompletionHeader(set);
-    const uint64_t bytes = 128ULL * (1ULL + state->channelCount + state->cqCount);
-    // All fields fit in the first 64B of each aligned record (asserted in the definition).
-    // Padding and unused CQ records contain no accounting state.
-    for (uint64_t offset = 0U; offset < bytes; offset += 128U)
-        asc_dcci_single(set.workspace + offset);
-    asc_threadfence();
-}
-__simt_callee__ inline void HcommSimtCompletionAcknowledge(const UbcCtpCompletionSet& set)
-{
-    // Per-Jetty accounting and SQ reclamation must be durable before releasing CQ slots.
-    HcommSimtCompletionFlush(set);
-    auto* cqs = HcommSimtCompletionCqs(set);
-    for (uint32_t q = 0U; q < HcommSimtCompletionHeader(set)->cqCount; ++q) {
-        auto* cq = &cqs[q];
-        if (cq->consumed == cq->acknowledged)
-            continue;
-        *reinterpret_cast<__gm__ uint32_t*>(cq->dbAddr) = cq->consumed & 0xFFFFFFU;
-        asc_threadfence();
-        cq->acknowledged = cq->consumed;
-        asc_dcci_single(cq);
+    if (rank == 0U) {
+        HcommSimtPlanBatchAppend<Desc>(context);
     }
-    asc_threadfence();
+    group.sync();
+    return HcommSimtAppendPlannedBatchWqe<Desc>(context, rank, size, desc);
 }
-__simt_callee__ inline void HcommSimtCompletionFail(
-    UbcCtpCompletionSet& set, HcommSimtCompletionFault fault, uint32_t q, uint32_t channel, uint32_t sequence,
-    uint32_t w0 = 0U, uint32_t w1 = 0U, uint32_t w2 = 0U)
-{
-    auto* state = HcommSimtCompletionHeader(set);
-    state->fault = static_cast<uint32_t>(fault);
-    state->errorCq = q;
-    state->errorChannel = channel;
-    state->errorSequence = sequence;
-    state->errorWord0 = w0;
-    state->errorWord1 = w1;
-    state->errorWord2 = w2;
-}
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::InitCompletionSet(
-    UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace, uint64_t bytes)
-{
-    set.workspace = nullptr;
-    // Keep the runtime calculation in SIMT; the public constexpr size query is also host-usable.
-    const uint64_t required = count == 0U || count > 65535U ? 0ULL : 128ULL * (1ULL + 2ULL * count);
-    if (channels == nullptr || workspace == nullptr || required == 0U || bytes < required ||
-        (reinterpret_cast<uint64_t>(workspace) & 127U) != 0U)
-        return HCOMM_FAILED;
-    // Caller passes fresh zeroed storage. Refuse reinitializing a live or failed set.
-    asc_dcci_single(workspace);
-    if (*reinterpret_cast<__gm__ uint32_t*>(workspace) != 0U)
-        return HCOMM_FAILED;
-    set.workspace = workspace;
-    for (uint64_t offset = 0U; offset < required; offset += sizeof(uint64_t))
-        *reinterpret_cast<__gm__ uint64_t*>(workspace + offset) = 0U;
-    auto* state = HcommSimtCompletionHeader(set);
-    state->channelCount = count;
-    state->errorCq = HCOMM_SIMT_COMPLETION_NONE;
-    state->errorChannel = HCOMM_SIMT_COMPLETION_NONE;
-    auto* entries = HcommSimtCompletionChannels(set);
-    auto* cqs = HcommSimtCompletionCqs(set);
-    for (uint32_t i = 0U; i < count; ++i) {
-        if (channels[i] == 0U) {
-            state->fault = 1U;
-            break;
-        }
-        auto* channel = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channels[i]);
-        if (channel->sqNum == 0U || channel->cqNum == 0U || channel->sqContextAddr == 0U ||
-            channel->cqContextAddr == 0U) {
-            state->fault = 1U;
-            break;
-        }
-        auto* sq = reinterpret_cast<__gm__ SqContext*>(channel->sqContextAddr);
-        auto* cq = reinterpret_cast<__gm__ CqContext*>(channel->cqContextAddr);
-        auto* entry = &entries[i];
-        entry->channel = channels[i];
-        entry->sqBase = sq->contextInfo.ubJfs.sqVa;
-        entry->headAddr = sq->contextInfo.ubJfs.headAddr;
-        entry->tailAddr = sq->contextInfo.ubJfs.tailAddr;
-        entry->jfsId = sq->contextInfo.ubJfs.jfsID;
-        entry->sqDepth = sq->contextInfo.ubJfs.sqDepth;
-        const uint32_t cqDepth = cq->contextInfo.ubJfc.cqDepth;
-        if (sq->type != SQ_CONTEXT_TYPE_UB_JFS || cq->type != CQ_CONTEXT_TYPE_UB_JFC || entry->sqBase == 0U ||
-            entry->headAddr == 0U || entry->tailAddr == 0U || (entry->headAddr & 7U) != 0U ||
-            (entry->tailAddr & 3U) != 0U || entry->jfsId > 0xFFFFFU || entry->sqDepth < 2U ||
-            (entry->sqDepth & (entry->sqDepth - 1U)) != 0U || cqDepth < 2U || (cqDepth & (cqDepth - 1U)) != 0U ||
-            cq->contextInfo.ubJfc.scqVa == 0U || cq->contextInfo.ubJfc.dbVa == 0U ||
-            cq->contextInfo.ubJfc.tailAddr == 0U || cq->contextInfo.ubJfc.cqeSize < 12U ||
-            (cq->contextInfo.ubJfc.cqeSize & 3U) != 0U) {
-            state->fault = 1U;
-            break;
-        }
-        auto* head = reinterpret_cast<__gm__ uint64_t*>(entry->headAddr);
-        auto* tail = reinterpret_cast<__gm__ uint32_t*>(entry->tailAddr);
-        auto* cqTail = reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.tailAddr);
-        asc_dcci_single(head);
-        asc_dcci_single(tail);
-        asc_dcci_single(cqTail);
-        if (*head != 0ULL || *tail != 0U || *cqTail != 0U) {
-            state->fault = 1U;
-            break;
-        }
-        uint32_t q = 0U;
-        for (; q < state->cqCount; ++q) {
-            const bool sameBase = cqs[q].base == cq->contextInfo.ubJfc.scqVa;
-            const bool sameId = cqs[q].jfcId == cq->contextInfo.ubJfc.jfcID;
-            if (sameBase != sameId) {
-                state->fault = 1U;
-                break;
-            }
-            if (sameBase) {
-                if (cqs[q].depth != cqDepth || cqs[q].cqeSize != cq->contextInfo.ubJfc.cqeSize)
-                    state->fault = 1U;
-                break;
-            }
-        }
-        if (state->fault != 0U)
-            break;
-        if (q == state->cqCount) {
-            cqs[q].base = cq->contextInfo.ubJfc.scqVa;
-            cqs[q].dbAddr = cq->contextInfo.ubJfc.dbVa;
-            cqs[q].depth = cqDepth;
-            cqs[q].cqeSize = cq->contextInfo.ubJfc.cqeSize;
-            cqs[q].jfcId = cq->contextInfo.ubJfc.jfcID;
-            ++state->cqCount;
-        }
-        entry->cqIndex = q;
-        for (uint32_t prior = 0U; prior < i; ++prior) {
-            if (entries[prior].channel == entry->channel || entries[prior].sqBase == entry->sqBase ||
-                entries[prior].headAddr == entry->headAddr || entries[prior].tailAddr == entry->tailAddr ||
-                (entries[prior].cqIndex == q && entries[prior].jfsId == entry->jfsId))
-                state->fault = 1U;
-        }
-        if (state->fault != 0U)
-            break;
-    }
-    state->version = HCOMM_SIMT_COMPLETION_VERSION;
-    HcommSimtCompletionFlush(set);
-    return state->fault == 0U ? HCOMM_SUCCESS : HCOMM_FAILED;
-}
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PrepareCompletion(
-    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount)
-{
-    if (!HcommSimtCompletionReady(set) || channelIndex >= HcommSimtCompletionHeader(set)->channelCount)
-        return HCOMM_FAILED;
-    auto* entries = HcommSimtCompletionChannels(set);
-    auto* entry = &entries[channelIndex];
-    // One admitted window per Jetty. No requirement that any other Jetty be idle.
-    if (wqeCount == 0U || bbCount < wqeCount || static_cast<uint64_t>(bbCount) > 2ULL * wqeCount ||
-        bbCount >= entry->sqDepth || entry->completed != entry->target || wqeCount > 0xFFFFFFFFU - entry->target ||
-        bbCount > 0xFFFFFFFFU - entry->targetBb)
-        return HCOMM_FAILED;
-    auto* head = reinterpret_cast<__gm__ uint64_t*>(entry->headAddr);
-    auto* tail = reinterpret_cast<__gm__ uint32_t*>(entry->tailAddr);
-    asc_dcci_single(head);
-    asc_dcci_single(tail);
-    const uint64_t expectedHead = (static_cast<uint64_t>(entry->target) << 32U) | entry->targetBb;
-    if (*head != expectedHead || *tail != entry->targetBb)
-        return HCOMM_FAILED;
-    uint64_t pending = wqeCount;
-    for (uint32_t i = 0U; i < HcommSimtCompletionHeader(set)->channelCount; ++i) {
-        if (entries[i].cqIndex == entry->cqIndex)
-            pending += entries[i].target - entries[i].completed;
-    }
-    if (pending >= HcommSimtCompletionCqs(set)[entry->cqIndex].depth)
-        return HCOMM_FAILED;
-    entry->target += wqeCount;
-    entry->targetBb += bbCount;
-    asc_threadfence();
-    asc_dcci_single(entry);
-    asc_threadfence();
-    return HCOMM_SUCCESS;
-}
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Progress(
-    UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed)
-{
-    processed = 0U;
-    if (!HcommSimtCompletionReady(set) || budget == 0U)
-        return HCOMM_FAILED;
-    auto* state = HcommSimtCompletionHeader(set);
-    auto* entries = HcommSimtCompletionChannels(set);
-    auto* cqs = HcommSimtCompletionCqs(set);
-    // Set operations have one owner. Publish cursor changes at the call boundary,
-    // before acknowledgement, instead of storing the round-robin cursor for every CQE.
-    const uint32_t channelCount = state->channelCount;
-    const uint32_t cqCount = state->cqCount;
-    uint32_t nextCq = state->nextCq;
-    uint32_t singleConsumed = cqCount == 1U ? cqs[0].consumed : 0U;
-    uint32_t unavailable = 0U;
-    while (processed < budget && unavailable < cqCount) {
-        const uint32_t q = nextCq;
-        nextCq = q + 1U == cqCount ? 0U : q + 1U;
-        auto* cq = &cqs[q];
-        const uint32_t sequence = cqCount == 1U ? singleConsumed : cq->consumed;
-        auto* words = reinterpret_cast<__gm__ volatile uint32_t*>(
-            cq->base + static_cast<uint64_t>(cq->cqeSize) * (sequence & (cq->depth - 1U)));
-        asc_dcci_single(const_cast<__gm__ uint32_t*>(words));
-        const uint32_t w0 = words[0];
-        if (((w0 >> 2U) & 1U) == ((sequence / cq->depth) & 1U)) {
-            ++unavailable;
-            continue;
-        }
-        const uint32_t w1 = words[1], w2 = words[2];
-        const uint32_t localNum = (w1 >> 16U) | ((w2 & 0xFU) << 16U);
-        uint32_t match = HCOMM_SIMT_COMPLETION_NONE;
-        for (uint32_t i = 0U; i < channelCount; ++i) {
-            if (entries[i].cqIndex == q && entries[i].jfsId == localNum) {
-                match = i;
-                break;
-            }
-        }
-        if ((w0 & 3U) != 2U || match == HCOMM_SIMT_COMPLETION_NONE) {
-            HcommSimtCompletionFail(set, HcommSimtCompletionFault::IDENTITY, q, match, sequence, w0, w1, w2);
-            break;
-        }
-        if ((w0 & 0xFFFF0000U) != 0U) {
-            HcommSimtCompletionFail(set, HcommSimtCompletionFault::CQE, q, match, sequence, w0, w1, w2);
-            break;
-        }
-        auto* entry = &entries[match];
-        if (entry->completed == entry->target) {
-            HcommSimtCompletionFail(set, HcommSimtCompletionFault::COUNT, q, match, sequence, w0, w1, w2);
-            break;
-        }
-        if (entry->completed + 1U == entry->target) {
-            // The window's own successful completions prove its full BB range reclaimable.
-            // Never apply another Jetty's entryIdx or release an incomplete window.
-            auto* head = reinterpret_cast<__gm__ uint64_t*>(entry->headAddr);
-            asc_dcci_single(head);
-            const uint64_t expectedHead = (static_cast<uint64_t>(entry->target) << 32U) | entry->targetBb;
-            if (*head != expectedHead) {
-                HcommSimtCompletionFail(set, HcommSimtCompletionFault::COUNT, q, match, sequence, w0, w1, w2);
-                break;
-            }
-            auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(entry->tailAddr);
-            *sqTail = entry->targetBb;
-            asc_threadfence();
-            asc_dcci_single(sqTail);
-            asc_threadfence();
-        }
-        ++entry->completed;
-        if (cqCount == 1U)
-            ++singleConsumed;
-        else
-            ++cq->consumed;
-        ++processed;
-        unavailable = 0U;
-    }
-    state->nextCq = nextCq;
-    if (cqCount == 1U)
-        cqs[0].consumed = singleConsumed;
-    if (processed != 0U || state->fault != 0U) {
-        HcommSimtCompletionAcknowledge(set);
-    }
-    return state->fault == 0U ? HCOMM_SUCCESS : HCOMM_FAILED;
-}
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WaitCompletion(
-    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls)
-{
-    if (!HcommSimtCompletionReady(set) || channelIndex >= HcommSimtCompletionHeader(set)->channelCount ||
-        maxIdlePolls == 0U)
-        return HCOMM_FAILED;
-    auto* entry = &HcommSimtCompletionChannels(set)[channelIndex];
-    uint32_t idle = 0U;
-    while (entry->completed != entry->target) {
-        const uint32_t before = entry->completed;
-        uint32_t processed = 0U;
-        if (Progress(set, 64U, processed) != HCOMM_SUCCESS)
-            return HCOMM_FAILED;
-        // Traffic from a fast Jetty cannot reset the slow Jetty's idle limit forever.
-        idle = entry->completed != before ? 0U : idle + 1U;
-        if (idle >= maxIdlePolls) {
-            auto* cq = &HcommSimtCompletionCqs(set)[entry->cqIndex];
-            HcommSimtCompletionFail(set, HcommSimtCompletionFault::TIMEOUT, entry->cqIndex, channelIndex, cq->consumed);
-            HcommSimtCompletionAcknowledge(set);
-            return HCOMM_FAILED;
-        }
-    }
-    return HCOMM_SUCCESS;
-}
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(UbcCtpCompletionSet& set)
-{
-    if (!HcommSimtCompletionReady(set))
-        return HCOMM_FAILED;
-    for (uint32_t i = 0U; i < HcommSimtCompletionHeader(set)->channelCount; ++i) {
-        if (WaitCompletion(set, i) != HCOMM_SUCCESS)
-            return HCOMM_FAILED;
-    }
-    return HCOMM_SUCCESS;
-}
-// End shared CQ completion implementation.
 
 template <bool refreshCache>
 __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
@@ -1285,7 +983,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostWqe(ChannelH
     }
 
     HcommSimtResolvedPost post;
-    if (ResolvePost(channel, desc.remoteAddr, desc.targetLen, post) != HCOMM_SUCCESS) {
+    if (ResolvePost(channel, post) != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
 
@@ -1321,11 +1019,12 @@ template <typename Desc, typename Group>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchPostWqe(
     UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group)
 {
-    // BatchCommit synchronizes the group before the publisher advances the shared head.
-    (void)group;
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
-    return HcommSimtAppendFinalBatchWqe(context, batchHandle.groupRank, batchHandle.groupSize, desc);
+    // The first append plans on rank 0 and syncs before the emit; later appends read the state
+    // published by the previous sync. BatchCommit synchronizes the group again before the
+    // publisher advances the shared head.
+    return HcommSimtAppendFinalBatchWqe(context, batchHandle.groupRank, batchHandle.groupSize, desc, group);
 }
 
 template <bool commit, auto const& config>
@@ -1536,6 +1235,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(
     const bool publisher = rank + 1U == size;
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    // Check the shared reservation after the sync so every lane reads the same value and the
+    // collective call returns uniformly.
     if (context->reservationStatus != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
