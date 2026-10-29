@@ -20,7 +20,6 @@ RUN_FILE=$(readlink -f -- "${RUN_FILE}")
 [[ -x "${RUN_FILE}" ]] || { echo "Run package is missing or not executable: ${RUN_FILE}" >&2; exit 1; }
 
 TEST_ROOT=$(mktemp -d)
-trap 'rm -rf -- "${TEST_ROOT}"' EXIT
 chmod 755 "${TEST_ROOT}"
 EXTRACT_DIR="${TEST_ROOT}/extracted"
 FAKE_CANN="${TEST_ROOT}/cann"
@@ -28,6 +27,14 @@ BASELINE_DIR="${TEST_ROOT}/baseline"
 ERROR_LOG="${TEST_ROOT}/expected-error.log"
 TEST_HOME="${TEST_ROOT}/home"
 LOG_DIR="${TEST_HOME}/var/log/ascend_seclog"
+
+cleanup_test_root()
+{
+    chmod -R u+w "${TEST_ROOT}" 2>/dev/null || true
+    rm -rf -- "${TEST_ROOT}"
+}
+
+trap cleanup_test_root EXIT
 
 if [[ $(id -u) -eq 0 ]]; then
     EXPECTED_FILE_MODE=555
@@ -161,19 +168,27 @@ run_package --uninstall --install-path="${INTERNAL_LINK_CANN}"
 [[ ! -e "${INTERNAL_HEADER_DIR}/hcomm.h" ]]
 [[ -L "${INTERNAL_LINK_CANN}/asc/include/adv_api/hcomm" ]]
 
-HCOMM_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f -name '*.h' | wc -l)
-HCOMM_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f -name '*.h' | wc -l)
-COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f -name '*.h' \
+HCOMM_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) | wc -l)
+HCOMM_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) | wc -l)
+COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/include/aicore/hcomm/*" | wc -l)
-COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f -name '*.h' \
+COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" | wc -l)
+PKG_INC_HEADER_COUNT=$(find "${PROJECT_ROOT}/pkg_inc" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
-    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT))
+    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + PKG_INC_HEADER_COUNT + 2))
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_ccu.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
 diff -u <(printf '%s\t%s\n' \
@@ -184,26 +199,37 @@ diff -u <(printf '%s\t%s\n' \
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/hcomm/"}
     cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/${relative_path}"
-done < <(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f -name '*.h' -print0 | sort -z)
+done < <(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/hcomm/"}
     cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/hcomm/${relative_path}"
-done < <(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f -name '*.h' -print0 | sort -z)
+done < <(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/include/"}
     cmp "${source_file}" \
         "${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
-done < <(find "${PROJECT_ROOT}/include" -type f -name '*.h' \
+done < <(find "${PROJECT_ROOT}/include" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/include/aicore/hcomm/*" -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/src/"}
     cmp "${source_file}" \
         "${EXTRACT_DIR}/payload/asc/impl/comm_api/${relative_path}"
-done < <(find "${PROJECT_ROOT}/src" -type f -name '*.h' \
+done < <(find "${PROJECT_ROOT}/src" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" -print0 | sort -z)
+
+while IFS= read -r -d '' source_file; do
+    relative_path=${source_file#"${PROJECT_ROOT}/pkg_inc/"}
+    cmp "${source_file}" \
+        "${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
+done < <(find "${PROJECT_ROOT}/pkg_inc" -type f \
+    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
 mkdir -p \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
@@ -247,6 +273,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(readlink -- "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm")" == "../../adv_api/hcomm" ]]
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm")" == "../../adv_api/detail/hcomm" ]]
+[[ -f "${FAKE_CANN}/lib64/libccu_runtime.so" ]]
 
 # Relative includes must resolve through the installed layout and Hcomm links.
 while IFS= read -r installed_header; do

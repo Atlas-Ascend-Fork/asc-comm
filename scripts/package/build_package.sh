@@ -133,20 +133,30 @@ find_version_checker_dir()
     fail "CANN package version compatibility scripts were not found under: ${CANN_PATH}/share/info"
 }
 
-find_ccu_library()
+find_ccu_libraries()
 {
     local build_dir="${PROJECT_ROOT}/build/package-ccu"
     local library="${build_dir}/libasccomm_ccu.so"
+    local runtime_library="${build_dir}/src/ccu/experimental/libccu_runtime.so"
 
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
         -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DASCCOMM_BUILD_CCU=ON
-    cmake --build "${build_dir}" --target asccomm_ccu
+        -DASCCOMM_BUILD_CCU=ON \
+        -DASCCOMM_BUILD_CCU_RUNTIME=ON \
+        -DASCCOMM_BUILD_CCU_RUNTIME_HCOMM_BACKEND=ON
+
+    cmake --build "${build_dir}" --target asccomm_ccu ccu_runtime
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
+    [[ -f "${runtime_library}" ]] || \
+        fail "CCU runtime library was not built: ${runtime_library}"
+    readelf -d "${runtime_library}" | \
+        grep -q 'Shared library: \[libhcomm.so\]' || \
+        fail "CCU runtime was built without the HComm backend: ${runtime_library}"
     CCU_LIBRARY="${library}"
+    CCU_RUNTIME_LIBRARY="${runtime_library}"
 }
 
 read_package_version()
@@ -217,7 +227,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' \) -print0 | sort -z)
+        done < <(find asc lib64 -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -284,7 +294,7 @@ build_package()
     required_runtime_version=$(read_package_compat_version "runtime")
     makeself_dir=$(find_makeself_dir)
     version_checker_dir=$(find_version_checker_dir)
-    find_ccu_library
+    find_ccu_libraries
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -318,6 +328,8 @@ build_package()
         aicore/hcomm
     install -D -m 550 "${CCU_LIBRARY}" \
         "${STAGING_DIR}/payload/asc/lib64/libasccomm_ccu.so"
+    install -D -m 550 "${CCU_RUNTIME_LIBRARY}" \
+        "${STAGING_DIR}/payload/lib64/libccu_runtime.so"
     write_manifest
     write_link_manifest
     write_version_info \

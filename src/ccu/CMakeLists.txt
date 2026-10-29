@@ -87,6 +87,10 @@ target_compile_options(asccomm_ccu_obj PRIVATE
 )
 add_subdirectory(hcomm)
 
+if(ASCCOMM_BUILD_CCU_RUNTIME)
+    add_subdirectory(experimental)
+endif()
+
 # 单一交付物：libasccomm_ccu.so 同时承载 CCU 数据面实现与 host-launch 兼容 wrapper。
 add_library(asccomm_ccu_host_obj OBJECT
     ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp

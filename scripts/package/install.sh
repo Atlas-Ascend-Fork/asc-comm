@@ -408,7 +408,8 @@ is_allowed_path()
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
         asc/impl/comm_api/*/*/*.h|\
-        asc/lib64/libasccomm_ccu.so)
+        asc/lib64/libasccomm_ccu.so|\
+        lib64/libccu_runtime.so)
             ;;
         *)
             return 1
@@ -426,7 +427,8 @@ is_allowed_directory_path()
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
         asc/impl/comm_api|asc/impl/comm_api/*|\
-        asc/lib64)
+        asc/lib64|\
+        lib64)
             ;;
         *)
             return 1
@@ -452,7 +454,7 @@ payload_file_mode()
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so)
+        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*)
             mode=550
             ;;
         *)
@@ -472,7 +474,7 @@ managed_directory_mode()
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64)
+        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|lib64)
             mode=550
             ;;
         *)
@@ -519,6 +521,12 @@ collect_managed_directories()
                 relative_path=${path#asc/impl/adv_api/detail/}
                 module=${relative_path%%/*}
                 managed_root="asc/impl/adv_api/detail/${module}"
+                ;;
+            asc/lib64/*)
+                managed_root="asc/lib64"
+                ;;
+            lib64/*)
+                managed_root="lib64"
                 ;;
             asc/include/comm_api/*)
                 managed_root="asc/include/comm_api"
@@ -591,7 +599,7 @@ validate_link_manifest()
             fail "unsafe link entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link manifest must contain both Hcomm links: ${manifest}"
+    [[ ${count} -eq 4 ]] || fail "link manifest must contain all managed links: ${manifest}"
     [[ $(cut -f1 "${manifest}" | sort -u | wc -l) -eq ${count} ]] || \
         fail "duplicate path in ${manifest}"
 }
@@ -674,7 +682,7 @@ validate_link_baseline()
             fail "unsafe link baseline entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link baseline must contain both Hcomm links: ${manifest}"
+    [[ ${count} -eq 4 ]] || fail "link baseline must contain all managed links: ${manifest}"
 }
 
 restore_link_baseline()
