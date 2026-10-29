@@ -27,6 +27,7 @@ set(ASCCOMM_STUB_SOURCES
     ccu_channel_get_stub.cc
     ccu_dev_mgr_stub.cc
     ccu_kernel_stub.cc
+    ccu_kernel_mgr_stub.cc
     ccu_rts_stub.cc
 )
 

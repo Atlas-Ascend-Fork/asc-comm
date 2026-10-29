@@ -303,11 +303,13 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
 
 add_library(asccomm_ccu_launch_stub STATIC
     ${ASCCOMM_UT_ROOT}/ccu/stub/ccu_launch_stub.cc
+    ${ASCCOMM_UT_ROOT}/ccu/stub/ccu_profiling_stub.cc
 )
 target_include_directories(asccomm_ccu_launch_stub PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc

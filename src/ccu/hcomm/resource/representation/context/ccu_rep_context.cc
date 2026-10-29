@@ -148,9 +148,11 @@ int32_t ccu_rep_context::add_profiling(const std::string& name, uint32_t mask)
     ccu_profiling_info_cache.name = name;
     ccu_profiling_info_cache.cke_id = invalid_cke_id;
     ccu_profiling_info_cache.mask = mask;
-    CHK_SAFETY_FUNC_RET(memset_s(
-        ccu_profiling_info_cache.channel_id, sizeof(ccu_profiling_info_cache.channel_id), invalid_value_channelid,
-        sizeof(ccu_profiling_info_cache.channel_id)));
+
+    // wait_event接口的channel_id先都填充0，因为msprof会将无效值过滤
+    std::fill(
+        std::begin(ccu_profiling_info_cache.channel_id), std::end(ccu_profiling_info_cache.channel_id),
+        default_value_channelid);
 
     HCCL_INFO("[%s]name[%s], mask[%u], type[%d]", __func__, name.c_str(), mask, ccu_profiling_info_cache.type);
     profiling_info.push_back(ccu_profiling_info_cache);
@@ -178,6 +180,27 @@ int32_t ccu_rep_context::add_profiling(
         channel, name.c_str(), signal_index, mask, ccu_profiling_info_cache.type, ccu_profiling_info_cache.cke_id,
         ccu_profiling_info_cache.channel_id[0]);
     profiling_info.push_back(ccu_profiling_info_cache);
+    return HCCL_SUCCESS;
+}
+
+int32_t ccu_rep_context::add_profiling()
+{
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_loopgroup_profiling);
+    ccu_profiling_info_cache.name = "LoopGroup";
+    ccu_profiling_info_cache.reduce_op_type = 0xFF;   // 0xFF 无效值
+    ccu_profiling_info_cache.input_data_type = 0xFF;  // 0xFF 无效值
+    ccu_profiling_info_cache.output_data_type = 0xFF; // 0xFF 无效值
+    ccu_profiling_info_cache.mission_id = get_mission_id();
+
+    // loop_group接口的channel_id先都填充0，因为msprof会将无效值过滤
+    std::fill(
+        std::begin(ccu_profiling_info_cache.channel_id), std::end(ccu_profiling_info_cache.channel_id),
+        default_value_channelid);
+
+    lg_profiling_info.ccu_profiling_infos.push_back(ccu_profiling_info_cache);
+    if (!all_lg_profiling_reps.empty()) {
+        lg_profiling_info.lg_profiling_reps.push_back(all_lg_profiling_reps.back());
+    }
     return HCCL_SUCCESS;
 }
 

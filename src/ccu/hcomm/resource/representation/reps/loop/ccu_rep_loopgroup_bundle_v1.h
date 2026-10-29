@@ -62,6 +62,7 @@ public:
     std::string describe() override;
 
     uint16_t get_start_loop_instr_id() const;
+    uint16_t get_loop_group_instr_id() const;
     const variable& get_offset_param() const { return offset_var_; }
 
     const std::vector<loop_entry>& get_loops() const { return loops_; }

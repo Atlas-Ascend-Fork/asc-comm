@@ -56,6 +56,11 @@ uint16_t ccu_rep_loop_group_bundle::get_start_loop_instr_id() const
     return instr_id_ + loop_group_instr_offset_in_bundle() + 3;
 }
 
+uint16_t ccu_rep_loop_group_bundle::get_loop_group_instr_id() const
+{
+    return instr_id_ + loop_group_instr_offset_in_bundle();
+}
+
 uint16_t ccu_rep_loop_group_bundle::instr_count()
 {
     instr_count_ = ins_gen_ptr_->ccu_rep_loop_group_bundle_instr_count(this);

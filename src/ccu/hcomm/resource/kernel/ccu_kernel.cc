@@ -11,6 +11,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 #include <algorithm>
+#include <cstdio>
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
@@ -26,6 +27,8 @@
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
+#include "hcomm/resource/kernel/ccu_kernel_mgr.h"
+#include "hcomm/dfx/ccu_profiling.h"
 
 // todo: 引入头文件需要检查
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
@@ -2335,6 +2338,7 @@ CcuResult ccu_kernel::loop_group_create(
     }
     desc.bundle_rep = bundle;
     append(bundle);
+    CCU_CHK_RET(static_cast<HcclResult>(add_profiling()));
 
     loop_group_map_[handle] = std::move(desc);
     *group = handle;
@@ -2382,6 +2386,7 @@ CcuResult ccu_kernel::loop_group_create_from_var(
     }
     desc.bundle_rep = bundle;
     append(bundle);
+    CCU_CHK_RET(static_cast<HcclResult>(add_profiling()));
 
     loop_group_map_[handle] = std::move(desc);
     *group = handle;
@@ -2433,6 +2438,7 @@ CcuResult ccu_kernel::loop_group_create_from_var_v2(
     bundle->set_xn_offset_var(desc.xn_offset_var);
     desc.bundle_rep = bundle;
     append(bundle);
+    CCU_CHK_RET(static_cast<HcclResult>(add_profiling()));
 
     loop_group_map_[handle] = std::move(desc);
     *group = handle;
@@ -2946,11 +2952,37 @@ HcclResult ccu_kernel::build_loop_group_var_id_maps(
     return HCCL_SUCCESS;
 }
 
+HcclResult ccu_kernel::collect_loop_group_placeholder_profiling()
+{
+    auto& lg_prof_info = get_lg_profiling_info();
+    const size_t count = std::min(lg_prof_info.lg_profiling_reps.size(), lg_prof_info.ccu_profiling_infos.size());
+    for (size_t idx = 0; idx < count; idx++) {
+        auto* bundle = dynamic_cast<ccu_rep::ccu_rep_loop_group_bundle*>(lg_prof_info.lg_profiling_reps[idx].get());
+        if (bundle == nullptr) {
+            HCCL_WARNING("[collect_loop_group_placeholder_profiling] rep[%zu] is not loop_group_bundle, skip.", idx);
+            continue;
+        }
+
+        ccu_profiling_info info = lg_prof_info.ccu_profiling_infos[idx];
+        info.mission_id = static_cast<uint8_t>(get_mission_id());
+        info.die_id = static_cast<uint8_t>(get_die_id());
+        info.instr_id = bundle->get_loop_group_instr_id();
+        info.data_size = 0;
+
+        all_ccu_profiling_infos_.push_back(info);
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult ccu_kernel::collect_loop_group_profiling_info(
     const uint64_t* task_args, uint32_t arg_size, const std::unordered_map<uint16_t, uint32_t>& var_id2_arg_index_map,
     const std::unordered_map<uint16_t, uint16_t>& var_id2_var_id_map)
 {
     auto& lg_prof_info = get_lg_profiling_info();
+    if (group_op_size_info_.empty()) {
+        return collect_loop_group_placeholder_profiling();
+    }
+
     HCCL_INFO(
         "[get_ccu_profiling_info] process loop group profiling start: "
         "lg_size(%lu), go_size(%lu)",
@@ -2985,7 +3017,7 @@ HcclResult ccu_kernel::collect_loop_group_profiling_info(
             lg_prof_info.ccu_profiling_infos[i].data_size = loop_param * mo_config_.loop_count * mo_config_.mem_slice;
             lg_prof_info.ccu_profiling_infos[i].instr_id =
                 dynamic_cast<ccu_rep::ccu_rep_loop_group_bundle*>(lg_prof_info.lg_profiling_reps[i].get())
-                    ->start_instr_id();
+                    ->get_loop_group_instr_id();
             all_ccu_profiling_infos_.push_back(lg_prof_info.ccu_profiling_infos[i]);
         }
 
@@ -3005,7 +3037,7 @@ HcclResult ccu_kernel::collect_loop_group_profiling_info(
             lg_prof_info.ccu_profiling_infos[i].data_size = repeat_num * mo_config_.mem_slice + residual;
             lg_prof_info.ccu_profiling_infos[i].instr_id =
                 dynamic_cast<ccu_rep::ccu_rep_loop_group_bundle*>(lg_prof_info.lg_profiling_reps[i + 1].get())
-                    ->start_instr_id();
+                    ->get_loop_group_instr_id();
             all_ccu_profiling_infos_.push_back(lg_prof_info.ccu_profiling_infos[i]);
         }
     }
@@ -3033,6 +3065,58 @@ HcclResult ccu_kernel::get_ccu_profiling_info(
     dump_ccu_profiling_info(all_ccu_profiling_infos_);
     all_ccu_profiling_info = all_ccu_profiling_infos_;
     return HCCL_SUCCESS;
+}
+
+CcuResult ccu_profiling::get_ccu_profiling_details(
+    ccu_kernel_handle kernel_handle, const void* task_args, uint32_t arg_num,
+    std::vector<ccu_profiling::profiling_detail>& details)
+{
+    if (kernel_handle == 0) {
+        HCCL_ERROR("[%s] failed, kernel handle is empty.", __func__);
+        return CcuResult::CCU_E_PARA;
+    }
+    if (arg_num > 0 && task_args == nullptr) {
+        HCCL_ERROR("[%s] failed, taskArgs is nullptr while argNum[%u] > 0.", __func__, arg_num);
+        return CcuResult::CCU_E_PTR;
+    }
+
+    const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    if (dev_logic_id < 0) {
+        HCCL_ERROR("[%s] failed, current thread has no device set.", __func__);
+        return CcuResult::CCU_E_UNAVAIL;
+    }
+
+    auto* kernel = ccu_kernel_mgr::get_instance(dev_logic_id).get_kernel(kernel_handle);
+    CCU_CHK_PTR_NULL(kernel);
+
+    std::vector<ccu_profiling_info> all_ccu_profiling_info;
+    const HcclResult ret =
+        kernel->get_ccu_profiling_info(static_cast<const uint64_t*>(task_args), arg_num, all_ccu_profiling_info);
+    CHK_PRT_RET(
+        ret != HcclResult::HCCL_SUCCESS, HCCL_ERROR("[%s] get ccu profiling info failed, ret[%d].", __func__, ret),
+        HCCL_TO_CCU_RET(ret));
+
+    details.clear();
+    details.reserve(all_ccu_profiling_info.size());
+    for (const auto& info : all_ccu_profiling_info) {
+        ccu_profiling::profiling_detail detail{};
+        detail.type = static_cast<ccu_profiling::detail_type>(info.type);
+        (void)snprintf(detail.name, sizeof(detail.name), "%s", info.name.c_str());
+        detail.die_id = info.die_id;
+        detail.mission_id = info.mission_id;
+        detail.instr_id = info.instr_id;
+        detail.reduce_op_type = info.reduce_op_type;
+        detail.input_data_type = info.input_data_type;
+        detail.output_data_type = info.output_data_type;
+        detail.data_size = info.data_size;
+        detail.cke_id = info.cke_id;
+        detail.mask = info.mask;
+        (void)std::copy(std::begin(info.channel_id), std::end(info.channel_id), std::begin(detail.channel_id));
+        (void)std::copy(
+            std::begin(info.remote_rank_id), std::end(info.remote_rank_id), std::begin(detail.remote_rank_id));
+        details.push_back(detail);
+    }
+    return CcuResult::CCU_SUCCESS;
 }
 
 HcclResult ccu_kernel::add_profiling_info(

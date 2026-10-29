@@ -25,6 +25,8 @@
 #include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
+#include "hcomm/dfx/ccu_profiling.h"
+
 // 在不进入内核注册流程的情况下准备单实例资源快照。
 // 变量/事件分配接口可能先于 <<<>>> 调用，因此需要执行此操作。
 static CcuResult ccu_prepare_instance(
@@ -52,6 +54,7 @@ static CcuResult ccu_prepare_instance(
 CcuResult asccomm_ccu_kernel_register_start(void* ins_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
+    (void)asc::ccu_profiling::init_ccu_profiling_once();
     HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
     // Instance 不再携带设备号：以当前线程设备定位 per-device registry/kernel mgr
     int32_t dev_logic_id = -1;

@@ -334,6 +334,8 @@ private:
     HcclResult build_loop_group_var_id_maps(
         std::unordered_map<uint16_t, uint32_t>& var_id2_arg_index_map,
         std::unordered_map<uint16_t, uint16_t>& var_id2_var_id_map);
+    // 无 goSize 的 LoopGroup 仅上报占位信息，dataSize 置 0。
+    HcclResult collect_loop_group_placeholder_profiling();
     // GetCcuProfilingInfo 的子步骤：处理 LoopGroup 的 profiling 信息，结果 push 到 allCcuProfilingInfos_ 中。
     HcclResult collect_loop_group_profiling_info(
         const uint64_t* task_args, uint32_t arg_size,

@@ -25,6 +25,8 @@
 
 namespace asc {
 constexpr uint16_t ccu_max_channel_num = 16;                    // 最多16条link
+constexpr uint64_t default_remote_rank_id = 0;                  // remote rank id默认值
+constexpr uint16_t default_value_channelid = 0;                 // channel id默认值
 constexpr uint16_t invalid_cke_id = 0xFFFF;                     // CKE ID非法值
 constexpr uint16_t invalid_value_channelid = 0xFFFF;            // channel id非法值
 constexpr uint64_t invalid_value_notifyid = 0xFFFFFFFFFFFFFFFF; // NOTIFY id非法值
@@ -50,7 +52,7 @@ struct ccu_profiling_info {
     ccu_profiling_info()
     {
         std::fill(std::begin(channel_id), std::end(channel_id), invalid_value_channelid);
-        std::fill(std::begin(remote_rank_id), std::end(remote_rank_id), UINT32_MAX);
+        std::fill(std::begin(remote_rank_id), std::end(remote_rank_id), default_remote_rank_id);
         std::fill(std::begin(channel_handle), std::end(channel_handle), invalid_value_notifyid);
     }
 };
@@ -90,6 +92,7 @@ public:
     void collect_profiling_reps(std::shared_ptr<ccu_rep::ccu_rep_base> rep);
 
     void add_sqe_profiling(const std::string& kernel_name);
+    int32_t add_profiling();
     int32_t add_profiling(const std::string& name, uint32_t mask);
     int32_t add_profiling(const ChannelHandle channel, const std::string& name, uint32_t signal_index, uint32_t mask);
     int32_t add_profiling(const ChannelHandle* channels, uint32_t channel_num);
