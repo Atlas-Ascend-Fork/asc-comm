@@ -61,7 +61,15 @@ marker，`Drain`等待本rank提交的全部WQE完成。所有rank的写入落�
 
 - 配置环境变量
 
-  请根据当前环境上CANN开发套件包的安装方式配置环境变量。
+  样例编译时使用已安装到CANN目录的asc-comm头文件。若尚未安装，先在仓库根目录生成并安装开发验证
+  run包，参数说明参见[`docs/zh/compilation/build_and_test.md`](../../../../docs/zh/compilation/build_and_test.md)：
+
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_9.3.0_linux-<arch>.run --full
+  ```
+
+  然后加载CANN环境变量：
 
   ```bash
   source ${install_path}/cann/set_env.sh
@@ -78,7 +86,7 @@ marker，`Drain`等待本rank提交的全部WQE完成。所有rank的写入落�
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd .. && ./build/hcomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
+  ./hcomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
   ```
 
 - 启动参数说明

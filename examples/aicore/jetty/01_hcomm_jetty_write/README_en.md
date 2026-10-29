@@ -61,13 +61,21 @@ Follow the steps below in the root directory of this sample to compile and run i
 
 - Configure environment variables
 
-  Configure the environment variables according to the installation method of the CANN development kit on your current environment.
+  The sample builds against the asc-comm headers installed into the CANN directory. If they are not yet installed, first generate and install the development
+  verification run package from the repository root. For parameter details, see [`docs/en/compilation/build_and_test.md`](../../../../docs/en/compilation/build_and_test.md):
+
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_9.3.0_linux-<arch>.run --full
+  ```
+
+  Then load the CANN environment variables:
 
   ```bash
   source ${install_path}/cann/set_env.sh
   ```
 
-  > **Note:** `${install_path}` is the CANN package installation directory. If not specified, it defaults to `/usr/local/Ascend`.
+  > **Note:** `${install_path}` is the CANN package installation directory. If no installation directory is specified, the default is `/usr/local/Ascend`.
 
 - Run the sample
 
@@ -78,7 +86,7 @@ Follow the steps below in the root directory of this sample to compile and run i
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd .. && ./build/hcomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
+  ./hcomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
   ```
 
 - Launch parameter description

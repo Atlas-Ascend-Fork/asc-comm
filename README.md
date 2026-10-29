@@ -127,9 +127,13 @@ Ain Kernel侧使用时包含如下头文件：
 ├── cmake                         # asc-comm CMake辅助模块
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
-│   ├── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
-│   ├── simt_urma                 # Hcomm SIMT URMA功能样例
-│   └── simt_urma_perftest        # Hcomm SIMT URMA性能样例
+│   ├── aicore/hcomm              # AICore侧Hcomm点对点通信样例
+│   ├── aicore/ain                # AICore侧Ain单边通信样例
+│   ├── aicore/jetty              # AICore侧Jetty通信样例
+│   ├── aicore/utils              # AICore样例共享Host侧工具
+│   ├── aicpu                     # AICPU侧MC2通信样例
+│   ├── ccu                       # CCU通信和数据面开发样例
+│   └── common                    # 样例公共代码
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口

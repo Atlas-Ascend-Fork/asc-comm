@@ -13,7 +13,7 @@ Kernel侧只通过AIN接口提交数据面通信任务。
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
 
 ## 目录结构介绍
 
@@ -82,7 +82,7 @@ basic_ring
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd .. && ./build/basic_ring_demo tcp://127.0.0.1:29622 <nranks>
+  ./basic_ring_demo tcp://127.0.0.1:29622 <nranks>
   ```
 
 - 启动参数说明

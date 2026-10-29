@@ -127,9 +127,13 @@ This repository contains AICore communication data plane APIs, device-side imple
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
 ├── examples                      # asc-comm API samples
-│   ├── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
-│   ├── simt_urma                 # Hcomm SIMT URMA functional sample
-│   └── simt_urma_perftest        # Hcomm SIMT URMA performance sample
+│   ├── aicore/hcomm              # AICore Hcomm point-to-point communication samples
+│   ├── aicore/ain                # AICore Ain one-sided communication samples
+│   ├── aicore/jetty              # AICore Jetty communication samples
+│   ├── aicore/utils              # Host-side utilities shared by AICore samples
+│   ├── aicpu                     # AICPU MC2 communication samples
+│   ├── ccu                       # CCU communication and dataplane samples
+│   └── common                    # Common sample code
 ├── include                       # asc-comm API declarations
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces

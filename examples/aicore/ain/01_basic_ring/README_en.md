@@ -13,7 +13,7 @@ the Kernel side only submits data-plane communication tasks through the AIN inte
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 
@@ -82,7 +82,7 @@ Perform the following steps in the root directory of this sample to compile and 
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd .. && ./build/basic_ring_demo tcp://127.0.0.1:29622 <nranks>
+  ./basic_ring_demo tcp://127.0.0.1:29622 <nranks>
   ```
 
 - Launch parameter description

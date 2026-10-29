@@ -6,23 +6,14 @@
 
 ## 样例列表
 
-| 样例 | 说明 | 支持产品 |
-| --- | --- | --- |
-| [aicore/ain/01_basic_ring](./aicore/ain/01_basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`Put`/`Get`进行点对点单边通信，并通过`AinBarrierSession`完成同步与结果校验。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/01_hcomm_write_read_nbi](./aicore/hcomm/01_hcomm_write_read_nbi/README.md) | 演示多卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/02_hcomm_batch_write](./aicore/hcomm/02_hcomm_batch_write/README.md) | 演示多个URMA Channel共享Jetty，并通过`MakeBatchHandle`、`GetHandleRef`、`BatchCommit`和`Drain`批量提交跨peer写任务。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/03_one_multi_path](./aicore/hcomm/03_one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/04_simt_urma](./aicore/hcomm/04_simt_urma/README.md) | 演示并验证全部 SIMT URMA 接口：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS`，覆盖立即提交与批量提交。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README.md) | 测量上述五个 SIMT URMA 接口的下发时延与完成带宽，覆盖立即提交/延迟提交两种发布策略。 | Ascend 950PR&950DT系列产品 |
-| [aicore/hcomm/06_simt_batch_perf](./aicore/hcomm/06_simt_batch_perf/README.md) | 验证六类SIMT URMA接口，对比单次、单lane Batch与Group Batch的下发耗时。 | Ascend 950PR&950DT系列产品 |
-| [simt_jetty](./simt_jetty/README.md) | 演示多卡场景下SIMT Kernel以thread/warp/group协作方式通过`HcommJetty::Write`直接构造并提交Jetty WQE，覆盖dispatch多warp批量提交与SIMT/SIMD混合发布模式，并附设备侧性能与压力测试脚本。 | Ascend 950PR&950DT系列产品 |
-| [aicore/jetty/01_hcomm_jetty_write](./aicore/jetty/01_hcomm_jetty_write/README.md) | 演示多卡场景下AIV Kernel通过`HcommJetty::Write`和`HcommJetty::WriteValue`直接向Jetty SQ提交WQE，并通过`Drain`等待完成与校验结果。 | Ascend 950PR&950DT系列产品 |
-| [ccu](./ccu/README.md) | 演示CCU builtin接入、ASC直调和自定义Kernel三类开发方式，覆盖集合通信与基础数据搬运。 | Ascend 950PR&950DT系列产品 |
-
-各样例的编译与运行方式参见对应目录下的README。
+| 目录名称 | 内容说明 |
+| --- | --- |
+| [aicore](./aicore/README.md) | AICore侧通信样例，包含Hcomm点对点通信样例（AIV直驱URMA、SIMT URMA、RoCE路径）、Ain单边通信样例和Jetty通信样例。 |
+| [ccu](./ccu/README.md) | CCU通信和数据面开发样例，覆盖builtin接入、直调集成和自定义Kernel三类开发方式。 |
 
 ## 运行约束
 
-- 样例支持Ascend 950PR&950DT系列产品，CANN软件版本要求为9.1.0或以上。
-- 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
-- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
+- 样例支持Ascend 950PR&950DT系列产品，具体CANN版本要求以各子样例README为准。
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+
+具体样例的编译命令、执行结果和注意事项参见对应目录下的README。
