@@ -152,6 +152,13 @@ set(src_to_test_list
     resource/microcode/ut_ccu_microcode.cc
     resource/kernel/ut_ccu_kernel_res_allocator.cc
     ./resource/representation/interface/ut_ccu_interface_assist.cc
+    common/ut_ccu_print_a5_translate.cc
+    # Real REP implementations exercised by the printf translation tests.
+    ${CCU_REP_DIR}/reps/control/ccu_rep_jump.cc
+    ${CCU_REP_DIR}/reps/control/ccu_rep_jumplabel.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_load.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_load_var.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_store_var.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel_res_allocator.cc
     ${CCU_FEATURES_IMPL_SOURCES}
 )
@@ -291,3 +298,26 @@ add_subdirectory(resource/microcode)
 add_subdirectory(resource/microcode_opt)
 add_subdirectory(resource/channel)
 add_subdirectory(ccu_variable)
+
+# Compile the actual printf emitter and Host consumer; mock only the CCU/ACL
+# boundary. This focused target needs neither a card nor the AICore emulator.
+find_package(Threads REQUIRED)
+add_executable(asccomm_ccu_print_ut
+    common/ut_ccu_print.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_print.cc
+)
+target_compile_features(asccomm_ccu_print_ut PRIVATE cxx_std_17)
+target_compile_options(asccomm_ccu_print_ut PRIVATE -Wall -Wextra -Werror)
+target_include_directories(asccomm_ccu_print_ut PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
+    ${ASCCOMM_ROOT}/src/ccu
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
+)
+target_link_libraries(asccomm_ccu_print_ut PRIVATE ${ASCCOMM_GTEST_TARGET} Threads::Threads)
+add_test(NAME asccomm_ccu_print_ut COMMAND asccomm_ccu_print_ut)
+
+target_compile_definitions(asccomm_ccu_print_ut PRIVATE
+    $<$<BOOL:${ASCCOMM_GTEST_USES_CXX11_ABI0}>:_GLIBCXX_USE_CXX11_ABI=0>
+)

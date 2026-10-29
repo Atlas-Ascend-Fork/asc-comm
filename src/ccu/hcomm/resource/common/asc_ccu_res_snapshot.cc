@@ -223,6 +223,31 @@ const HcommCcuDieMetadata* asc_ccu_res_snapshot::get_die_metadata(uint32_t die_i
 
 uint32_t asc_ccu_res_snapshot::get_ccu_version() const { return ccu_version_; }
 
+CcuResult asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& address) const
+{
+    const auto* metadata = get_die_metadata(die_id);
+    if (metadata == nullptr) {
+        return CCU_E_PARA;
+    }
+    // Match hcomm CcuResSpecifications::GetXnBaseAddr: metadata describes the
+    // entire registered resource space, not the XN subregion. Preserve that
+    // buffer's address/size/token and derive the XN mapping separately.
+    constexpr uint64_t v1_xn_offset = 0x800000ULL + 0x100000ULL + 0x8000ULL;
+    constexpr uint64_t v2_xn_offset = 0x100000ULL;
+    if (ccu_version_ != HCOMM_CCU_VERSION_V1 && ccu_version_ != HCOMM_CCU_VERSION_V2) {
+        return CCU_E_NOT_SUPPORT;
+    }
+    const uint64_t offset = ccu_version_ == HCOMM_CCU_VERSION_V1 ? v1_xn_offset : v2_xn_offset;
+    const auto& buffer = metadata->ccuResBuffer.bufferInfo.rma;
+    if (buffer.addr == 0 || buffer.size < sizeof(uint64_t) || offset > buffer.size - sizeof(uint64_t) ||
+        buffer.addr > std::numeric_limits<uint64_t>::max() - offset - sizeof(uint64_t)) {
+        HCCL_ERROR("[CCU_XN_BASE] invalid resource mapping, die[%u] version[%u]", die_id, ccu_version_);
+        return CCU_E_PARA;
+    }
+    address = buffer.addr + offset;
+    return CCU_SUCCESS;
+}
+
 uint32_t asc_ccu_res_snapshot::get_valid_die_mask() const { return valid_die_mask_; }
 
 const uint64_t* asc_ccu_res_snapshot::get_control_ops() const { return control_ops_; }

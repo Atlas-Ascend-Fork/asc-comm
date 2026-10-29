@@ -11,6 +11,7 @@
 target_sources(asccomm_ccu_obj PRIVATE
     common/ccu_device_context.cc
     common/ccu_dev_mem.cc
+    common/ccu_print.cc
     primitives/ccu_primitives_impl.cc
     primitives/ccu_launch.cc
 )

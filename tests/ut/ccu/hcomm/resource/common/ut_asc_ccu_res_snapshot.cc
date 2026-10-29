@@ -67,6 +67,42 @@ struct ContextStorage {
     }
 };
 
+TEST(AscCcuXnMapping, DerivesVersionSpecificAddressWithoutChangingRegisteredBuffer)
+{
+    for (uint32_t version : {HCOMM_CCU_VERSION_V1, HCOMM_CCU_VERSION_V2}) {
+        ContextStorage storage;
+        storage.instance_.ccuVersion = version;
+        storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = 72ULL * 1024 * 1024;
+        asc_ccu_res_snapshot snapshot;
+        ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+        uint64_t address = 0;
+        ASSERT_EQ(snapshot.get_xn_base_addr(0, address), CCU_SUCCESS);
+        const uint64_t offset = version == HCOMM_CCU_VERSION_V1 ? 0x908000ULL : 0x100000ULL;
+        EXPECT_EQ(address, 0x1000ULL + offset);
+        EXPECT_EQ(snapshot.get_die_metadata(0)->ccuResBuffer.bufferInfo.rma.addr, 0x1000ULL);
+        // Assign/arithmetic use XN ids; Load/Store must map those same ids into
+        // the XN subregion, rather than round-trip through the resource prefix.
+        EXPECT_EQ(address + 8 * 17, 0x1000ULL + offset + 8 * 17);
+        EXPECT_NE(address + 8 * 17, 0x1000ULL + 8 * 17);
+        EXPECT_EQ(snapshot.get_xn_base_addr(1, address), CCU_E_PARA);
+    }
+}
+
+TEST(AscCcuXnMapping, RejectsShortAndOverflowingResourceMappings)
+{
+    ContextStorage storage;
+    asc_ccu_res_snapshot snapshot;
+    ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+    uint64_t address = 123;
+    EXPECT_EQ(snapshot.get_xn_base_addr(0, address), CCU_E_PARA);
+    EXPECT_EQ(address, 123ULL);
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = 72ULL * 1024 * 1024;
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.addr = std::numeric_limits<uint64_t>::max() - 7;
+    ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+    EXPECT_EQ(snapshot.get_xn_base_addr(0, address), CCU_E_PARA);
+    EXPECT_EQ(address, 123ULL);
+}
+
 TEST(AscCcuResSnapshotTest, DeepCopiesAndResetsOrdinaryResources)
 {
     ContextStorage storage;

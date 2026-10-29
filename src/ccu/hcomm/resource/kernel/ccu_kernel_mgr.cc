@@ -596,8 +596,8 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
     for (uint32_t metadata_die = 0; metadata_die < HCOMM_CCU_MAX_DIE_NUM; ++metadata_die) {
         const HcommCcuDieMetadata* die_metadata = res_pack.get_die_metadata(metadata_die);
         if (die_metadata != nullptr) {
-            trans_dep.xn_base_addr[metadata_die] =
-                die_metadata->ccuResBuffer.bufferInfo.rma.addr; // ccuResBuffer.addr 即 XN 基址
+            CHK_RET(
+                static_cast<HcclResult>(res_pack.get_xn_base_addr(metadata_die, trans_dep.xn_base_addr[metadata_die])));
         }
     }
     trans_dep.ccu_res_space_token_info = ccu_rep::get_token(

@@ -49,6 +49,7 @@ public:
 
     asc_ccu_res_repository& get_ccu_res_repo();
     const HcommCcuDieMetadata* get_die_metadata(uint32_t die_id) const;
+    CcuResult get_xn_base_addr(uint32_t die_id, uint64_t& address) const;
     uint32_t get_ccu_version() const;
     uint32_t get_valid_die_mask() const;
     const uint64_t* get_control_ops() const; // 控制操作槽位数组（值需按槽位含义强转）
