@@ -43,7 +43,7 @@ CCU_IF(cond_expr) {
 
 ## 返回值说明
 
-`CCU_IF`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断注册：失败时代码块被跳过，注册仍然成功。错误不通过返回值反馈，调试时需留意。
+`CCU_IF`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断注册：失败时代码块被跳过，注册仍然成功。错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 

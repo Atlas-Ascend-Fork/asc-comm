@@ -333,7 +333,7 @@ ccu::loop_group group({5, 0, 4096*10, 10, 10}, 1, {loop});
 
 CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务发起者，通过`<<<>>>`直调CCU Kernel下发任务，Kernel侧随后由CCU硬件执行通信任务。
 
-`<<<>>>`是内核调用符，通过在函数名与参数列表之间插入`<<<...>>>`下发执行配置，实现Host侧跨界调用设备侧Kernel，其通用概念可参见Ascend C的[核函数](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)介绍。CCU直调沿用该语法，执行配置为`schd`、`insHandle`、`stream`三个CCU专用参数，下面介绍其用法。
+`<<<>>>`是内核调用符，通过在函数名与参数列表之间插入`<<<...>>>`下发执行配置，实现Host侧跨界调用设备侧Kernel，其通用概念可参见Ascend C的[核函数](https://gitcode.com/cann/asc-devkit/blob/9.3.0-beta.1/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)介绍。CCU直调沿用该语法，执行配置为`schd`、`insHandle`、`stream`三个CCU专用参数，下面介绍其用法。
 
 #### <<<>>> 语法与参数
 

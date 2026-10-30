@@ -49,7 +49,7 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[`CcuResult`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

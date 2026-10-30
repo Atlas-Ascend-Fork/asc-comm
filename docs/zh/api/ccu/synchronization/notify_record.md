@@ -44,13 +44,13 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| channel | 输入 | 通信通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
+| channel | 输入 | 通信通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
 | remote_notify_idx | 输入 | 对端notify槽位索引，取值范围为0~7。 |
 | mask | 输入 | 16位事件掩码，指定要设置的对端notify标志位。默认值为`1`，即bit0。 |
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[`CcuResult`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
@@ -63,7 +63,7 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 - 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
 - `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
 - `notify_record`和`notify_wait`的`mask`相同。
-- 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`remote_notify_idx`的取值范围为0~7。
+- 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`remote_notify_idx`的取值范围为0~7。
 
 ## 调用示例
 

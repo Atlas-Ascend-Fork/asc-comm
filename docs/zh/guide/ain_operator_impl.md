@@ -54,7 +54,7 @@ Ain通信算子开发分为控制面资源准备和数据面通信执行两阶�
 
 ### 创建通信域
 
-通信域内所有rank必须共用同一份rootInfo建域：由root节点（示例中取rank 0）调用[`HcclGetRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclGetRootInfo.md)生成rootInfo，并通过rank间信息交换将同一份rootInfo分发给所有rank，各rank均拿到rootInfo后再共同调用[`HcclCommInitRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)创建通信域。
+通信域内所有rank必须共用同一份rootInfo建域：由root节点（示例中取rank 0）调用[`HcclGetRootInfo`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_mgr_c/HcclGetRootInfo.md)生成rootInfo，并通过rank间信息交换将同一份rootInfo分发给所有rank，各rank均拿到rootInfo后再共同调用[`HcclCommInitRootInfo`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)创建通信域。
 
 样例工程通过以rank 0为中心的TCP socket控制通道交换rootInfo，参见[`examples/aicore/utils/rank_sync.h`](../../../examples/aicore/utils/rank_sync.h)（控制通道）与[`examples/aicore/utils/hccl_comm_init.h`](../../../examples/aicore/utils/hccl_comm_init.h)（rootInfo交换与建域）。
 
@@ -82,7 +82,7 @@ Ain通信算子开发分为控制面资源准备和数据面通信执行两阶�
 
 ### 分配内存资源
 
-分配内存：每个rank分别通过`HcommMemAlloc`分配发送缓冲区、接收缓冲区和同步信号缓冲区。参见[`HcommMemAlloc`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcommMemAlloc.md)。
+分配内存：每个rank分别通过`HcommMemAlloc`分配发送缓冲区、接收缓冲区和同步信号缓冲区。参见[`HcommMemAlloc`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_mgr_c/HcommMemAlloc.md)。
 
 AllGather场景下，单个分片大小为一个`uint32_t`，接收缓冲区需容纳`nranks`个分片。
 
@@ -114,7 +114,7 @@ AllGather场景下，单个分片大小为一个`uint32_t`，接收缓冲区需�
 
 ### 注册对称window
 
-将本端的发送缓冲区、接收缓冲区和同步信号缓冲区分别注册为对称window；各rank需按相同的内存地址和大小注册对应window，以实现对称访问。参见[`HcclCommSymWinRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommSymWinRegister.md)。
+将本端的发送缓冲区、接收缓冲区和同步信号缓冲区分别注册为对称window；各rank需按相同的内存地址和大小注册对应window，以实现对称访问。参见[`HcclCommSymWinRegister`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_mgr_c/HcclCommSymWinRegister.md)。
 
   ```cpp
   HcclCommSymWindow sendWin{nullptr};
@@ -129,7 +129,7 @@ AllGather场景下，单个分片大小为一个`uint32_t`，接收缓冲区需�
 
 ### 创建通信组team
 
-配置team描述并创建team。参见[`HcclTeamCreateDescInit`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclTeamCreateDescInit.md)和[`HcclTeamCreate`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclTeamCreate.md)。
+配置team描述并创建team。参见[`HcclTeamCreateDescInit`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclTeamCreateDescInit.md)和[`HcclTeamCreate`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclTeamCreate.md)。
 
   ```cpp
   HcclTeamCreateDesc desc;

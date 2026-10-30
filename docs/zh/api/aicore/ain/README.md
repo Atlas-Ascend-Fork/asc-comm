@@ -1,7 +1,5 @@
 # AI Core Ain API
 
-AI Core侧单边通信接口，提供基于对称window的Put/Get/Signal/Flush等单边通信及barrier同步能力。
-
 - [Ain类](./_dump_node_ain.md)
   - [Ain](./Ain.md)
   - [Put](./Put.md)

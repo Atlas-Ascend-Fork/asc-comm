@@ -46,7 +46,7 @@ CcuResult write_variable_with_notify(ChannelHandle channel, variable var,
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| channel | 输入 | 通信通道句柄，通过建链流程获取的通道资源。类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
+| channel | 输入 | 通信通道句柄，通过建链流程获取的通道资源。类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
 | var | 输入 | 本端`variable`对象，当前值将被写入对端。 |
 | remote_var_idx | 输入 | 对端variable槽位索引。消费侧通过`get_res_by_channel<variable>(channel, remote_var_idx)`引用同一槽位。 |
 | remote_notify_idx | 输入 | 对端notify槽位索引。须与消费侧`notify_wait`的`local_notify_idx`使用相同数值。 |
@@ -54,7 +54,7 @@ CcuResult write_variable_with_notify(ChannelHandle channel, variable var,
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[`CcuResult`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.1/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
