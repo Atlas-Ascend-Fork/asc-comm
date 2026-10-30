@@ -48,10 +48,10 @@ class Hcomm {
 public:
     /*!
      * @brief Initialize Hcomm workspace.
-     * @param [in] buff: The UB buffer provided by caller.
+     * @param [in] buff: The UB buffer provided by caller. Start address must be 32-byte aligned.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note URMA uses buff as its temporary workspace after 32-byte alignment.
+     * @note URMA uses buff as its temporary workspace. Misaligned addresses are rejected by debug-mode checks.
      */
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 

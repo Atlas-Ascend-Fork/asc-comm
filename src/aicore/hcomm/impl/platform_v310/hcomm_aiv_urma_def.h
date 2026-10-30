@@ -28,6 +28,7 @@ namespace AscendC {
 
 constexpr uint32_t HCOMM_URMA_MAX_RETRY_TIMES = 100000000;
 constexpr uint32_t HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES = 1000000;
+constexpr uint32_t HCOMM_URMA_ADDR_ALIGNMENT = 32U;
 constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
@@ -163,6 +164,10 @@ private:
     __aicore__ inline int32_t BatchPostSend(
         UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
         GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
+    template <HcommUrmaOpCode opCode, auto const& config>
+    __aicore__ inline int32_t BatchPostSend(
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len, GM_ADDR notifyAddr = nullptr,
+        uint64_t notifyVal = 0);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenCqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
