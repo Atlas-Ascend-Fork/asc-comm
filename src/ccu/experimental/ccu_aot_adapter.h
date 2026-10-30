@@ -16,7 +16,7 @@
  *   #include "ccu_aot_adapter.h"
  *
  *   CcuAotContext *ctx = nullptr;
- *   ccu_aot_attach_current(&ctx, comm, &rank, &worldSize);
+ *   ccu_aot_attach_current(&ctx, &rank, &worldSize);
  *   ccu_aot_register_kernel_with_external(...); // Register + relocation
  *   ccu_aot_launch_registered_on_stream(...);   // Launch
  *   ccu_aot_finalize(ctx);                      // Destroy
@@ -67,8 +67,11 @@ typedef struct CcuAotExternalArg {
     uint64_t acquire_handle;
 } CcuAotExternalArg;
 
-/** Attach a borrowed communicator using its queried rank/size and current ACL device. */
-CcuAotError ccu_aot_attach_current(CcuAotContext** ctx, void* comm, uint32_t* rank, uint32_t* worldSize);
+/** Attach the current ACL device; rank topology is bound from launch schedule. */
+CcuAotError ccu_aot_attach_current(CcuAotContext** ctx, uint32_t* rank, uint32_t* worldSize);
+
+/** Bind the process rank topology from the launch schedule before using channels. */
+CcuAotError ccu_aot_bind_topology(CcuAotContext* ctx, uint32_t rank, uint32_t worldSize);
 
 /* Borrow channels created by the caller's HComm control-plane flow. The
  * caller retains ownership; finalize must not destroy these handles. */
@@ -77,7 +80,8 @@ CcuAotError ccu_aot_bind_channels(CcuAotContext* ctx, const uint64_t* channels, 
 /* Bind the caller-owned HComm instance selected by the public control plane.
  * This is an internal backend handoff; it does not create or destroy the
  * HComm instance and is not a user-facing HComm control-plane API. */
-CcuAotError ccu_aot_bind_instance(CcuAotContext* ctx, uint32_t rank, uint64_t instanceHandle);
+/** Bind and snapshot the caller-owned HCommCcuInstanceEntity at this address. */
+CcuAotError ccu_aot_bind_instance(CcuAotContext* ctx, uint32_t rank, uint64_t instanceEntityAddress);
 
 /**
  * Append a kernel from a .ccuobj to the context and return a context-local
@@ -100,11 +104,6 @@ CcuAotError ccu_aot_unregister_kernel(CcuAotContext* ctx, uint32_t kernelId);
 CcuAotError ccu_aot_launch_registered_on_stream(
     CcuAotContext* ctx, uint32_t kernelId, uint32_t rank, const uint64_t* taskArgs, uint32_t argCount,
     const CcuAotExternalArg* externalArgs, uint32_t externalArgCount, void* executionStream);
-
-CcuAotError ccu_aot_external_event_alloc_va(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas);
-CcuAotError ccu_aot_external_xn_alloc_va(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas);
 
 /**
  * Bounded synchronization of a borrowed direct execution stream.

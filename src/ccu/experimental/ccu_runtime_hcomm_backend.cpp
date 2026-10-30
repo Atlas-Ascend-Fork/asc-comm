@@ -49,6 +49,8 @@ struct HcommLaunch {
 struct HcommContext {
     CcuAotContext* runtime = nullptr;
     HcommLaunch* activeLaunch = nullptr;
+    uint32_t rank = 0;
+    uint32_t rankSize = 1;
     std::vector<ExternalEventSet*> externalEventSets;
     std::vector<ExternalXnSet*> externalXnSets;
 };
@@ -176,11 +178,12 @@ class HcommBackend final : public Backend {
 public:
     ccu_status_t contextCreate(void* communicator, void** context, uint32_t* rank, uint32_t* rankSize) noexcept override
     {
-        if (!communicator || !context || !rank || !rankSize || *context)
+        (void)communicator;
+        if (!context || !rank || !rankSize || *context)
             return CCU_STATUS_INVALID_ARGUMENT;
         try {
             auto created = std::make_unique<HcommContext>();
-            CcuAotError error = ccu_aot_attach_current(&created->runtime, communicator, rank, rankSize);
+            CcuAotError error = ccu_aot_attach_current(&created->runtime, rank, rankSize);
             if (error != CCU_AOT_SUCCESS) {
                 CCU_AOT_LOGE(
                     "context create attach failed: error=%d communicator=%p\n", static_cast<int>(error), communicator);
@@ -221,54 +224,20 @@ public:
 
     ccu_status_t externalEventVa(void* context, uint32_t count, void** eventSet, uint64_t* vas) noexcept override
     {
-        auto* hcommContext = static_cast<HcommContext*>(context);
-        if (!hcommContext || count == 0 || !eventSet || *eventSet || !vas)
-            return CCU_STATUS_INVALID_ARGUMENT;
-        try {
-            auto created = std::make_unique<ExternalEventSet>();
-            created->context = hcommContext;
-            created->count = count;
-            std::vector<uint64_t> allocatedVas(count);
-            CcuAotError error =
-                ccu_aot_external_event_alloc_va(hcommContext->runtime, 0, count, &created->handle, allocatedVas.data());
-            if (error != CCU_AOT_SUCCESS)
-                return mapCoreError(error);
-            for (uint32_t i = 0; i < count; ++i)
-                vas[i] = allocatedVas[i];
-            hcommContext->externalEventSets.push_back(created.get());
-            *eventSet = created.release();
-            return CCU_STATUS_SUCCESS;
-        } catch (const std::bad_alloc&) {
-            return CCU_STATUS_RESOURCE_EXHAUSTED;
-        } catch (...) {
-            return CCU_STATUS_RUNTIME_ERROR;
-        }
+        (void)context;
+        (void)count;
+        (void)eventSet;
+        (void)vas;
+        return CCU_STATUS_INVALID_ARGUMENT;
     }
 
     ccu_status_t externalXnVa(void* context, uint32_t count, void** xnSet, uint64_t* vas) noexcept override
     {
-        auto* hcommContext = static_cast<HcommContext*>(context);
-        if (!hcommContext || count == 0 || !xnSet || *xnSet || !vas)
-            return CCU_STATUS_INVALID_ARGUMENT;
-        try {
-            auto created = std::make_unique<ExternalXnSet>();
-            created->context = hcommContext;
-            created->count = count;
-            std::vector<uint64_t> allocatedVas(count);
-            CcuAotError error =
-                ccu_aot_external_xn_alloc_va(hcommContext->runtime, 0, count, &created->handle, allocatedVas.data());
-            if (error != CCU_AOT_SUCCESS)
-                return mapCoreError(error);
-            for (uint32_t i = 0; i < count; ++i)
-                vas[i] = allocatedVas[i];
-            hcommContext->externalXnSets.push_back(created.get());
-            *xnSet = created.release();
-            return CCU_STATUS_SUCCESS;
-        } catch (const std::bad_alloc&) {
-            return CCU_STATUS_RESOURCE_EXHAUSTED;
-        } catch (...) {
-            return CCU_STATUS_RUNTIME_ERROR;
-        }
+        (void)context;
+        (void)count;
+        (void)xnSet;
+        (void)vas;
+        return CCU_STATUS_INVALID_ARGUMENT;
     }
 
     ccu_status_t launch(
@@ -283,6 +252,21 @@ public:
             externalArgumentCount);
         if (argumentStatus != CCU_STATUS_SUCCESS)
             return argumentStatus;
+
+        if (schd.rankSize != 0) {
+            if (schd.rankId >= schd.rankSize)
+                return CCU_STATUS_INVALID_ARGUMENT;
+            hcommContext->rank = schd.rankId;
+            hcommContext->rankSize = schd.rankSize;
+        } else if (schd.rankId != 0) {
+            if (schd.rankId >= hcommContext->rankSize)
+                return CCU_STATUS_INVALID_ARGUMENT;
+            hcommContext->rank = schd.rankId;
+        }
+        const CcuAotError topologyError =
+            ccu_aot_bind_topology(hcommContext->runtime, hcommContext->rank, hcommContext->rankSize);
+        if (topologyError != CCU_AOT_SUCCESS)
+            return mapCoreError(topologyError);
 
         const ccu_status_t bindStatus = bindLaunchChannels(hcommContext, schd);
         if (bindStatus != CCU_STATUS_SUCCESS)

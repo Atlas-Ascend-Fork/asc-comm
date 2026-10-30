@@ -51,10 +51,12 @@ if(ASCCOMM_BUILD_CCU_RUNTIME_HCOMM_BACKEND)
         CCU_TRANSLATOR_HAS_HCOMM_BACKEND
         ASCCOMM_CCU_LOCAL_LOGGING)
     target_link_directories(ccu_runtime PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
         ${ASCCOMM_CANN_ARCH_DIR}/lib64)
     target_link_libraries(ccu_runtime PRIVATE
-        ascendcl
-        hcomm
+        $<$<TARGET_EXISTS:acl_rt_headers>:acl_rt_headers>
+        $<$<TARGET_EXISTS:runtime_headers>:runtime_headers>
+        acl_rt
         runtime
         c_sec
         pthread)

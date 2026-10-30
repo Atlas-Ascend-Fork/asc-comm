@@ -599,7 +599,7 @@ validate_link_manifest()
             fail "unsafe link entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 4 ]] || fail "link manifest must contain all managed links: ${manifest}"
+    [[ ${count} -eq 2 ]] || fail "link manifest must contain all managed links: ${manifest}"
     [[ $(cut -f1 "${manifest}" | sort -u | wc -l) -eq ${count} ]] || \
         fail "duplicate path in ${manifest}"
 }
@@ -682,7 +682,7 @@ validate_link_baseline()
             fail "unsafe link baseline entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 4 ]] || fail "link baseline must contain all managed links: ${manifest}"
+    [[ ${count} -eq 2 ]] || fail "link baseline must contain all managed links: ${manifest}"
 }
 
 restore_link_baseline()

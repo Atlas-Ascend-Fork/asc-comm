@@ -152,8 +152,8 @@ find_ccu_libraries()
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
     [[ -f "${runtime_library}" ]] || \
         fail "CCU runtime library was not built: ${runtime_library}"
-    readelf -d "${runtime_library}" | \
-        grep -q 'Shared library: \[libhcomm.so\]' || \
+    grep -q '^ASCCOMM_BUILD_CCU_RUNTIME_HCOMM_BACKEND:BOOL=ON$' \
+        "${build_dir}/CMakeCache.txt" || \
         fail "CCU runtime was built without the HComm backend: ${runtime_library}"
     CCU_LIBRARY="${library}"
     CCU_RUNTIME_LIBRARY="${runtime_library}"

@@ -626,8 +626,8 @@ extern "C" {
 ccu_status_t ccu_context_create(const ccu_context_options_t* options, ccu_context_t** context)
 {
     if (!context || !options || options->struct_size != sizeof(*options) ||
-        options->api_version != CCU_RUNTIME_API_VERSION || !options->communicator ||
-        options->default_sync_timeout_ms == 0 || options->abort_timeout_ms == 0 || !allZero(options->reserved))
+        options->api_version != CCU_RUNTIME_API_VERSION || options->default_sync_timeout_ms == 0 ||
+        options->abort_timeout_ms == 0 || !allZero(options->reserved))
         return CCU_STATUS_INVALID_ARGUMENT;
     try {
         auto result = std::make_unique<ccu_context>();
@@ -868,12 +868,9 @@ ccu_status_t ccu_compiler_submit(
 
 ccu_status_t ccu_context_bind_instance(ccu_context_t* context, ccu_instance_t* instance)
 {
-    if (!context || !instance)
+    if (!context || !instance || *instance == 0)
         return CCU_STATUS_INVALID_ARGUMENT;
     ccu_instance_t requested = *instance;
-    const bool callerOwnedInstance = requested != 0;
-    if (requested == 0)
-        requested = reinterpret_cast<ccu_instance_t>(context);
     std::lock_guard<std::mutex> contextLock(context->mutex);
     std::lock_guard<std::mutex> instanceLock(instanceRegistryMutex);
     auto it = instanceRegistry.find(requested);
@@ -881,11 +878,9 @@ ccu_status_t ccu_context_bind_instance(ccu_context_t* context, ccu_instance_t* i
         return CCU_STATUS_BUSY;
     if (context->boundInstance != 0 && context->boundInstance != requested)
         return CCU_STATUS_BUSY;
-    if (callerOwnedInstance) {
-        const ccu_status_t bindStatus = context->backend->bindInstance(context->backendContext, requested);
-        if (bindStatus != CCU_STATUS_SUCCESS)
-            return bindStatus;
-    }
+    const ccu_status_t bindStatus = context->backend->bindInstance(context->backendContext, requested);
+    if (bindStatus != CCU_STATUS_SUCCESS)
+        return bindStatus;
     instanceRegistry[requested] = context;
     context->boundInstance = requested;
     *instance = requested;
@@ -907,14 +902,18 @@ ccu_status_t ccu_compiler_submit_by_instance(
             return CCU_STATUS_INVALID_OBJECT;
         context = it->second;
     }
-    // Validate schd.rankSize against context if non-zero (0 = unspecified).
-    if (schd.rankSize != 0 && context->rankSize != schd.rankSize)
-        return CCU_STATUS_SCHEMA_MISMATCH;
-    // When schd.rankId is non-zero, override context->rank so that the
-    // per-rank kernel image is selected by the value the user put in Sch
-    // rather than the one obtained from the communicator at context create.
-    if (schd.rankId != 0 && schd.rankId != context->rank)
+    // HComm backend contexts start with the single-rank default. The launch
+    // schedule is the authoritative source for distributed rank topology.
+    if (schd.rankSize != 0) {
+        if (schd.rankId >= schd.rankSize)
+            return CCU_STATUS_INVALID_ARGUMENT;
         context->rank = schd.rankId;
+        context->rankSize = schd.rankSize;
+    } else if (schd.rankId != 0) {
+        if (schd.rankId >= context->rankSize)
+            return CCU_STATUS_INVALID_ARGUMENT;
+        context->rank = schd.rankId;
+    }
     return ccu_compiler_submit_with_schedule(
         context, descriptor, schd, stream, arguments, argumentCount, externalArguments, externalArgumentCount);
 }

@@ -44,18 +44,10 @@
 #include "ccu_runtime_external.h"
 
 // ACL
-#include "acl/acl.h"
+#include "acl/acl_rt.h"
 
 // hcomm public headers
-#include "hccl/hccl_comm.h"
-#include "hccl/hccl_types.h"
-#include "hccl/hccl_res.h"
-#include "hccl/hccl_rank_graph.h" // HcclRankGraphGetEndpointDesc
-#include "hccl/hccl_channel.h"
-#include "hccl/hccl_ccu_res.h" // HcclCommQueryCcuIns
-#include "hcomm/ccu/ccu_res.h"
 #include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
-#include "hcomm/hcomm_res.h" // HcommChannelDestroy
 
 // Deployed runtime launch ABI. Public C API: link libruntime.so instead of
 // resolving rtCCULaunch / rtKernelLaunch by hand.
@@ -63,6 +55,9 @@
 
 // AGENTS「日志打印规范」：统一分级日志宏 CCU_AOT_LOG{D,I,W,E}。
 #include "ccu_aot_log.h"
+
+using CcuInsHandle = uint64_t;
+using CcuKernelHandle = uint64_t;
 
 // ============================================================================
 // .ccuobj 解析
@@ -365,7 +360,6 @@ struct CcuAotContext {
     // lightweight topology binding supplied by the attach entry point.
     RankBinding rankBinding;
     std::vector<int32_t> devices; // 逻辑设备 ID（按 rank）
-    std::vector<HcclComm> comms;
     std::vector<CcuInsHandle> callerInstanceHandles;
     // Read-only instance snapshots borrowed from HComm. Pointers inside the
     // original entity are copied into value ranges before the query returns;
@@ -399,44 +393,6 @@ enum CcuAotHcommResourceType : uint32_t {
 
 static constexpr uint32_t kCcuAotMaxDieNum = 2;
 static constexpr uint32_t kCcuAotChannelResourceCapacity = 16;
-
-struct HcommRecoveryResult {
-    bool attempted = false;
-    int publicSuspendRc = -1;
-    int publicResumeRc = -1;
-    int rc = HCCL_E_INTERNAL;
-    uint64_t elapsedMs = 0;
-};
-
-// The POD deployment exposes the recovery contract through public HComm/ACL
-// APIs. A failed CCU mission is recovered through the communicator's public
-// resume contract after the bounded device abort.
-static HcommRecoveryResult recoverHcommCcuAbort(CcuAotContext* ctx, uint32_t rank)
-{
-    HcommRecoveryResult result;
-    if (!ctx || rank >= ctx->ndev || rank >= ctx->devices.size() || rank >= ctx->comms.size() || !ctx->comms[rank] ||
-        !HcclCommSuspend || !HcclCommResume)
-        return result;
-
-    result.attempted = true;
-    const auto start = std::chrono::steady_clock::now();
-    result.publicSuspendRc = runOnFreshDeviceThread(
-        ctx->devices[rank], static_cast<int>(HCCL_E_INTERNAL), [&]() { return HcclCommSuspend(ctx->comms[rank]); });
-    const bool suspendUnsupported = result.publicSuspendRc == HCCL_E_NOT_SUPPORT;
-    if (result.publicSuspendRc != HCCL_SUCCESS && result.publicSuspendRc != HCCL_E_SUSPENDING && !suspendUnsupported) {
-        result.rc = result.publicSuspendRc;
-        result.elapsedMs = elapsedMs(start);
-        return result;
-    }
-
-    // HComm's public contract requires Resume after aclrtDeviceTaskAbort,
-    // including deployments where Suspend is intentionally unsupported.
-    result.publicResumeRc = runOnFreshDeviceThread(
-        ctx->devices[rank], static_cast<int>(HCCL_E_INTERNAL), [&]() { return HcclCommResume(ctx->comms[rank]); });
-    result.rc = result.publicResumeRc;
-    result.elapsedMs = elapsedMs(start);
-    return result;
-}
 
 static const CcuAotPod* getPod(const CcuAotContext* ctx, uint32_t rank)
 {
@@ -826,34 +782,12 @@ static bool applyLoopChannelRelocs(
 // ============================================================================
 
 extern "C" {
-static bool ccuAotQueryCommTopology(
-    const CcuAotContext* ctx, uint32_t localRank, uint32_t& globalRank, uint32_t& totalRanks)
-{
-    if (!ctx || localRank >= ctx->comms.size() || !ctx->comms[localRank])
-        return false;
-    HcclComm comm = ctx->comms[localRank];
-    return HcclGetRankId(comm, &globalRank) == HCCL_SUCCESS && HcclGetRankSize(comm, &totalRanks) == HCCL_SUCCESS &&
-           totalRanks != 0 && globalRank < totalRanks;
-}
-
-static uint32_t ccuAotTotalRanks(const CcuAotContext* ctx)
-{
-    if (!ctx)
-        return 0;
-    uint32_t globalRank = 0;
-    uint32_t totalRanks = 0;
-    if (ccuAotQueryCommTopology(ctx, 0, globalRank, totalRanks))
-        return totalRanks;
-    return ctx->rankBinding.worldSize;
-}
+static uint32_t ccuAotTotalRanks(const CcuAotContext* ctx) { return ctx ? ctx->rankBinding.worldSize : 0; }
 
 static uint32_t ccuAotGlobalRank(const CcuAotContext* ctx, uint32_t localRank)
 {
-    // In one-rank-per-process attach/cluster mode, the explicit rank passed by
-    // the caller is the authoritative global rank.  HcclGetRankId() may
-    // report the communicator's local rank (zero in a single-comm process),
-    // which would collapse rank 1 onto rank 0 while building peer tables and
-    // while selecting channel diagnostics.
+    // In one-rank-per-process mode, rank from the launch schedule is the
+    // authoritative global rank; localRank indexes this process's one entry.
     if (!ctx || localRank >= ctx->ndev)
         return localRank;
     return ctx->rankBinding.globalRank;
@@ -907,19 +841,18 @@ const char* ccu_aot_strerror(CcuAotError err)
     return "unknown";
 }
 
-static CcuAotError ccuAotAttach(CcuAotContext** outCtx, void* comm, int32_t device, uint32_t rank, uint32_t worldSize)
+static CcuAotError ccuAotAttach(CcuAotContext** outCtx, int32_t device, uint32_t rank, uint32_t worldSize)
 {
-    if (!outCtx || !comm || worldSize == 0 || rank >= worldSize)
+    if (!outCtx || worldSize == 0 || rank >= worldSize)
         return CCU_AOT_E_PARAM;
 
     auto* ctx = new CcuAotContext();
-    ctx->ndev = 1; // 本进程只持有一个 rank 的 comm
+    ctx->ndev = 1; // 本进程只持有一个 rank
     ctx->rankBinding = {rank, worldSize};
     ctx->devices.assign(1, device);
-    ctx->comms.assign(1, reinterpret_cast<HcclComm>(comm)); // 直接用用户 comm
 
-    // ACL 生命周期归用户（attach 前用户已 aclInit + 建 comm）；只 SetDevice 保证落在
-    // comm 创建时的同一张卡。不 aclInit（重复 init 会报错）。
+    // ACL lifecycle belongs to the caller. Select the current device without
+    // calling aclInit, which may conflict with the caller's initialization.
     aclError aclRc = aclrtSetDevice(device);
     if (aclRc != 0) {
         CCU_AOT_LOGE("attach aclrtSetDevice(%d) failed: %d\n", device, (int)aclRc);
@@ -927,24 +860,18 @@ static CcuAotError ccuAotAttach(CcuAotContext** outCtx, void* comm, int32_t devi
         return CCU_AOT_E_INIT;
     }
 
-    // The user communicator owns the user stream and the HComm thread
-    // associated with it.  Do not create a second adapter-owned stream/thread
-    // here: HcclThreadAcquireWithStream must be paired by the communicator's
-    // lifecycle, not by HcommThreadFree (the two handle maps are distinct).
-    // Build peer topology from the attached communicator rather than leaving
-    // an empty peerRanks[0] slot for the HComm backend launch path.
+    // The caller owns communicator, stream, and thread lifecycles. Do not
+    // create adapter-owned resources here; initialize peer topology from the
+    // rank information supplied by the launch schedule.
     ccuAotInitPeerTables(ctx);
-    CCU_AOT_LOGI(
-        "Attach OK (user comm): rank=%u/%u device=%d comm=%p; "
-        "using caller stream/thread\n",
-        rank, worldSize, device, comm);
+    CCU_AOT_LOGI("Attach OK: rank=%u/%u device=%d; using caller stream/thread\n", rank, worldSize, device);
     *outCtx = ctx;
     return CCU_AOT_SUCCESS;
 }
 
-CcuAotError ccu_aot_attach_current(CcuAotContext** outCtx, void* comm, uint32_t* rank, uint32_t* worldSize)
+CcuAotError ccu_aot_attach_current(CcuAotContext** outCtx, uint32_t* rank, uint32_t* worldSize)
 {
-    if (!outCtx || !comm || !rank || !worldSize)
+    if (!outCtx || !rank || !worldSize)
         return CCU_AOT_E_PARAM;
     *outCtx = nullptr;
     *rank = 0;
@@ -956,17 +883,25 @@ CcuAotError ccu_aot_attach_current(CcuAotContext** outCtx, void* comm, uint32_t*
         CCU_AOT_LOGE("attach aclrtGetDevice failed: rc=%d device=%d\n", static_cast<int>(deviceRc), device);
         return CCU_AOT_E_INIT;
     }
-    HcclComm hcclComm = reinterpret_cast<HcclComm>(comm);
-    const HcclResult rankRc = HcclGetRankId(hcclComm, rank);
-    const HcclResult sizeRc = HcclGetRankSize(hcclComm, worldSize);
-    if (rankRc != HCCL_SUCCESS || sizeRc != HCCL_SUCCESS || *worldSize == 0 || *rank >= *worldSize) {
-        CCU_AOT_LOGE(
-            "attach communicator topology failed: rank-rc=%d "
-            "size-rc=%d rank=%u world=%u comm=%p\n",
-            static_cast<int>(rankRc), static_cast<int>(sizeRc), *rank, *worldSize, comm);
-        return CCU_AOT_E_INIT;
+    // Rank topology is supplied by HcomCcuSchd at submission time. Context
+    // creation must not query communicator-specific HCCL rank APIs.
+    *rank = 0;
+    *worldSize = 1;
+    return ccuAotAttach(outCtx, device, *rank, *worldSize);
+}
+
+CcuAotError ccu_aot_bind_topology(CcuAotContext* ctx, uint32_t rank, uint32_t worldSize)
+{
+    if (!ctx || worldSize == 0 || rank >= worldSize)
+        return CCU_AOT_E_PARAM;
+    if (ctx->channelsAcquired) {
+        if (ctx->rankBinding.globalRank != rank || ctx->rankBinding.worldSize != worldSize)
+            return CCU_AOT_E_PARAM;
+        return CCU_AOT_SUCCESS;
     }
-    return ccuAotAttach(outCtx, comm, device, *rank, *worldSize);
+    ctx->rankBinding = {rank, worldSize};
+    ccuAotInitPeerTables(ctx);
+    return CCU_AOT_SUCCESS;
 }
 
 } // extern "C"
@@ -1065,34 +1000,15 @@ static void selectInstanceHandle(CcuAotContext* ctx, uint32_t rank, CcuInsHandle
     }
 }
 
-static CcuAotError queryCcuInsHandle(CcuAotContext* ctx, uint32_t rank, CcuInsHandle* insHandle)
+static CcuAotError getBoundCcuInsHandle(CcuAotContext* ctx, uint32_t rank, CcuInsHandle* insHandle)
 {
     if (!ctx || rank >= ctx->ndev || !insHandle)
         return CCU_AOT_E_PARAM;
     *insHandle = 0;
-    if (ctx->pods.size() <= rank)
-        ctx->pods.resize(ctx->ndev);
-
-    alignas(HcommCcuInstanceEntity) uint8_t queryStorage[sizeof(HcommCcuInstanceEntity)]{};
-    CcuInsHandle query = reinterpret_cast<CcuInsHandle>(queryStorage);
-    uint32_t entityCount = 0;
-    const HcclResult queryRc = HcclCommQueryCcuIns(ctx->comms[rank], &query, &entityCount);
-    if (queryRc != HCCL_SUCCESS || entityCount != 1 || query == 0) {
-        CCU_AOT_LOGE(
-            "rank=%u HcclCommQueryCcuIns(entity) failed: rc=%d count=%u\n", rank, static_cast<int>(queryRc),
-            entityCount);
+    if (ctx->pods.size() <= rank || ctx->pods[rank].instanceHandle == 0) {
+        CCU_AOT_LOGE("rank=%u HComm instance entity was not bound before resource use\n", rank);
         return CCU_AOT_E_REGISTER;
     }
-
-    const auto* entity = reinterpret_cast<const HcommCcuInstanceEntity*>(query);
-    if (!validInstanceEntity(entity, rank))
-        return CCU_AOT_E_REGISTER;
-
-    CcuAotPod normalized{};
-    const CcuAotError normalizeRc = normalizeInstanceEntity(rank, *entity, normalized);
-    if (normalizeRc != CCU_AOT_SUCCESS)
-        return normalizeRc;
-    ctx->pods[rank] = std::move(normalized);
     selectInstanceHandle(ctx, rank, *insHandle);
     return CCU_AOT_SUCCESS;
 }
@@ -1128,29 +1044,6 @@ static bool queryChannelDie(CcuAotContext* ctx, uint32_t rank, ChannelHandle cha
     return dieId < kCcuAotMaxDieNum;
 }
 
-static uint8_t chooseExternalResourceDie(CcuAotContext* ctx, uint32_t rank)
-{
-    uint32_t die = UINT32_MAX;
-    if (rank < ctx->peerChannels.size()) {
-        for (ChannelHandle channel : ctx->peerChannels[rank]) {
-            if (queryChannelDie(ctx, rank, channel, die))
-                return static_cast<uint8_t>(die);
-        }
-    }
-    /* External resources may be allocated before the caller-owned channel
-     * handles are passed through the launch schedule.  In that phase the
-     * instance snapshot is the only authoritative die information; do not
-     * fall back to die 0 when the POD exposes another valid die. */
-    if (rank < ctx->pods.size()) {
-        const auto& pod = ctx->pods[rank];
-        for (uint32_t candidate = 0; candidate < pod.dieNum; ++candidate) {
-            if ((pod.validDieMask & (1u << candidate)) != 0)
-                return static_cast<uint8_t>(candidate);
-        }
-    }
-    return 0;
-}
-
 static int chooseChannelResourceDie(CcuAotContext* ctx, uint32_t rank)
 {
     if (!ctx)
@@ -1163,60 +1056,6 @@ static int chooseChannelResourceDie(CcuAotContext* ctx, uint32_t rank)
         }
     }
     return -1;
-}
-
-static CcuAotError allocExternalEventVaImpl(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas)
-{
-    if (!ctx || rank >= ctx->ndev || count == 0 || !handle || *handle != 0 || !vas)
-        return CCU_AOT_E_PARAM;
-    aclrtSetDevice(ctx->devices[rank]);
-    CcuInsHandle insHandle = 0;
-    CcuAotError qrc = queryCcuInsHandle(ctx, rank, &insHandle);
-    if (qrc != CCU_AOT_SUCCESS)
-        return qrc;
-    const uint8_t dieId = chooseExternalResourceDie(ctx, rank);
-    CcuEventHandle eventHandle = 0;
-    CcuResult rc = HcommCcuEventAlloc(insHandle, dieId, count, &eventHandle);
-    if (rc != CCU_SUCCESS || eventHandle == 0) {
-        CCU_AOT_LOGE(
-            "rank=%u external event alloc failed rc=%d count=%u die=%u\n", rank, static_cast<int>(rc), count, dieId);
-        return CCU_AOT_E_REGISTER;
-    }
-    for (uint32_t i = 0; i < count; ++i) {
-        rc = HcommCcuEventGetAddr(eventHandle, i, &vas[i]);
-        if (rc != CCU_SUCCESS || vas[i] == 0)
-            return CCU_AOT_E_REGISTER;
-    }
-    *handle = static_cast<uint64_t>(eventHandle);
-    return CCU_AOT_SUCCESS;
-}
-
-static CcuAotError allocExternalXnVaImpl(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas)
-{
-    if (!ctx || rank >= ctx->ndev || count == 0 || !handle || *handle != 0 || !vas)
-        return CCU_AOT_E_PARAM;
-    aclrtSetDevice(ctx->devices[rank]);
-    CcuInsHandle insHandle = 0;
-    CcuAotError qrc = queryCcuInsHandle(ctx, rank, &insHandle);
-    if (qrc != CCU_AOT_SUCCESS)
-        return qrc;
-    const uint8_t dieId = chooseExternalResourceDie(ctx, rank);
-    CcuVariableHandle variableHandle = 0;
-    CcuResult rc = HcommCcuVariableAlloc(insHandle, dieId, count, &variableHandle);
-    if (rc != CCU_SUCCESS || variableHandle == 0) {
-        CCU_AOT_LOGE(
-            "rank=%u external xn alloc failed rc=%d count=%u die=%u\n", rank, static_cast<int>(rc), count, dieId);
-        return CCU_AOT_E_REGISTER;
-    }
-    for (uint32_t i = 0; i < count; ++i) {
-        rc = HcommCcuVariableGetAddr(variableHandle, i, &vas[i]);
-        if (rc != CCU_SUCCESS || vas[i] == 0)
-            return CCU_AOT_E_REGISTER;
-    }
-    *handle = static_cast<uint64_t>(variableHandle);
-    return CCU_AOT_SUCCESS;
 }
 
 extern "C" CcuAotError ccu_aot_bind_channels(CcuAotContext* ctx, const uint64_t* channels, uint32_t channelCount)
@@ -1927,14 +1766,6 @@ static CcuAotError launchKernelHandleOnStream(
         CCU_AOT_LOGI("%s taskArg[%u] = 0x%lx\n", label, k, (unsigned long)taskArgs[k]);
 
     rtStream_t stream = reinterpret_cast<rtStream_t>(executionStream);
-    ThreadHandle thread = 0;
-    HcclResult threadRc = HcclThreadAcquireWithStream(ctx->comms[rank], COMM_ENGINE_CCU, stream, 0, &thread);
-    if (threadRc != HCCL_SUCCESS || thread == 0) {
-        CCU_AOT_LOGE(
-            "%s rank=%u HcclThreadAcquireWithStream(user stream) failed: %d\n", label, rank,
-            static_cast<int>(threadRc));
-        return CCU_AOT_E_LAUNCH;
-    }
     // The public POD launch contract does not expose a private launch-context
     // object. Runtime synchronization supplies the bounded wait; zero here
     // leaves the device task timeout at the HComm/runtime default.
@@ -1997,18 +1828,6 @@ static CcuAotError releaseRegisteredKernel(CcuAotContext* ctx, uint32_t kernelId
 } // namespace
 
 extern "C" {
-CcuAotError ccu_aot_external_event_alloc_va(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas)
-{
-    return allocExternalEventVaImpl(ctx, rank, count, handle, vas);
-}
-
-CcuAotError ccu_aot_external_xn_alloc_va(
-    CcuAotContext* ctx, uint32_t rank, uint32_t count, uint64_t* handle, uint64_t* vas)
-{
-    return allocExternalXnVaImpl(ctx, rank, count, handle, vas);
-}
-
 static bool validExternalRegistrationArgs(const CcuAotExternalArg* externalArgs, uint32_t externalArgCount)
 {
     for (uint32_t i = 0; i < externalArgCount; ++i) {
@@ -2083,7 +1902,7 @@ static void registerRankKernel(
     rankRecord.handle = static_cast<CcuKernelHandle>(newKernelId + 1);
 
     CcuInsHandle metadataHandle = 0;
-    status = queryCcuInsHandle(ctx, rank, &metadataHandle);
+    status = getBoundCcuInsHandle(ctx, rank, &metadataHandle);
     if (status != CCU_AOT_SUCCESS) {
         CCU_AOT_LOGE(
             "rank=%u kernel[%u] AOT registration stage=context-POD-query "
@@ -2269,8 +2088,6 @@ struct SyncRecoveryTrace {
     bool deviceAbortAttempted = false;
     bool deviceRetryAbortAttempted = false;
     bool deviceConfirmAttempted = false;
-    bool hcommFinalizeCompleted = false;
-    HcommRecoveryResult hcommFinalize{};
 };
 
 int32_t boundedSyncTimeoutMs(uint64_t timeout)
@@ -2330,15 +2147,6 @@ extern "C++" DeviceQuiescenceResult confirmDeviceQuiescence(uint64_t timeout, Sy
     return result;
 }
 
-void recoverThroughHcomm(CcuAotContext* ctx, uint32_t rank, CcuAotSyncResult& out, SyncRecoveryTrace& trace)
-{
-    trace.hcommFinalize = recoverHcommCcuAbort(ctx, rank);
-    if (trace.hcommFinalize.rc == HCCL_SUCCESS) {
-        out.terminal = 1;
-        trace.hcommFinalizeCompleted = true;
-    }
-}
-
 uint32_t remainingRecoverySeconds(const SyncRecoveryTrace& trace)
 {
     const auto now = std::chrono::steady_clock::now();
@@ -2396,9 +2204,7 @@ void recoverAfterFailedDeviceAbort(
         return;
     }
 
-    recoverThroughHcomm(ctx, rank, out, trace);
-    if (!out.terminal)
-        retryDeviceAbort(ctx, rank, out, trace);
+    retryDeviceAbort(ctx, rank, out, trace);
 }
 
 void queryExecutionStream(aclrtStream stream, SyncRecoveryTrace& trace)
@@ -2414,8 +2220,6 @@ const char* terminalSource(const SyncRecoveryTrace& trace, const CcuAotSyncResul
 {
     if (!out.terminal)
         return "none";
-    if (trace.hcommFinalizeCompleted)
-        return "hcomm-public-recovery";
     if (trace.deviceRetryAbortAttempted && trace.deviceRetryAbortRc == ACL_SUCCESS)
         return "device-abort-finalize";
     if (trace.deviceConfirmAttempted && trace.deviceConfirmRc == ACL_SUCCESS)
@@ -2438,8 +2242,6 @@ void logRecoveryDetail(
         "device-confirm-rc=%d device-confirm-class=%s "
         "device-confirm-first-rc=%d device-confirm-rounds=%u "
         "device-confirm-attempts=%u device-confirm-ms=%llu "
-        "hcomm-public=%u public-suspend-rc=%d public-resume-rc=%d "
-        "hcomm-recovery-rc=%d hcomm-recovery-ms=%llu "
         "stream-query-rc=%d stream-status=%d tail-rc=%d tail-ms=%llu "
         "recovery-round-budget-ms=%llu terminal=%u terminal-source=%s "
         "total-ms=%llu "
@@ -2460,9 +2262,6 @@ void logRecoveryDetail(
         trace.deviceConfirmAttempted ? recoveryRcClass(trace.deviceConfirmRc) : "not-attempted",
         trace.deviceConfirmAttempted ? static_cast<int>(trace.deviceFirstConfirmRc) : -1, trace.deviceConfirmRounds,
         trace.deviceConfirmAttempts, static_cast<unsigned long long>(trace.deviceConfirmElapsedMs),
-        trace.hcommFinalize.attempted ? 1u : 0u, trace.hcommFinalize.publicSuspendRc,
-        trace.hcommFinalize.publicResumeRc, trace.hcommFinalize.attempted ? trace.hcommFinalize.rc : -1,
-        static_cast<unsigned long long>(trace.hcommFinalize.elapsedMs),
         stream ? static_cast<int>(trace.streamQueryRc) : -1, stream ? static_cast<int>(trace.streamStatus) : -1,
         static_cast<int>(CCU_AOT_SUCCESS), 0ULL, static_cast<unsigned long long>(trace.deviceRecoveryBudgetMs),
         out.terminal, terminalSource(trace, out), static_cast<unsigned long long>(elapsedMs(recoveryStart)),
@@ -2537,29 +2336,6 @@ static CcuAotError releaseContextChannels(CcuAotContext* ctx, uint32_t rank)
 {
     if (!ctx || rank >= ctx->ndev || rank >= ctx->devices.size())
         return CCU_AOT_E_PARAM;
-    std::vector<ChannelHandle> channels;
-    if (rank < ctx->peerChannels.size())
-        for (ChannelHandle channel : ctx->peerChannels[rank])
-            if (channel != 0)
-                channels.push_back(channel);
-    std::sort(channels.begin(), channels.end());
-    channels.erase(std::unique(channels.begin(), channels.end()), channels.end());
-    if (channels.empty())
-        return CCU_AOT_SUCCESS;
-
-    if (ctx->borrowedChannels) {
-        if (rank < ctx->peerChannels.size())
-            std::fill(ctx->peerChannels[rank].begin(), ctx->peerChannels[rank].end(), 0);
-        return CCU_AOT_SUCCESS;
-    }
-
-    HcclResult rc = runOnFreshDeviceThread(ctx->devices[rank], HCCL_E_INTERNAL, [&]() {
-        return HcclChannelDestroy(ctx->comms[rank], channels.data(), static_cast<uint32_t>(channels.size()));
-    });
-    if (rc != 0) {
-        CCU_AOT_LOGE("rank=%u HcclChannelDestroy count=%zu rc=%d\n", rank, channels.size(), (int)rc);
-        return CCU_AOT_E_REGISTER;
-    }
     if (rank < ctx->peerChannels.size())
         std::fill(ctx->peerChannels[rank].begin(), ctx->peerChannels[rank].end(), 0);
     return CCU_AOT_SUCCESS;
@@ -2604,17 +2380,31 @@ CcuAotError ccu_aot_finalize(CcuAotContext* ctx)
     return CCU_AOT_SUCCESS;
 }
 
-extern "C" CcuAotError ccu_aot_bind_instance(CcuAotContext* ctx, uint32_t rank, uint64_t instanceHandle)
+extern "C" CcuAotError ccu_aot_bind_instance(CcuAotContext* ctx, uint32_t rank, uint64_t instanceEntityAddress)
 {
-    if (!ctx || rank >= ctx->ndev || instanceHandle == 0)
+    if (!ctx || rank >= ctx->ndev || instanceEntityAddress == 0 ||
+        instanceEntityAddress % alignof(HcommCcuInstanceEntity) != 0)
         return CCU_AOT_E_PARAM;
+    const auto* entity = reinterpret_cast<const HcommCcuInstanceEntity*>(instanceEntityAddress);
+    if (!validInstanceEntity(entity, rank))
+        return CCU_AOT_E_REGISTER;
+    CcuAotPod normalized{};
+    const CcuAotError normalizeRc = normalizeInstanceEntity(rank, *entity, normalized);
+    if (normalizeRc != CCU_AOT_SUCCESS)
+        return normalizeRc;
+
     if (ctx->callerInstanceHandles.size() <= rank)
         ctx->callerInstanceHandles.resize(ctx->ndev, 0);
     CcuInsHandle& bound = ctx->callerInstanceHandles[rank];
-    if (bound != 0 && bound != instanceHandle)
+    if (bound != 0 && bound != entity->ccuInsKey)
         return CCU_AOT_E_PARAM;
-    bound = instanceHandle;
-    CCU_AOT_LOGI("rank=%u bound caller-owned HComm instance=0x%lx\n", rank, static_cast<unsigned long>(instanceHandle));
+    if (ctx->pods.size() <= rank)
+        ctx->pods.resize(ctx->ndev);
+    bound = entity->ccuInsKey;
+    ctx->pods[rank] = std::move(normalized);
+    CCU_AOT_LOGI(
+        "rank=%u bound HComm entity=%p instance=0x%lx\n", rank, static_cast<const void*>(entity),
+        static_cast<unsigned long>(bound));
     return CCU_AOT_SUCCESS;
 }
 
