@@ -29,7 +29,7 @@ Select the corresponding environment setup method according to **whether local N
 >
 > - For stable development experience, it is recommended to prepare your environment using **containerization technology**.
 > - If you prefer not to use containers, you may set up the environment on a physical machine equipped with NPUs. Refer to [CANN Software Installation Guide - Physical Machine Installation](https://www.hiascend.com/cann/download).
-> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install). The `hcomm_write_read_nbi` sample requires at least two NPUs for runtime execution.
+> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install). The `hcomm_urma_write_read_nbi` sample requires at least two NPUs for runtime execution.
 
 ### 1️⃣ Cloud Development Environment<a name="cloud-dev-env"></a>
 
@@ -105,7 +105,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
     | `--ipc=host` | Share IPC namespace with host; required for NPU inter-process communication (shared memory, semaphores) | - |
     | `--net=host` | Use host network stack to avoid communication latency from container forwarding | - |
     | `--privileged` | Grant full device access permissions required for NPU driver operation | - |
-    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two devices of the Ascend 950PR&950DT products shall be mapped to run the `hcomm_write_read_nbi` sample. |
+    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two devices of the Ascend 950PR&950DT products shall be mapped to run the `hcomm_urma_write_read_nbi` sample. |
     | `--device /dev/davinci_manager` | Mount NPU device management interface | - |
     | `--device /dev/devmm_svm` | Mount device memory management interface | - |
     | `--device /dev/hisi_hdc` | Mount host-device communication interface | - |
@@ -151,7 +151,7 @@ CANN packages include the CANN toolkit package and CANN ops package.
 
     > [!IMPORTANT]
     > Installation Note
-    > The [AIV direct-driven URMA Hcomm sample](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
+    > The [AIV direct-driven URMA Hcomm sample](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
 
 | Parameter | Description |
 | :--- | :-------------------------------- |
@@ -264,13 +264,13 @@ Third-party open-source software used for UT execution:
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
+[hcomm_urma_write_read_nbi](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/aicore/hcomm/01_hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_urma_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

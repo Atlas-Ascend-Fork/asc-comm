@@ -3,27 +3,29 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR/Ascend 950DT：支持
+- Ascend 950PR&950DT系列产品：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+- Atlas A3系列产品：不支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+- Atlas A2系列产品：不支持
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
-- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
+- Atlas推理系列产品：不支持
 <!-- end id5 -->
 <!-- npu="910" id6 -->
-- Atlas 训练系列产品：不支持
+- Atlas训练系列产品：不支持
 <!-- end id6 -->
 
 ## 功能说明
 
-`AscendC::Ain`是AI Core侧单边通信接口模板，提供`Put`/`Get`/`Signal`/`Flush`等单边通信及同步能力。`Ain`会根据通信组team、对端rank和对称window句柄解析通信通道及通信内存地址，Kernel侧无需直接维护远端地址。
+头文件路径：`"ain/ain.h"`。
+
+`AscendC::Ain`是AI Core侧单边通信接口模板，提供`Put`/`Get`/`Signal`/`Flush`等单边通信及同步能力。`Ain`会根据通信组team、对端rank和对称window句柄解析通信通道及通信内存地址，Kernel侧无需直接维护远端地址。其中，team为Host侧创建的通信组，rank为通信域内的节点编号，对称window为通信各rank按相同地址和大小注册的对称内存窗口，单边任务基于window句柄和偏移访问对端内存。
 
 ## 函数原型
 
@@ -44,7 +46,7 @@ __aicore__ inline Ain(uint32_t contextIndex = 0);
 
 | 参数名 | 描述 |
 | --- | --- |
-| `CommEngineMask` | 通信引擎选择掩码，默认值为`AIN_MASK_DEFAULT`，对应通信引擎为AIV。目前仅支持AIV，暂不支持其他通信引擎。 |
+| `CommEngineMask` | 通信引擎选择掩码，默认值为`AIN_MASK_DEFAULT`，对应通信引擎为AIV（AI Vector，向量核）。目前仅支持AIV，暂不支持其他通信引擎。 |
 
 **表2** 接口参数说明
 
@@ -56,33 +58,28 @@ __aicore__ inline Ain(uint32_t contextIndex = 0);
 
 - 调用前Host侧需完成team创建、对称window注册。
 - 传入的`HcommTeamHandle`和`HcclCommSymWindow`需要是有效的device侧句柄。
-- 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。
-- `Put`、`PutValue`、`Get`和`Signal`内部会初始化底层Hcomm，调用时需要提供有效的`AinDescriptorUbuf`。
-- 使用`AIN_COMMIT_DELAYED`时，连续调用次数不得超过底层SQ深度（`sqDepth`），需在SQ耗尽前通过`AIN_COMMIT_IMMED`提交积攒的任务，否则后续任务将因SQ溢出而失败。
-- 批量提交场景（多次`AIN_COMMIT_DELAYED` + 最后一次`AIN_COMMIT_IMMED`）下，仅最后一次提交应产生CQE。
+- 当前只支持`COMM_PROTOCOL_UB_CTP`协议。
+- [Put](./Put.md)、[PutValue](./PutValue.md)、[Get](./Get.md)和[Signal](./Signal.md)内部会初始化底层Hcomm通信组件（点对点通信引擎，参见[Hcomm](../hcomm/Hcomm.md)），调用时需要提供有效的`AinDescriptorUbuf`。
+- 使用`AIN_COMMIT_DELAYED`时，连续积攒的任务槽位不得超过通道的任务提交容量（即底层SQ（Send Queue，发送队列）深度sqDepth）；需在容量耗尽前通过`AIN_COMMIT_IMMED`提交积攒的任务，否则后续任务将因SQ溢出而失败。`Put`/`PutValue`/`Get`各占1个任务槽位，其中`Put`/`PutValue`配置`AinSignalInc`/`AinSignalAdd`远端动作时额外追加2个任务槽位（共3个）；`Signal`占2个任务槽位。
+- 批量提交场景（多次`AIN_COMMIT_DELAYED` + 最后一次`AIN_COMMIT_IMMED`）下，仅最后一次提交应产生CQE（Completion Queue Entry，完成队列项），需将中间任务的`Config`中`cqe`字段设为0、最后一次任务设为1；默认`URMA_DEFAULT_CFG`/`URMA_INLINE_CFG`（URMA，Unified Remote Memory Access，统一远端内存访问）的`cqe`为1，未调整配置时每个任务均会产生CQE。
 
 ## 调用示例
 
-Ain接口的调用示例如下。
+Ain接口的调用示例如下，完整样例参见[01_basic_ring](../../../../../examples/aicore/ain/01_basic_ring/README.md)。
 
 ```cpp
 // 单次通信数据传输大小
 constexpr uint64_t BYTES = 1024U;
-// 初始化UBuf工作区大小：不得小于512B
+// 初始化UBuf（Unified Buffer，统一缓冲区）工作区大小：不得小于512B
 constexpr uint32_t HCOMM_BUF_SIZE = 512U;
 
-extern "C" __global__ __aicore__ void ain_kernel(
-    __gm__ void* team, __gm__ void* dstWin, __gm__ void* srcWin,
+extern "C" __vector__ __global__ __aicore__ void ain_put_kernel(
+    GM_ADDR team, GM_ADDR dstWin, GM_ADDR srcWin,
     uint32_t rankNum, uint32_t rankId)
 {
-    // 准备UBuf工作区
-    AscendC::TPipe pipe;
-    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
-    pipe.InitBuffer(hcommBuf, HCOMM_BUF_SIZE);
-    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
-    AscendC::AinDescriptorUbuf hcommUbuf{
-        reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
-        HCOMM_BUF_SIZE, 0U};
+    // 准备UBuf工作区；alignas(32)保证起始地址按32字节对齐
+    alignas(32) __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
+    AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
     // 创建Ain对象
     AscendC::Ain ain;
     // 对端rankId

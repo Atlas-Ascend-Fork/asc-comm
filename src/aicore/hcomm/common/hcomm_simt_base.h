@@ -42,8 +42,7 @@ public:
     }
 
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteAddr,
-        __gm__ void* localAddr)
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
     {
         (void)channel;
         (void)buff;

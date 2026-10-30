@@ -112,12 +112,14 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled. On the RoCE path, only cqe and fence take effect.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
-     *                  (256 * 1024 * 1024 bytes).
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must not exceed 256 MB
+     *                  (256 * 1024 * 1024 bytes) on the UB_CTP path, and less than 2 GB (2 * 1024 * 1024 *
+     *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -128,14 +130,16 @@ public:
 
     /*!
      * @brief Add a Write task to a batch handle.
-     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
-     *                 a completion record. Inline mode is not supported.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled, so each task generates a completion record. Inline data is not supported, and cqe can
+     *                 only be 0 or 1.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
-     *                  (256 * 1024 * 1024 bytes).
+     * @param [in] len: The length of the data to write in bytes. Must not exceed 256 MB
+     *                  (256 * 1024 * 1024 bytes) on the UB_CTP path, and less than 2 GB (2 * 1024 * 1024 *
+     *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
@@ -144,7 +148,7 @@ public:
     /*!
      * @brief Add a scatter/gather Write task to a batch handle. Data is gathered from srcDescs in array order and
      *        written contiguously starting at dst.
-     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -168,8 +172,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     * @tparam config: WQE control config, inline must be enabled.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE + inline enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
@@ -190,7 +194,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config, inline data is not supported.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The remote destination address of the reduction.
      * @param [in] src: The local source address of the reduction.
@@ -209,11 +214,12 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must not exceed 256 MB
      *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
@@ -228,13 +234,14 @@ public:
 
     /*!
      * @brief Add a Write-with-notify task to a batch handle.
-     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
-     *                 a completion record. Inline mode is not supported.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled, so each task generates a completion record. Inline data is not supported, and cqe can
+     *                 only be 0 or 1.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
+     * @param [in] len: The length of the data to write in bytes. Must not exceed 256 MB
      *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address. It must belong to the same remote registered memory as dst.
      * @param [in] notifyVal: The remote notify value.
@@ -247,7 +254,7 @@ public:
     /*!
      * @brief Add a scatter/gather Write-with-notify task to a batch handle. Data is gathered from srcDescs in array
      *        order and written contiguously starting at dst.
-     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -273,7 +280,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic add.
@@ -293,7 +301,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.
@@ -314,12 +323,14 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled. On the RoCE path, only cqe and fence take effect.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to read, using byte as the basic unit. Must be less than 256 MB
-     *                  (256 * 1024 * 1024 bytes).
+     * @param [in] len: The length of the data to read, using byte as the basic unit. Must not exceed 256 MB
+     *                  (256 * 1024 * 1024 bytes) on the UB_CTP path, and less than 2 GB (2 * 1024 * 1024 *
+     *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -330,14 +341,16 @@ public:
 
     /*!
      * @brief Add a Read task to a batch handle.
-     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
-     *                 a completion record. Inline mode is not supported.
+     * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
+     *                 enabled, so each task generates a completion record. Inline data is not supported, and cqe can
+     *                 only be 0 or 1.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The local destination address.
      * @param [in] src: The remote source address in the remote registered memory selected for batchHandle.
-     * @param [in] len: The length of the data to read in bytes. Must be less than 256 MB
-     *                  (256 * 1024 * 1024 bytes).
+     * @param [in] len: The length of the data to read in bytes. Must not exceed 256 MB
+     *                  (256 * 1024 * 1024 bytes) on the UB_CTP path, and less than 2 GB (2 * 1024 * 1024 *
+     *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
@@ -346,7 +359,7 @@ public:
     /*!
      * @brief Add a scatter/gather Read task to a batch handle. Data is read contiguously starting at src and scattered
      *        into dstDescs in array order.
-     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -409,9 +422,9 @@ public:
      * @brief Acquire the cross-AI-Core lock of a channel.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It blocks until the lock is
-     *       acquired and does not guarantee acquisition order among AI Cores. All accesses that update the channel
-     *       state must be protected by Lock and Unlock.
+     * @note This interface is supported by both COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE on Ascend 950. It
+     *       blocks until the lock is acquired and does not guarantee acquisition order among AI Cores. All
+     *       accesses that update the channel state must be protected by Lock and Unlock.
      */
     __aicore__ inline int32_t Lock(ChannelHandle channel);
 
@@ -419,8 +432,9 @@ public:
      * @brief Flush the channel state and release its cross-AI-Core lock.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It must be called by the AI Core
-     *       that successfully acquired the channel lock, after the last operation that updates the channel state.
+     * @note This interface is supported by both COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE on Ascend 950. It
+     *       must be called by the AI Core that successfully acquired the channel lock, after the last operation
+     *       that updates the channel state.
      */
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
 

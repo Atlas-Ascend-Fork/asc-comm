@@ -31,7 +31,8 @@ struct BufDesc {
 #pragma pack(push, 1)
 /** @brief WQE control configuration. RoCE uses cqe and fence; the other fields are ignored. */
 struct WqeEntry {
-    uint32_t odr : 3;      ///< Ordering strength. 0 is unordered and 5 is strongly ordered.
+    uint32_t odr : 3; ///< Ordering attribute. bit[1:0]: execution order (00=no order, 01=relax order, 10=strong order);
+                      ///< bit[2]: completion order (0=no order, 1=in order).
     uint32_t fence : 1;    ///< Set to 1 to make this WQE wait for completion of all previous WQEs.
     uint32_t se : 1;       ///< Set to 1 to trigger remote event notification on completion.
     uint32_t cqe : 1;      ///< Set to 1 to generate a completion queue entry on completion.

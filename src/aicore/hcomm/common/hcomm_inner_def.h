@@ -43,7 +43,8 @@ constexpr uint32_t HCOMM_URMA_DEFAULT_BUFFER_IDX = 0U;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
-    uint32_t odr : 3;      // ordering, request ordering strength (0=unordered, 5=strongly ordered)
+    uint32_t odr : 3;      // ordering. bit[1:0]: execution order (00=no order, 01=relax order, 10=strong order);
+                           // bit[2]: completion order (0=no order, 1=in order).
     uint32_t fence : 1;    // fence, 1=current WQE waits for all prior WQEs to complete
     uint32_t se : 1;       // solicited event, 1=trigger remote event notification on completion
     uint32_t cqe : 1;      // completion queue entry, 1=generate CQE on completion
