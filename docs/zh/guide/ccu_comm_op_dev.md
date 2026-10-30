@@ -81,8 +81,8 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
 
     // 初始化集合通信域
-    HcclComm comm;
-    HCCLCHECK(HcclCommInitRootInfo(devCount, rootInfo, device, &comm));
+    HcclComm hcclComm;
+    HCCLCHECK(HcclCommInitRootInfo(devCount, rootInfo, device, &hcclComm));
 
     // 创建任务流
     aclrtStream stream;
@@ -117,8 +117,8 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     ```cpp
     uint32_t rankId = 0;
     uint32_t rankSize = 0;
-    HCCLCHECK(HcclGetRankId(comm, &rankId));
-    HCCLCHECK(HcclGetRankSize(comm, &rankSize));
+    HCCLCHECK(HcclGetRankId(hcclComm, &rankId));
+    HCCLCHECK(HcclGetRankSize(hcclComm, &rankSize));
     ```
 
 - 为每个对端rank申请Channel
@@ -136,7 +136,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
         uint32_t listSize = 0;
         CommLink* linkList = nullptr;
         // 获取srcRank和dstRank间link信息
-        HCCLCHECK(HcclRankGraphGetLinks(comm, netLayer, rankId, remoteRank, &linkList, &listSize));
+        HCCLCHECK(HcclRankGraphGetLinks(hcclComm, netLayer, rankId, remoteRank, &linkList, &listSize));
 
         HcclChannelDesc desc;
         HCCLCHECK(HcclChannelDescInit(&desc, 1));
@@ -162,7 +162,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
             return HCCL_E_NOT_FOUND;
         }
         // 在CCU引擎上申请Channel
-        HCCLCHECK(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU, &desc, 1, &kernelChannels[channelIndex]));
+        HCCLCHECK(HcclChannelAcquire(hcclComm, CommEngine::COMM_ENGINE_CCU, &desc, 1, &kernelChannels[channelIndex]));
         channelIndex++;
     }
     ```
@@ -174,7 +174,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     ```cpp
     EndpointAttrDieId dieIdValue = 0;
     HCCLCHECK(HcclRankGraphGetEndpointInfo(
-        comm, rankId, &desc.localEndpoint, ENDPOINT_ATTR_DIE_ID, sizeof(EndpointAttrDieId), &dieIdValue));
+        hcclComm, rankId, &desc.localEndpoint, ENDPOINT_ATTR_DIE_ID, sizeof(EndpointAttrDieId), &dieIdValue));
     ```
 
 - 获取CCU实例：Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上。
@@ -183,7 +183,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
     ```cpp
     void* insHandle{};
-    HCCLCHECK(asccomm_examples::QueryCcuInstance(comm, insHandle));
+    HCCLCHECK(asccomm_examples::QueryCcuInstance(hcclComm, insHandle));
     ```
 
 ### 获取内存Token与准备任务参数

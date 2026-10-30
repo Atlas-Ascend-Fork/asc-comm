@@ -64,7 +64,7 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 - `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
 - `notify_record`和`notify_wait`的`mask`相同。
 - 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`local_notify_idx`的取值范围为0~7。
-- 调用本接口前，应先调用`notify_record`将对端标志位置位，否则将永久阻塞导致硬件级死锁。
+- 本端`notify_wait`须与对端die通过对应channel发送的[notify_record](notify_record.md)配对，由对端置位本端的notify标志位。对端发送通知可先于或晚于本端开始等待；本端自行调用`notify_record`只会通知对端，不能代替对端发送本端等待的通知。若对端始终未发送匹配的通知，本接口将持续阻塞，可能导致硬件级死锁。
 
 ## 调用示例
 

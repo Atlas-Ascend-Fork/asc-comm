@@ -4,6 +4,8 @@
 
 Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`AscendC::Hcomm`模板选择通信协议。普通接口通过`ChannelHandle`逐条提交通信任务；Ascend 950PR&950DT系列产品的UBC_CTP/URMA路径还支持通过BatchHandle添加多个任务并统一提交。
 
+以下代码为Kernel内的分步骤片段。`channel`为Host侧完成建链后传入Kernel的`AscendC::ChannelHandle`；通信地址和长度由调用方根据已注册内存准备。每次调用后均应检查返回值，失败时按业务流程处理。
+
 ## 普通接口流程
 
 1. 包含头文件。
@@ -21,17 +23,26 @@ Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`
 3. 调用`Init`初始化普通接口使用的临时工作区。
 
    ```cpp
+   constexpr uint32_t tmpLen = 512U;
+   AscendC::TPipe pipe;
+   AscendC::TBuf<AscendC::TPosition::VECOUT> tmpTBuf;
+   pipe.InitBuffer(tmpTBuf, tmpLen);
+   AscendC::LocalTensor<uint8_t> tmpBuf = tmpTBuf.Get<uint8_t>();
    int32_t ret = hcomm.Init(tmpBuf, tmpLen);
    ```
 
 4. 提交通信任务。
 
+   以下调用分别展示不同任务：写操作中`dst`为远端目的地址、`src`为本端源地址；读操作中`dst`为本端目的地址、`src`为远端源地址，`len`为对应传输字节数。它们均为调用方提供的`GM_ADDR`地址和`uint64_t`长度，各调用应使用相应的地址方向和有效注册内存范围。
+
+   `notifyAddr`为远端注册内存中的通知地址，`notifyVal`为`uint64_t`通知值；`remoteCounter`和`remoteValue`为远端64位原子操作地址，`fetchAddr`为本端保存原值的地址；`addVal`、`compareVal`和`swapVal`均为调用方准备的`uint64_t`操作数。
+
    ```cpp
    ret = hcomm.WriteNbi(channel, dst, src, len);
    ret = hcomm.ReadNbi(channel, dst, src, len);
-   ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr,    notifyVal);
-   ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr,    addVal);
-   ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr,    compareVal, swapVal);
+   ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr, notifyVal);
+   ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr, addVal);
+   ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr, compareVal, swapVal);
    ```
 
 5. 如果提交任务时设置`commit = false`，显式调用`Commit`。
@@ -55,14 +66,23 @@ Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`
 
    ```cpp
    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+   constexpr uint32_t batchBufferLen = 256U;
+   AscendC::TPipe batchPipe;
+   AscendC::TBuf<AscendC::TPosition::VECOUT> batchTBuf;
+   batchPipe.InitBuffer(batchTBuf, batchBufferLen);
    AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
+   GM_ADDR remoteAddr = nullptr; // 选择通道的第一个远端注册buffer
    auto batchHandle = hcomm.MakeBatchHandle(
        channel, batchBuffer, batchBufferLen, remoteAddr);
    ```
 
+   `batchTBuf`通过`TPipe::InitBuffer`分配32字节对齐的UB工作区，容量为256字节，可容纳下文两个64字节读写任务和一个128字节写通知任务；通道的任务提交容量还须满足“批量接口约束”。`batchPipe`、`batchTBuf`及通道资源须保持有效，直到批量操作完成。
+
    `remoteAddr`用于选择本批任务访问的远端注册内存。传入`nullptr`时选择第一个远端注册buffer。
 
 2. 向当前批次添加读、写或写通知任务。同一批次可以混合使用三种接口。
+
+   `remoteWriteDst`、`remoteReadSrc`和`remoteNotifyDst`为所选远端注册buffer中的`GM_ADDR`地址；`localWriteSrc`、`localReadDst`和`localNotifySrc`为本端对应的`GM_ADDR`地址。`writeLen`、`readLen`和`notifyLen`为调用方准备的`uint32_t`字节数；`notifyAddr`、`notifyVal`含义同普通接口，通知地址须与远端写目的地址位于同一注册buffer。
 
    ```cpp
    int32_t ret = hcomm.WriteNbi(
@@ -90,6 +110,8 @@ Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`
 
 ## 多通道批量接口流程
 
+`comm`为已初始化的`HcclComm`，`sharedQueueTag`为调用方指定的共享队列标识，`channelDescs`为已填充的通道描述符数组，`channelNum`为数组元素数；类型及资源准备要求见[MakeMultiChannelHandle](../api/host/hcomm/MakeMultiChannelHandle.md)。
+
 使用HCCL通信域时，Host侧调用`MakeMultiChannelHandle`的通信域重载创建`MultiChannelHandle`：
 
 ```cpp
@@ -102,6 +124,8 @@ HcclResult ret = MakeMultiChannelHandle(
 
 该方式创建的资源由HCCL通信域管理，并随通信域销毁自动释放。
 
+`endpointHandle`为调用方已初始化的Hcomm Endpoint句柄；下述Endpoint流程与前述通信域流程为两种独立方案。
+
 不使用HCCL通信域时，传入Hcomm Endpoint和`HcommChannelDesc`调用另一个重载。Kernel执行并同步完成后，需要先销毁多通道句柄，再销毁Endpoint：
 
 ```cpp
@@ -112,6 +136,8 @@ HcommResult ret = MakeMultiChannelHandle(
 ret = DestroyMultiChannelHandle(multiChannel);
 ret = HcommEndpointDestroy(endpointHandle);
 ```
+
+下述Kernel片段使用Host传入的`multiChannel`和`channelNum`，`batchBuffer`及`batchBufferLen`按单通道流程准备。`remoteBuffers`为调用方传入的远端注册地址数组，`localBuffer`为本端源地址，`dataLen`为`uint32_t`传输字节数，`ret`为已声明的`int32_t`状态变量；批量工作区容量须覆盖循环中添加的全部任务。
 
 AICore侧通过`GetHandleRef`选择逻辑通道和远端注册内存。使用该接口返回的句柄引用添加任务，使用`MakeBatchHandle`返回的多通道批量句柄提交和等待：
 
