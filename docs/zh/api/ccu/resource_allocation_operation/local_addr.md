@@ -27,13 +27,13 @@
 
 `ccu::local_addr`是CCU kernel内本端片上内存地址的C++包装类，是“地址（`address`）+ token（`variable`）”的复合对象。
 
-- 构造即分配：默认构造一次申请`address`和`variable`两个虚拟句柄，分别用于`addr`和`token`。
+- 构造即分配：默认构造一次申请`address`和`variable`两个虚拟句柄，分别用于`addr_`和`token`。
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
 > 资源分配采用“先虚后实”两阶段模型：`local_addr()`构造仅产生虚拟句柄，真正的物理资源在编译阶段统一分配。
 
-CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`asccomm_ccu_get_mem_token`换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
+CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`asccomm_ccu_get_mem_token`换算后的token。`local_addr`的`addr_`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
 
 ## 类声明
 
@@ -43,7 +43,7 @@ namespace ccu {
 class local_addr final {
 public:
     local_addr();                         // 默认构造，一次申请address和variable两个虚拟句柄
-    address addr;                        // 本端片上内存地址字段（地址寄存器）
+    address addr_;                       // 本端片上内存地址字段（地址寄存器）
     variable token;                      // 安全token字段（通用寄存器）
     ccu_local_addr_handle handle{0};       // 复合句柄
 };
@@ -63,7 +63,7 @@ public:
 
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
-| `addr` | `address` | 本端片上内存地址。通过`la.addr = imm`（立即数）或`la.addr = var`（variable）赋值，运算符语义见[address](address.md)。 |
+| `addr_` | `address` | 本端片上内存地址。通过`la.addr_ = imm`（立即数）或`la.addr_ = var`（variable）赋值，运算符语义见[address](address.md)。 |
 | `token` | `variable` | 安全token值。由host端调用`asccomm_ccu_get_mem_token`获取后，通过`kernelArg`或`taskArgs`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
@@ -73,11 +73,11 @@ public:
 
 - 只能在编译阶段构造；编译阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
 - 默认构造只申请虚拟句柄，在编译阶段内恒成功不抛异常；`address/variable`物理资源不足时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
-- copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段，不申请新的`address/variable`，`local_addr l2 = l1;`后两个对象指向同一组寄存器；`operator=(const local_addr&)`则会发出两条device端寄存器赋值指令（把`other.addr`、`other.token`的值搬移过来），两者语义不对称。
+- copy/move构造函数只拷贝`handle`、`addr_.handle`、`token.handle`三个字段，不申请新的`address/variable`，`local_addr l2 = l1;`后两个对象指向同一组寄存器；`operator=(const local_addr&)`则会发出两条device端寄存器赋值指令（把`other.addr_`、`other.token`的值搬移过来），两者语义不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
-- 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
-- `addr`字段须赋值为CCU可访问的物理地址或经token化的VA，直接传入未经token化的进程虚拟地址将触发驱动错误。
-- `token`通常来自host端`asccomm_ccu_get_mem_token`调用，须与`addr`配对，不可与对端token混用。
+- 不可对内嵌的`addr_`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
+- `addr_`字段须赋值为CCU可访问的物理地址或经token化的VA，直接传入未经token化的进程虚拟地址将触发驱动错误。
+- `token`通常来自host端`asccomm_ccu_get_mem_token`调用，须与`addr_`配对，不可与对端token混用。
 
 ## 调用示例
 
@@ -96,7 +96,7 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的m
 
     local_addr src;
     // 方式1：从编译阶段的kernelArg赋值（固化为立即数）
-    src.addr = params->src_addr;
+    src.addr_ = params->src_addr;
     src.token = params->src_token;
 
     // 方式2：通过taskArgs在下发阶段注入（更灵活）
@@ -104,7 +104,7 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的m
     load_arg(addrVar, 0);    // taskArgs[0]为地址
     load_arg(tokenVar, 1);   // taskArgs[1]为token
     local_addr src2;
-    src2.addr = addrVar;     // 下发阶段动态地址
+    src2.addr_ = addrVar;    // 下发阶段动态地址
     src2.token = tokenVar;
 
     return CCU_SUCCESS;

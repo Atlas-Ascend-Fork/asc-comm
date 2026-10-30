@@ -313,9 +313,10 @@ LoopGroup复制Loop的关系如[图6](#fig-ccu-loopgroup)所示。左侧实线�
 ChannelHandle chann;     // 建链后由kernel参数传入
 ccu::remote_addr remote_mem;  // 远端地址，建链时获取
 // ccu_buffer和event需按LoopGroup的偏移递推预留足够数量：
-// 共5个克隆实例，实例间ccu_buffer/event偏移均为10，最大用到第40片/槽，因此预留41
-ccu::array<ccu::ccu_buffer> local_ccu_buf(41);
-ccu::array<ccu::event> evts(41);
+// 复制份数5为额外份数：原始1个Loop + 5个克隆 = 6个并发实例，
+// 实例间ccu_buffer/event偏移均为10，最大用到第50片/槽，因此预留51
+ccu::array<ccu::ccu_buffer> local_ccu_buf(51);
+ccu::array<ccu::event> evts(51);
 ccu::variable len;
 len = 4096;
 ccu::func func([&]() {
@@ -326,7 +327,8 @@ ccu::loop loop({4096, 10}, func);
 
 // 对LoopGroup中的Loop，从第0个Loop开始到最后一个，都复制5次
 // 配置字段依次为：复制份数5、克隆起始Loop偏移0、实例间address偏移4096*10B、实例间ccu_buffer偏移10片、实例间event偏移10个
-ccu::loop_group group({5, 0, 4096*10, 10, 10}, 1, {loop});
+// max_loop_num按展开后的实例总数传：1个原始Loop + 5个克隆 = 6
+ccu::loop_group group({5, 0, 4096*10, 10, 10}, 6, {loop});
 ```
 
 ### 核函数
