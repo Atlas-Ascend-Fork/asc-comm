@@ -327,6 +327,12 @@ run_llt_test(
     FILTERS TestCcuHostLaunch.*
 )
 
+set(ASCCOMM_UT_V310_NPU_ARCH "3510" CACHE STRING "NPU architecture used by v310-compatible Hcomm UT targets")
+set_property(CACHE ASCCOMM_UT_V310_NPU_ARCH PROPERTY STRINGS 3510 9201 9202)
+if(NOT ASCCOMM_UT_V310_NPU_ARCH MATCHES "^(3510|9201|9202)$")
+    message(FATAL_ERROR "ASCCOMM_UT_V310_NPU_ARCH must be one of 3510, 9201, or 9202")
+endif()
+
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
         UT_TEST
@@ -337,8 +343,8 @@ function(asccomm_add_product_definitions target_name product_type)
         $<$<STREQUAL:${product_type},ascend610>:__NPU_ARCH__=2002;__DAV_M200__>
         $<$<STREQUAL:${product_type},ascend910B1_AIC>:__NPU_ARCH__=2201;__DAV_C220__;__DAV_C220_CUBE__;__DAV_CUBE__>
         $<$<STREQUAL:${product_type},ascend910B1_AIV>:__NPU_ARCH__=2201;__DAV_C220__;__DAV_C220_VEC__;__DAV_VEC__>
-        $<$<STREQUAL:${product_type},ascend950pr_9599_AIC>:__NPU_ARCH__=3510;__DAV_C310__;__DAV_C310_CUBE__>
-        $<$<STREQUAL:${product_type},ascend950pr_9599_AIV>:__NPU_ARCH__=3510;__DAV_C310__;__DAV_C310_VEC__>
+        $<$<STREQUAL:${product_type},ascend950pr_9599_AIC>:__NPU_ARCH__=${ASCCOMM_UT_V310_NPU_ARCH};__DAV_C310__;__DAV_C310_CUBE__>
+        $<$<STREQUAL:${product_type},ascend950pr_9599_AIV>:__NPU_ARCH__=${ASCCOMM_UT_V310_NPU_ARCH};__DAV_C310__;__DAV_C310_VEC__>
         $<$<STREQUAL:${product_type},ascend310B1>:__NPU_ARCH__=3002;__DAV_M300__>
     )
 endfunction()

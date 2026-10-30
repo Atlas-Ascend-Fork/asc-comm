@@ -19,16 +19,16 @@
 #include "hcomm_jetty_simt_impl_def.h"
 
 // SIMT Jetty is only available on v310. The ASC driver compiles each translation unit twice:
-// __NPU_ARCH__ is 3510 in the device pass and undefined in the host pass. The public HcommJetty
+// __NPU_ARCH__ is 3510, 9201, or 9202 in the device pass and undefined in the host pass. The public HcommJetty
 // declares its members out-of-line, so definitions are only emitted on platforms that have the
 // implementation; other platforms fail at link time if the API is used.
-#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510
+#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
 #include "platform_v310/hcomm_simt_urma_jetty.h"
 #endif
 
 namespace AscendC::simt::jetty {
 
-#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510
+#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
 
 __simt_callee__ __forceinline__ HcommJetty::HcommJetty() = default;
 
@@ -133,7 +133,7 @@ __simt_callee__ __forceinline__ int32_t HcommJetty::Drain(const Coop& coop) cons
     return impl_.template Drain<kTimeout>(coop);
 }
 
-#endif // !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510
+#endif // !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
 
 } // namespace AscendC::simt::jetty
 

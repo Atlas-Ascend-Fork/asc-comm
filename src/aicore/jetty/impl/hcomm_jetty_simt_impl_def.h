@@ -19,10 +19,10 @@
 #include "../../hcomm/common/hcomm_simt_utils.h"
 
 // SIMT Jetty is only available on v310. The ASC driver compiles each translation unit twice:
-// __NPU_ARCH__ is 3510 in the device pass and undefined in the host pass. The public HcommJetty
+// __NPU_ARCH__ is 3510, 9201, or 9202 in the device pass and undefined in the host pass. The public HcommJetty
 // holds a JettyImpl member, so the class must stay visible in both passes; gating on
 // "not some other arch" keeps v310 and the host pass while still excluding other platforms.
-#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510
+#if !defined(__NPU_ARCH__) || __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
 #include "platform_v310/hcomm_simt_urma_jetty_def.h"
 #endif
 

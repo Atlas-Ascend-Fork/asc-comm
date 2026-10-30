@@ -24,9 +24,9 @@
 
 #include "../common/hcomm_simt_base.h"
 
-// SIMT is only available on v310. Other platforms fall back to the HcommImpl primary template,
-// whose members all return HCOMM_FAILED.
-#if defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
+// SIMT is only available on v310-compatible architectures. Other platforms fall back to the HcommImpl
+// primary template, whose members all return HCOMM_FAILED.
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
 #include "platform_v310/hcomm_simt_urma_def.h"
 #endif
 
