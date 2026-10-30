@@ -212,20 +212,10 @@ cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
 make -j
 ```
 
-The sample can launch two ranks directly by default:
+The sample executable forks all rank processes internally and can be launched as follows:
 
 ```bash
-./demo
-```
-
-You can also specify ranks manually:
-
-```bash
-# Terminal 1: rank 0
-./demo 0 2 tcp://127.0.0.1:29621
-
-# Terminal 2: rank 1
-./demo 1 2 tcp://127.0.0.1:29621
+./hcomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
 ```
 
 The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or later. At least two NPUs are required to run the sample; single-NPU environments only support compilation verification.

@@ -7,7 +7,7 @@
 ```text
 docs/
 ├── zh/api/              # 中文API参考文档
-├── zh/guide/            # 中文使用、构建与测试指南
+├── zh/guide/            # 中文使用指南
 ├── zh/programming_model/ # 中文编程模型文档
 ├── zh/compilation/      # 构建及三方依赖文档
 ├── zh/contributing/     # 贡献指南

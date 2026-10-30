@@ -212,20 +212,10 @@ cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
 make -j
 ```
 
-样例默认可直接启动两个rank：
+样例可执行文件内部fork出全部rank进程，按以下方式启动：
 
 ```bash
-./demo
-```
-
-也可以手动指定rank运行：
-
-```bash
-# 终端1：rank 0
-./demo 0 2 tcp://127.0.0.1:29621
-
-# 终端2：rank 1
-./demo 1 2 tcp://127.0.0.1:29621
+./hcomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
 ```
 
 样例支持Ascend 950PR&950DT系列产品，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。

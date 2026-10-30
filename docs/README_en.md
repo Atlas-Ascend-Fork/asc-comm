@@ -7,7 +7,7 @@ English | [简体中文](./README.md)
 ```text
 docs/
 ├── zh/api/              # Chinese API reference documentation
-├── zh/guide/            # Chinese usage, build, and test guide
+├── zh/guide/            # Chinese usage guides
 ├── zh/programming_model/ # Chinese programming model documentation
 ├── zh/compilation/      # Chinese build and third-party dependency documentation
 ├── zh/contributing/     # Chinese contribution guide

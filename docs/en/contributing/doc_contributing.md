@@ -98,13 +98,13 @@ The asc-comm documentation forms a navigation relationship through entry documen
 ```text
 README.md ──document entry──→ docs/README.md
           ──quick start──→ docs/quick_start.md
-          ──build & test──→ docs/zh/guide/build_and_test.md
+          ──build & test──→ docs/zh/compilation/build_and_test.md
           ──API reference──→ docs/zh/api/README.md
           ──sample entry──→ examples/README.md
 
 docs/README.md ──quick start──→ docs/quick_start.md
                ──usage guide──→ docs/zh/guide/hcomm_usage.md
-               ──build & test──→ docs/zh/guide/build_and_test.md
+               ──build & test──→ docs/zh/compilation/build_and_test.md
                ──API reference──→ docs/zh/api/README.md
                ──sample entry──→ examples/README.md
 

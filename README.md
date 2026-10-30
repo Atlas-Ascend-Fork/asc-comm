@@ -25,7 +25,7 @@
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA普通接口和UB_CTP批量接口，以及`ascend910B1_AIC`基础接口用例。
 - 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
-- 提供SIMT URMA `WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`，以及`simt_urma`功能样例和`simt_urma_perftest`性能样例。
+- 提供SIMT URMA `WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`，以及`simt_urma`功能样例（`examples/aicore/hcomm/04_simt_hcomm_urma`）和`simt_urma_perftest`性能样例（`examples/aicore/hcomm/05_simt_hcomm_urma_perftest`）。
 
 ### 📖 资料文档
 
@@ -57,7 +57,7 @@ asc-comm 数据面产物由 asc-devkit run 包联合编译并交付；本仓以�
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA普通接口、UB_CTP批量接口与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 | SIMT URMA接口 | 提供`WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`；延迟任务由后续`commit=true`任务统一发布。 |
-| SIMT URMA样例 | 提供`simt_urma`功能样例，覆盖全部五个接口的单接口、连续提交和batch-last提交；提供`simt_urma_perftest`性能样例，统计下发时延与完成带宽。 |
+| SIMT URMA样例 | 提供`simt_urma`功能样例（`examples/aicore/hcomm/04_simt_hcomm_urma`），覆盖全部五个接口的单接口、连续提交和batch-last提交；提供`simt_urma_perftest`性能样例（`examples/aicore/hcomm/05_simt_hcomm_urma_perftest`），统计下发时延与完成带宽。 |
 
 ### 如何使用Hcomm接口
 

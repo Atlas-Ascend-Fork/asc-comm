@@ -25,7 +25,7 @@ English | [简体中文](./README.md)
 - Delivers Hcomm UT projects covering ordinary RoCE/URMA interfaces and UB_CTP batch interfaces for `ascend950pr_9599_AIV`, as well as basic interface test cases for `ascend910B1_AIC`.
 - Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
-- Provides SIMT URMA `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`, together with the `simt_urma` functional sample and the `simt_urma_perftest` performance sample.
+- Provides SIMT URMA `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`, together with the `simt_urma` functional sample (`examples/aicore/hcomm/04_simt_hcomm_urma`) and the `simt_urma_perftest` performance sample (`examples/aicore/hcomm/05_simt_hcomm_urma_perftest`).
 
 ### 📖 Documentation
 
@@ -57,7 +57,7 @@ The asc-comm data plane artifacts are jointly compiled and delivered through the
 | UT Verification | UTs cover ordinary Hcomm RoCE/URMA interfaces, UB_CTP batch interfaces, and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
 | SIMT URMA Interfaces | Provides `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`; deferred tasks are published by a subsequent `commit=true` task. |
-| SIMT URMA Samples | `simt_urma` covers isolated operations, serialized submission, and batch-last submission across all five interfaces; `simt_urma_perftest` reports issue latency and completion bandwidth. |
+| SIMT URMA Samples | `simt_urma` (`examples/aicore/hcomm/04_simt_hcomm_urma`) covers isolated operations, serialized submission, and batch-last submission across all five interfaces; `simt_urma_perftest` (`examples/aicore/hcomm/05_simt_hcomm_urma_perftest`) reports issue latency and completion bandwidth. |
 
 ### How to Use Hcomm Interfaces
 

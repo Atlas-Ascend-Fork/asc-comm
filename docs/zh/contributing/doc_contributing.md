@@ -98,13 +98,13 @@ asc-comm资料通过入口文档、指南、API参考和样例说明形成导航
 ```text
 README.md ──文档入口──→ docs/README.md
           ──快速上手──→ docs/quick_start.md
-          ──构建测试──→ docs/zh/guide/build_and_test.md
+          ──构建测试──→ docs/zh/compilation/build_and_test.md
           ──API参考───→ docs/zh/api/README.md
           ──样例入口──→ examples/README.md
 
 docs/README.md ──快速上手──→ docs/quick_start.md
                ──使用指南──→ docs/zh/guide/hcomm_usage.md
-               ──构建测试──→ docs/zh/guide/build_and_test.md
+               ──构建测试──→ docs/zh/compilation/build_and_test.md
                ──API参考───→ docs/zh/api/README.md
                ──样例入口──→ examples/README.md
 

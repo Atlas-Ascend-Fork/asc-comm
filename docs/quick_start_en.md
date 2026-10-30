@@ -275,13 +275,13 @@ mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
 make -j
-./demo
+./hcomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
 ```
 
 Successful execution outputs:
 
 ```text
-rank 0 test pass!
-rank 1 test pass!
-test pass!
+[rank 0] hcomm_write_read_nbi | sent to rank 1, received from rank 1 | PASS
+[rank 1] hcomm_write_read_nbi | sent to rank 0, received from rank 0 | PASS
+RESULT | Example=hcomm_write_read_nbi | Status=PASS
 ```
