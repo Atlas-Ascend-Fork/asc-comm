@@ -200,14 +200,10 @@ Kernel入口函数如下，team与对称window句柄以指针形式传入，后�
 通信任务下发前的准备如下。
 
   ```cpp
-  // 准备UBuf工作区：Put/Get/PutValue/Signal接口需要提供不小于512B的UBuf临时工作区
-  AscendC::TPipe pipe;
-  AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
-  pipe.InitBuffer(hcommBuf, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
-  AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
-  AscendC::AinDescriptorUbuf hcommUbuf{
-      reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
-      AscendC::HCOMM_URMA_TMP_BUF_SIZE, 0U};
+  // 准备UBuf工作区：Put/Get/PutValue/Signal接口需要提供不小于512B的UBuf临时工作区；
+  // alignas(32)保证起始地址按32字节对齐
+  alignas(32) __ubuf__ uint8_t hcommLocal[AscendC::HCOMM_URMA_TMP_BUF_SIZE];
+  AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, AscendC::HCOMM_URMA_TMP_BUF_SIZE, 0U};
   // 创建Ain和AinBarrierSession对象
   AscendC::Ain ain(0);
   AscendC::AinBarrierSession ainBarrier(&ain, team, 0);

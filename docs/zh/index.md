@@ -12,4 +12,6 @@
 - [CCU通信算子开发指南](./guide/ccu_comm_op_dev.md)
 - [基于MC2的通信算子开发指南](./guide/mc2_operator_impl.md)
 - [基于Ain的通信算子开发指南](./guide/ain_operator_impl.md)
+- [基于Hcomm的通信算子开发指南](./guide/hcomm_operator_impl.md)
+- [基于Hcomm的SIMT通信算子开发指南](./guide/hcomm_simt_operator_impl.md)
 - [API参考<a name="sub_menu"></a>](./api/index.md)
