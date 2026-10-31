@@ -61,6 +61,8 @@ typedef struct {
  * @note 承载回路 channel 与 CCU 资源空间 buffer；ccuResBuffer 按
  *       {REGED_BUFFER_RMA, addr=资源空间基址, ProtectionInfo.ub{tokenId, tokenValue}} 装配。
  *       XN 基址需根据 CCU 版本加上资源空间内偏移，不可直接使用 addr。
+ *       旧版控制面的 size 可能只表示资源容量，而非从 addr 开始的完整地址窗口跨度，
+ *       不能据此拒绝合法的版本相关 XN 偏移；资源 ID 范围由控制面资源池约束。
  * @note loopChannelId 为该 die 唯一的环回 channel，硬件上 die 内与 die 间访问共用同一条。
  */
 typedef struct {
@@ -68,7 +70,7 @@ typedef struct {
     uint32_t enabled;               // 该 die 是否启用（0/1）
     uint32_t missionKey;            // mission 密钥
     uint32_t loopChannelId;         // 环回 channel id（每 die 一条，die 内/间访问共用）
-    RegedBufferEntity ccuResBuffer; // 完整 CCU 资源空间（基址、长度、token），不是 XN 子区域
+    RegedBufferEntity ccuResBuffer; // CCU 资源映射元数据（基址、容量、token），不是 XN 子区域
     uint32_t reserved;              // 预留字段，当前必须为 0
 } HcommCcuDieMetadata;
 

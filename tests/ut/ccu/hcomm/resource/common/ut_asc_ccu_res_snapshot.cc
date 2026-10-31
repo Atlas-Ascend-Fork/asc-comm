@@ -91,6 +91,7 @@ TEST(AscCcuXnMapping, DerivesVersionSpecificAddressWithoutChangingRegisteredBuff
 TEST(AscCcuXnMapping, RejectsShortAndOverflowingResourceMappings)
 {
     ContextStorage storage;
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = sizeof(uint64_t) - 1;
     asc_ccu_res_snapshot snapshot;
     ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
     uint64_t address = 123;
@@ -101,6 +102,27 @@ TEST(AscCcuXnMapping, RejectsShortAndOverflowingResourceMappings)
     ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
     EXPECT_EQ(snapshot.get_xn_base_addr(0, address), CCU_E_PARA);
     EXPECT_EQ(address, 123ULL);
+}
+
+TEST(AscCcuXnMapping, AcceptsLegacyA5CapacitySmallerThanXnOffset)
+{
+    ContextStorage storage;
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.addr = 0xf98000000000ULL;
+    // 蓝区 A5 9.3 真机 metadata；原版 HComm 的 XN[4] Load 地址为 0xf98000908020。
+    // 不应把 1.5 MiB 容量错当成覆盖 XN 的地址窗口长度。
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = 0x180000;
+    asc_ccu_res_snapshot snapshot;
+    ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+    uint64_t address = 0;
+    ASSERT_EQ(snapshot.get_xn_base_addr(0, address), CCU_SUCCESS);
+    EXPECT_EQ(address + 4 * sizeof(uint64_t), 0xf98000908020ULL);
+    EXPECT_EQ(snapshot.get_die_metadata(0)->ccuResBuffer.bufferInfo.rma.size, 0x180000U);
+
+    // 未启用 die、零地址和溢出仍然必须拒绝，修复不是无条件放行。
+    EXPECT_EQ(snapshot.get_xn_base_addr(1, address), CCU_E_PARA);
+    storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.addr = 0;
+    ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+    EXPECT_EQ(snapshot.get_xn_base_addr(0, address), CCU_E_PARA);
 }
 
 TEST(AscCcuResSnapshotTest, DeepCopiesAndResetsOrdinaryResources)

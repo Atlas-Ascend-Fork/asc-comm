@@ -14,6 +14,8 @@
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
+#include "hcomm/resource/common/ccu_var_event_res_mgr.h"
+#include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
 namespace asc {
 
@@ -28,6 +30,10 @@ ccu_kernel_registry_mgr::~ccu_kernel_registry_mgr()
 
 ccu_kernel_registry_mgr& ccu_kernel_registry_mgr::get_instance(const int32_t device_logic_id)
 {
+    // registry 析构时仍要 unregister kernel、归还变量资源。依赖单例先构造、后析构，
+    // 避免进程退出时访问已清空甚至已析构的 kernel/resource manager。
+    (void)ccu_kernel_mgr::get_instance(device_logic_id);
+    (void)ccu_var_event_res_mgr::get_instance(device_logic_id);
     static ccu_kernel_registry_mgr instance_mgrs[ccu_max_device_num + 1];
 
     int32_t dev_logic_id = device_logic_id;

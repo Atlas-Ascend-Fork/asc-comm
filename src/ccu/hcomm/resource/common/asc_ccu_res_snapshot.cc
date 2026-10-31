@@ -229,9 +229,9 @@ CcuResult asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& addr
     if (metadata == nullptr) {
         return CCU_E_PARA;
     }
-    // Match hcomm CcuResSpecifications::GetXnBaseAddr: metadata describes the
-    // entire registered resource space, not the XN subregion. Preserve that
-    // buffer's address/size/token and derive the XN mapping separately.
+    // Match hcomm CcuResSpecifications::GetXnBaseAddr: addr is the resource-space
+    // base, not the XN base. Preserve the reported address/size/token and derive
+    // the XN mapping separately; size is not necessarily the address-window span.
     constexpr uint64_t v1_xn_offset = 0x800000ULL + 0x100000ULL + 0x8000ULL;
     constexpr uint64_t v2_xn_offset = 0x100000ULL;
     if (ccu_version_ != HCOMM_CCU_VERSION_V1 && ccu_version_ != HCOMM_CCU_VERSION_V2) {
@@ -239,9 +239,16 @@ CcuResult asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& addr
     }
     const uint64_t offset = ccu_version_ == HCOMM_CCU_VERSION_V1 ? v1_xn_offset : v2_xn_offset;
     const auto& buffer = metadata->ccuResBuffer.bufferInfo.rma;
-    if (buffer.addr == 0 || buffer.size < sizeof(uint64_t) || offset > buffer.size - sizeof(uint64_t) ||
+    // 旧版控制面在 A5 上上报 size=0x180000，但原版 HComm 的 XN 地址仍为
+    // base+0x908000+id*8：size 并非从 addr 开始的完整 CCU 地址窗口跨度。
+    // 因此不能用 offset<size 做普通线性 buffer 的越界判断，否则所有注册都被挡住。
+    // XN ID 的合法范围由资源池分配保证；这里只检查元数据非空及地址加法溢出。
+    if (buffer.addr == 0 || buffer.size < sizeof(uint64_t) ||
         buffer.addr > std::numeric_limits<uint64_t>::max() - offset - sizeof(uint64_t)) {
-        HCCL_ERROR("[CCU_XN_BASE] invalid resource mapping, die[%u] version[%u]", die_id, ccu_version_);
+        HCCL_ERROR(
+            "[CCU_XN_BASE] invalid resource mapping, die[%u] version[%u] base[0x%llx] size[%llu] offset[0x%llx]",
+            die_id, ccu_version_, static_cast<unsigned long long>(buffer.addr),
+            static_cast<unsigned long long>(buffer.size), static_cast<unsigned long long>(offset));
         return CCU_E_PARA;
     }
     address = buffer.addr + offset;
