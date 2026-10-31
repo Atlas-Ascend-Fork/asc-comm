@@ -119,22 +119,22 @@ static CcuResult AgDoRepeatAllGather(AllGatherContext& ctx)
     std::vector<ccu::remote_addr> dst_;
     dst_.resize(arg->rankSize);
 
-    src_.addr_ = ctx.input;
-    src_.addr_ += ctx.currentRankSliceInputOffset;
+    src_.addr = ctx.input;
+    src_.addr += ctx.currentRankSliceInputOffset;
     src_.token = ctx.token[arg->rankId];
 
-    ctx.srcLocCopy.addr_ = ctx.input;
-    ctx.srcLocCopy.addr_ += ctx.currentRankSliceInputOffset;
+    ctx.srcLocCopy.addr = ctx.input;
+    ctx.srcLocCopy.addr += ctx.currentRankSliceInputOffset;
     ctx.srcLocCopy.token = ctx.token[arg->rankId];
 
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         if (rankIdx == arg->rankId) {
-            ctx.localDst.addr_ = ctx.output[arg->rankId];
-            ctx.localDst.addr_ += ctx.currentRankSliceOutputOffset;
+            ctx.localDst.addr = ctx.output[arg->rankId];
+            ctx.localDst.addr += ctx.currentRankSliceOutputOffset;
             ctx.localDst.token = ctx.token[arg->rankId];
         } else {
-            dst_[rankIdx].addr_ = ctx.output[rankIdx];
-            dst_[rankIdx].addr_ += ctx.currentRankSliceOutputOffset;
+            dst_[rankIdx].addr = ctx.output[rankIdx];
+            dst_[rankIdx].addr += ctx.currentRankSliceOutputOffset;
             dst_[rankIdx].token = ctx.token[rankIdx];
         }
     }
@@ -150,12 +150,12 @@ static CcuResult AgDoRepeatAllGather(AllGatherContext& ctx)
 
         CCU_IF(repeatTimeflag != 0)
         {
-            src_.addr_ += ctx.inputRepeatStride;
+            src_.addr += ctx.inputRepeatStride;
             for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
                 if (rankIdx == arg->rankId) {
-                    ctx.localDst.addr_ += ctx.outputRepeatStride;
+                    ctx.localDst.addr += ctx.outputRepeatStride;
                 } else {
-                    dst_[rankIdx].addr_ += ctx.outputRepeatStride;
+                    dst_[rankIdx].addr += ctx.outputRepeatStride;
                 }
             }
         }

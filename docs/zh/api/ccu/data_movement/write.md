@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)将本端数据异步写入对端片上内存，硬件完成时自动将`event`中`mask`对应的标志位设置为1。
+通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)将本端数据异步写入对端片上内存，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -38,14 +38,14 @@
 
     ```cpp
     CcuResult write(ChannelHandle ch, remote_addr remote, local_addr local,
-                    variable len, event event, uint16_t mask = 1);
+                    variable len, event evt, uint16_t mask = 1);
     ```
 
 - 本端CCU Buffer -> 对端片上内存
 
     ```cpp
     CcuResult write(ChannelHandle ch, remote_addr remote, ccu_buffer local,
-                    variable len, event event, uint16_t mask = 1);
+                    variable len, event evt, uint16_t mask = 1);
     ```
 
 ## 参数说明
@@ -56,7 +56,7 @@
 | remote | 输入 | 目的地址，类型为`remote_addr`。 |
 | local | 输入 | 源地址，<br>&bull;本端片上内存 -> 对端片上内存：类型为`local_addr`。<br>&bull;本端CCU Buffer -> 对端片上内存：类型为`ccu_buffer`。 |
 | len | 输入 | 写入字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
-| event | 输入 | 完成事件对象，硬件写入完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
+| evt | 输入 | 完成事件对象，硬件写入完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
 ## 返回值说明
@@ -76,7 +76,7 @@
 - “本端片上内存 -> 对端片上内存”时，`len`须小于256MB；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
 - “本端CCU Buffer -> 对端片上内存”时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
 - 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`CCU_E_PARA`，而非本接口的返回值。
-- 本接口为异步操作，须通过`event_wait(event, mask)`等待写入完成，方可保证对端数据可见。
+- 本接口为异步操作，须通过`event_wait(evt, mask)`等待写入完成，方可保证对端数据可见。
 
 ## 调用示例
 

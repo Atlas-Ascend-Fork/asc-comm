@@ -50,9 +50,9 @@ CcuResult AgGroupCopy(AllGatherContext& ctx, ccu::local_addr dst_, ccu::local_ad
         ccu::variable sliceSize;
         sliceSize = ctx.moConfig.mem_slice;
 
-        ctx.loopSrc[0].addr_ = src_.addr_;
+        ctx.loopSrc[0].addr = src_.addr;
         ctx.loopSrc[0].token = src_.token;
-        ctx.loopDst[0].addr_ = dst_.addr_;
+        ctx.loopDst[0].addr = dst_.addr;
         ctx.loopDst[0].token = dst_.token;
         ctx.loopLen[0] = sliceSize;
 
@@ -70,21 +70,21 @@ CcuResult AgGroupCopy(AllGatherContext& ctx, ccu::local_addr dst_, ccu::local_ad
     // 第二个 loop_group：搬运 n + p 部分。
     CCU_IF(goSize.parallel_param != 0)
     {
-        src_.addr_ += goSize.addr_offset;
-        dst_.addr_ += goSize.addr_offset;
+        src_.addr += goSize.addr_offset;
+        dst_.addr += goSize.addr_offset;
 
-        ctx.loopSrc[0].addr_ = src_.addr_;
+        ctx.loopSrc[0].addr = src_.addr;
         ctx.loopSrc[0].token = src_.token;
-        ctx.loopDst[0].addr_ = dst_.addr_;
+        ctx.loopDst[0].addr = dst_.addr;
         ctx.loopDst[0].token = dst_.token;
         ctx.loopLen[0] = goSize.residual;
 
-        src_.addr_ += goSize.residual;
-        dst_.addr_ += goSize.residual;
+        src_.addr += goSize.residual;
+        dst_.addr += goSize.residual;
 
-        ctx.loopSrc[1].addr_ = src_.addr_;
+        ctx.loopSrc[1].addr = src_.addr;
         ctx.loopSrc[1].token = src_.token;
-        ctx.loopDst[1].addr_ = dst_.addr_;
+        ctx.loopDst[1].addr = dst_.addr;
         ctx.loopDst[1].token = dst_.token;
         ctx.loopLen[1] = ctx.moConfig.mem_slice;
 

@@ -33,11 +33,11 @@ CcuResult CcuAssignDemoKernel(ccu_kernel_arg arg)
 {
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::remote_addr remote_addr;
-    remote_addr.addr_ = 0x10000000;
+    remote_addr.addr = 0x10000000;
     remote_addr.token = 0x20000000;
     std::vector<ccu::remote_addr> loopsrc;
     test_method(loopsrc);
-    loopsrc[0].addr_ = remote_addr.addr_;
+    loopsrc[0].addr = remote_addr.addr;
     loopsrc[0].token = remote_addr.token;
     return CcuResult::CCU_SUCCESS;
 }
@@ -83,7 +83,7 @@ CcuResult CcuLocalAddrDemoKernel(ccu_kernel_arg arg)
 {
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::local_addr local_addr;
-    local_addr.addr_ = 0x10000000;
+    local_addr.addr = 0x10000000;
     local_addr.token = 0x20000000;
 
     ccu::local_addr localAddr2;
@@ -94,7 +94,7 @@ CcuResult CcuRemoteAddrDemoKernel(ccu_kernel_arg arg)
 {
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::remote_addr remote_addr;
-    remote_addr.addr_ = 0x10000000;
+    remote_addr.addr = 0x10000000;
     remote_addr.token = 0x20000000;
 
     ccu::remote_addr remoteAddr2;
@@ -161,9 +161,9 @@ CcuResult CcuLocalCopyKernel(ccu_kernel_arg arg)
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::local_addr src_;
     ccu::local_addr dst_;
-    src_.addr_ = 0x10000000;
+    src_.addr = 0x10000000;
     src_.token = 0x20000000;
-    dst_.addr_ = 0x30000000;
+    dst_.addr = 0x30000000;
     dst_.token = 0x40000000;
     ccu::event evt;
     ccu::array<ccu::ccu_buffer> buf(1);
@@ -182,9 +182,9 @@ CcuResult CcuLocalReduceKernel(ccu_kernel_arg arg)
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::local_addr src_;
     ccu::local_addr dst_;
-    src_.addr_ = 0x10000000;
+    src_.addr = 0x10000000;
     src_.token = 0x20000000;
-    dst_.addr_ = 0x30000000;
+    dst_.addr = 0x30000000;
     dst_.token = 0x40000000;
     ccu::variable len_;
     len_ = 1024;
@@ -203,9 +203,9 @@ CcuResult CcuRemoteReadKernel(ccu_kernel_arg arg)
     auto* args_ = static_cast<CcuVarAddKernelArg*>(arg);
     ccu::remote_addr dst_;
     ccu::local_addr src_;
-    src_.addr_ = 0x10000000;
+    src_.addr = 0x10000000;
     src_.token = 0x20000000;
-    dst_.addr_ = 0x30000000;
+    dst_.addr = 0x30000000;
     dst_.token = 0x40000000;
     ccu::variable len_;
     len_ = 1024;
@@ -228,9 +228,9 @@ CcuResult CcuRemoteWriteKernel(ccu_kernel_arg arg)
     ccu::variable len_;
     len_ = 1024;
     ccu::event evt;
-    src_.addr_ = 0x10000000;
+    src_.addr = 0x10000000;
     src_.token = 0x20000000;
-    dst_.addr_ = 0x30000000;
+    dst_.addr = 0x30000000;
     dst_.token = 0x40000000;
 
     ccu::write(args_->channel_handle, dst_, src_, len_, evt);

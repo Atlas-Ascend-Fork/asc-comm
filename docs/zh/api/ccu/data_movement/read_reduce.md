@@ -25,14 +25,14 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据，并与本端片上内存现有数据按指定算子合并（`local = reduce(local, fetch_from_remote, op_type)`），硬件完成时自动将`event`中`mask`对应的标志位设置为1。
+通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据，并与本端片上内存现有数据按指定算子合并（`local = reduce(local, fetch_from_remote, op_type)`），硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 ## 函数原型
 
 ```cpp
 CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
-                      event event, uint16_t mask = 1);
+                      event evt, uint16_t mask = 1);
 ```
 
 ## 参数说明
@@ -45,7 +45,7 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 | len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
 | data_type | 输入 | 数据类型，取值见`HcclDataType`枚举。仅支持以下6种：`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_FP32`、`HCCL_DATA_TYPE_BFP16`；其他取值会被拒绝并抛出异常（携带错误码）。 |
 | op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。仅支持`HCCL_REDUCE_SUM`（求和）、`HCCL_REDUCE_MAX`（最大值）、`HCCL_REDUCE_MIN`（最小值）；`HCCL_REDUCE_PROD`不支持，传入会被拒绝并抛出异常（携带错误码）。当采用SUM操作时，低精度输入数据的求和结果会先升精度、再调整为与输入数据相同的精度。 |
-| event | 输入 | 完成事件对象，硬件归约读完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
+| evt | 输入 | 完成事件对象，硬件归约读完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
 ## 返回值说明
@@ -63,7 +63,7 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 - 参数顺序为目的端在前、源端在后：`read_reduce(ch, local, remote, ...)`，`local`同时也是归约的累加端。
 - 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`CCU_E_PARA`，而非本接口的返回值。
 - `local`在调用前须已写入有效初值（如0或负无穷），否则归约结果未定义。
-- 本接口为异步操作，须通过`event_wait(event, mask)`等待归约完成后再读取结果。
+- 本接口为异步操作，须通过`event_wait(evt, mask)`等待归约完成后再读取结果。
 
 ## 调用示例
 

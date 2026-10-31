@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-将本端数据异步写入对端片上内存，同时按`op_type`指定的算子与对端现有数据进行归约`remote = reduce(remote, local, op_type)`，硬件完成时自动将`event`中`mask`对应的标志位设置为1。
+将本端数据异步写入对端片上内存，同时按`op_type`指定的算子与对端现有数据进行归约`remote = reduce(remote, local, op_type)`，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -38,7 +38,7 @@ namespace AscendC {
 namespace ccu {
 CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
-                      event event, uint16_t mask = 1);
+                      event evt, uint16_t mask = 1);
 } // namespace ccu
 } // namespace AscendC
 ```
@@ -53,7 +53,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 | len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
 | data_type | 输入 | 数据类型，取值见`HcclDataType`枚举。 |
 | op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。当采用SUM操作时，低精度输入数据的求和结果会先升精度、再调整为与输入数据相同的精度。 |
-| event | 输入 | 完成事件对象，硬件归约写完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
+| evt | 输入 | 完成事件对象，硬件归约写完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
 ## 返回值说明
@@ -76,7 +76,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 - `data_type`仅支持`HCCL_DATA_TYPE_INT8`、`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_UINT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_UINT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`。
 - `op_type`仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`。
 - `data_type`/`op_type`不在支持范围内时抛出异常（携带错误码），会被`<<<>>>`统一接住。
-- 本接口为异步操作，须通过`event_wait(event, mask)`等待归约完成，方可保证对端数据可见。
+- 本接口为异步操作，须通过`event_wait(evt, mask)`等待归约完成，方可保证对端数据可见。
 
 ## 调用示例
 

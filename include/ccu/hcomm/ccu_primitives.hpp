@@ -77,7 +77,7 @@ inline CcuResult write_variable_with_notify(
 }
 
 // ==================== 加载 ====================
-inline CcuResult load_arg(variable v, uint32_t arg_id_) { return ::asc::ccu_load_arg(v.handle, arg_id_); }
+inline CcuResult load_arg(variable v, uint32_t arg_id) { return ::asc::ccu_load_arg(v.handle, arg_id); }
 inline CcuResult load(uint64_t addr, array<variable>& v_arr, uint32_t num)
 {
     return ::asc::ccu_load_var(addr, v_arr[0].handle, num);
@@ -107,29 +107,29 @@ inline CcuResult store(variable addr_var, variable v)
 
 // ==================== 本地拷贝（3 种重载） ====================
 // local_addr → local_addr,local_addr → ccu_buffer,ccu_buffer → local_addr
-inline CcuResult local_copy(local_addr dst, local_addr src, variable len, event event, uint16_t mask = 1)
+inline CcuResult local_copy(local_addr dst, local_addr src, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_local_copy_mem_to_mem(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_mem_to_mem(dst.handle, src.handle, len.handle, evt.handle, mask);
 }
-inline CcuResult local_copy(ccu_buffer dst, local_addr src, variable len, event event, uint16_t mask = 1)
+inline CcuResult local_copy(ccu_buffer dst, local_addr src, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_local_copy_mem_to_buffer(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_mem_to_buffer(dst.handle, src.handle, len.handle, evt.handle, mask);
 }
-inline CcuResult local_copy(local_addr dst, ccu_buffer src, variable len, event event, uint16_t mask = 1)
+inline CcuResult local_copy(local_addr dst, ccu_buffer src, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_local_copy_buffer_to_mem(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_buffer_to_mem(dst.handle, src.handle, len.handle, evt.handle, mask);
 }
 
 // ==================== 本地 Reduce ====================
 inline CcuResult local_reduce(
-    local_addr dst, local_addr src, variable len, HcclDataType data_type_, HcclReduceOp op_type_, event event,
+    local_addr dst, local_addr src, variable len, HcclDataType data_type, HcclReduceOp op_type, event evt,
     uint16_t mask = 1)
 {
-    return ::asc::ccu_local_mem_reduce(dst.handle, src.handle, len.handle, data_type_, op_type_, event.handle, mask);
+    return ::asc::ccu_local_mem_reduce(dst.handle, src.handle, len.handle, data_type, op_type, evt.handle, mask);
 }
 inline CcuResult local_reduce(
-    ccu_buffer* buffers, uint32_t count, HcclDataType data_type_, HcclDataType output_data_type, HcclReduceOp op_type_,
-    variable len, event event, uint16_t mask = 1)
+    ccu_buffer* buffers, uint32_t count, HcclDataType data_type, HcclDataType output_data_type, HcclReduceOp op_type,
+    variable len, event evt, uint16_t mask = 1)
 {
     if (buffers == nullptr || count == 0) {
         return CcuResult::CCU_E_PARA;
@@ -139,53 +139,53 @@ inline CcuResult local_reduce(
         buf_handles[i] = buffers[i].handle;
     }
     return ::asc::ccu_local_buffer_reduce(
-        buf_handles.data(), count, data_type_, output_data_type, op_type_, len.handle, event.handle, mask);
+        buf_handles.data(), count, data_type, output_data_type, op_type, len.handle, evt.handle, mask);
 }
 
 // ==================== 远端读====================
 
 // 远端读 local_addr ← remote_addr
 inline CcuResult read(
-    ChannelHandle ch, local_addr local, remote_addr remote, variable len, event event, uint16_t mask = 1)
+    ChannelHandle ch, local_addr local, remote_addr remote, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_read_mem_to_mem(ch, local.handle, remote.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_read_mem_to_mem(ch, local.handle, remote.handle, len.handle, evt.handle, mask);
 }
 // 远端读 ccu_buffer ← remote_addr
 inline CcuResult read(
-    ChannelHandle ch, ccu_buffer local, remote_addr remote, variable len, event event, uint16_t mask = 1)
+    ChannelHandle ch, ccu_buffer local, remote_addr remote, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_read_mem_to_buffer(ch, local.handle, remote.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_read_mem_to_buffer(ch, local.handle, remote.handle, len.handle, evt.handle, mask);
 }
 // 远端读 local_addr ← remote_addr Reduce (Reduce)
 inline CcuResult read_reduce(
-    ChannelHandle ch, local_addr local, remote_addr remote, variable len, HcclDataType data_type_,
-    HcclReduceOp op_type_, event event, uint16_t mask = 1)
+    ChannelHandle ch, local_addr local, remote_addr remote, variable len, HcclDataType data_type, HcclReduceOp op_type,
+    event evt, uint16_t mask = 1)
 {
     return ::asc::ccu_read_mem_to_mem_reduce(
-        ch, local.handle, remote.handle, len.handle, data_type_, op_type_, event.handle, mask);
+        ch, local.handle, remote.handle, len.handle, data_type, op_type, evt.handle, mask);
 }
 
 // ==================== 远端写 ====================
 
 // local_addr → remote_addr
 inline CcuResult write(
-    ChannelHandle ch, remote_addr remote, local_addr local, variable len, event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, local_addr local, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_write_mem_to_mem(ch, remote.handle, local.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_write_mem_to_mem(ch, remote.handle, local.handle, len.handle, evt.handle, mask);
 }
 // ccu_buffer → remote_addr
 inline CcuResult write(
-    ChannelHandle ch, remote_addr remote, ccu_buffer local, variable len, event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, ccu_buffer local, variable len, event evt, uint16_t mask = 1)
 {
-    return ::asc::ccu_write_buffer_to_mem(ch, remote.handle, local.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_write_buffer_to_mem(ch, remote.handle, local.handle, len.handle, evt.handle, mask);
 }
 // local_addr → remote_addr Reduce (Reduce)
 inline CcuResult write_reduce(
-    ChannelHandle ch, remote_addr remote, local_addr local, variable len, HcclDataType data_type_,
-    HcclReduceOp op_type_, event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, local_addr local, variable len, HcclDataType data_type, HcclReduceOp op_type,
+    event evt, uint16_t mask = 1)
 {
     return ::asc::ccu_write_mem_to_mem_reduce(
-        ch, remote.handle, local.handle, len.handle, data_type_, op_type_, event.handle, mask);
+        ch, remote.handle, local.handle, len.handle, data_type, op_type, evt.handle, mask);
 }
 
 } // namespace ccu

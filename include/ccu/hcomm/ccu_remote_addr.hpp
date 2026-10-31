@@ -24,43 +24,43 @@ class array;
 
 class remote_addr final {
 public:
-    remote_addr() : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
+    remote_addr() : addr(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_remote_addr_alloc(&this->handle, &this->addr_.handle, &this->token.handle),
+            ::asc::ccu_remote_addr_alloc(&this->handle, &this->addr.handle, &this->token.handle),
             "ccu_remote_addr_alloc: failed");
     }
 
-    remote_addr(const remote_addr& other) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
+    remote_addr(const remote_addr& other) : addr(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr_.handle = other.addr_.handle;
+        this->addr.handle = other.addr.handle;
         this->token.handle = other.token.handle;
     }
-    remote_addr(remote_addr&& other) noexcept : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
+    remote_addr(remote_addr&& other) noexcept : addr(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr_.handle = other.addr_.handle;
+        this->addr.handle = other.addr.handle;
         this->token.handle = other.token.handle;
     }
     void operator=(const remote_addr& other)
     {
-        this->addr_ = other.addr_;
+        this->addr = other.addr;
         this->token = other.token;
     }
     void operator=(remote_addr&& other)
     {
         this->handle = other.handle;
-        this->addr_.handle = other.addr_.handle;
+        this->addr.handle = other.addr.handle;
         this->token.handle = other.token.handle;
     }
 
-    address addr_;
+    address addr;
     variable token;
     ccu_remote_addr_handle handle{0};
 
 private:
-    explicit remote_addr(detail::no_alloc_tag) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{}) {}
+    explicit remote_addr(detail::no_alloc_tag) : addr(detail::no_alloc_tag{}), token(detail::no_alloc_tag{}) {}
     template <typename u>
     friend class array;
 };

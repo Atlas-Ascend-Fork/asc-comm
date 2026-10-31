@@ -180,8 +180,8 @@ TEST_F(CcuRepTranslatorTest, Translate_LoadArgSortedByFullArgId_V1)
 
     variable var_a_(nullptr);
     variable var_b_(nullptr);
-    var_a_.reset(1);
-    var_b_.reset(2);
+    var_a_.reset(1); // full_arg_id=5 的目标变量
+    var_b_.reset(2); // full_arg_id=1 的目标变量
 
     // 故意乱序: full_arg_id 大的在前
     auto load_hi = std::make_shared<ccu_rep_load_arg>(&insGen, var_a_, 0, 5);
@@ -193,6 +193,21 @@ TEST_F(CcuRepTranslatorTest, Translate_LoadArgSortedByFullArgId_V1)
 
     auto info = translator.translate(&kernel, rep_vec, /*start_instr_id=*/0);
     EXPECT_GE(info.instr_count, 6u);
+
+    // 精确断言：排序后 load_sqe_args_to_xn 指令应按 full_arg_id 升序生成
+    // full_arg_id=1（var_b_.id()=2）在前，full_arg_id=5（var_a_.id()=1）在后
+    // V1 主序列头 3 条为初始化指令，之后依次为排序后的 load_arg 指令
+    // 编码使用 arg_id（本地序号）而非 full_arg_id（全局序号），
+    // 排序结果通过 xn_id 的先后顺序验证
+    std::vector<uint16_t> load_xn_ids;
+    for (const auto& instr : info.instr_vec) {
+        if (instr.header.type == 0x0 && instr.header.code == 0x1) { // load type=0x0, LOADSQEARGSTOX_CODE=0x1
+            load_xn_ids.push_back(instr.v1.load_sqe_args_to_xn.xn_id);
+        }
+    }
+    ASSERT_EQ(load_xn_ids.size(), 2u) << "应恰好生成2条load_sqe_args_to_xn指令";
+    EXPECT_EQ(load_xn_ids[0], 2u) << "full_arg_id=1 的目标变量 id=2 应排在第一位（排序生效）";
+    EXPECT_EQ(load_xn_ids[1], 1u) << "full_arg_id=5 的目标变量 id=1 应排在第二位（排序生效）";
 }
 
 TEST_F(CcuRepTranslatorTest, Translate_V2_RunsOptimizer)
@@ -245,14 +260,35 @@ TEST_F(CcuRepTranslatorTest, SetGetTransDep_RoundTrip)
 TEST_F(CcuRepTranslatorTest, BindResource_SetsReserveIds)
 {
     ccu_rep_translator translator(refMgr, dep);
+
+    // 先调用 translate 触发 common_process → bind_resource，
+    // 通过 get_res() 取出翻译器持有的资源句柄
     std::vector<std::shared_ptr<ccu_rep_base>> rep_vec;
     (void)translator.translate(&kernel, rep_vec, 0);
 
+    ccu_rep_resource res{};
+    translator.get_res(res);
+
+    // 翻译器持有 var_[xn_num]/addr_[gsa_num]/signal_[cke_num]，
+    // 在 die=0 槽位上为三类资源的首项设置互不相同的物理 ID
+    constexpr uint16_t expected_xn_id = 10;
+    constexpr uint16_t expected_gsa_id = 20;
+    constexpr uint16_t expected_cke_id = 30;
+    ASSERT_FALSE(res.variable[0].empty()) << "翻译器应持有至少1个variable";
+    ASSERT_FALSE(res.address[0].empty()) << "翻译器应持有至少1个address";
+    ASSERT_FALSE(res.completed_event[0].empty()) << "翻译器应持有至少1个completed_event";
+    res.variable[0][0].reset(expected_xn_id);
+    res.address[0][0].reset(expected_gsa_id);
+    res.completed_event[0][0].reset(expected_cke_id);
+
+    // 重新触发 bind_resource（再次 translate），使 reserve id 绑定到新设置的 ID
+    (void)translator.translate(&kernel, rep_vec, 0);
+
     const trans_dep& bound = translator.get_trans_dep();
-    // bind_resource 后 reserve id 取自 var_[0]/addr_[0]/signal_[0], id 从 0 编号合法,
-    // 仅断言与初始 dep 值(100/300)不同, 证明已被覆盖
-    EXPECT_NE(bound.reserve_xn_id, 100u);
-    EXPECT_NE(bound.reserve_cke_id, 300u);
+    // 精确断言：三个 reserve id 应分别等于 var_[0]/addr_[0]/signal_[0] 的物理 ID
+    EXPECT_EQ(bound.reserve_xn_id, expected_xn_id) << "reserve_xn_id 应取自 var_[0].id()，而非其他资源或槽位";
+    EXPECT_EQ(bound.reserve_gsa_id, expected_gsa_id) << "reserve_gsa_id 应取自 addr_[0].id()，而非其他资源或槽位";
+    EXPECT_EQ(bound.reserve_cke_id, expected_cke_id) << "reserve_cke_id 应取自 signal_[0].id()，而非其他资源或槽位";
 }
 
 TEST_F(CcuRepTranslatorTest, Translate_FuncBlock_IsFuncBlockFlag)

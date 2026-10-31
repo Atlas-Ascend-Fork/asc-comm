@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-支持本端片上内存、本端CCU Buffer之间的异步数据拷贝，数据在传输过程中保持原始内容不变，硬件完成搬运时自动将`event`中`mask`对应的标志位设置为1。
+支持本端片上内存、本端CCU Buffer之间的异步数据拷贝，数据在传输过程中保持原始内容不变，硬件完成搬运时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -42,21 +42,21 @@
 
     ```cpp
     CcuResult local_copy(local_addr dst, local_addr src, variable len,
-                        event event, uint16_t mask = 1);
+                        event evt, uint16_t mask = 1);
     ```
 
 - 本端片上内存 -> 本端CCU Buffer
 
     ```cpp
     CcuResult local_copy(ccu_buffer dst, local_addr src, variable len,
-                        event event, uint16_t mask = 1);
+                        event evt, uint16_t mask = 1);
     ```
 
 - 本端CCU Buffer -> 本端片上内存
 
     ```cpp
     CcuResult local_copy(local_addr dst, ccu_buffer src, variable len,
-                        event event, uint16_t mask = 1);
+                        event evt, uint16_t mask = 1);
     ```
 
 ## 参数说明
@@ -66,7 +66,7 @@
 | dst | 输入 | 目的地址，数据写入其指向的内存。<br>&bull;本端片上内存 -> 本端片上内存、本端CCU Buffer -> 本端片上内存：类型为`local_addr`。<br>&bull;本端片上内存 -> 本端CCU Buffer：类型为`ccu_buffer`。 |
 | src | 输入 | 源地址，<br>&bull;本端片上内存 -> 本端片上内存、本端片上内存 -> 本端CCU Buffer：类型为`local_addr`。<br>&bull;本端CCU Buffer -> 本端片上内存：类型为`ccu_buffer`。 |
 | len | 输入 | 拷贝字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
-| event | 输入 | 完成事件对象，硬件搬运完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
+| evt | 输入 | 完成事件对象，硬件搬运完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
 | mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
 ## 返回值说明
@@ -84,7 +84,7 @@
 - `len`必须大于0，否则硬件会发生未定义行为；该约束须由调用方自行保证。
 - `dst`与`src`的地址区间不可重叠，重叠时硬件会发生未定义行为。
 - 源或目标为`ccu_buffer`时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
-- 本接口为异步操作，须通过`event_wait(event, mask)`等待搬运完成后再访问目标内存。
+- 本接口为异步操作，须通过`event_wait(evt, mask)`等待搬运完成后再访问目标内存。
 
 ## 调用示例
 

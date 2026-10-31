@@ -436,16 +436,16 @@ static CcuResult ReduceLoopGroup(
     const uint32_t size = scratchCount;
 
     ccu::local_addr dst_;
-    dst_.addr_ = outDstOrg.addr_;
+    dst_.addr = outDstOrg.addr;
     dst_.token = outDstOrg.token;
 
     ccu::local_addr src_;
-    src_.addr_ = srcOrg.addr_;
+    src_.addr = srcOrg.addr;
     src_.token = srcOrg.token;
 
     ccu::local_addr scratch[RS_MAX_RANK_SIZE];
     for (uint32_t idx = 0; idx < size; idx++) {
-        scratch[idx].addr_ = scratchOrg[idx].addr_;
+        scratch[idx].addr = scratchOrg[idx].addr;
         scratch[idx].token = scratchOrg[idx].token;
     }
 
@@ -472,12 +472,12 @@ static CcuResult ReduceLoopGroup(
         sliceSizeExpansion = ctx.moConfig.mem_slice * expansionNum;
 
         // 绑定 loop0 的外部 local_addr 和 variable
-        ctx.loopDst[0].addr_ = dst_.addr_;
+        ctx.loopDst[0].addr = dst_.addr;
         ctx.loopDst[0].token = dst_.token;
-        ctx.loopSrc[0].addr_ = src_.addr_;
+        ctx.loopSrc[0].addr = src_.addr;
         ctx.loopSrc[0].token = src_.token;
         for (uint32_t i = 0; i < size; i++) {
-            ctx.loopScratch[0][i].addr_ = scratch[i].addr_;
+            ctx.loopScratch[0][i].addr = scratch[i].addr;
             ctx.loopScratch[0][i].token = scratch[i].token;
         }
         ctx.loopLen[0] = sliceSize;
@@ -501,11 +501,11 @@ static CcuResult ReduceLoopGroup(
     CCU_IF(goSize.parallel_param != 0)
     {
         for (uint32_t i = 0; i < size; i++) {
-            scratch[i].addr_ += goSize.addr_offset;
+            scratch[i].addr += goSize.addr_offset;
         }
-        src_.addr_ += goSize.addr_offset;
+        src_.addr += goSize.addr_offset;
         for (uint32_t i = 0; i < expansionNum; i++) {
-            dst_.addr_ += goSize.addr_offset;
+            dst_.addr += goSize.addr_offset;
         }
 
         sliceSizeExpansion = 0;
@@ -514,12 +514,12 @@ static CcuResult ReduceLoopGroup(
         }
 
         // 绑定 loop0 参数 (p 部分)
-        ctx.loopDst[0].addr_ = dst_.addr_;
+        ctx.loopDst[0].addr = dst_.addr;
         ctx.loopDst[0].token = dst_.token;
-        ctx.loopSrc[0].addr_ = src_.addr_;
+        ctx.loopSrc[0].addr = src_.addr;
         ctx.loopSrc[0].token = src_.token;
         for (uint32_t i = 0; i < size; i++) {
-            ctx.loopScratch[0][i].addr_ = scratch[i].addr_;
+            ctx.loopScratch[0][i].addr = scratch[i].addr;
             ctx.loopScratch[0][i].token = scratch[i].token;
         }
         ctx.loopLen[0] = goSize.residual;
@@ -527,11 +527,11 @@ static CcuResult ReduceLoopGroup(
 
         // n 部分偏移
         for (uint32_t i = 0; i < size; i++) {
-            scratch[i].addr_ += goSize.residual;
+            scratch[i].addr += goSize.residual;
         }
-        src_.addr_ += goSize.residual;
+        src_.addr += goSize.residual;
         for (uint32_t i = 0; i < expansionNum; i++) {
-            dst_.addr_ += goSize.residual;
+            dst_.addr += goSize.residual;
         }
 
         ccu::variable sliceSize;
@@ -539,12 +539,12 @@ static CcuResult ReduceLoopGroup(
         sliceSizeExpansion = ctx.moConfig.mem_slice * expansionNum;
 
         // 绑定 loop1 参数 (n 部分)
-        ctx.loopDst[1].addr_ = dst_.addr_;
+        ctx.loopDst[1].addr = dst_.addr;
         ctx.loopDst[1].token = dst_.token;
-        ctx.loopSrc[1].addr_ = src_.addr_;
+        ctx.loopSrc[1].addr = src_.addr;
         ctx.loopSrc[1].token = src_.token;
         for (uint32_t i = 0; i < size; i++) {
-            ctx.loopScratch[1][i].addr_ = scratch[i].addr_;
+            ctx.loopScratch[1][i].addr = scratch[i].addr;
             ctx.loopScratch[1][i].token = scratch[i].token;
         }
         ctx.loopLen[1] = sliceSize;
@@ -578,8 +578,8 @@ static CcuResult DoReduceScatter(ReduceScatterContext& ctx)
     uint32_t channelId = 0;
 
     ccu::local_addr myOutput;
-    myOutput.addr_ = ctx.output;
-    myOutput.addr_ += ctx.currentRankSliceOutputOffset;
+    myOutput.addr = ctx.output;
+    myOutput.addr += ctx.currentRankSliceOutputOffset;
     myOutput.token = ctx.token[arg->rankId];
 
     ccu::variable sliceSize;
@@ -621,17 +621,17 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterContext& ctx)
 
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         if (rankIdx == arg->rankId) {
-            ctx.myInput.addr_ = ctx.input[rankIdx];
-            ctx.myInput.addr_ += ctx.currentRankSliceInputOffset;
+            ctx.myInput.addr = ctx.input[rankIdx];
+            ctx.myInput.addr += ctx.currentRankSliceInputOffset;
             ctx.myInput.token = ctx.token[rankIdx];
         } else {
-            ctx.remoteInput[rankIdx].addr_ = ctx.input[rankIdx];
-            ctx.remoteInput[rankIdx].addr_ += ctx.currentRankSliceInputOffset;
+            ctx.remoteInput[rankIdx].addr = ctx.input[rankIdx];
+            ctx.remoteInput[rankIdx].addr += ctx.currentRankSliceInputOffset;
             ctx.remoteInput[rankIdx].token = ctx.token[rankIdx];
         }
 
-        ctx.scratchMem[rankIdx].addr_ = ctx.scratch[arg->rankId];
-        ctx.scratchMem[rankIdx].addr_ += scratchOffset;
+        ctx.scratchMem[rankIdx].addr = ctx.scratch[arg->rankId];
+        ctx.scratchMem[rankIdx].addr += scratchOffset;
         scratchOffset = scratchOffset + ctx.normalSliceSize;
         ctx.scratchMem[rankIdx].token = ctx.token[arg->rankId];
     }
@@ -648,9 +648,9 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterContext& ctx)
         {
             for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
                 if (rankIdx == arg->rankId) {
-                    ctx.myInput.addr_ += ctx.inputRepeatStride;
+                    ctx.myInput.addr += ctx.inputRepeatStride;
                 } else {
-                    ctx.remoteInput[rankIdx].addr_ += ctx.inputRepeatStride;
+                    ctx.remoteInput[rankIdx].addr += ctx.inputRepeatStride;
                 }
             }
             ctx.output = ctx.output + ctx.outputRepeatStride;
