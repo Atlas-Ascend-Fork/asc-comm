@@ -957,9 +957,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
     uint32_t cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
     bool cqOverflow = cqAfterCommit > cqDepth;
 
-    HCOMM_DEBUG_TRAP_IF(
-        sqDepth == 0 || preSqCnt >= sqDepth,
-        "Hcomm BatchCommit failed because batch must be smaller than SQ capacity\n");
+    if (sqOverflow || cqOverflow) {
+        uint32_t committedCqHead = channelEntity->cqHead;
+        PollBatchCq(batchHandle, committedCqHead);
+    }
     uint32_t sqHead = batchHandle.cursor.sqHead;
     uint32_t startSlot = sqHead & (sqDepth - 1);
     uint32_t tailWqebbCount = sqDepth - startSlot;
