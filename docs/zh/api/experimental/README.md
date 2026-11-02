@@ -21,6 +21,8 @@
 - CCU数据面使用`<ccu_intrinsics.h>`和`ccuc`编译器。
 - 通信域、通信channel、通信buffer和memory token由部署环境提供的HCOMM public
   接口管理。
+- CCU位于一个设备的IO Die上，不能跨Die使用另一个IO Die的网络设备进行通信。
+- 当前单个Die仅支持一个mission，kernel启动时`HcomCcuSchd.missionNum`仅支持1。
 - 本文档不描述完整编程模型、内部实现或私有实现细节。
 
 ## 版本约定

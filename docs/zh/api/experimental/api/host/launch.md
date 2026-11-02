@@ -87,6 +87,8 @@ typedef struct HcomCcuSchd {
 
 ## 约束说明
 
+- CCU位于一个设备的IO Die上。一个设备可能包含多个IO Die，不同IO Die包含不同的网络设备。实际组网中，不同的网络设备可能与不同的其他设备互联。一个CCU不能跨Die使用另一个IO Die的网络设备进行通信。
+- 一个Kernel对应一个mission，当前单个Die仅支持一个mission，因此执行配置`schd`中的`missionNum`当前仅支持1。
 - `rankSize`必须匹配kernel通过`__ccu_rank_sizes__`声明的specialization。
 - 一个context同一时刻只允许一个mission在飞。
 - 不要在Host侧手工构造descriptor、channel或instruction ID。
