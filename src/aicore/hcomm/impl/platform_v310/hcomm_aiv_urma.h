@@ -644,7 +644,6 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::CommitImpl(
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID7);
     st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
     PollCqWhenCqOverflow(channel, sqCtx, cqCtx, sqHead, cqeCnt);
 }
@@ -722,6 +721,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     curHead += wqeBbCnt;
     channelEntity->sqHead = curHead;
 
+    SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID7);
     if constexpr (commit) {
         CommitImpl(channel, sqCtx, curHead, cqeCnt);
     }
