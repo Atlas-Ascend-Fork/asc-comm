@@ -14,3 +14,4 @@
 - [AinBarrierSession类](./_dump_node_ainbarriersession.md)
   - [AinBarrierSession](./AinBarrierSession.md)
   - [Sync](./Sync.md)
+- [GetPeerPointer（辅助接口）](./GetPeerPointer.md)
