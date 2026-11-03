@@ -61,7 +61,7 @@ public:
 
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
-| `addr_` | `address` | 对端片上内存目标地址。须由对端rank的VA（Virtual Address，虚拟地址）与token（对端`asccomm_ccu_get_mem_token`结果）来填充，运算符语义见[address](address.md)。 |
+| `addr_` | `address` | 对端片上内存目标地址。须由对端rank的VA（Virtual Address，虚拟地址）与token（对端`HcommCcuGetMemToken`结果）来填充，运算符语义见[address](address.md)。 |
 | `token` | `variable` | 对端安全token值。须与`addr_`配对，来自对端rank，不可与本端token混用。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明

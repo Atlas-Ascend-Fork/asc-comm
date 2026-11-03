@@ -42,7 +42,7 @@ The inputs of all ranks are summed element by element and then split into segmen
 1. Initialize ACL and the HCCL communication domain, and obtain the number of NPUs in the current environment.
 2. Create one rank for each device, with input element `i` initialized to `device * 100 + i`.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuReduceScatterMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, first copy the input segment of the local rank to the local output through `GroupCopy`; after synchronization, reduce the other input segments to the outputs of the corresponding ranks by SUM through `ccu::write_reduce`, and wait for all remote writes to complete.
 7. Synchronize the stream, copy the result back to the host, check it element by element, and print `PASS` or `FAIL`.

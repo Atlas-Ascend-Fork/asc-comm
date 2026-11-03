@@ -31,7 +31,7 @@
 1. 初始化运行环境：初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 分配内存与初始化输入数据：分配Device内存，初始化输入数据并拷贝到Device。
 3. 申请CCU资源：基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 获取内存Token与准备任务参数：通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
+4. 获取内存Token与准备任务参数：通过`HcommCcuGetMemToken`获取输入内存Token，并准备CCU任务参数。
 5. 下发CCU通信任务：通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. 销毁资源：销毁通信域、Stream和Device内存。
 
@@ -190,14 +190,14 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 - 获取内存Token
 
-    CCU硬件不直接使用进程虚拟地址访问片上内存，须先通过`asccomm_ccu_get_mem_token`将`(虚拟地址, 大小)`转换为驱动颁发的64位Token，再随任务参数传入Kernel。
+    CCU硬件不直接使用进程虚拟地址访问片上内存，须先通过`HcommCcuGetMemToken`将`(虚拟地址, 大小)`转换为驱动颁发的64位Token，再随任务参数传入Kernel。
 
     ```cpp
     // inputSize为每个rank的输入字节数
     uint64_t token = 0;
     uint64_t baseInputAddr = reinterpret_cast<uint64_t>(sendBuf);
     uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(recvBuf);
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_get_mem_token(baseInputAddr, inputSize, &token)));
+    HCCLCHECK(ConvertCcuToHccl(HcommCcuGetMemToken(baseInputAddr, inputSize, &token)));
     ```
 
     `asccomm_ccu_*`接口返回`CcuResult`，样例中通过`ConvertCcuToHccl`转换为`HcclResult`后交由`HCCLCHECK`检查。

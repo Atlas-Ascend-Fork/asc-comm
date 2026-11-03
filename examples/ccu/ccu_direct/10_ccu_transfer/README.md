@@ -58,7 +58,7 @@
 1. 初始化ACL和HCCL通信域，固定创建2个rank。
 2. rank0输入初始化为`[1, 2, 3, 4]`，rank1输入初始化为`[5, 6, 7, 8]`。
 3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`asccomm_ccu_get_mem_token`获取输入和输出内存Token，并准备CCU任务参数。
+4. 通过`HcommCcuGetMemToken`获取输入和输出内存Token，并准备CCU任务参数。
 5. 通过`CcuTransferKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. Kernel内先交换输出地址和Token，再按`SCENARIO_NUM`编译出的场景执行`ccu::local_copy`、`ccu::write`
    或`ccu::write_reduce`等操作，使用Event跟踪搬运完成状态并同步远端写入。

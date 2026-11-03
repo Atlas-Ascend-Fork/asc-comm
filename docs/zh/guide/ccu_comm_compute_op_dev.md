@@ -26,7 +26,7 @@
 2. 分配内存与初始化输入数据：每个Device创建一个rank，并初始化输入Buffer。
 3. 申请CCU资源：基于HCCL通信域申请CCU Channel、CCU实例、CCU变量和CCU事件资源。
 4. 下发AI Core计算任务：通过`vector_add<<<1, nullptr, streamAiv>>>`直调AI Core vector kernel，生成本地计算结果。
-5. 获取内存Token与准备任务参数：通过`asccomm_ccu_get_mem_token`获取`computeBuf`内存Token，并准备CCU任务参数。
+5. 获取内存Token与准备任务参数：通过`HcommCcuGetMemToken`获取`computeBuf`内存Token，并准备CCU任务参数。
 6. 下发CCU通信任务：通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`直调CCU Kernel完成AllGather。
 7. 销毁资源：销毁HCCL通信域、Stream和Device侧内存。
 
@@ -110,12 +110,12 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 ### 获取内存Token与准备任务参数
 
-- `computeBuf`作为通信输入，其内存Token通过`asccomm_ccu_get_mem_token`获取。由于通信输入/输出地址改由共享变量传递，`taskArgs`不再包含地址，只需token与切分参数：
+- `computeBuf`作为通信输入，其内存Token通过`HcommCcuGetMemToken`获取。由于通信输入/输出地址改由共享变量传递，`taskArgs`不再包含地址，只需token与切分参数：
 
     ```cpp
     // token为computeBuf的内存Token
     uint64_t token = 0;
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_get_mem_token(reinterpret_cast<uint64_t>(computeBuf), inputSize, &token)));
+    HCCLCHECK(ConvertCcuToHccl(HcommCcuGetMemToken(reinterpret_cast<uint64_t>(computeBuf), inputSize, &token)));
 
     uint64_t taskArgs[CCU_DIRECT_TASK_ARG_NUM] = {
         token, 0, inputSize * rankId, inputSize, goSize[0], goSize[1], goSize[2], goSize[3],

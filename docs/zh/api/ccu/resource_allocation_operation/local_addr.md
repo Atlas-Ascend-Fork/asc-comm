@@ -33,7 +33,7 @@
 > [!NOTE]说明
 > 资源分配采用“先虚后实”两阶段模型：`local_addr()`构造仅产生虚拟句柄，真正的物理资源在编译阶段统一分配。
 
-CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`asccomm_ccu_get_mem_token`换算后的token。`local_addr`的`addr_`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
+CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`HcommCcuGetMemToken`换算后的token。`local_addr`的`addr_`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
 
 ## 类声明
 
@@ -64,7 +64,7 @@ public:
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
 | `addr_` | `address` | 本端片上内存地址。通过`la.addr_ = imm`（立即数）或`la.addr_ = var`（variable）赋值，运算符语义见[address](address.md)。 |
-| `token` | `variable` | 安全token值。由host端调用`asccomm_ccu_get_mem_token`获取后，通过`kernelArg`或`taskArgs`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
+| `token` | `variable` | 安全token值。由host端调用`HcommCcuGetMemToken`获取后，通过`kernelArg`或`taskArgs`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
 
@@ -77,7 +77,7 @@ public:
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr_`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
 - `addr_`字段须赋值为CCU可访问的物理地址或经token化的VA，直接传入未经token化的进程虚拟地址将触发驱动错误。
-- `token`通常来自host端`asccomm_ccu_get_mem_token`调用，须与`addr_`配对，不可与对端token混用。
+- `token`通常来自host端`HcommCcuGetMemToken`调用，须与`addr_`配对，不可与对端token混用。
 
 ## 调用示例
 
@@ -85,7 +85,7 @@ public:
 using namespace AscendC::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧填充后通过kernelArg传入
-// （src_addr为本端片上内存地址，src_token由Host调用asccomm_ccu_get_mem_token换算获得）
+// （src_addr为本端片上内存地址，src_token由Host调用HcommCcuGetMemToken换算获得）
 struct my_kernel_arg {
     uint64_t src_addr;   // 本端片上内存地址
     uint64_t src_token;  // 配套的安全token

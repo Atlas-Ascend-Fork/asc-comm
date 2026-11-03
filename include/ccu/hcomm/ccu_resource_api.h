@@ -59,15 +59,6 @@ extern CcuResult asccomm_ccu_variable_get_addr(ccu_variable_handle var_handle, u
  */
 extern CcuResult asccomm_ccu_event_get_addr(ccu_event_handle event_handle, uint32_t index, uint64_t* va);
 
-/**
- * @brief Query the CCU access token for a local memory range.
- * @param_[in] src_va Start virtual address of a registered memory range.
- * @param_[in] size Size of the memory range in bytes; must be greater than zero.
- * @param_[out] token_info Calculated token.
- * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
- */
-extern CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* token_info);
-
 #ifdef __cplusplus
 }
 #endif

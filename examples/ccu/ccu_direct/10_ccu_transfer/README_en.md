@@ -49,7 +49,7 @@ All scenarios use events to track transfer completion. Ranks exchange output add
 1. Initialize ACL and the HCCL communication domain, and create a fixed 2 ranks.
 2. Initialize the input of rank0 to `[1, 2, 3, 4]` and the input of rank1 to `[5, 6, 7, 8]`.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input and output memory tokens through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input and output memory tokens through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuTransferKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, first exchange the output addresses and tokens; then execute `ccu::local_copy`, `ccu::write`, or `ccu::write_reduce` according to the scenario compiled from `SCENARIO_NUM`, and use events to track transfer completion and synchronize remote writes.
 7. Synchronize the stream, copy the result back to the host, check it against the scenario expectation, and print `PASS` or `FAIL`.

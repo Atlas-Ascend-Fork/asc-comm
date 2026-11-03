@@ -42,7 +42,7 @@ root rank将完整输入广播给所有rank。
 1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 每个Device创建一个rank，root的输入初始化为元素下标`i`，非root的输入初始化为`-1`。
 3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`asccomm_ccu_get_mem_token`获取Buffer内存Token，并准备CCU任务参数。
+4. 通过`HcommCcuGetMemToken`获取Buffer内存Token，并准备CCU任务参数。
 5. 通过`CcuBroadcastMesh1DKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. Kernel内先通过`ccu::write_variable_with_notify`和`ccu::notify_wait`交换各rank的Buffer地址和Token；
    随后root rank通过`ccu::write`将完整数据写入其他rank，并等待全部远端写入完成。

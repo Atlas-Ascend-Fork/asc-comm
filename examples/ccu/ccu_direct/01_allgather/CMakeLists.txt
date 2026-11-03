@@ -30,6 +30,7 @@ target_include_directories(ccu_allgather PRIVATE
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
+    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm/ccu
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     # 样例公共辅助头（ccu_instance.h）

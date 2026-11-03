@@ -41,7 +41,7 @@ The inputs of all ranks are concatenated in rank order, and each rank obtains a 
 1. Initialize ACL and the HCCL communication domain, and obtain the number of NPUs in the current environment.
 2. Create one rank for each device and initialize the input buffer.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Synchronize the stream, copy the result back to the host, and print it.
 7. Destroy the HCCL communication domain, stream, and device memory.

@@ -42,7 +42,7 @@ The root rank broadcasts its complete input to all ranks.
 1. Initialize ACL and the HCCL communication domain, and obtain the number of NPUs in the current environment.
 2. Create one rank for each device. The input of the root is initialized to the element index `i`, and the input of non-root ranks is initialized to `-1`.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the buffer memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the buffer memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuBroadcastMesh1DKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, first exchange the buffer addresses and tokens of all ranks through `ccu::write_variable_with_notify` and `ccu::notify_wait`; then the root rank writes the complete data to the other ranks through `ccu::write`, and waits for all remote writes to complete.
 7. Synchronize the stream, copy the result back to the host, check that the output equals the input of the root, and print `PASS` or `FAIL`.

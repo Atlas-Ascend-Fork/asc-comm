@@ -50,7 +50,7 @@ Scenario 1 (classic AllReduce SUM, scatter-reduce with `write_reduce`):
 1. Initialize ACL and the HCCL communication domain, and obtain the number of NPUs in the current environment.
 2. Create one rank for each device, with input element `i` initialized to `device * rankSize + i`.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllReduceMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, first copy the local input to the local output through `ccu::local_copy`; after synchronization, use `ccu::write_reduce` to accumulate the local input into the outputs of the other ranks by SUM, and wait for all remote writes to complete.
 7. Synchronize the stream, copy the result back to the host, and print it.

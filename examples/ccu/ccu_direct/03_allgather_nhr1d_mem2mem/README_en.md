@@ -45,7 +45,7 @@ The inputs of all ranks are concatenated in rank order, and each rank obtains a 
 1. Initialize ACL and the HCCL communication domain. The number of ranks is determined by the number of devices specified by `DEVICES`.
 2. Each rank reads data from the input file and copies it to the device-side input buffer.
 3. The host generates the NHR steps and the rank-to-channel mapping, and acquires CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherNhr1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, first copy the local slice through `GroupCopy`; then write and forward slices remotely through `ccu::write` per NHR step, and synchronize with the peer through `notify` after each non-final step.
 7. Synchronize the stream, copy the result back to the host, and print it.

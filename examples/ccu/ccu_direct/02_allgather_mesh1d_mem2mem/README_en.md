@@ -44,7 +44,7 @@ The inputs of all ranks are concatenated in rank order, and each rank obtains a 
 1. Initialize ACL and the HCCL communication domain. The number of ranks is determined by the number of devices specified by `DEVICES`.
 2. Each rank reads data from the input file and copies it to the device-side input buffer.
 3. Acquire CCU channel and CCU instance resources based on the HCCL communication domain.
-4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
+4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`.
 6. Inside the kernel, exchange the output addresses and tokens of all ranks through `ccu::write_variable_with_notify` and `ccu::notify_wait`; then write the local rank's slice to all peers through `ccu::write`, complete the local slice copy through `GroupCopy`, and use rank-grouped events to wait for all transfers to complete.
 7. Synchronize the stream, copy the result back to the host, and print it.

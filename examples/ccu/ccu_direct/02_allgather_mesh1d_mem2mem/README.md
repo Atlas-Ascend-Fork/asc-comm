@@ -44,7 +44,7 @@
 1. 初始化ACL和HCCL通信域，rank数量由`DEVICES`指定的Device数量决定。
 2. 每个rank从输入文件读取数据，并拷贝到Device侧输入Buffer。
 3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
+4. 通过`HcommCcuGetMemToken`获取输入内存Token，并准备CCU任务参数。
 5. 通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. Kernel内通过`ccu::write_variable_with_notify`和`ccu::notify_wait`交换各rank的输出地址和Token；
    随后通过`ccu::write`向所有对端写入本rank的slice，通过`GroupCopy`完成本地slice拷贝，并使用

@@ -50,7 +50,7 @@
 1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 每个Device创建一个rank，输入元素`i`初始化为`device * rankSize + i`。
 3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
+4. 通过`HcommCcuGetMemToken`获取输入内存Token，并准备CCU任务参数。
 5. 通过`CcuAllReduceMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. Kernel内先通过`ccu::local_copy`将本地输入复制到本地输出；同步后通过`ccu::write_reduce`将本地
    输入按SUM累加写入其它rank的输出，并等待全部远端写入完成。

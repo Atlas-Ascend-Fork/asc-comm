@@ -45,7 +45,7 @@
 1. 初始化ACL和HCCL通信域，rank数量由`DEVICES`指定的Device数量决定。
 2. 每个rank从输入文件读取数据，并拷贝到Device侧输入Buffer。
 3. Host侧生成NHR step和rank-to-channel映射，基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
+4. 通过`HcommCcuGetMemToken`获取输入内存Token，并准备CCU任务参数。
 5. 通过`CcuAllGatherNhr1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. Kernel内先通过`GroupCopy`拷贝本地slice；随后按NHR step通过`ccu::write`远端写入并转发slice，
    每个非末尾step完成后通过`notify`进行对端同步。

@@ -230,25 +230,6 @@ CcuResult asccomm_ccu_kernel_launch(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* token_info)
-{
-    CCU_CHK_PTR_NULL(token_info);
-
-    if (src_va == 0 || size == 0) {
-        HCCL_ERROR(
-            "[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__, static_cast<unsigned long long>(src_va),
-            static_cast<unsigned long long>(size));
-        return CcuResult::CCU_E_PARA;
-    }
-    // 注意token信息属于安全信息，均不允许打印
-    // 查询与位域拼装收敛在 GetTokenInfo 内，此处仅转发；GetTokenInfo 会抛异常，故需异常拦截
-    CCU_EXCEPTION_HANDLE_BEGIN
-    *token_info = asc::ccu_rep::get_token_info(src_va, size);
-    CCU_EXCEPTION_HANDLE_END
-
-    return CcuResult::CCU_SUCCESS;
-}
-
 // 定位实例资源仓后转发给 CcuVarEventResMgr；预约、地址映射与失败回滚均由该类内部完成
 static CcuResult ccu_alloc_var_event_res(
     HcommCcuInstanceEntity ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
