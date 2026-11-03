@@ -9,6 +9,7 @@ This directory provides Ain one-sided communication samples. Ain targets the ope
 | Sample | Description |
 | --- | --- |
 | [01_basic_ring](./01_basic_ring/README_en.md) | Demonstrates point-to-point one-sided `Put`/`Get` communication over the AIN interface in a multi-card ring scenario, with synchronization and result verification through `AinBarrierSession`. |
+| [02_all_gather_matmul](./02_all_gather_matmul/README_en.md) | Combines AIN Get and Blaze BlockMmad for AllGatherMatmul, with communication-computation overlap, serial baselines, and result verification. |
 
 ## Usage Notes
 

@@ -9,6 +9,7 @@
 | 样例 | 说明 |
 | --- | --- |
 | [01_basic_ring](./01_basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`Put`/`Get`进行点对点单边通信，并通过`AinBarrierSession`完成同步与结果校验。 |
+| [02_all_gather_matmul](./02_all_gather_matmul/README.md) | 使用AIN Get和Blaze BlockMmad实现AllGatherMatmul，提供通信计算融合、串行对照和结果校验。 |
 
 ## 使用说明
 
