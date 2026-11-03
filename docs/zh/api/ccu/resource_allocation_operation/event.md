@@ -65,7 +65,7 @@ public:
     | 参数名 | 输入/输出 | 描述 |
     | --- | --- | --- |
     | acq_handle | 输入 | 预约句柄，即Host侧调用`asccomm_ccu_event_alloc`预先从实例资源池划出一段物理event槽位后返回的句柄，通过`kernelArg`传入kernel。 |
-    | index | 输入 | 要绑定的event槽位在预约段内的序号，从0起，默认值为`0`。 |
+    | index | 输入 | 要绑定的event槽位在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_event_alloc`预约的event槽位数量），超出该范围抛出`CCU_E_PARA`异常。 |
 
     多次用同一预约句柄和同一`index`构造，得到的多个`event`对象共享同一个物理event槽位。
 
@@ -73,7 +73,7 @@ public:
 
 - 只能在编译阶段构造；编译阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
 - 默认构造只申请虚拟句柄，在编译阶段内恒成功不抛异常；event槽位物理资源不足时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
-- 预约构造会校验预约句柄与`index`，参数不合法时抛出异常，被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，本轮编译被中止。
+- 预约构造会校验预约句柄与`index`，`index`超出预约段范围（`[0, num-1]`，`num`为Host侧预约的event槽位数量）时抛出`CCU_E_PARA`异常。
 - copy/move构造函数只拷贝`handle`字段、不申请新的event槽位，`event e2 = e1;`后两个对象是同一个kernel内句柄，对任一对象`event_record`/`event_wait`操作的是同一份硬件状态位；如需独立的`event`，使用默认构造或[`array<event>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - `event`没有`mask`字段，`mask`在`event_record`/`event_wait`及数据搬运接口中以参数形式传入，C++默认值为`1`。同一个`event`的不同bit相互独立，可承载多组配对。

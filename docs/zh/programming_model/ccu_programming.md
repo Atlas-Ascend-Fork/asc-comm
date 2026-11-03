@@ -26,13 +26,13 @@ CCU内部组件的参数规格及职责如[表1](#tab-ccu-components)所示，�
 
 | 组件 | 参数规格 | 职责 |
 | --- | --- | --- |
-| 片上缓存 | 1536个4KB分片，共6MB | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作 |
-| 通用寄存器 | 3072个，位宽64bit | 存放CCU执行过程中的参数或数据（长度和循环控制等参数、`token`信息），支持赋值、加法和移位运算 |
-| 同步寄存器 | 1024个，位宽16bit | 实现类似信号量的同步操作，支持Set和Wait操作，保存指令依赖和同步状态 |
-| 地址寄存器 | 3072个，位宽64bit | 存放通信操作的内存地址；未来会取消，由通用寄存器替代 |
-| 并发执行引擎 | 200个 | LoopEngine，提供CCU并发与循环执行指令的能力 |
-| 指令空间 | 32K条指令，单条32字节，共1MB | 存储CCU执行的指令序列 |
-| Channel表 | 128个表项 | 存放Channel表项，每个表项包含用于UB通信的上下文信息 |
+| 片上缓存 | 1536个4KB分片，共6MB | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作。 |
+| 通用寄存器 | 3072个，位宽64bit | 存放CCU执行过程中的参数或数据（长度和循环控制等参数、`token`信息），支持赋值和加法运算。 |
+| 同步寄存器 | 1024个，位宽16bit | 实现类似信号量的同步操作，支持Set和Wait操作，保存指令依赖和同步状态。 |
+| 地址寄存器 | 3072个，位宽64bit | 存放通信操作的内存地址；未来会取消，由通用寄存器替代。 |
+| 并发执行引擎 | 200个 | LoopEngine，提供CCU并发与循环执行指令的能力。 |
+| 指令空间 | 32K条指令，单条32字节，共1MB | 存储CCU执行的指令序列。 |
+| Channel表 | 128个表项 | 存放Channel表项，每个表项包含用于UB通信的上下文信息。 |
 
 ## CCU编程模型
 
@@ -40,7 +40,7 @@ CCU内部组件的参数规格及职责如[表1](#tab-ccu-components)所示，�
 
 - [资源抽象](#资源抽象)：指令的操作数及其申请方式。
 - [计算能力](#计算能力)：寄存器计算和片上规约。
-- [数据搬运](#数据搬运)：本地内存、CCU Buffer和远端内存之间的数据传输。
+- [数据搬运](#数据搬运)：本端内存、CCU Buffer和远端内存之间的数据传输。
 - [同步机制](#同步机制)：为异步操作建立先后关系。
 - [任务编排](#任务编排)：用流程控制和并发原语把上述操作组织为完整的通信任务。
 - [核函数](#核函数)：核函数的定义与调用方式。
@@ -85,7 +85,7 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
 
 #### 寄存器计算
 
-通用寄存器和地址寄存器支持赋值和加法，通用寄存器还支持移位，用于准备数据搬运的地址、长度等参数，以及维护循环计数。
+通用寄存器和地址寄存器支持赋值和加法运算，用于准备数据搬运的地址、长度等参数，以及维护循环计数。
 
 - 立即数赋值
 
@@ -127,18 +127,6 @@ CCU的计算能力分为两类：寄存器计算在通用寄存器和地址寄�
     addr2 = addr1 + x;
     ```
 
-- 移位
-
-    仅通用寄存器支持，左移和右移的移位数需用`variable`给出，不支持立即数。
-
-    ```cpp
-    ccu::variable x, y, z;
-    x = 256;
-    y = 4;
-    z = x >> y;
-    x <<= y;
-    ```
-
 #### 片上规约
 
 CCU Buffer支持最多8片的按序Reduce计算，输入类型与输出类型一致，支持的Reduce操作包括`ADD`、`MAX`和`MIN`，支持的数据类型包括FP32、FP16、BF16、INT32、INT16、INT8和UINT8。
@@ -151,7 +139,7 @@ CCU Buffer支持最多8片的按序Reduce计算，输入类型与输出类型一
 
 ### 数据搬运
 
-CCU的数据搬运能力如[图4](#fig-ccu-datacopy)所示，覆盖本地内存、CCU寄存器、CCU Buffer和远端内存之间的多条通路。
+CCU的数据搬运能力如[图4](#fig-ccu-datacopy)所示，覆盖本端内存、CCU寄存器、CCU Buffer和远端内存之间的多条通路。
 
 **图4** CCU数据搬运能力<a id="fig-ccu-datacopy"></a>
 
@@ -229,6 +217,7 @@ ccu::notify_wait(channel_handle, 0, 0x12);
 | `ccu::call_func<func>(...)` | 调用函数块 |
 | `CCU_IF`/`CCU_ELSE` | 条件分支 |
 | `CCU_WHILE` | 条件循环 |
+| `CCU_DO` | do-while循环 |
 
 流程控制只用于编排CCU指令和通信任务，不用于替代AI Core或AI CPU的通用计算逻辑。分支和循环的条件由`variable`给出，`ccu::func`定义的函数块除了可以直接调用，也是下文Loop的执行体。
 
@@ -259,6 +248,20 @@ ccu::notify_wait(channel_handle, 0, 0x12);
        accumulator = accumulator + step;
        counter = counter + one;
   }
+  ```
+
+- do-while循环
+
+  用`CCU_DO`开始循环体、`CCU_WHILE`收尾判断，循环体至少执行一次：
+
+  ```cpp
+  ccu::variable inner, one;
+  inner = 0;
+  one = 1;
+
+  CCU_DO {
+       inner = inner + one;
+  } CCU_WHILE(inner != 5);
   ```
 
 - 函数块
@@ -348,7 +351,7 @@ CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务
     参数列表由SQE参数与`kernelArg`两类参数构成：
 
     - SQE参数`sqeArgs1`~`sqeArgsN`：类型为`uint64_t`，携带通信地址、`token`、切分参数等执行期参数，需在Kernel最开始通过`ccu::load_arg`按声明顺序加载到CCU变量中。
-    - `kernelArg`：类型为`ccu_kernel_arg`，为编排上下文，持有Channel句柄、rankSize、rankId等；与SQE参数不同，`kernelArg`随Kernel注册一次性下发，不随每次调用重复传递。
+    - `kernelArg`：类型为用户自定义的`ccu_kernel_arg`，为编排上下文，持有Channel句柄、rankSize、rankId等；与SQE参数不同，`kernelArg`随Kernel注册一次性下发，不随每次调用重复传递。
 
 - **其他规则**
 
@@ -373,7 +376,7 @@ CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务
 
 #### 核函数调用
 
-`<<<>>>`是内核调用符，在函数名与参数列表之间插入`<<<...>>>`即可下发执行配置，概念和用法与[Ascend C核函数](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)一致。代码示例如下：
+`<<<>>>`是内核调用符，在函数名与参数列表之间插入`<<<...>>>`即可下发执行配置，概念和用法与[《Ascend C核函数》](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)一致。代码示例如下：
        
 ```cpp
 kernel_name<<<schd, insHandle, stream>>>(argument list);
@@ -388,7 +391,15 @@ kernel_name<<<schd, insHandle, stream>>>(argument list);
     | num_blocks | 规定了一次调用启动的mission个数，类比于Ascend C中的block_num，当前仅支持1，参见[mission](#mission) |
     | reserved | 保留字段，置0 |
     | phy_die_mask | 按位表示CCU所在的IO Die，`0x01`表示die0，`0x02`表示die1；一个CCU不能跨Die使用另一个IO Die的网络设备，因此当前仅支持配置单个Die |
-    | binary_cache_tag | Kernel句柄缓存标签；非0时，相同标签的重复调用会复用已注册的Kernel句柄，避免重复注册；置0则每次调用都重新注册 |
+    | binary_cache_tag | Kernel句柄缓存标签；非0时，相同标签的重复调用会复用已注册的Kernel句柄，避免重复注册；置0则每次调用都重新注册，启用方式参见[Kernel句柄缓存](#kernel句柄缓存) |
+
+    调用示例：
+
+    ```cpp
+    const uint32_t dieId = 0;                    // CCU所在的IO Die编号（die0或die1），由建链时查询得到
+    const uint64_t dieMask = 1ULL << dieId;      // 按位选中CCU所在的IO Die
+    asccomm_ccu_schd schd = {1, 0, dieMask, 0};  // 1个mission，不缓存Kernel句柄
+    ```
 
 - **insHandle**：类型为`void*`，不透明的CCU实例句柄，指向hcomm持有的CCU实例实体。Kernel翻译产生的指令空间、寄存器、片上缓存等资源都挂载在CCU实例上。通过`HcclCommQueryCcuIns`查询通信域获得，样例公共辅助函数`QueryCcuInstance`封装了该调用：
 
@@ -399,25 +410,46 @@ kernel_name<<<schd, insHandle, stream>>>(argument list);
 
     若通信域尚未创建CCU实例，该调用会自动创建后返回；返回的句柄由通信域管理，仅供借用，调用方不得销毁。
 
-- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序。
+- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序。stream创建等管理接口请参考[《Runtime运行时API》](https://gitcode.com/cann/runtime/blob/master/docs/zh/api_ref/README.md)。
+
+    ```cpp
+    aclrtStream stream;
+    ACLCHECK(aclrtCreateStream(&stream));
+    ```
 
 调用示例如下（调用上文定义的AllGather Kernel，`taskArgs`与`sqeArgs1`~`sqeArgs10`一一对应，`insHandle`和`stream`需在直调前创建）：
 
 ```cpp
-
-const uint32_t dieId = 0;                    // CCU所在的IO Die编号（die0或die1），由建链时查询得到
-const uint64_t dieMask = 1ULL << dieId;      // 按位选中CCU所在的IO Die
 uint64_t taskArgs[10] = {...};               // 执行期参数，与sqeArgs1~sqeArgs10一一对应
 auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();  // 编排上下文
-// insHandle为void*（不透明CCU实例句柄），通过HcclCommQueryCcuIns查询通信域获得；stream为aclrtStream，需在直调前创建
 
-asccomm_ccu_schd schd = {1, 0, dieMask, 0};  // 1个mission，不缓存Kernel句柄
 CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>(
     taskArgs[0], taskArgs[1], taskArgs[2], taskArgs[3], taskArgs[4], taskArgs[5], taskArgs[6], taskArgs[7],
     taskArgs[8], taskArgs[9], kernelArg.get());  // 最后一个参数为kernelArg
 ```
 
 核函数的调用是异步的，调用后控制权立刻返回Host侧；Host侧可调用`aclrtSynchronizeStream`等待Stream上的CCU任务执行完毕。
+
+#### Kernel句柄缓存
+
+每次`<<<>>>`直调Kernel都会执行完整注册流程：执行Kernel函数体记录中间表示、翻译生成CCU指令并申请指令空间，开销较大。通信任务常在循环中反复下发同一Kernel，可通过`schd`中的`binary_cache_tag`字段启用句柄缓存：非0时，相同标签（且同一CCU实例、同一Die）的重复调用直接复用已注册的Kernel句柄，跳过注册与翻译；未命中时注册一次并写入缓存。缓存仅复用Kernel注册结果，`taskArgs`等执行期参数仍随每次调用正常下发。
+
+标签值通过Host侧接口`asccomm_ccu_get_launch_hash_tag`生成（头文件`#include "ccu/ccu_host_launch.h"`），将任意标签字符串哈希为`uint64_t`；传入`nullptr`返回0，即不启用缓存。
+
+使用约束：
+
+- 相同标签必须对应同一个Kernel：命中缓存后不再执行Kernel函数体，不同Kernel共用标签（同一实例、同一Die下）会复用错误句柄。
+- 多个rank共用进程或CCU实例时，标签需包含rank等区分维度，避免不同rank的Kernel错误复用。
+
+启用缓存的调用方式如下（取自[add_allgather](../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，标签按rankId生成以保证各rank唯一）：
+
+```cpp
+const std::string launchTag = "CcuAllGatherMesh1DMem2MemKernel_rank_" + std::to_string(rankId);
+uint64_t tag = asccomm_ccu_get_launch_hash_tag(launchTag.c_str());
+
+asccomm_ccu_schd schd = {1, 0, dieMask, tag};   // 启用Kernel句柄缓存
+
+```
 
 #### mission
 

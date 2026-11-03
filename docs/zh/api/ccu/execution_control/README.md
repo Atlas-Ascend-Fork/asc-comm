@@ -21,7 +21,7 @@
 1. 构造[loop](loop.md)：执行`func`承载的循环体lambda，把逻辑记录为一份循环体指令。
 2. 构造[loop_group](loop_group.md)：把各`loop`的迭代参数（循环次数、地址偏移）与复制参数写入，合成硬件循环指令；`loop`必须加入`loop_group`，否则不产生循环效果。
 
-下发阶段，LoopEngine执行到循环指令时按设定的参数迭代执行循环体，每轮按偏移更新数据地址；`loop_group`复制的多份循环体并行执行。
+下发阶段，LoopEngine（CCU的并发执行引擎）执行到循环指令时按设定的参数迭代执行循环体，每轮按偏移更新数据地址；`loop_group`复制的多份循环体并行执行。
 
 **函数块**：接口分定义与调用两步。
 
@@ -38,6 +38,9 @@
 ## 接口列表
 
 - [CCU_IF](CCU_IF.md)
+- [CCU_ELSE](CCU_ELSE.md)
+- [CCU_WHILE](CCU_WHILE.md)
+- [CCU_DO](CCU_DO.md)
 - [loop](loop.md)
 - [loop_group](loop_group.md)
 - [func](func.md)
