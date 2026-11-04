@@ -25,7 +25,7 @@
 
 头文件路径：`"hcomm/hcomm.h"`。
 
-将数据从本端`src`写入远端`dst`，并携带远端通知地址和通知值。接口提供普通`channel`重载和批量`batchHandle`重载：普通重载直接向通道提交任务；批量重载将写通知任务添加到当前批次，后续由[BatchCommit](./BatchCommit.md)统一提交。
+将数据从本端`src`写入远端`dst`，并携带远端通知地址和通知值。接口提供普通`channel`重载和批量`batchHandle`重载：普通重载直接向通道添加任务；批量重载将写通知任务添加到当前批次，后续由[BatchCommit](./BatchCommit.md)统一提交。
 
 普通和批量重载均仅支持`COMM_PROTOCOL_UB_CTP`协议。
 
@@ -123,7 +123,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
 - 传入的`ChannelHandle`需要对应`COMM_PROTOCOL_UB_CTP`通道。
-- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`的一半（单个任务占用2个任务槽位）；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+- 单个`WriteWithNotifyNbi`任务占用2个任务槽位（128字节）；`commit`模板参数设为`false`时，积攒的延迟提交任务占用的槽位数之和不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 延迟提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 **批量接口**

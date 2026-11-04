@@ -25,7 +25,7 @@
 
 头文件路径：`"hcomm/hcomm.h"`。
 
-提交Fetch-and-add原子操作任务，对远端地址`dst`中的值执行原子加，并将加法前的旧值写入本端`fetchAddr`。
+添加Fetch-and-add原子操作任务，对远端地址`dst`中的值执行原子加，并将加法前的旧值写入本端`fetchAddr`。
 
 当前该接口仅支持`COMM_PROTOCOL_UB_CTP`协议。
 
@@ -78,8 +78,7 @@ __aicore__ inline int32_t AtomicFAA(
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
 - 传入的`ChannelHandle`需要对应`COMM_PROTOCOL_UB_CTP`通道。
 - `dst`需要落在通道注册的远端注册内存范围内，`fetchAddr`用于保存旧值，长度为`sizeof(T)`。
-- 单个`AtomicFAA`任务占用2个任务槽位（128字节）。
-- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`的一半（单个任务占用2个任务槽位），需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
+- 单个`AtomicFAA`任务占用2个任务槽位（128字节）；`commit`模板参数设为`false`时，积攒的延迟提交任务占用的槽位数之和不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 延迟提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 ## 调用示例

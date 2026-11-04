@@ -25,7 +25,7 @@
 
 头文件路径：`"hcomm/hcomm.h"`。
 
-提交带归约操作的写任务：将本端`src`的`count`个`T`类型元素与远端`dst`中的对应元素按`reduceOp`执行归约，结果写入远端`dst`。
+添加带归约操作的写任务：将本端`src`的`count`个`T`类型元素与远端`dst`中的对应元素按`reduceOp`执行归约，结果写入远端`dst`。
 
 ## 函数原型
 
@@ -73,7 +73,7 @@ __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_
 - 调用前通信通道需已完成初始化，并通过[Init](./Init.md)提供临时工作区。
 - `dst`需要落在通道注册的远端注册内存范围内。
 - `config.inlineEn`必须为0，否则编译报错。
-- 若`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量（即SQ深度sqDepth）；需在容量耗尽前通过[Commit](./Commit.md)或自动commit提交。
+- 单个`WriteReduceNbi`任务占用1个任务槽位（64字节）；`commit`模板参数设为`false`时，积攒的延迟提交任务占用的槽位数之和不得超过`sqDepth`，需在SQ耗尽前通过[Commit](./Commit.md)或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 
 ## 调用示例
 

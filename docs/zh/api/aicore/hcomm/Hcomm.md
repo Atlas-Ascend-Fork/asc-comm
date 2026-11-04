@@ -25,9 +25,9 @@
 
 头文件路径：`"hcomm/hcomm.h"`。
 
-`AscendC::Hcomm`是AI Core侧点对点通信接口模板，提供普通接口和批量接口两种调用链。普通接口通过`ChannelHandle`提交单个读、写、写通知、原子操作和归约写任务，该调用链需先通过[Init](./Init.md)提供临时工作区，并通过[Commit](./Commit.md)和[Drain](./Drain.md)控制任务提交与完成等待。BatchHandle批量接口支持添加多个任务后统一提交：`COMM_PROTOCOL_UB_CTP`协议支持单通道或多通道批量（多通道模式下多个逻辑通道共享同一个批量句柄及底层通信资源），`COMM_PROTOCOL_ROCE`协议仅支持单通道批量；该调用链不依赖`Init`，其UB（Unified Buffer，统一缓冲区）工作区由[MakeBatchHandle](./MakeBatchHandle.md)提供，完成等待使用批量[Drain](./Drain.md)。
+`AscendC::Hcomm`是AI Core侧点对点通信接口模板，提供普通接口和批量接口两种调用链。普通接口通过`ChannelHandle`添加单个读、写、写通知、原子操作和归约写任务，该调用链需先通过[Init](./Init.md)提供临时工作区，并通过[Commit](./Commit.md)和[Drain](./Drain.md)控制任务提交与完成等待。BatchHandle批量接口支持添加多个任务后统一提交：`COMM_PROTOCOL_UB_CTP`协议支持单通道或多通道批量（多通道模式下多个逻辑通道共享同一个批量句柄及底层通信资源），`COMM_PROTOCOL_ROCE`协议仅支持单通道批量；该调用链不依赖`Init`，其UB（Unified Buffer，统一缓冲区）工作区由[MakeBatchHandle](./MakeBatchHandle.md)提供，完成等待使用批量[Drain](./Drain.md)。
 
-通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：提交通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE）写入CQ，[Drain](./Drain.md)通过轮询CQ等待任务完成。文档中的任务槽位对应SQ中的64字节WQE（Work Queue Element，工作队列元素）Block，任务提交容量即SQ深度（sqDepth），完成记录容量即CQ深度（cqDepth），均由Host侧创建通道资源时确定。
+通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：添加通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE）写入CQ，[Drain](./Drain.md)通过轮询CQ等待任务完成。文档中的任务槽位对应SQ中的64字节WQE（Work Queue Element，工作队列元素）Block，任务提交容量即SQ深度（sqDepth），完成记录容量即CQ深度（cqDepth），均由Host侧创建通道资源时确定。
 
 ## 函数原型
 

@@ -63,7 +63,7 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 
 - 支持`COMM_PROTOCOL_UB_CTP`与`COMM_PROTOCOL_ROCE`协议。
 - 调用前需要通过`Init`为普通接口提供临时工作区。
-- 若`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量（即SQ深度sqDepth）；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+- 若`commit`模板参数设为`false`，积攒的延迟提交任务占用的槽位数之和不得超过`sqDepth`；需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 延迟提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录。对于`COMM_PROTOCOL_UB_CTP`任务，`config`是传入各通信接口的任务配置，其`cqe`字段用于控制该任务是否生成完成记录。中间任务的`config.cqe`设为0，最后一个任务设为1。
 - BatchHandle中的任务只能通过[BatchCommit](./BatchCommit.md)提交，不能在同一通道上混用普通`Commit`和`BatchCommit`。
 

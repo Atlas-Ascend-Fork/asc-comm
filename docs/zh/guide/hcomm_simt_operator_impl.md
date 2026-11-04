@@ -267,6 +267,6 @@ group内每个lane各构造一个请求并添加到当前批次，`BatchCommit`�
 - 缓冲区地址按通道缓冲区表下标解析：本地表下标0为通信域的HcclBuffer，显式注册的内存从下标1开始编排；远端下标取`HcclChannelGetRemoteMems`返回的内存表中按tag匹配到的下标。不能直接传`HcclCommMemReg`的`memHandles`数组下标，否则会解析到HcclBuffer。
 - SIMT路径没有`Commit`接口，`commit = false`的任务由后续`commit = true`的任务提交时带出。
 - 批量提交：同一批次内追加的请求必须使用相同的WQE宽度，混用宽度不受支持；单lane批量当前每批仅支持提交一个任务请求，多lane协同批量每批由group内每个lane各添加一个任务，`BatchCommit`由所有lane协作调用。
-- SQ（Send Queue，发送队列）占用：延迟提交的`WriteNbi`/`ReadNbi`/`WriteValueNbi`占1个任务槽位（延迟提交任务会在自身槽位之外额外预留2个任务槽位，供发布该批的立即提交DWQE使用，容量规划时需计入）；立即提交的`WriteNbi`/`ReadNbi`/`WriteValueNbi`占2个任务槽位；写通知与原子任务无论提交方式均占2个。连续占用的任务槽位总数不得超过通道的任务提交容量（SQ深度sqDepth），需在容量耗尽前由`commit`为`true`的任务提交。
+- SQ（Send Queue，发送队列）占用：延迟提交（`commit`为`false`）的`WriteNbi`/`ReadNbi`/`WriteValueNbi`占1个任务槽位，立即提交（`commit`为`true`）的`WriteNbi`/`ReadNbi`/`WriteValueNbi`占2个任务槽位，写通知与原子任务无论提交方式均占2个任务槽位。`commit`为`false`时，积攒的延迟提交任务占用的槽位数与发布该批的`commit`为`true`任务占用的槽位数之和不得超过通道的任务提交容量（SQ深度sqDepth），需在SQ耗尽前由`commit`为`true`的任务提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 同一通道不能同时由SIMT的`AscendC::simt::Hcomm`与SIMD的`AscendC::Hcomm`驱动。
 - 单次`WriteNbi`/`ReadNbi`的数据长度必须不超过256MB；立即提交的普通接口`WriteNbi`/`ReadNbi`的数据长度`len`至少为2字节。

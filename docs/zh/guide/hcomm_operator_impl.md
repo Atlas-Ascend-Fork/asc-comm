@@ -383,7 +383,7 @@ AllGather：遍历全部对端通道，将本端分片（位于`rankId * SHARD_S
   ret = hcomm.Drain(channel);
   ```
 
-连续积攒的任务槽位不得超过通道的任务提交容量（发送队列深度`sqDepth`），需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+`commit`模板参数设为`false`时，积攒的延迟提交任务占用的槽位数之和不得超过通道的任务提交容量（发送队列深度`sqDepth`），需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 
 ### 批量提交
 

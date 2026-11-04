@@ -69,7 +69,7 @@ __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const
 ## 约束说明
 
 - 仅支持`COMM_PROTOCOL_UB_CTP`协议。
-- 调用前需要通过批量接口（如[WriteNbi](./SIMT_WriteNbi.md)、[ReadNbi](./SIMT_ReadNbi.md)）至少添加一个任务；若自句柄创建或上次提交以来未添加任何任务，本接口返回`-1`，不会发布空的SQ范围。
+- 调用前需要通过批量接口（如[WriteNbi](./SIMT_WriteNbi.md)、[ReadNbi](./SIMT_ReadNbi.md)）至少添加一个任务。
 - 当前单线程批量接口每批仅支持提交一个任务请求；需要提交多个任务时，逐个添加并逐批提交，或使用Group协作批量重载。
 - 若前序添加任务的接口返回`-1`（SQ空间预留失败），不得对该批次调用本接口。
 - 批量路径要求每个任务的`config.cqe`为1（默认`URMA_DEFAULT_CFG`/`URMA_INLINE_CFG`已满足）；自定义`config`时`cqe`为0将导致编译报错。

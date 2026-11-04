@@ -25,7 +25,7 @@
 
 头文件路径：`"hcomm/hcomm_simt.h"`。
 
-提交立即数写任务：将`value`按值携带在任务中，写入远端`dst`，不依赖本端源缓冲区。接口提供普通`channel`重载、批量`batchHandle`重载和批量Group协作重载：批量重载将立即数写任务添加到当前批次，后续由[BatchCommit](./SIMT_BatchCommit.md)统一提交。
+添加立即数写任务：将`value`按值携带在任务中，写入远端`dst`，不依赖本端源缓冲区。接口提供普通`channel`重载、批量`batchHandle`重载和批量Group协作重载：普通重载直接向通道添加立即数写任务；批量重载将立即数写任务添加到当前批次，后续由[BatchCommit](./SIMT_BatchCommit.md)统一提交；Group协作重载由组内多个SIMT线程协作添加批量任务。
 
 ## 函数原型
 
@@ -84,14 +84,14 @@ __simt_callee__ inline int32_t WriteValueNbi(
 ## 约束说明
 
 - 仅支持`COMM_PROTOCOL_UB_CTP`协议。
+- `dst`需要落在通道注册的远端注册内存范围内。
 
 **普通接口**
 
 - 调用前通信通道资源需已完成初始化。
 - `sizeof(T)`必须能放入WQE的内联数据（inline payload）区域。
 - `commit`模板参数设为`false`时任务延迟提交，后续需要由`commit`为`true`的调用统一触发提交。
-- 单个普通立即数写任务的槽位占用与提交方式相关：立即提交（`commit`为`true`）占用2个任务槽位（128字节），延迟提交（`commit`为`false`）占用1个任务槽位（64字节）。
-- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前由`commit`为`true`的任务提交积攒的任务，否则后续任务提交将因SQ溢出而失败。延迟提交（`commit = false`）的任务会在自身槽位之外额外预留2个任务槽位（供发布该批的立即提交任务使用），容量规划时需计入。
+- 单个普通立即数写任务的槽位占用与提交方式相关：立即提交（`commit`为`true`）占用2个任务槽位（128字节），延迟提交（`commit`为`false`）占用1个任务槽位（64字节）；延迟提交时，积攒的任务槽位数与发布该批的`commit`为`true`任务占用的槽位数之和不得超过`sqDepth`，需在SQ耗尽前由`commit`为`true`的任务提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 延迟提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 **批量接口**

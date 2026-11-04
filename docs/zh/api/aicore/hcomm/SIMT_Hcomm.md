@@ -25,9 +25,9 @@
 
 头文件路径：`"hcomm/hcomm_simt.h"`。
 
-`AscendC::simt::Hcomm`是SIMD（Single Instruction Multiple Data，单指令多数据）路径`AscendC::Hcomm`在SIMT（Single Instruction Multiple Threads，单指令多线程）执行空间的对应接口模板，提供相同的点对点通信原语（WriteNbi、ReadNbi等），适用于LocalTensor和pipe同步原语不可用的SIMT Kernel侧代码。普通接口通过`channel`逐条提交读、写、写通知和原子操作任务；批量接口通过[MakeBatchHandle](./SIMT_MakeBatchHandle.md)创建的批量句柄添加任务，再通过[BatchCommit](./SIMT_BatchCommit.md)统一提交。批量任务还支持通过Group协作组由组内多个线程协作提交。
+`AscendC::simt::Hcomm`是SIMD（Single Instruction Multiple Data，单指令多数据）路径`AscendC::Hcomm`在SIMT（Single Instruction Multiple Threads，单指令多线程）执行空间的对应接口模板，提供相同的点对点通信原语（WriteNbi、ReadNbi等），适用于LocalTensor和pipe同步原语不可用的SIMT Kernel侧代码。普通接口通过`channel`逐条添加读、写、写通知和原子操作任务；批量接口通过[MakeBatchHandle](./SIMT_MakeBatchHandle.md)创建的批量句柄添加任务，再通过[BatchCommit](./SIMT_BatchCommit.md)统一提交。批量任务还支持通过Group协作组由组内多个线程协作提交。
 
-通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：提交通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE，Completion Queue Entry）写入CQ，[Drain](./SIMT_Drain.md)通过轮询CQ等待任务完成。任务槽位对应SQ中的WQE（Work Queue Element，工作队列元素），延迟提交的写/读任务占1个任务槽位，立即提交的写/读任务以及写通知/原子任务占2个；任务提交容量即SQ深度（sqDepth），由Host侧创建通道资源时确定。SIMT路径基于`COMM_PROTOCOL_UB_CTP`协议实现，任务通过复制128字节的DWQE（WQE镜像）发布队列门铃（doorbell，通知通信硬件开始处理已组装任务的机制），而非写入标量寄存器。
+通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：添加通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE，Completion Queue Entry）写入CQ，[Drain](./SIMT_Drain.md)通过轮询CQ等待任务完成。任务以WQE（Work Queue Element，工作队列元素）描述，一个WQE占1-2个任务槽位，每个任务槽位为64字节，即一个WQEBB（WQE Basic Block，WQE基本块）。普通接口（`channel`入参）的槽位占用与提交方式相关：立即提交（`commit`为`true`）的写/读任务占2个任务槽位，延迟提交（`commit`为`false`）的写/读任务占1个任务槽位（容量规划时还需为后续的立即提交任务额外计入2个任务槽位）。批量接口（`batchHandle`入参）不提供`commit`参数，固定按延迟语义添加任务：写/读任务占1个任务槽位，写通知/原子任务占2个。任务提交容量即SQ深度（sqDepth），由Host侧创建通道资源时确定。
 
 典型使用流程如下：
 
@@ -60,7 +60,7 @@ class Hcomm;
 
 - 调用通信接口前，通信通道资源需要由调用方完成初始化。
 - Hcomm对象为lane（线程）私有：普通接口由单个线程调用；批量Group协作重载中，一个线程规划SQ（Send Queue）范围，组内每个线程写入各自的任务槽位，[BatchCommit](./SIMT_BatchCommit.md)在这些写入就绪后统一发布。
-- SIMT路径没有独立的Commit接口。`commit`为`false`的任务驻留在发送队列中，直到后续`commit`为`true`的任务触发提交：该任务的门铃发布的生产者索引覆盖整批任务。
+- SIMT路径没有独立的Commit接口。`commit`为`false`的任务驻留在发送队列中，直到后续`commit`为`true`的任务触发提交。
 - 同一通道不能同时被本类和SIMD的`AscendC::Hcomm`驱动。
 
 ## 调用示例
