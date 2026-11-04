@@ -10,7 +10,7 @@ Hcomm是AI Core侧点对点通信接口，通过`AscendC::Hcomm`模板选择通�
 
 | 项目 | 说明 |
 | --- | --- |
-| 通信协议 | 支持`COMM_PROTOCOL_UB_CTP`与`COMM_PROTOCOL_ROCE`，各协议支持的具体接口参见[AI Core Hcomm API](../api/aicore/hcomm/README.md) |
+| 通信协议 | 支持`COMM_PROTOCOL_UB_CTP`与`COMM_PROTOCOL_ROCE`，各协议支持的具体接口参见[AI Core Hcomm API](../../api/aicore/hcomm/README.md) |
 | 通信引擎 | `COMM_ENGINE_AIV` |
 
 <!-- npu="950" id1 -->
@@ -200,7 +200,7 @@ AllGather场景下，通信缓冲区需容纳`nranks`个分片：本端分片预
 
 ### 销毁通信资源
 
-通信任务完成后，销毁通信资源（参见[`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommDestroy.md)）。样例工程中通道与注册内存随通信域统一释放，参见样例[hcomm_urma_write_read_nbi](../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)：
+通信任务完成后，销毁通信资源（参见[`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommDestroy.md)）。样例工程中通道与注册内存随通信域统一释放，参见样例[hcomm_urma_write_read_nbi](../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)：
 
   ```cpp
   // 销毁通信域（通道与注册内存随通信域统一释放）
@@ -419,7 +419,7 @@ AllGather：遍历全部对端通道，将本端分片（位于`rankId * SHARD_S
 
 `remoteAddr`用于指定本批任务访问的远端注册内存：`COMM_PROTOCOL_UB_CTP`协议下该参数不生效，固定使用第一个远端注册buffer；`COMM_PROTOCOL_ROCE`协议必须显式传入（多SGE场景见[多SGE批量读写](#多sge批量读写)）。`BatchCommit`提交成功后，可以复用批量句柄和工作区继续添加并提交下一批任务。
 
-完整流程参见样例[hcomm_roce_batch_write_read](../../../examples/aicore/hcomm/08_hcomm_roce_batch_write_read/README.md)（COMM_PROTOCOL_ROCE协议）。
+完整流程参见样例[hcomm_roce_batch_write_read](../../../../examples/aicore/hcomm/08_hcomm_roce_batch_write_read/README.md)（COMM_PROTOCOL_ROCE协议）。
 
 #### 多通道批量
 
@@ -465,7 +465,7 @@ AI Core侧通过`GetHandleRef`选择逻辑通道（对应`channelDescs`数组下
 
 切换逻辑通道或远端注册内存时，需要重新调用`GetHandleRef`；对同一个多通道批量句柄重复调用时，返回的引用指向同一个内层BatchHandle，并随最近一次调用更新其逻辑通道和远端注册内存选择。
 
-完整流程参见样例[hcomm_urma_batch_write](../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)。
+完整流程参见样例[hcomm_urma_batch_write](../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)。
 
 ## 多SGE批量读写
 
@@ -495,11 +495,11 @@ AI Core侧通过`GetHandleRef`选择逻辑通道（对应`channelDescs`数组下
   ret = hcomm.Drain(batchHandle);
   ```
 
-完整流程参见样例[hcomm_roce_multi_sge](../../../examples/aicore/hcomm/09_hcomm_roce_multi_sge/README.md)。
+完整流程参见样例[hcomm_roce_multi_sge](../../../../examples/aicore/hcomm/09_hcomm_roce_multi_sge/README.md)。
 
 ## 多AI Core共享通道
 
-多个AIV（AI Vector，向量核）共享同一个`COMM_PROTOCOL_UB_CTP`通道时，需通过[Lock](../api/aicore/hcomm/Lock.md)和[Unlock](../api/aicore/hcomm/Unlock.md)保护会更新通道状态的访问。每个AI Core可使用独立的Hcomm对象和UB临时工作区，但传入相同的`ChannelHandle`。锁不可重入，每次成功`Lock`后必须由同一AI Core调用`Unlock`，错误退出路径也需要释放锁；接口仅同步同一设备上共享同一通道的AI Core：
+多个AIV（AI Vector，向量核）共享同一个`COMM_PROTOCOL_UB_CTP`通道时，需通过[Lock](../../api/aicore/hcomm/Lock.md)和[Unlock](../../api/aicore/hcomm/Unlock.md)保护会更新通道状态的访问。每个AI Core可使用独立的Hcomm对象和UB临时工作区，但传入相同的`ChannelHandle`。锁不可重入，每次成功`Lock`后必须由同一AI Core调用`Unlock`，错误退出路径也需要释放锁；接口仅同步同一设备上共享同一通道的AI Core：
 
   ```cpp
   int32_t lockRet = hcomm.Lock(channel);

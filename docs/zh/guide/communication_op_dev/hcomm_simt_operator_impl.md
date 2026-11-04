@@ -40,7 +40,7 @@ Hcomm SIMT通信算子开发分为控制面资源准备和数据面通信执行�
 
 ## 控制面资源准备
 
-除下述两个差异步骤外，SIMT路径的控制面流程与SIMD路径完全一致：初始化运行环境、创建通信域、分配内存并注册通信内存、获取对端链路并创建通道、销毁通信资源等步骤参见[基于Hcomm的通信算子开发指南](hcomm_operator_impl.md#控制面资源准备)，SIMT完整流程样例参见[simt_hcomm_urma](../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md)。
+除下述两个差异步骤外，SIMT路径的控制面流程与SIMD路径完全一致：初始化运行环境、创建通信域、分配内存并注册通信内存、获取对端链路并创建通道、销毁通信资源等步骤参见[基于Hcomm的通信算子开发指南](hcomm_operator_impl.md#控制面资源准备)，SIMT完整流程样例参见[simt_hcomm_urma](../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md)。
 
 差异集中在地址传递方式：SIMT路径Kernel侧按通道缓冲区表下标解析缓冲区地址，因此下述两步由传递64位地址改为传递缓冲区表下标。
 
@@ -257,7 +257,7 @@ group内每个lane各构造一个请求并添加到当前批次，`BatchCommit`�
   }
   ```
 
-完整流程参见样例[simt_hcomm_urma](../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md)（接口功能）、[simt_hcomm_urma_perftest](../../../examples/aicore/hcomm/05_simt_hcomm_urma_perftest/README.md)（发送性能）与[simt_hcomm_urma_batch_perf](../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md)（批量提交方式）。
+完整流程参见样例[simt_hcomm_urma](../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md)（接口功能）、[simt_hcomm_urma_perftest](../../../../examples/aicore/hcomm/05_simt_hcomm_urma_perftest/README.md)（发送性能）与[simt_hcomm_urma_batch_perf](../../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md)（批量提交方式）。
 
 ## 注意事项
 

@@ -50,7 +50,7 @@ int32_t asccomm_write_with_notify_on_thread(ThreadHandle thread, ChannelHandle c
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 带通知的写请求处理成功。[UB类协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)表示任务已提交；[RoCE协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)在返回前检查写操作和通知操作完成结果。 |
+| `ASCCOMM_SUCCESS`（0） | 带通知的写请求处理成功。[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)表示任务已提交；[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)在返回前检查写操作和通知操作完成结果。 |
 | `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | Thread或Channel资源、通信上下文、内存保护参数或远端Notify参数不合法。 |
 | `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |

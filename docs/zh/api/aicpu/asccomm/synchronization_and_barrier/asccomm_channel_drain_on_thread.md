@@ -48,7 +48,7 @@ int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle chann
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 等待处理成功。[RoCE协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)或[UB类协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)内部drain资源缺失时直接返回成功。 |
+| `ASCCOMM_SUCCESS`（0） | 等待处理成功。[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)或[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)内部drain资源缺失时直接返回成功。 |
 | `ASCCOMM_E_PTR` | Thread或Channel句柄为0，或Thread资源、本地任务缓存指针为空。 |
 | `ASCCOMM_E_PARA` | Thread/Channel资源、通信任务提交队列或UB drain资源参数不合法。 |
 | `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |

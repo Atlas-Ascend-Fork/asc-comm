@@ -193,7 +193,7 @@ Order标志可以指定以下两种完成序：
 
 > [!NOTE]说明
 >
-> 本章节代码以Ain接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。Ain接口的使用方法可参考[《基于Ain的通信算子开发指南》](../guide/ain_operator_impl.md)。
+> 本章节代码以Ain接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。Ain接口的使用方法可参考[《基于Ain的通信算子开发指南》](../communication_op_dev/ain_operator_impl.md)。
 
 ### 本端同步
 

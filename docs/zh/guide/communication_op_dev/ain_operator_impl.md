@@ -56,7 +56,7 @@ Ain通信算子开发分为控制面资源准备和数据面通信执行两阶�
 
 通信域内所有rank必须共用同一份rootInfo建域：由root节点（示例中取rank 0）调用[`HcclGetRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclGetRootInfo.md)生成rootInfo，并通过rank间信息交换将同一份rootInfo分发给所有rank，各rank均拿到rootInfo后再共同调用[`HcclCommInitRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)创建通信域。
 
-样例工程通过以rank 0为中心的TCP socket控制通道交换rootInfo，参见[`examples/aicore/utils/rank_sync.h`](../../../examples/aicore/utils/rank_sync.h)（控制通道）与[`examples/aicore/utils/hccl_comm_init.h`](../../../examples/aicore/utils/hccl_comm_init.h)（rootInfo交换与建域）。
+样例工程通过以rank 0为中心的TCP socket控制通道交换rootInfo，参见[`examples/aicore/utils/rank_sync.h`](../../../../examples/aicore/utils/rank_sync.h)（控制通道）与[`examples/aicore/utils/hccl_comm_init.h`](../../../../examples/aicore/utils/hccl_comm_init.h)（rootInfo交换与建域）。
 
   ```cpp
   // 控制通道endpoint（由命令行传入），形如"tcp://ip:port"

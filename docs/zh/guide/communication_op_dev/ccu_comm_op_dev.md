@@ -24,7 +24,7 @@
 
 ## 总体流程
 
-以[allgather](../../../examples/ccu/ccu_direct/01_allgather/README.md)样例为例，CCU AllGather算子的完整实现流程分为Host侧资源准备与Kernel侧通信执行两个阶段，通信完成后销毁资源。
+以[allgather](../../../../examples/ccu/ccu_direct/01_allgather/README.md)样例为例，CCU AllGather算子的完整实现流程分为Host侧资源准备与Kernel侧通信执行两个阶段，通信完成后销毁资源。
 
 **Host侧资源准备**（控制面）：在Host侧完成通信任务执行所需的资源准备、任务下发与资源回收。
 
@@ -44,7 +44,7 @@
 
 Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第5步“下发CCU通信任务”直调Kernel，将Channel句柄、任务参数（taskArgs、kernelArg）随任务下发到Stream；Kernel侧随后通过`ccu::load_arg`加载任务参数、`ccu::get_res_by_channel`绑定Variable，再依次执行前同步、算子执行、后同步。其中前同步属于资源准备在数据面的延伸：Host侧准备的Token等通信内存信息，需经前同步交换到对端后，跨rank搬运才能发起。
 
-本章后续内容按此流程展开，代码关键片段均取自[allgather](../../../examples/ccu/ccu_direct/01_allgather/README.md)样例。
+本章后续内容按此流程展开，代码关键片段均取自[allgather](../../../../examples/ccu/ccu_direct/01_allgather/README.md)样例。
 
 ## Host侧资源准备
 

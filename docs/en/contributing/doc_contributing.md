@@ -10,7 +10,7 @@ The asc-comm documentation system consists of the repository entry, quick start,
 | Quick Start | Environment setup, source download, build, and UT verification | `docs/quick_start_en.md` |
 | Build and Dependencies | Build scripts, CMake entry, and third-party dependency description | `docs/en/compilation` |
 | API Reference | Interface functionality, prototype, parameters, return values, and constraints | `docs/zh/api (Chinese)` |
-| Usage Guide | API invocation workflow, protocol capabilities, and precautions | `docs/zh/guide (Chinese)` |
+| Usage Guide | Programming model and communication operator development guide | `docs/zh/guide/index.md (Chinese)` |
 | Sample Description | Sample directory entry, runtime boundaries, and verification description | `examples/README.md`, `examples/*/README.md` |
 
 ## Contribution Scenarios
@@ -90,30 +90,6 @@ Sample documentation should describe:
 - [ ] The sample description marks the prerequisites, build and run method, and verification method.
 - [ ] Newly added dependencies are synchronously reflected in the third-party software list and Notice.
 - [ ] Capabilities whose code or documentation has not been merged are not described as already supported.
-
-## Documentation System and Link Relationships
-
-The asc-comm documentation forms a navigation relationship through entry documents, guides, API references, and sample descriptions. When adding or modifying a document, follow the principle that "whoever refers to content maintained by another document adds the link".
-
-```text
-README.md ──document entry──→ docs/README.md
-          ──quick start──→ docs/quick_start.md
-          ──build & test──→ docs/zh/compilation/build_and_test.md
-          ──API reference──→ docs/zh/api/README.md
-          ──sample entry──→ examples/README.md
-
-docs/README.md ──quick start──→ docs/quick_start.md
-               ──usage guide──→ docs/zh/guide/hcomm_usage.md
-               ──build & test──→ docs/zh/compilation/build_and_test.md
-               ──API reference──→ docs/zh/api/README.md
-               ──sample entry──→ examples/README.md
-
-docs/zh/guide/ ──first API reference──→ docs/zh/api/README.md
-               ──related samples──→ examples/README.md
-
-docs/zh/api/ ──usage workflow──→ docs/zh/guide/hcomm_usage.md
-             ──invocation example──→ examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md
-```
 
 ## More Information
 

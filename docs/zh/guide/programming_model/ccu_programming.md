@@ -441,7 +441,7 @@ CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>(
 - 相同标签必须对应同一个Kernel：命中缓存后不再执行Kernel函数体，不同Kernel共用标签（同一实例、同一Die下）会复用错误句柄。
 - 多个rank共用进程或CCU实例时，标签需包含rank等区分维度，避免不同rank的Kernel错误复用。
 
-启用缓存的调用方式如下（取自[add_allgather](../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，标签按rankId生成以保证各rank唯一）：
+启用缓存的调用方式如下（取自[add_allgather](../../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，标签按rankId生成以保证各rank唯一）：
 
 ```cpp
 const std::string launchTag = "CcuAllGatherMesh1DMem2MemKernel_rank_" + std::to_string(rankId);

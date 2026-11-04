@@ -49,7 +49,7 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 
 仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`AsccommDataType`各取值的行为如下。
 
-| dataType | [UB类协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择) |
+| dataType | [UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) |
 | --- | --- | --- |
 | `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持归约读。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
 | `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 直接返回成功，但不执行归约读，`dst`不更新。 |

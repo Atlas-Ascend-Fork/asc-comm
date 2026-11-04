@@ -50,7 +50,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`AsccommDataType`各取值的行为如下。
 
-| dataType | [UB类协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择) |
+| dataType | [UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) |
 | --- | --- | --- |
 | `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32` | 支持带通知的归约写。 | 支持带通知的归约写。 |
 | `ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持带通知的归约写。 | 不支持，当前实现返回`ASCCOMM_E_PARA`。 |

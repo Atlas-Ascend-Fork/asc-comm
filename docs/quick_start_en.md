@@ -33,26 +33,15 @@ Select the corresponding environment setup method according to **whether local N
 
 ### 1️⃣ Cloud Development Environment<a name="cloud-dev-env"></a>
 
-Users without physical NPU hardware can directly use the **CANNLab Cloud Development Environment**, a one-stop development platform. It provides an online ready-to-run Ascend ARM environment with pre-installed drivers, firmware, software packages and dependencies without manual setup. This platform currently supports Atlas A2 series products and offers two access methods:
+Users without NPU devices can directly use the **CANNLab Cloud Development Environment**, i.e., a **one-stop development platform**. It provides an online ready-to-run Ascend environment with pre-installed drivers, firmware, software packages, and dependencies, so no manual installation is required.
 
-- **WebIDE**: Lightweight web-based development experience.
-- **VSCode IDE**: Supports remote connection to the cloud development environment with full access to the VSCode extension marketplace.
-
-1. Navigate to the GitCode repository page, click `CANNLab > Cloud Dev`, and log in with your authenticated Huawei Cloud account. Complete registration and authentication following page prompts if you have not done so.
-
-   <p align="center"><img src="./figures/cloudIDE.png" alt="Cloud Platform" width="750px" height="90px"></p>
-
-2. Create an NPU environment and configure specifications following page instructions. After launching the cloud environment, click `Connect > WebIDE or Visual Studio Code` to enter the one-stop platform. Repository resources are located under `/mnt/workspace` by default.
-
-   <p align="center"><img src="./figures/webIDE.png" alt="Cloud Platform" width="1000px" height="150px"></p>
-
-> [!NOTE]
-> Usage Notes
+> [!NOTE]Note
 >
-> - The environment comes with the latest commercial NPU driver, firmware and CANN packages. Match your source code version with installed software.
-> - If you need a specific CANN release, refer to [Download and Install CANN Package](#cann-install).
-> - For more details about **CANNLab Cloud Development Environment**, see [CANNLab Guide](https://gitcode.com/org/cann/discussions/54).
-> - The [Huawei Developer Space Extension](https://marketplace.visualstudio.com/items?itemName=HuaweiCloud.developerspace) enables VSCode IDE connectivity to the cloud environment.
+> - The environment is pre-installed with the latest commercial CANN package by default. Match your source code with the software when downloading. For more information about the one-stop development platform, see [CANNLab Guide](https://gitcode.com/org/cann/cannlab/docs).
+> - To download a specific CANN package version, see [Download and Install CANN Package](#cann-install).
+
+1. Navigate to the open-source repository and click the `CANNLab` button. If you have not registered or authenticated, follow the on-page prompts to complete registration and authentication.
+2. Create an environment and configure the specifications following the page prompts. After the cloud development environment starts, click `Connect` to enter the one-stop development platform.
 
 ### 2️⃣ Official CANN Docker Image<a name="cann-docker-image"></a>
 

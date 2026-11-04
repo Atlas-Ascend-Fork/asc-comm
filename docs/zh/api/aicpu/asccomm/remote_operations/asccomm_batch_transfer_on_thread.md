@@ -101,7 +101,7 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 ## 约束说明
 
 - `transferDescs`不能为NULL，`transferDescNum`必须大于0。
-- 当前实现仅支持[UB类协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)；[RoCE协议](../../../../programming_model/communication_pattern_selection.md#通信协议分类与选择)返回`ASCCOMM_E_NOT_SUPPORT`。
+- 当前实现仅支持[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)；[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)返回`ASCCOMM_E_NOT_SUPPORT`。
 - 除`ASCCOMM_TRANSFER_TYPE_NOTIFY_RECORD`外，每个描述符的源地址和目的地址均不能为NULL，且地址范围须落在通道已注册的通信内存范围内。
 - 带通知的传输任务和通知记录任务中的`notifyIdx`必须对应Channel的有效远端Notify资源。
 

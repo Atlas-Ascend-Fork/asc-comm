@@ -33,26 +33,15 @@
 
 ### 1️⃣ 云开发环境<a name="cloud-dev-env"></a>
 
-对于无NPU设备的用户，可直接使用**CANNLab云开发环境**，即"**一站式开发平台**"，该平台提供了在线可直接运行的昇腾ARM架构环境，环境中已安装必备的驱动固件、软件包和依赖，无需手动安装。该平台目前仅适用于Atlas A2系列产品，提供两种接入方式：
+对于无NPU设备的用户，可直接使用**CANNLab云开发环境**，即“**一站式开发平台**”，该平台提供了在线可直接运行的昇腾环境，环境中已安装必备的驱动固件、软件包和依赖，无需手动安装。
 
-- **WebIDE**，提供网页版的便携开发体验。
-- **VSCode IDE**，支持远程连接**云开发环境**，提供VSCode强大插件市场的支持。
-
-1. 进入开源仓Gitcode页面，单击"`CANNLab > 云开发`"按钮，使用已认证过的华为云账号登录。若未注册或认证，请根据页面提示进行注册和认证。
-
-   <p align="center"><img src="./figures/cloudIDE.png" alt="云平台" width="750px" height="90px"></p>
-
-2. 根据页面提示创建NPU环境并配置规格，启动云开发环境后，单击"`连接 > WebIDE或Visual Studio Code`"进入一站式开发平台。开源项目的资源默认在`/mnt/workspace`目录下。
-
-   <p align="center"><img src="./figures/webIDE.png" alt="云平台" width="1000px" height="150px"></p>
-
-> [!NOTE]
-> 使用说明
+> [!NOTE]说明
 >
-> - 环境默认安装了最新的商用版NPU驱动和固件、CANN包，源码下载时注意与软件配套。
+> - 环境默认安装最新商发版CANN包，源码下载时注意与软件配套。更多关于一站式开发平台的介绍请参考[CANNLab指导](https://gitcode.com/org/cann/cannlab/docs)。
 > - 如需下载特定版本的CANN包，请参考[下载安装CANN包](#cann-install)。
-> - 更多关于**CANNLab云开发环境**的介绍，请参考[CANNLab指导](https://gitcode.com/org/cann/discussions/54)。
-> - [Huawei Developer Space插件](https://marketplace.visualstudio.com/items?itemName=HuaweiCloud.developerspace)为VSCode IDE接入**云开发环境**提供技术支持。
+
+1. 进入开源项目，单击“`CANNLab`”按钮，若未注册或认证，请根据页面提示进行注册和认证。
+2. 根据页面提示创建环境并配置规格，启动云开发环境后，单击“连接”进入一站式开发平台。
 
 ### 2️⃣ CANN官方Docker镜像<a name="cann-docker-image"></a>
 

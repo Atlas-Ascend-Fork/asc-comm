@@ -6,15 +6,17 @@
 
 ```text
 docs/
-├── zh/api/              # 中文API参考文档
-├── zh/guide/            # 中文使用指南
-├── zh/programming_model/ # 中文编程模型文档
-├── zh/compilation/      # 构建及三方依赖文档
-├── zh/contributing/     # 贡献指南
-├── en/compilation/      # 构建及三方依赖英文文档
-├── en/contributing/     # 英文贡献指南
-├── quick_start.md       # 快速开始
-└── quick_start_en.md    # 快速开始英文版
+├── zh/api/                    # 中文API参考文档
+├── zh/guide/                  # 中文使用指南
+│   ├── index.md               # 使用指南入口
+│   ├── communication_op_dev/  # 通信算子开发指南
+│   └── programming_model/     # 编程模型
+├── zh/compilation/            # 构建及三方依赖文档
+├── zh/contributing/           # 贡献指南
+├── en/compilation/            # 构建及三方依赖英文文档
+├── en/contributing/           # 英文贡献指南
+├── quick_start.md             # 快速开始
+└── quick_start_en.md          # 快速开始英文版
 ```
 
 ## 文档入口
@@ -22,9 +24,8 @@ docs/
 | 文档 | 内容 |
 | --- | --- |
 | [快速开始](./quick_start.md) | asc-comm环境准备、源码编译和UT验证。 |
-| [编程模型](./zh/programming_model/overview.md) | Ascend C通信编程范式、抽象硬件架构及通信方式的分类与选择。 |
-| [API参考](./zh/api/README.md) | asc-comm当前公开接口列表。 |
-| [Hcomm使用说明](./zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
+| [通信编程](./zh/guide/index.md) | 编程模型与通信算子开发指南入口。 |
+| [API参考](./zh/api/index.md) | asc-comm当前公开接口列表。 |
 | [构建与测试](./zh/compilation/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
 | [三方依赖与兼容性](./zh/compilation/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
 | [API文档贡献指南](./zh/contributing/api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |
