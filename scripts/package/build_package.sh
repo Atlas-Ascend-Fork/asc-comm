@@ -159,6 +159,26 @@ find_ccu_libraries()
     CCU_RUNTIME_LIBRARY="${runtime_library}"
 }
 
+find_cpu_ts_library()
+{
+    local build_dir="${PROJECT_ROOT}/build/package-cpuTs"
+    local library="${build_dir}/src/cpu/libasccomm_cpu.so"
+
+    cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
+        -Wno-dev \
+        -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
+        -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DASCCOMM_BUILD_CCU=OFF \
+        -DASCCOMM_BUILD_CCU_RUNTIME=OFF \
+        -DASCCOMM_BUILD_AICPU=OFF \
+        -DASCCOMM_BUILD_CPU_TS=ON
+
+    cmake --build "${build_dir}" --target asccomm_cpu_ts
+    [[ -f "${library}" ]] || fail "CPU TS library was not built: ${library}"
+    CPU_TS_LIBRARY="${library}"
+}
+
 read_package_version()
 {
     local package=$1
@@ -295,6 +315,7 @@ build_package()
     makeself_dir=$(find_makeself_dir)
     version_checker_dir=$(find_version_checker_dir)
     find_ccu_libraries
+    find_cpu_ts_library
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -328,6 +349,8 @@ build_package()
         aicore/hcomm
     install -D -m 550 "${CCU_LIBRARY}" \
         "${STAGING_DIR}/payload/asc/lib64/libasccomm_ccu.so"
+    install -D -m 550 "${CPU_TS_LIBRARY}" \
+        "${STAGING_DIR}/payload/asc/lib64/libasccomm_cpu.so"
     install -D -m 550 "${CCU_RUNTIME_LIBRARY}" \
         "${STAGING_DIR}/payload/lib64/libccu_runtime.so"
     write_manifest

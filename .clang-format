@@ -4,6 +4,7 @@
 
 BasedOnStyle: Google
 ColumnLimit: 120
+ReflowComments: false
 AccessModifierOffset: -4
 SortIncludes: false
 BreakBeforeBraces:  Custom

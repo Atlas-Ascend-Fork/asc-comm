@@ -27,6 +27,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU library" ON)
 option(ASCCOMM_BUILD_CCU_RUNTIME "Build the compiler-facing CCU runtime library" ON)
 option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
+option(ASCCOMM_BUILD_CPU_TS "Build asc-comm CPU TS synchronization library" ON)
 option(ASCCOMM_BUILD_MC2 "Build MC2 communication client library (migrated from asc-devkit hccl)" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
@@ -61,6 +62,10 @@ if(ASCCOMM_BUILD_CCU)
 endif()
 if(ASCCOMM_BUILD_AICPU)
     add_subdirectory(src/aicpu)
+endif()
+
+if(ASCCOMM_BUILD_CPU_TS)
+    add_subdirectory(src/cpu)
 endif()
 
 if(ASCCOMM_BUILD_MC2)
