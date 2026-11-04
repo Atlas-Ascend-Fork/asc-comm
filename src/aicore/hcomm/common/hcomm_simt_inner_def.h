@@ -62,6 +62,7 @@ struct HcommSimtChannelEntity {
     uint64_t remoteBufferAddr;
     uint64_t sqContextAddr;
     uint64_t cqContextAddr;
+    uint8_t resv1[48]; // for other data seg in aicpu
     // Unused by SIMT, which packs curHead and wqeCnt into the single u64 at
     // SqContext::ubJfs::headAddr so both advance in one store. RoCE AIV uses each value as
     // a WQEBB index. Listed only to keep this view field-for-field identical to ChannelEntity.
@@ -69,7 +70,7 @@ struct HcommSimtChannelEntity {
     uint32_t sqTail;
     uint32_t cqHead;
     uint32_t cqTail;
-    uint8_t reserve[144];
+    uint8_t reserve[96];
 };
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");

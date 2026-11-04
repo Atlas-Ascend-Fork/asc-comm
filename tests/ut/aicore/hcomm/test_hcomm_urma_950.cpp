@@ -47,7 +47,7 @@ AscendC::LocalTensor<uint8_t> WrapUbBuffer(std::array<uint8_t, N>& buffer)
     return tensor;
 }
 
-static_assert(offsetof(AscendC::ChannelEntity, sqHead) == 96);
+static_assert(offsetof(AscendC::ChannelEntity, sqHead) == 144);
 static_assert(sizeof(AscendC::ChannelEntity) == 256);
 
 class UrmaChannelResource {

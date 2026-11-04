@@ -26,6 +26,12 @@ inline T ld_dev(__gm__ T* src, int16_t)
     return *reinterpret_cast<const T*>(src);
 }
 
+template <typename T>
+inline void st_dev(T src, __gm__ T* dst, int16_t)
+{
+    *reinterpret_cast<T*>(dst) = src;
+}
+
 inline void DataCopy(const LocalTensor<uint32_t>& dst, const GlobalTensor<uint32_t>& src, const uint32_t count)
 {
     ASSERT_GE(dst.GetSize(), count);
@@ -720,4 +726,40 @@ TEST_F(HcommRoCETestSuite, BatchCommitPreservesWqebbCounter)
     SetCqe(1, 2);
     ASSERT_EQ(hcomm.Drain(channelHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqTail, 3U);
+}
+
+TEST_F(HcommRoCETestSuite, BatchCommitWritesNextWqebbOwnerMarker)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    channel_.sqHead = 0U;
+    channel_.sqTail = 0U;
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_[128], 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    ASSERT_NE(batchHandle.channelHandle, 0U);
+
+    ASSERT_EQ(
+        hcomm.WriteNbi<kRoceNoCqeCfg>(
+            batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        HCOMM_SUCCESS);
+    ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
+
+    EXPECT_EQ(sqVa_[HCOMM_ROCE_WQEBB_SIZE], 0xffU);
+    EXPECT_EQ(channel_.sqHead, 1U);
+}
+
+TEST_F(HcommRoCETestSuite, MakeWqeWritesNextWqebbOwnerMarker)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ASSERT_EQ(hcomm.Init(tempTensor_, HCOMM_UB_BUF_SIZE), HCOMM_SUCCESS);
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    channel_.sqHead = 0U;
+    channel_.sqTail = 0U;
+
+    int32_t ret = hcomm.WriteNbi<false, PIPE_S, PIPE_MTE3>(
+        channelHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10);
+    ASSERT_EQ(ret, HCOMM_SUCCESS);
+
+    EXPECT_EQ(sqVa_[HCOMM_ROCE_WQEBB_SIZE], 0xffU);
+    EXPECT_EQ(channel_.sqHead, 1U);
 }

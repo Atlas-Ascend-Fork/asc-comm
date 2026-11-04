@@ -120,9 +120,10 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillDataSeg(
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::WriteInvalidWqebb(
     __gm__ uint8_t* sqAddr, uint32_t sqHead, uint32_t sqDepth)
 {
-    __gm__ RoceWqeCtrlSeg* ctrl = (__gm__ RoceWqeCtrlSeg*)sqAddr;
-    ctrl->ownerSl = ((sqHead & sqDepth) == 0) ? 0xff : 0x7f;
-    CacheWriteThrough<uint8_t>(sqAddr, 1);
+    const uint8_t ownerSl = ((sqHead & sqDepth) == 0) ? 0xff : 0x7f;
+    // A device store bypasses the scalar cache and avoids a full cache-line
+    // clean/invalidation for this one-byte producer marker.
+    st_dev(ownerSl, sqAddr, 0);
 }
 
 template <auto const& config, HCOMM_ROCE_OP_TYPE opType>
@@ -149,9 +150,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     FillCtrlSeg<config>(wqePtr, sqHead, sqDepth);
     FillTaskSeg<config, opType>(wqePtr, dst, len, rKey, lKey);
     FillDataSeg(wqePtr, src, len, lKey);
-    WriteInvalidWqebb(sqAddrNext, nextWqebbIndex, sqDepth);
     SyncAction<PIPE_S, PIPE_MTE3>(EVENT_ID7);
     DataCopy(sqGlobal, wqeUB_, sizeof(RoceWqeEntry) / sizeof(uint32_t));
+    // The next-slot marker only needs to be visible before the eventual doorbell. Issue it after the
+    // WQE copy so the device store overlaps MTE3 instead of blocking the scalar pipe first.
+    WriteInvalidWqebb(sqAddrNext, nextWqebbIndex, sqDepth);
     // Wait until MTE3 has finished reading wqeUB_ before Scalar can reuse it.
     SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID7);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm MakeWqe: set wqe to qp ok.\n");
@@ -306,6 +309,8 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ Chann
         sqHead, chnlPtr->sqContextAddr->contextInfo.roceSq.qpn,
         chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
     __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
+    // SQ WQEBBs and the invalid owner marker must reach DDR before the doorbell notifies the NIC.
+    asc_sync_data_barrier(DSB_DDR);
     st_dev(dbValue, dbHwAddr + (sqHead & 0xff), 0);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbValue);
 
@@ -728,8 +733,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
     uint32_t newSqHead = (startWqebbIndex + preSqCnt) & ROCE_SQ_INDEX_MASK;
     uint32_t sqHead = startWqebbIndex;
     uint64_t sqBaseAddr = batchHandle.sqContext.contextInfo.roceSq.sqVa;
-    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((newSqHead) & (sqDepth - 1)) * HCOMM_ROCE_WQEBB_SIZE);
-    WriteInvalidWqebb(sqAddrNext, newSqHead, sqDepth);
 
     uint32_t startSlot = sqHead % sqDepth;
     uint32_t tailWqebbCount = sqDepth - startSlot;
@@ -750,7 +753,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
         // The batch crosses the SQ boundary; copy the remaining WQEBBs to the beginning of the circular SQ.
         DataCopy(secondDst, secondSrc, secondWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM);
     }
+    // The next-slot marker only needs to be visible before this commit's doorbell. Issue it after the
+    // WQE copies so the device store overlaps MTE3 instead of blocking the scalar pipe first.
+    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((newSqHead) & (sqDepth - 1)) * HCOMM_ROCE_WQEBB_SIZE);
+    WriteInvalidWqebb(sqAddrNext, newSqHead, sqDepth);
     SyncAction<PIPE_MTE3, PIPE_S>(EVENT_ID7);
+
     chnlPtr->sqHead = newSqHead;
     chnlPtr->cqHead = batchHandle.cursor.cqHead;
     KnockDoorBell(chnlPtr, newSqHead);

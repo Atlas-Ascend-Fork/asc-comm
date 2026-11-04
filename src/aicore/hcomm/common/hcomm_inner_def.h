@@ -256,13 +256,14 @@ typedef struct {
     RegedBufferEntity* remoteBufferAddr;
     SqContext* sqContextAddr;
     CqContext* cqContextAddr;
+    uint8_t resv1[48]; // for other data seg in aicpu
     // RoCE and URMA both use this field as the SQ producer WQEBB index.
     uint32_t sqHead;
     // Completed SQ consumer WQEBB index.
     uint32_t sqTail;
     uint32_t cqHead; // Number of expected CQEs
     uint32_t cqTail; // Number of consumed CQEs
-    uint8_t reserve[144];
+    uint8_t reserve[96];
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
