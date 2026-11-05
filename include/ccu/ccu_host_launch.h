@@ -38,12 +38,33 @@ typedef struct {
     void* attrs;
 } asccomm_launch_kernel_cfg;
 
+// hcomm 旧调用方的驼峰风格配置，逐字段等价于 asccomm_launch_kernel_cfg；
+typedef struct {
+    uint32_t numBlocks; // mission 个数
+    uint32_t reserved;
+    uint64_t phyDieMask; // 按位表示 0x01表示die0 0x02表示die1
+    uint64_t binaryCacheTag;
+} HcommCcuSchd;
+
+typedef struct {
+    HcommCcuSchd ccuSchd;
+    CcuInsHandle ccuIns;
+    aclrtStream stream;
+    void* attrs;
+} HcommLaunchKernelCfg;
+
 typedef CcuResult ccu_result;
 
 extern ccu_result asccomm_ccu_host_kernel_launch(
     const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args);
 
 extern uint64_t asccomm_ccu_get_launch_hash_tag(const char* tag);
+
+// 兼容入口
+extern CcuResult HcommCcuHostKernelLaunch(
+    const void* kernel_func, const char* kernel_name, const HcommLaunchKernelCfg* cfg, void* args);
+
+extern uint64_t HcommCcuGetLaunchHashTag(const char* tag);
 
 #ifdef __cplusplus
 }
