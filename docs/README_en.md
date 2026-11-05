@@ -7,6 +7,7 @@ English | [简体中文](./README.md)
 ```text
 docs/
 ├── zh/api/                    # Chinese API reference documentation
+├── zh/experimental/           # CCU 2.0 experimental documentation (Chinese)
 ├── zh/guide/                  # Chinese usage guides
 │   ├── index.md               # Usage guide index
 │   ├── communication_op_dev/  # Communication operator development guide
@@ -26,6 +27,7 @@ docs/
 | [Quick Start](./quick_start_en.md) | Environment setup, source compilation, and UT verification for asc-comm. |
 | [Communication Programming (Chinese)](./zh/guide/index.md) | Entry point for programming model and communication operator development guides. |
 | [API Reference (Chinese)](./zh/api/index.md) | List of currently published asc-comm interfaces. |
+| [CCU Experimental Documentation (Chinese)](./zh/experimental/README.md) | CCU 2.0 kernel development, compilation, and execution guide. |
 | [Build & Test](./en/compilation/build_and_test.md) | CANN environment, development run package, UT build, and sample build instructions. |
 | [Third-party Dependencies & Compatibility](./en/compilation/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration, and integration dependency boundaries. |
 | [API Documentation Contribution Guide](./en/contributing/api_contributing.md) | Structure, constraints, and checklist for adding or updating API documentation. |
