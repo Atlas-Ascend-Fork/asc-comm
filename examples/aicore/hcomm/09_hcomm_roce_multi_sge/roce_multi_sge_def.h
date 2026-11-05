@@ -22,7 +22,6 @@ namespace HcommRoceMultiSge {
 
 constexpr int32_t SUCCESS = 0;
 constexpr int32_t FAIL = -1;
-constexpr uint32_t PARTICIPANT_RANK_NUM = 2U;
 
 constexpr uint32_t CALL_COUNT = 128U;
 constexpr uint32_t SGE_COUNT = 8U;
@@ -67,6 +66,8 @@ struct KernelContext {
     KernelResult result;
     int32_t hcommResult;
 };
+
+inline uint32_t PeerRank(uint32_t rank, uint32_t rankNum) { return (rank + rankNum / 2U) % rankNum; }
 
 } // namespace HcommRoceMultiSge
 

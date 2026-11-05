@@ -33,7 +33,7 @@ constexpr uint64_t SEND_DATA_OFFSET = 0U;
 constexpr uint64_t WRITE_RESULT_OFFSET = SEGMENT_BYTES;
 constexpr uint64_t READ_RESULT_OFFSET = 2U * SEGMENT_BYTES;
 
-constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_ROCE;
+inline uint32_t PeerRank(uint32_t rank, uint32_t rankNum) { return (rank + rankNum / 2U) % rankNum; }
 
 // RoCE batch WQEs occupy one 64-byte basic block. The batch contains 1000 writes and 1000 reads.
 constexpr uint32_t ROCE_WQEBB_BYTES = 64U;

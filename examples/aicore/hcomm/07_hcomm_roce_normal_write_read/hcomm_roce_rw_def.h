@@ -31,7 +31,7 @@ constexpr uint64_t SEND_DATA_OFFSET = 0U;
 constexpr uint64_t WRITE_RESULT_OFFSET = DATA_SIZE;
 constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
 
-constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_ROCE;
+inline uint32_t PeerRank(uint32_t rank, uint32_t rankNum) { return (rank + rankNum / 2U) % rankNum; }
 
 constexpr uint32_t HCOMM_WORKSPACE_SIZE = 512U;
 

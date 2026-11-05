@@ -22,7 +22,7 @@
   CQE，`Drain` 内的 `PollCq` 只需处理对应的完成事件。
 - 128 次 `WriteNbi` 全部加入同一个 batch handle 后，执行一次 `BatchCommit` 和 `Drain`；
   128 次 `ReadNbi` 同样一次性提交和清排。
-- rank 0 执行写请求，rank 1 校验落地数据；rank 1 再执行读请求并校验本端离散段内容。
+- rank i 与 rank i + N/2 两两成对通信。每个 pair 中，低 rank 执行写请求，高 rank 校验落地数据；高 rank 再执行读请求并校验本端离散段内容。
 
 ## 目录结构
 
@@ -43,8 +43,8 @@
 | 偏移 | 大小 | 用途 |
 | --- | ---: | --- |
 | `[0, 131072)` | 131072B | 本地离散源数据，128次调用 × 8段，每段64B、步长128B |
-| `[131072, 196608)` | 65536B | 连续源数据，128条512B消息；rank 0初始化，rank 1通过 `ReadNbi` 读取 |
-| `[196608, 262144)` | 65536B | rank 1接收rank 0通过 `WriteNbi` 写入的128条512B连续消息 |
+| `[131072, 196608)` | 65536B | 连续源数据，128条512B消息；每个pair的低rank初始化，高rank通过 `ReadNbi` 读取 |
+| `[196608, 262144)` | 65536B | 每个pair的高rank接收低rank通过 `WriteNbi` 写入的128条512B连续消息 |
 | `[262144, 393216)` | 131072B | 保存 `ReadNbi` 写回的本地离散结果，每段64B、步长128B |
 
 批量WQE缓冲区位于Kernel的VECOUT UB，大小为 `128 * 3 * 64` 字节，可容纳一次提交的全部WQE。
@@ -57,18 +57,21 @@ RoCE 批量多 SGE 接口。
 ```bash
 cd examples/aicore/hcomm/09_hcomm_roce_multi_sge
 source ${install_path}/cann/set_env.sh
-mkdir -p build
+export MPI_HOME=/usr/local/mpich
+mkdir build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
 make -j
 ```
+
+如果要使能 `ASCENDC_DEBUG`，请使用 `cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON ..`。
 
 ## 使能MPI环境变量
 
 此处内容根据实际环境中MPI安装路径进行调整。
 
 ```bash
-export MPI_HOME=/usr/local/mpi/mpich
+export MPI_HOME=/usr/local/mpich
 export PATH="${MPI_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${MPI_HOME}/lib:${LD_LIBRARY_PATH:-}"
 ```
@@ -78,21 +81,25 @@ export LD_LIBRARY_PATH="${MPI_HOME}/lib:${LD_LIBRARY_PATH:-}"
 ```bash
 cd examples/aicore/hcomm/09_hcomm_roce_multi_sge
 source ${install_path}/cann/set_env.sh
-mpirun -n 2 $(pwd)/build/hcomm_roce_multi_sge
+mpirun -n 4 $(pwd)/build/hcomm_roce_multi_sge
 ```
+
+`-n 4` 表示启动4个MPI进程，即4个通信rank；每个进程默认使用同编号的NPU。4可按实际NPU数量替换，必须是大于等于2的偶数。
 
 运行成功时输出：
 
 ```text
-[rank 0] hcomm_roce_multi_sge | WriteNbi=128 SGEs=8 | PASS
-[rank 1] hcomm_roce_multi_sge | ReadNbi=128 SGEs=8 | PASS
+[rank 1] hcomm_roce_multi_sge | peer=0 WriteNbi=128 SGEs=8 | PASS
+[rank 1] hcomm_roce_multi_sge | peer=0 ReadNbi=128 SGEs=8 | PASS
+[rank 3] hcomm_roce_multi_sge | peer=1 WriteNbi=128 SGEs=8 | PASS
+[rank 3] hcomm_roce_multi_sge | peer=1 ReadNbi=128 SGEs=8 | PASS
 RESULT | Example=hcomm_roce_multi_sge | Status=PASS
 ```
 
 ## 注意事项
 
-- 运行需要至少2张NPU，且每个节点上的MPI本地rank数不超过可用NPU数量。
-- rank 0与rank 1之间必须存在RoCE链路，且通道协议使用COMM_PROTOCOL_ROCE。
+- 运行需要至少2张NPU，rank数必须为偶数且不超过可用NPU数量。
+- 每对 rank i 与 rank i + N/2 之间必须存在RoCE链路，且通道协议使用COMM_PROTOCOL_ROCE。
 - CANN安装包必须包含RoCE批量多SGE接口。
 - 128次WriteNbi或ReadNbi调用使用同一个batch handle一次性提交，然后统一Drain。
 - 本地段地址和长度由srcDescs/dstDescs描述，所有段必须位于已注册的通信内存内。
