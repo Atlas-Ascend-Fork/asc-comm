@@ -11,11 +11,29 @@
 #ifndef CCU_RUNTIME_BACKEND_H
 #define CCU_RUNTIME_BACKEND_H
 
-#include "ccu/experimental/ccu_runtime.h"
+#include "ccu_runtime_abi.h"
 
 #include <cstdint>
 
+typedef struct ccu_context ccu_context_t;
+
+struct ccu_context_options_t {
+    uint32_t struct_size;
+    void* communicator;
+    uint64_t default_sync_timeout_ms;
+    uint64_t abort_timeout_ms;
+    uint64_t reserved[4];
+};
+
+extern "C" ccu_status_t ccu_context_create(const ccu_context_options_t* options, ccu_context_t** context);
+extern "C" ccu_status_t ccu_context_destroy(ccu_context_t** context);
+extern "C" ccu_status_t ccu_context_bind_instance(ccu_context_t* context, ccu_instance_t* instance);
+
 namespace ccu::runtime {
+
+// Internal result metadata for runtime timeout/abort handling. Not part of the
+// compiler-facing public C ABI.
+enum ccu_abort_action_t : uint32_t { CCU_ABORT_NONE = 0, CCU_ABORT_STREAM_ONLY = 1, CCU_ABORT_DEVICE = 2 };
 
 struct BackendSyncResult {
     ccu_status_t status = CCU_STATUS_RUNTIME_ERROR;
@@ -48,7 +66,7 @@ public:
     virtual ccu_status_t externalXnVa(void* context, uint32_t count, void** xnSet, uint64_t* vas) noexcept = 0;
     virtual ccu_status_t launch(
         void* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
-        HcomCcuSchd schd, const ccu_task_arg_t* arguments, uint32_t argumentCount,
+        HcomCcuSchd schd, const uint64_t* arguments, uint32_t argumentCount,
         const BackendExternalArg* externalArguments, uint32_t externalArgumentCount, void** launch) noexcept = 0;
     virtual BackendSyncResult synchronize(void* launch, uint64_t syncTimeoutMs, uint64_t abortTimeoutMs) noexcept = 0;
     virtual ccu_status_t launchDestroy(void* launch) noexcept = 0;

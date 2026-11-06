@@ -12,7 +12,6 @@
 #include "ccu_runtime_backend.h"
 #include "ccu_runtime_external.h"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -28,6 +27,9 @@
 #include <vector>
 
 namespace rt = ccu::runtime;
+using rt::ccu_abort_action_t;
+using rt::CCU_ABORT_DEVICE;
+using rt::CCU_ABORT_NONE;
 
 struct ccu_external_event_set;
 struct ccu_external_xn_set;
@@ -46,14 +48,17 @@ namespace {
 constexpr uint32_t kCcuobjVersion = 1;
 constexpr uint32_t kCcuobjAbiRevision = 4;
 constexpr uint32_t kMaxSpecializationBitWidth = 64;
-constexpr const char* kTarget = "a5";
+constexpr const char* kNpuArch = "dav-3510";
+constexpr uint64_t kDefaultSyncTimeoutMs = 30000;
+constexpr uint64_t kDefaultAbortTimeoutMs = 10000;
 
 template <size_t N>
 bool allZero(const uint64_t (&values)[N])
 {
-    for (uint64_t value : values)
+    for (uint64_t value : values) {
         if (value != 0)
             return false;
+    }
     return true;
 }
 
@@ -73,169 +78,12 @@ ccu_status_t invalidObject(const char* reason)
 
 constexpr uint32_t kBitsPerByte = 8;
 constexpr size_t kCcuobjHeaderSize = 64;
-constexpr uint32_t kSha256WordBits = 32;
-constexpr size_t kSha256BlockSize = 64;
-constexpr size_t kSha256WordsPerBlock = 16;
-constexpr size_t kSha256WordCount = 64;
-constexpr size_t kSha256StateSize = 8;
-constexpr size_t kSha256DigestBytes = 32;
-constexpr size_t kSha256TailSize = 128;
-constexpr size_t kSha256LengthBytes = 8;
-constexpr size_t kSha256BytesPerWord = 4;
-constexpr uint32_t kSha256FirstByteShift = 24;
-constexpr uint32_t kSha256SecondByteShift = 16;
-constexpr uint32_t kSha256ThirdByteShift = 8;
-constexpr size_t kSha256TailDataLimit = 56;
-constexpr size_t kSha256StateByte0Shift = 24;
-constexpr size_t kSha256StateByte1Shift = 16;
-constexpr size_t kSha256StateByte2Shift = 8;
-
-uint32_t rotateRight(uint32_t value, uint32_t amount)
-{
-    return (value >> amount) | (value << (kSha256WordBits - amount));
-}
-
-constexpr uint32_t kSha256FirstWordOffset = 15;
-constexpr uint32_t kSha256SecondWordOffset = 2;
-constexpr uint32_t kSha256FirstRotate7 = 7;
-constexpr uint32_t kSha256FirstRotate18 = 18;
-constexpr uint32_t kSha256FirstShift3 = 3;
-constexpr uint32_t kSha256SecondRotate17 = 17;
-constexpr uint32_t kSha256SecondRotate19 = 19;
-constexpr uint32_t kSha256SecondShift10 = 10;
-
-void loadSha256Words(uint32_t words[kSha256WordCount], const uint8_t block[kSha256BlockSize])
-{
-    for (size_t index = 0; index < kSha256WordsPerBlock; ++index) {
-        const size_t offset = index * kSha256BytesPerWord;
-        words[index] = (static_cast<uint32_t>(block[offset]) << kSha256FirstByteShift) |
-                       (static_cast<uint32_t>(block[offset + 1]) << kSha256SecondByteShift) |
-                       (static_cast<uint32_t>(block[offset + 2]) << kSha256ThirdByteShift) |
-                       static_cast<uint32_t>(block[offset + 3]);
-    }
-    for (size_t index = kSha256WordsPerBlock; index < kSha256WordCount; ++index) {
-        const uint32_t prior15 = words[index - kSha256FirstWordOffset];
-        const uint32_t prior2 = words[index - kSha256SecondWordOffset];
-        const uint32_t s0 = rotateRight(prior15, kSha256FirstRotate7) ^ rotateRight(prior15, kSha256FirstRotate18) ^
-                            (prior15 >> kSha256FirstShift3);
-        const uint32_t s1 = rotateRight(prior2, kSha256SecondRotate17) ^ rotateRight(prior2, kSha256SecondRotate19) ^
-                            (prior2 >> kSha256SecondShift10);
-        words[index] = words[index - 16] + s0 + words[index - 7] + s1;
-    }
-}
-
-struct Sha256Work {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
-    uint32_t e;
-    uint32_t f;
-    uint32_t g;
-    uint32_t h;
-};
-
-Sha256Work initialSha256Work(const std::array<uint32_t, 8>& state)
-{
-    return {state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7]};
-}
-
-void compressSha256Word(Sha256Work& work, uint32_t constant, uint32_t word)
-{
-    const uint32_t s1 = rotateRight(work.e, 6) ^ rotateRight(work.e, 11) ^ rotateRight(work.e, 25);
-    const uint32_t choose = (work.e & work.f) ^ (~work.e & work.g);
-    const uint32_t first = work.h + s1 + choose + constant + word;
-    const uint32_t s0 = rotateRight(work.a, 2) ^ rotateRight(work.a, 13) ^ rotateRight(work.a, 22);
-    const uint32_t majority = (work.a & work.b) ^ (work.a & work.c) ^ (work.b & work.c);
-    const uint32_t second = s0 + majority;
-    work.h = work.g;
-    work.g = work.f;
-    work.f = work.e;
-    work.e = work.d + first;
-    work.d = work.c;
-    work.c = work.b;
-    work.b = work.a;
-    work.a = first + second;
-}
-
-void sha256Transform(std::array<uint32_t, 8>& state, const uint8_t block[kSha256BlockSize])
-{
-    static constexpr uint32_t constants[kSha256WordCount] = {
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
-
-    uint32_t words[kSha256WordCount];
-    loadSha256Words(words, block);
-    Sha256Work work = initialSha256Work(state);
-    for (size_t index = 0; index < kSha256WordCount; ++index)
-        compressSha256Word(work, constants[index], words[index]);
-
-    state[0] += work.a;
-    state[1] += work.b;
-    state[2] += work.c;
-    state[3] += work.d;
-    state[4] += work.e;
-    state[5] += work.f;
-    state[6] += work.g;
-    state[7] += work.h;
-}
-
-std::array<uint8_t, kSha256DigestBytes> sha256(const uint8_t* data, size_t size)
-{
-    std::array<uint32_t, kSha256StateSize> state = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-                                                    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
-    size_t offset = 0;
-    while (size - offset >= kSha256BlockSize) {
-        sha256Transform(state, data + offset);
-        offset += kSha256BlockSize;
-    }
-
-    uint8_t tail[kSha256TailSize] = {};
-    const size_t remainder = size - offset;
-    auto* dst = std::begin(tail);
-    std::copy(data + offset, data + offset + remainder, dst);
-    tail[remainder] = 0x80;
-    const size_t tailSize = remainder < kSha256TailDataLimit ? kSha256BlockSize : kSha256TailSize;
-    const uint64_t bitLength = static_cast<uint64_t>(size) * kBitsPerByte;
-    for (size_t index = 0; index < kSha256LengthBytes; ++index)
-        tail[tailSize - 1 - index] = static_cast<uint8_t>(bitLength >> (index * kBitsPerByte));
-    sha256Transform(state, tail);
-    if (tailSize == kSha256TailSize)
-        sha256Transform(state, tail + kSha256BlockSize);
-
-    std::array<uint8_t, kSha256DigestBytes> digest{};
-    for (size_t index = 0; index < state.size(); ++index) {
-        digest[index * kSha256BytesPerWord] = static_cast<uint8_t>(state[index] >> kSha256StateByte0Shift);
-        digest[index * kSha256BytesPerWord + 1] = static_cast<uint8_t>(state[index] >> kSha256StateByte1Shift);
-        digest[index * kSha256BytesPerWord + 2] = static_cast<uint8_t>(state[index] >> kSha256StateByte2Shift);
-        digest[index * kSha256BytesPerWord + 3] = static_cast<uint8_t>(state[index]);
-    }
-    return digest;
-}
-
-uint64_t payloadIdentity(const std::array<uint8_t, kSha256DigestBytes>& digest)
-{
-    uint64_t identity = 0;
-    for (size_t index = 0; index < kSha256LengthBytes; ++index)
-        identity |= static_cast<uint64_t>(digest[index]) << (index * kBitsPerByte);
-    return identity;
-}
-
 struct OwnedDescriptor {
     ccu_image_descriptor_t image{};
     ccu_kernel_descriptor_t descriptor{};
     ccu_rank_entry_t selectedRank{};
-    std::string family;
-    std::string specialization;
     std::string target;
     std::vector<uint8_t> blob;
-    std::array<uint8_t, kSha256DigestBytes> digest{};
     std::vector<ccu_specialization_value_t> values;
     std::vector<std::string> valueTypeNames;
     std::vector<ccu_rank_entry_t> ranks;
@@ -246,9 +94,6 @@ struct OwnedDescriptor {
     {
         image.target = target.c_str();
         image.ccuobj = blob.data();
-        image.sha256 = digest.data();
-        descriptor.family_identity = family.c_str();
-        descriptor.specialization_identity = specialization.c_str();
         descriptor.image = &image;
         descriptor.specialization_values = values.empty() ? nullptr : values.data();
         descriptor.rank_entries = ranks.data();
@@ -262,31 +107,22 @@ struct OwnedDescriptor {
 
 struct ValidatedDescriptor {
     ccu::ccuobj::ParsedModule parsed;
-    std::array<uint8_t, kSha256DigestBytes> digest{};
-    uint64_t identity = 0;
     const ccu_rank_entry_t* selected = nullptr;
 };
 
 ccu_status_t validateDescriptorHeader(const ccu_kernel_descriptor_t* source)
 {
-    if (!source || source->struct_size != sizeof(*source) || !source->family_identity || !*source->family_identity ||
-        !source->specialization_identity || !*source->specialization_identity || !source->image ||
-        !allZero(source->reserved))
+    if (!source || source->struct_size != sizeof(*source) || !source->image)
         return invalidObject("descriptor-header");
-    if (source->stub_abi_version != CCU_STUB_ABI_VERSION)
-        return CCU_STATUS_VERSION_MISMATCH;
     return CCU_STATUS_SUCCESS;
 }
 
 ccu_status_t validateImageHeader(const ccu_image_descriptor_t& image)
 {
-    if (image.struct_size != sizeof(image) || image.flags != 0 || !image.target ||
-        std::strcmp(image.target, kTarget) != 0 || !image.ccuobj || image.ccuobj_size < kCcuobjHeaderSize ||
-        !image.sha256 || image.ccuobj_size > static_cast<uint64_t>(SIZE_MAX) ||
+    if (image.struct_size != sizeof(image) || !image.target || std::strcmp(image.target, kNpuArch) != 0 ||
+        !image.ccuobj || image.ccuobj_size < kCcuobjHeaderSize || image.ccuobj_size > static_cast<uint64_t>(SIZE_MAX) ||
         image.ccuobj_size > UINT64_MAX / kBitsPerByte)
         return invalidObject("image-header");
-    if (image.object_abi_version != CCU_OBJECT_ABI_VERSION || image.ccuobj_abi_revision != kCcuobjAbiRevision)
-        return CCU_STATUS_VERSION_MISMATCH;
     return CCU_STATUS_SUCCESS;
 }
 
@@ -297,10 +133,6 @@ ccu_status_t validatePayload(const ccu_image_descriptor_t& image, ValidatedDescr
     if (validated.parsed.version != kCcuobjVersion || validated.parsed.abiRev != kCcuobjAbiRevision)
         return CCU_STATUS_VERSION_MISMATCH;
 
-    validated.digest = sha256(image.ccuobj, static_cast<size_t>(image.ccuobj_size));
-    if (std::memcmp(validated.digest.data(), image.sha256, validated.digest.size()) != 0)
-        return invalidObject("ccuobj-sha256");
-    validated.identity = payloadIdentity(validated.digest);
     return CCU_STATUS_SUCCESS;
 }
 
@@ -308,8 +140,7 @@ ccu_status_t validateDescriptorSchema(
     const ccu_kernel_descriptor_t* source, uint32_t contextRank, uint32_t contextRankSize)
 {
     if (source->communicator_size == 0 || source->communicator_size != contextRankSize ||
-        contextRank >= contextRankSize || source->rank_entry_count != contextRankSize || !source->rank_entries ||
-        source->implicit_peer_count != contextRankSize - 1)
+        contextRank >= contextRankSize || !source->rank_entries)
         return CCU_STATUS_SCHEMA_MISMATCH;
     if ((source->task_arg_count != 0 && !source->task_args) ||
         (source->specialization_value_count != 0 && !source->specialization_values))
@@ -322,15 +153,15 @@ ccu_status_t validateRanks(
     ValidatedDescriptor& validated)
 {
     std::vector<bool> seenRanks(contextRankSize, false);
-    for (uint32_t index = 0; index < source->rank_entry_count; ++index) {
+    for (uint32_t index = 0; index < source->communicator_size; ++index) {
         const ccu_rank_entry_t& rank = source->rank_entries[index];
         if (rank.communicator_rank >= contextRankSize || seenRanks[rank.communicator_rank] ||
-            rank.kernel_index >= validated.parsed.kernels.size() || rank.payload_identity != validated.identity)
+            rank.kernel_index >= validated.parsed.kernels.size())
             return CCU_STATUS_SCHEMA_MISMATCH;
 
         const ccu::ccuobj::ParsedKernel& kernel = validated.parsed.kernels[rank.kernel_index];
         if (!kernel.microcode || kernel.instrCount == 0 || kernel.taskArgCount != source->task_arg_count ||
-            kernel.channelArgCount > source->implicit_peer_count)
+            kernel.channelArgCount > source->communicator_size - 1)
             return CCU_STATUS_SCHEMA_MISMATCH;
 
         seenRanks[rank.communicator_rank] = true;
@@ -366,11 +197,8 @@ ccu_status_t validateSpecializationValues(const ccu_kernel_descriptor_t* source)
     return CCU_STATUS_SUCCESS;
 }
 
-void copyOwnedStrings(
-    OwnedDescriptor& result, const ccu_kernel_descriptor_t* source, const ccu_image_descriptor_t& image)
+void copyOwnedStrings(OwnedDescriptor& result, const ccu_image_descriptor_t& image)
 {
-    result.family = source->family_identity;
-    result.specialization = source->specialization_identity;
     result.target = image.target;
     result.valueTypeNames.reserve(result.values.size());
     for (const ccu_specialization_value_t& value : result.values)
@@ -392,7 +220,7 @@ void copyOwnedArrays(
     if (source->specialization_value_count != 0)
         result.values.assign(
             source->specialization_values, source->specialization_values + source->specialization_value_count);
-    result.ranks.assign(source->rank_entries, source->rank_entries + source->rank_entry_count);
+    result.ranks.assign(source->rank_entries, source->rank_entries + source->communicator_size);
     result.selectedRank = *selected;
     if (source->task_arg_count != 0)
         result.taskArgs.assign(source->task_args, source->task_args + source->task_arg_count);
@@ -405,8 +233,7 @@ ccu_status_t makeOwnedDescriptor(
     try {
         auto result = std::make_unique<OwnedDescriptor>();
         copyOwnedArrays(*result, source, image, validated.selected);
-        copyOwnedStrings(*result, source, image);
-        result->digest = validated.digest;
+        copyOwnedStrings(*result, image);
         result->finalizePointers();
         owned = std::move(result);
     } catch (const std::bad_alloc&) {
@@ -491,6 +318,7 @@ struct ccu_context {
     uint64_t defaultSyncTimeoutMs = 0;
     uint64_t abortTimeoutMs = 0;
     ccu_instance_t boundInstance = 0;
+    bool runtimeOwned = false;
     bool poisoned = false;
     ccu_launch* pendingLaunch = nullptr;
     std::unordered_set<ccu_external_event_set*> externalEventSets;
@@ -619,14 +447,54 @@ CleanupResult cleanupLaunchLocked(ccu_launch* launch)
     return {status, true};
 }
 
+ccu_status_t getOrCreateInstanceContext(ccu_instance_t instance, ccu_context_t** result)
+{
+    if (instance == 0 || !result || *result)
+        return CCU_STATUS_INVALID_ARGUMENT;
+    {
+        std::lock_guard<std::mutex> instanceLock(instanceRegistryMutex);
+        auto it = instanceRegistry.find(instance);
+        if (it != instanceRegistry.end()) {
+            *result = it->second;
+            return CCU_STATUS_SUCCESS;
+        }
+    }
+
+    ccu_context_options_t options{};
+    options.struct_size = sizeof(options);
+    options.default_sync_timeout_ms = kDefaultSyncTimeoutMs;
+    options.abort_timeout_ms = kDefaultAbortTimeoutMs;
+    ccu_context_t* context = nullptr;
+    ccu_status_t status = ccu_context_create(&options, &context);
+    if (status != CCU_STATUS_SUCCESS)
+        return status;
+    context->runtimeOwned = true;
+    ccu_instance_t boundInstance = instance;
+    status = ccu_context_bind_instance(context, &boundInstance);
+    if (status == CCU_STATUS_BUSY) {
+        (void)ccu_context_destroy(&context);
+        std::lock_guard<std::mutex> instanceLock(instanceRegistryMutex);
+        auto it = instanceRegistry.find(instance);
+        if (it != instanceRegistry.end()) {
+            *result = it->second;
+            return CCU_STATUS_SUCCESS;
+        }
+    }
+    if (status != CCU_STATUS_SUCCESS) {
+        (void)ccu_context_destroy(&context);
+        return status;
+    }
+    *result = context;
+    return status;
+}
+
 } // namespace
 
 #pragma GCC visibility push(default)
 extern "C" {
 ccu_status_t ccu_context_create(const ccu_context_options_t* options, ccu_context_t** context)
 {
-    if (!context || !options || options->struct_size != sizeof(*options) ||
-        options->api_version != CCU_RUNTIME_API_VERSION || options->default_sync_timeout_ms == 0 ||
+    if (!context || !options || options->struct_size != sizeof(*options) || options->default_sync_timeout_ms == 0 ||
         options->abort_timeout_ms == 0 || !allZero(options->reserved))
         return CCU_STATUS_INVALID_ARGUMENT;
     try {
@@ -809,7 +677,7 @@ ccu_status_t ccu_context_external_xn_va(
 
 ccu_status_t ccu_compiler_submit_with_schedule(
     ccu_context_t* context, const ccu_kernel_descriptor_t* descriptor, HcomCcuSchd schd, void* stream,
-    const ccu_task_arg_t* arguments, uint32_t argumentCount, const ccu_external_arg_t* externalArguments,
+    const uint64_t* arguments, uint32_t argumentCount, const ccu_external_arg_t* externalArguments,
     uint32_t externalArgumentCount)
 {
     if (!context || !descriptor || !stream || (argumentCount != 0 && !arguments) ||
@@ -859,7 +727,7 @@ ccu_status_t ccu_compiler_submit_with_schedule(
 }
 
 ccu_status_t ccu_compiler_submit(
-    ccu_context_t* context, const ccu_kernel_descriptor_t* descriptor, void* stream, const ccu_task_arg_t* arguments,
+    ccu_context_t* context, const ccu_kernel_descriptor_t* descriptor, void* stream, const uint64_t* arguments,
     uint32_t argumentCount, const ccu_external_arg_t* externalArguments, uint32_t externalArgumentCount)
 {
     return ccu_compiler_submit_with_schedule(
@@ -889,8 +757,46 @@ ccu_status_t ccu_context_bind_instance(ccu_context_t* context, ccu_instance_t* i
 
 ccu_status_t ccu_compiler_submit_by_instance(
     ccu_instance_t instance, const ccu_kernel_descriptor_t* descriptor, HcomCcuSchd schd, void* stream,
-    const ccu_task_arg_t* arguments, uint32_t argumentCount, const ccu_external_arg_t* externalArguments,
+    const uint64_t* arguments, uint32_t argumentCount, const ccu_external_arg_t* externalArguments,
     uint32_t externalArgumentCount)
+{
+    if (instance == 0)
+        return CCU_STATUS_INVALID_ARGUMENT;
+    if (schd.rankSize != 0 && schd.rankId >= schd.rankSize)
+        return CCU_STATUS_INVALID_ARGUMENT;
+    ccu_context_t* context = nullptr;
+    ccu_status_t status = getOrCreateInstanceContext(instance, &context);
+    if (status != CCU_STATUS_SUCCESS)
+        return status;
+    // HComm backend contexts start with the single-rank default. The launch
+    // schedule is the authoritative source for distributed rank topology.
+    if (schd.rankSize != 0) {
+        std::lock_guard<std::mutex> lock(context->mutex);
+        context->rank = schd.rankId;
+        context->rankSize = schd.rankSize;
+    } else if (schd.rankId != 0) {
+        std::lock_guard<std::mutex> lock(context->mutex);
+        if (schd.rankId >= context->rankSize)
+            return CCU_STATUS_INVALID_ARGUMENT;
+        context->rank = schd.rankId;
+    }
+    status = ccu_compiler_submit_with_schedule(
+        context, descriptor, schd, stream, arguments, argumentCount, externalArguments, externalArgumentCount);
+    if (status != CCU_STATUS_SUCCESS) {
+        std::unique_lock<std::mutex> lock(context->mutex);
+        const ccu_status_t cleanupStatus = cleanupPendingLaunchesLocked(context);
+        const bool idle = context->pendingLaunch == nullptr;
+        const bool poisoned = context->poisoned;
+        lock.unlock();
+        if (idle && !poisoned && context->runtimeOwned)
+            (void)ccu_context_destroy(&context);
+        if (cleanupStatus != CCU_STATUS_SUCCESS)
+            return cleanupStatus;
+    }
+    return status;
+}
+
+ccu_status_t ccu_synchronize(ccu_instance_t instance, void* stream, uint64_t timeoutMs)
 {
     if (instance == 0)
         return CCU_STATUS_INVALID_ARGUMENT;
@@ -899,33 +805,22 @@ ccu_status_t ccu_compiler_submit_by_instance(
         std::lock_guard<std::mutex> instanceLock(instanceRegistryMutex);
         auto it = instanceRegistry.find(instance);
         if (it == instanceRegistry.end())
-            return CCU_STATUS_INVALID_OBJECT;
+            return CCU_STATUS_SUCCESS;
         context = it->second;
     }
-    // HComm backend contexts start with the single-rank default. The launch
-    // schedule is the authoritative source for distributed rank topology.
-    if (schd.rankSize != 0) {
-        if (schd.rankId >= schd.rankSize)
-            return CCU_STATUS_INVALID_ARGUMENT;
-        context->rank = schd.rankId;
-        context->rankSize = schd.rankSize;
-    } else if (schd.rankId != 0) {
-        if (schd.rankId >= context->rankSize)
-            return CCU_STATUS_INVALID_ARGUMENT;
-        context->rank = schd.rankId;
-    }
-    return ccu_compiler_submit_with_schedule(
-        context, descriptor, schd, stream, arguments, argumentCount, externalArguments, externalArgumentCount);
-}
-
-ccu_status_t ccu_synchronize(ccu_context_t* context, void* stream, uint64_t timeoutMs)
-{
-    if (!context || !stream)
+    if (!context)
+        return CCU_STATUS_SUCCESS;
+    if (!stream)
         return CCU_STATUS_INVALID_ARGUMENT;
     try {
-        std::lock_guard<std::mutex> lock(context->mutex);
-        if (!context->pendingLaunch)
+        std::unique_lock<std::mutex> lock(context->mutex);
+        if (!context->pendingLaunch) {
+            if (context->poisoned)
+                return CCU_STATUS_CONTEXT_POISONED;
+            if (context->runtimeOwned)
+                return destroyContextLocked(context, lock, CCU_STATUS_SUCCESS);
             return CCU_STATUS_SUCCESS;
+        }
         if (context->pendingLaunch->stream != stream)
             return CCU_STATUS_INVALID_ARGUMENT;
 
@@ -936,6 +831,10 @@ ccu_status_t ccu_synchronize(ccu_context_t* context, void* stream, uint64_t time
         const CleanupResult cleanup = cleanupLaunchLocked(launch);
         if (!cleanup.released)
             return cleanup.status;
+        if (context->poisoned)
+            return syncStatus;
+        if (context->runtimeOwned)
+            return destroyContextLocked(context, lock, syncStatus);
         return syncStatus;
     } catch (...) {
         return CCU_STATUS_RUNTIME_ERROR;

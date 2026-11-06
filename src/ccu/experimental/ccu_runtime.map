@@ -10,12 +10,9 @@
 
 CCU_RUNTIME_1.0 {
   global:
-    ccu_context_create;
-    ccu_context_destroy;
     ccu_synchronize;
     ccu_compiler_submit;
     ccu_compiler_submit_by_instance;
-    ccu_context_bind_instance;
     ccu_status_string;
   local:
     *;

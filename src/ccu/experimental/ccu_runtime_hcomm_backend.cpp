@@ -74,8 +74,8 @@ ccu_status_t mapCoreError(CcuAotError error)
 
 ccu_status_t validateLaunchArguments(
     HcommContext* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
-    void** launchHandle, const ccu_task_arg_t* arguments, uint32_t argumentCount,
-    const BackendExternalArg* externalArguments, uint32_t externalArgumentCount)
+    void** launchHandle, const uint64_t* arguments, uint32_t argumentCount, const BackendExternalArg* externalArguments,
+    uint32_t externalArgumentCount)
 {
     if (!context || !descriptor || !descriptor->image || !rankEntry || !stream || !launchHandle || *launchHandle ||
         (argumentCount != 0 && !arguments) || (externalArgumentCount != 0 && !externalArguments))
@@ -98,12 +98,12 @@ ccu_status_t bindLaunchChannels(HcommContext* context, HcomCcuSchd schd)
     return mapCoreError(ccu_aot_bind_channels(context->runtime, channelList, static_cast<uint32_t>(schd.channelSize)));
 }
 
-std::vector<uint64_t> collectTaskArguments(const ccu_task_arg_t* arguments, uint32_t argumentCount)
+std::vector<uint64_t> collectTaskArguments(const uint64_t* arguments, uint32_t argumentCount)
 {
     std::vector<uint64_t> taskArguments;
     taskArguments.reserve(argumentCount);
     for (uint32_t index = 0; index < argumentCount; ++index)
-        taskArguments.push_back(arguments[index].bits);
+        taskArguments.push_back(arguments[index]);
     return taskArguments;
 }
 
@@ -242,7 +242,7 @@ public:
 
     ccu_status_t launch(
         void* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
-        HcomCcuSchd schd, const ccu_task_arg_t* arguments, uint32_t argumentCount,
+        HcomCcuSchd schd, const uint64_t* arguments, uint32_t argumentCount,
         const BackendExternalArg* externalArguments, uint32_t externalArgumentCount,
         void** launchHandle) noexcept override
     {

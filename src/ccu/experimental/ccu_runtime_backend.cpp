@@ -31,8 +31,8 @@ public:
     }
     ccu_status_t externalXnVa(void*, uint32_t, void**, uint64_t*) noexcept override { return CCU_STATUS_RUNTIME_ERROR; }
     ccu_status_t launch(
-        void*, const ccu_kernel_descriptor_t*, const ccu_rank_entry_t*, void*, HcomCcuSchd, const ccu_task_arg_t*,
-        uint32_t, const BackendExternalArg*, uint32_t, void**) noexcept override
+        void*, const ccu_kernel_descriptor_t*, const ccu_rank_entry_t*, void*, HcomCcuSchd, const uint64_t*, uint32_t,
+        const BackendExternalArg*, uint32_t, void**) noexcept override
     {
         return CCU_STATUS_RUNTIME_ERROR;
     }
