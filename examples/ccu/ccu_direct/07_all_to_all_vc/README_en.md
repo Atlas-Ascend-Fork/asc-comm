@@ -20,7 +20,8 @@ The amount of data that each rank sends to its peers is specified by a count mat
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU AllToAllVC kernel implementation
+├── main.asc          // Host flow
+└── ccu_all_to_all_vc_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

@@ -28,7 +28,8 @@ All scenarios use events to track transfer completion. Ranks exchange output add
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU data transfer kernel implementation
+├── main.asc          // Host flow
+└── ccu_transfer_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

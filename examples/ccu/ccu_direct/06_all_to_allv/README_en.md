@@ -20,7 +20,8 @@ Each rank sends variable-length data segments to its peers; segment `r` is sent 
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU AllToAllV kernel implementation
+├── main.asc          // Host flow
+└── ccu_all_to_allv_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

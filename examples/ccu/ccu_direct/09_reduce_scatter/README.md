@@ -20,7 +20,8 @@
 ├── README.md         // 中文样例说明
 ├── README_en.md      // 英文样例说明
 ├── run.sh            // 一键构建运行脚本
-└── main.asc          // Host侧流程和CCU ReduceScatter Kernel实现
+├── main.asc          // Host侧流程
+└── ccu_reduce_scatter_kernel.h // Kernel侧实现
 ```
 
 ## 样例描述

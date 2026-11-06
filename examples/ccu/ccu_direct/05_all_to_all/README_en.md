@@ -20,7 +20,8 @@ Each rank evenly splits its input into `rankSize` segments; segment `r` is sent 
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU AllToAll kernel implementation
+├── main.asc          // Host flow
+└── ccu_all_to_all_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

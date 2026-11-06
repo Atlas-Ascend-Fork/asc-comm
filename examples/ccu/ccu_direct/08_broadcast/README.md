@@ -20,7 +20,8 @@ root rank将完整输入广播给所有rank。
 ├── README.md         // 中文样例说明
 ├── README_en.md      // 英文样例说明
 ├── run.sh            // 一键构建运行脚本
-└── main.asc          // Host侧流程和CCU Broadcast Kernel实现
+├── main.asc          // Host侧流程
+└── ccu_broadcast_kernel.h // Kernel侧实现
 ```
 
 ## 样例描述

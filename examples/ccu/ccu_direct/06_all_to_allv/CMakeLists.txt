@@ -28,6 +28,8 @@ add_executable(ccu_all_to_allv
 
 target_include_directories(ccu_all_to_allv PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
+    # Kernel header in the same directory as main.asc
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl

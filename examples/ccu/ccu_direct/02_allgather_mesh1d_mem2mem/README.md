@@ -20,7 +20,8 @@
 ├── README.md         // 中文样例说明
 ├── README_en.md      // 英文样例说明
 ├── run.sh            // 一键构建运行脚本
-├── main.asc          // Host侧流程和Mesh1D Mem2Mem AllGather Kernel实现
+├── main.asc          // Host侧流程
+├── ccu_allgather_mesh1d_kernel.h // Kernel侧实现
 └── scripts
     ├── gen_data.py       // 输入和Golden数据生成脚本
     └── verify_result.py  // 输出校验脚本

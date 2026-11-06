@@ -20,7 +20,8 @@ The inputs of all ranks are concatenated in rank order, and each rank obtains a 
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-├── main.asc          // Host flow and NHR1D Mem2Mem AllGather kernel implementation
+├── main.asc          // Host flow
+├── ccu_allgather_nhr1d_kernel.h // Kernel-side implementation
 └── scripts
     ├── gen_data.py       // Input and golden data generation script
     └── verify_result.py  // Output verification script

@@ -20,7 +20,8 @@ The root rank broadcasts its complete input to all ranks.
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU Broadcast kernel implementation
+├── main.asc          // Host flow
+└── ccu_broadcast_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

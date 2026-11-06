@@ -20,7 +20,8 @@ The inputs of all ranks are summed element by element and then split into segmen
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU ReduceScatter kernel implementation
+├── main.asc          // Host flow
+└── ccu_reduce_scatter_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

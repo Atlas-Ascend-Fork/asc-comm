@@ -25,7 +25,8 @@ A compile-time parameter `SCENARIO_NUM` selects the teaching scenario:
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU AllReduce kernel implementation
+├── main.asc          // Host flow
+└── ccu_allreduce_kernel.h // Kernel-side implementation
 ```
 
 ## Sample Description

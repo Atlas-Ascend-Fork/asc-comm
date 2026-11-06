@@ -20,7 +20,8 @@ The inputs of all ranks are concatenated in rank order, and each rank obtains a 
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow and CCU AllGather kernel implementation
+├── main.asc          // Host flow and CCU AllGather kernel launch entry
+└── ccu_allgather_kernel.h // CCU AllGather kernel implementation
 ```
 
 ## Sample Description

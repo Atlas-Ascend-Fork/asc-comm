@@ -35,6 +35,8 @@ target_include_directories(ccu_allgather PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     # 样例公共辅助头（ccu_instance.h）
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
+    # Kernel header in the same directory as main.asc
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_compile_features(ccu_allgather PRIVATE cxx_std_14)
