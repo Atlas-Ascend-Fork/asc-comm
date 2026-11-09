@@ -145,16 +145,12 @@ find_ccu_libraries()
         -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=ON \
-        -DASCCOMM_BUILD_CCU_RUNTIME=ON \
-        -DASCCOMM_BUILD_CCU_RUNTIME_HCOMM_BACKEND=ON
+        -DASCCOMM_BUILD_CCU_RUNTIME=ON
 
     cmake --build "${build_dir}" --target asccomm_ccu ccu_runtime
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
     [[ -f "${runtime_library}" ]] || \
         fail "CCU runtime library was not built: ${runtime_library}"
-    grep -q '^ASCCOMM_BUILD_CCU_RUNTIME_HCOMM_BACKEND:BOOL=ON$' \
-        "${build_dir}/CMakeCache.txt" || \
-        fail "CCU runtime was built without the HComm backend: ${runtime_library}"
     CCU_LIBRARY="${library}"
     CCU_RUNTIME_LIBRARY="${runtime_library}"
 }
