@@ -23,9 +23,9 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
-在指定线程和通道上异步提交一组传输任务。每个传输任务由`AsccommBatchTransferDesc`描述，定义位于`"aicpu/hcomm/asccomm_res_defs.h"`，支持单边写、单边读、写归约、归约读、带通知的写、带通知的归约写以及通知记录等操作类型。
+在指定线程和通道上异步提交一组传输任务。每个传输任务由`AsccommBatchTransferDesc`描述，定义位于`"aicpu/asccomm/asccomm_res_defs.h"`，支持单边写、单边读、写归约、归约读、带通知的写、带通知的归约写以及通知记录等操作类型。
 
 ## 函数原型
 
@@ -38,14 +38,14 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
-| transferDescs | 输入 | 批量传输描述符数组，数组中每个元素描述一个传输任务，按数组顺序依次提交。类型为`AsccommBatchTransferDesc`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
+| transferDescs | 输入 | 批量传输描述符数组，数组中每个元素描述一个传输任务，按数组顺序依次提交。类型为`AsccommBatchTransferDesc`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。 |
 | transferDescNum | 输入 | 描述符数量，须大于0。 |
 
 ### transferDescs说明
 
-`AsccommBatchTransferDesc`定义于`"aicpu/hcomm/asccomm_res_defs.h"`，用于描述一个批量传输任务。该结构体包含保留字段和联合体，调用方应先使用`{}`初始化整个描述符，再按`transType`设置对应的联合体成员。
+`AsccommBatchTransferDesc`定义于`"aicpu/asccomm/asccomm_res_defs.h"`，用于描述一个批量传输任务。该结构体包含保留字段和联合体，调用方应先使用`{}`初始化整个描述符，再按`transType`设置对应的联合体成员。
 
 | 字段 | 说明 |
 | --- | --- |

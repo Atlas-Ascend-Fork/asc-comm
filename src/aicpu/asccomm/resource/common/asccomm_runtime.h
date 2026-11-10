@@ -14,6 +14,7 @@
 // Internal resource RTSQ runtime. This header is not part of the public API.
 
 #include "asccomm_res_defs.h"
+#include "asccom_res_entity_defs.h"
 #include "../../common/utils/asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
 

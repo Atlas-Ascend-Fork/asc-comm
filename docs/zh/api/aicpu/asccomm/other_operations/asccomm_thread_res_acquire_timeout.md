@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 设置当前AICPU执行线程通信任务提交队列满时的等待超时时间。当通信任务提交队列已满时，任务提交会等待直到有可用空间或超时。
 

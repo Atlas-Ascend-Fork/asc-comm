@@ -14,14 +14,15 @@
 #include <limits>
 
 #include "asccomm_primitives.h"
+#include "asccom_res_entity_defs.h"
 #include "asccomm_runtime_stub.h"
 
 namespace {
 
-ThreadEntity MakeThread()
+HcommThreadEntity MakeThread()
 {
-    ThreadEntity thread{};
-    thread.abiHeader = {HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD, sizeof(ThreadEntity), 0};
+    HcommThreadEntity thread{};
+    thread.abiHeader = {HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
     static HcommThreadSqContext rtsq{};
     thread.sqContextAddr = &rtsq;
     return thread;
@@ -34,7 +35,7 @@ ChannelEntity MakeChannel()
     return channel;
 }
 
-ThreadHandle ThreadHandleOf(ThreadEntity& thread) { return reinterpret_cast<ThreadHandle>(&thread); }
+ThreadHandle ThreadHandleOf(HcommThreadEntity& thread) { return reinterpret_cast<ThreadHandle>(&thread); }
 
 ChannelHandle ChannelHandleOf(ChannelEntity& channel) { return reinterpret_cast<ChannelHandle>(&channel); }
 
@@ -47,7 +48,7 @@ protected:
         g_runtimeStubState = {};
     }
 
-    ThreadEntity thread_{MakeThread()};
+    HcommThreadEntity thread_{MakeThread()};
     ChannelEntity channel_{MakeChannel()};
 };
 
@@ -55,7 +56,7 @@ TEST_F(AsccommPrimitivesTest, RejectsNullThreadAndInvalidResourceHeader)
 {
     EXPECT_EQ(asccomm_write_on_thread(0, 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 
-    ThreadEntity invalid = MakeThread();
+    HcommThreadEntity invalid = MakeThread();
     invalid.abiHeader.magicWord = 0;
     EXPECT_EQ(asccomm_write_on_thread(ThreadHandleOf(invalid), 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 }

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 设置当前AICPU执行线程通知等待的默认超时时间。该超时时间将应用于当前执行线程后续调用的[asccomm_channel_notify_wait_on_thread_with_default_timeout](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread_with_default_timeout.md)和[asccomm_thread_notify_wait_on_thread_with_default_timeout](../synchronization_and_barrier/asccomm_thread_notify_wait_on_thread_with_default_timeout.md)接口。
 

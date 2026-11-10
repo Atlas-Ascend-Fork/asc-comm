@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 向指定Channel的远端Notify发送同步信号，主要用于Channel两端同步等待场景。
 
@@ -37,8 +37,8 @@ int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHand
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | remoteNotifyIdx | 输入 | 远端Notify索引。取值范围为`[0, remoteNotifyNum)`，其中`remoteNotifyNum`为Channel资源中的远端Notify数量。 |
 
 ## 返回值说明

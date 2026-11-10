@@ -81,7 +81,8 @@ target_compile_options(asccomm_aicpu PRIVATE
 
 target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_ROOT}/include/aicpu
-    ${ASCCOMM_ROOT}/include/aicpu/hcomm
+    ${ASCCOMM_ROOT}/include/aicpu/asccomm
+    ${ASCCOMM_ROOT}/pkg_inc/hcomm
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
@@ -92,6 +93,7 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/api_c_adpt
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/launch
+    ${ASCCOMM_AICPU_ROOT}/asccomm/common
     ${ASCCOMM_AICPU_ROOT}/asccomm/common/exception
     ${ASCCOMM_AICPU_ROOT}/asccomm/common/utils
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/buffer
@@ -145,7 +147,7 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
     install(TARGETS asccomm_aicpu
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
         COMPONENT asccomm)
-    install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/hcomm/
+    install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/asccomm/
         DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm
         COMPONENT asccomm
         FILES_MATCHING PATTERN "*.h")

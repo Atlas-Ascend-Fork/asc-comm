@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 生成本地Notify等待任务，等待指定Thread上的同步信号。
 
@@ -37,7 +37,7 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | notifyIdx | 输入 | 本地Notify索引。取值范围为`[0, Thread资源中的Notify数量)`。 |
 | timeOut | 输入 | 等待超时时间，单位：秒。0表示永久等待，大于0表示指定超时时间。 |
 

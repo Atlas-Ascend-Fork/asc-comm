@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 提供本地归约功能：将`src`中的`count`个`dataType`类型元素与`dst`中的对应元素按`reduceOp`进行计算，并将结果写回`dst`。
 
@@ -37,14 +37,14 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | dst | 输出 | 目的地址，Device内存。 |
 | src | 输入 | 源地址，Device内存。 |
 | count | 输入 | 元素个数。`count`为0时不生成归约任务。 |
-| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。各取值支持情况见[dataType说明](#datatype说明)。 |
+| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。各取值支持情况见[dataType说明](#datatype说明)。 |
 | reduceOp | 输入 | 归约操作类型。支持矩阵见[reduceOp说明](#reduceop说明)。 |
 
-`AsccommDataType`和`AsccommReduceOp`定义于`"aicpu/hcomm/asccomm_res_defs.h"`。
+`AsccommDataType`和`AsccommReduceOp`定义于`"aicpu/asccomm/asccomm_res_defs.h"`。
 
 ### dataType说明
 

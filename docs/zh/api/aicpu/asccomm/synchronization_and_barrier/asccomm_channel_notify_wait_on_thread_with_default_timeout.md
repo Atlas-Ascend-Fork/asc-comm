@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 生成本地Notify等待任务，等待指定Channel上的同步信号，使用[asccomm_set_notify_wait_timeout](../other_operations/asccomm_set_notify_wait_timeout.md)设置的默认超时时间。
 
@@ -37,8 +37,8 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(ThreadHandle 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | localNotifyIdx | 输入 | 本地Notify索引。当前实现要求`localNotifyIdx < localNotifyNum - 1`，并使用本地Notify数组中`localNotifyIdx + 1`对应的Notify；第0项为内部保留项。 |
 
 ## 返回值说明

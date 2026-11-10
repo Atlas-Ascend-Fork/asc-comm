@@ -12,6 +12,7 @@
 #define ASCCOMM_TRANSPORT_H
 
 #include "asccomm_res_defs.h"
+#include "asccom_res_entity_defs.h"
 #include "asccomm_primitives.h"
 #include "../../common/utils/asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"

@@ -10,11 +10,13 @@
 
 set(AICPU_UT_INCLUDE_DIRS
     ${ASCCOMM_ROOT}/include/aicpu
-    ${ASCCOMM_ROOT}/include/aicpu/hcomm
+    ${ASCCOMM_ROOT}/include/aicpu/asccomm
+    ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/common
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/common/utils
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch
@@ -78,3 +80,18 @@ target_link_libraries(asccomm_utest_comms_aicpu_primitives PRIVATE
     pthread
 )
 add_test(NAME asccomm_utest_comms_aicpu_primitives COMMAND asccomm_utest_comms_aicpu_primitives)
+
+add_executable(asccomm_public_header_isolation_check
+    public_header_isolation_check.cc
+)
+target_include_directories(asccomm_public_header_isolation_check PRIVATE
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCCOMM_ROOT}/include/aicpu
+    ${ASCCOMM_ROOT}/pkg_inc/hcomm
+)
+target_compile_features(asccomm_public_header_isolation_check PRIVATE cxx_std_17)
+target_compile_options(asccomm_public_header_isolation_check PRIVATE
+    -Wall
+    -Werror
+)
+add_test(NAME asccomm_public_header_isolation_check COMMAND asccomm_public_header_isolation_check)

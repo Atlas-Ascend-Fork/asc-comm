@@ -39,7 +39,8 @@ target_compile_options(asccomm_cpu_ts PRIVATE
 )
 target_include_directories(asccomm_cpu_ts PRIVATE
     ${ASCCOMM_ROOT}/include/cpu
-    ${ASCCOMM_ROOT}/include/aicpu/hcomm
+    ${ASCCOMM_ROOT}/include/aicpu/asccomm
+    ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 
 # CPU库只动态解析runtime notify API，不在链接期绑定hcomm或runtime符号。

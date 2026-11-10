@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
 在指定Channel上发起归约读：从远端`src`读取`count`个`dataType`类型的元素，与本端`dst`中的对应元素按`reduceOp`计算，并将结果写回`dst`。接口调用方为`dst`所在节点。
 
@@ -37,13 +37,13 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | dst | 输出 | 本端目标地址，用于保存归约结果。 |
 | src | 输入 | 远端源地址，提供待读取的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。<br>当前仅Ascend 950PR&950DT系列产品支持本接口，各取值行为见[dataType说明](#datatype说明)。|
-| reduceOp | 输入 | 归约操作类型。类型为`AsccommReduceOp`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。<br>支持矩阵见[reduceOp说明](#reduceop说明)。 |
+| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>当前仅Ascend 950PR&950DT系列产品支持本接口，各取值行为见[dataType说明](#datatype说明)。|
+| reduceOp | 输入 | 归约操作类型。类型为`AsccommReduceOp`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>支持矩阵见[reduceOp说明](#reduceop说明)。 |
 
 ### dataType说明
 
