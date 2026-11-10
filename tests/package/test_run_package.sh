@@ -181,7 +181,7 @@ COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f \
 PKG_INC_HEADER_COUNT=$(find "${PROJECT_ROOT}/pkg_inc" -type f \
     \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
-    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + PKG_INC_HEADER_COUNT + 2))
+    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + PKG_INC_HEADER_COUNT + 4))
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
@@ -189,6 +189,7 @@ EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_ccu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
 diff -u <(printf '%s\t%s\n' \
@@ -274,6 +275,8 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm")" == "../../adv_api/detail/hcomm" ]]
 [[ -f "${FAKE_CANN}/lib64/libccu_runtime.so" ]]
+[[ -f "${FAKE_CANN}/asc/lib64/libasccomm_ccu.so" ]]
+[[ -f "${FAKE_CANN}/lib64/cmake/asccomm-config.cmake" ]]
 
 # Relative includes must resolve through the installed layout and Hcomm links.
 while IFS= read -r installed_header; do

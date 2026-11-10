@@ -22,6 +22,8 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
+find_package(asccomm REQUIRED)
+
 add_executable(ccu_allgather
     main.asc
 )
@@ -62,9 +64,11 @@ target_link_options(ccu_allgather PRIVATE
     -Wl,-rpath,${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_directories(ccu_allgather PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(ccu_allgather PRIVATE
+    asccomm_ccu_headers
     hcomm
     asccomm_ccu
     c_sec

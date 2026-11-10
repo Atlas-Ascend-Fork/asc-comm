@@ -24,6 +24,7 @@ PACKAGE_INPUT_PATHS=(
     src
     scripts/package
     version.cmake
+    cmake/asccomm-config.cmake
 )
 
 usage()
@@ -243,7 +244,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc lib64 -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' \) -print0 | sort -z)
+        done < <(find asc lib64 -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' -o -name '*.cmake' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -349,6 +350,8 @@ build_package()
         "${STAGING_DIR}/payload/asc/lib64/libasccomm_cpu.so"
     install -D -m 550 "${CCU_RUNTIME_LIBRARY}" \
         "${STAGING_DIR}/payload/lib64/libccu_runtime.so"
+    install -D -m 550 "${PROJECT_ROOT}/cmake/asccomm-config.cmake" \
+        "${STAGING_DIR}/payload/lib64/cmake/asccomm-config.cmake"
     write_manifest
     write_link_manifest
     write_version_info \

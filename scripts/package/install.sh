@@ -410,7 +410,8 @@ is_allowed_path()
         asc/impl/comm_api/*/*/*.h|\
         asc/lib64/libasccomm_ccu.so|\
         asc/lib64/libasccomm_cpu.so|\
-        lib64/libccu_runtime.so)
+        lib64/libccu_runtime.so|\
+        lib64/cmake/asccomm-config.cmake)
             ;;
         *)
             return 1
@@ -427,8 +428,8 @@ is_allowed_directory_path()
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|\
-        asc/lib64|\
+        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|\
+        lib64/cmake|\
         lib64)
             ;;
         *)
@@ -455,7 +456,7 @@ payload_file_mode()
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*)
+        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*|lib64/cmake/*.cmake)
             mode=550
             ;;
         *)
@@ -475,7 +476,7 @@ managed_directory_mode()
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|lib64)
+        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|lib64|lib64/cmake)
             mode=550
             ;;
         *)
