@@ -14,11 +14,21 @@ docs/
 │   └── programming_model/     # 编程模型
 ├── zh/compilation/            # 构建及三方依赖文档
 ├── zh/contributing/           # 贡献指南
+├── en/api/                    # 英文API参考文档
+├── en/guide/                  # 英文使用指南
 ├── en/compilation/            # 构建及三方依赖英文文档
 ├── en/contributing/           # 英文贡献指南
 ├── quick_start.md             # 快速开始
 └── quick_start_en.md          # 快速开始英文版
 ```
+
+> [!NOTE]说明
+> 以下产品文档目录中的文档以中文版本为准。英文版本由专业团队翻译和审校后发布，受翻译与发布周期影响，可能滞后于中文版本。如中英文版本存在差异，请以中文版本为准。
+>
+> - [`./zh/api`](./zh/api/)
+> - [`./zh/guide`](./zh/guide/)
+> - [`./en/api`（译自`./zh/api`）](./en/api/)
+> - [`./en/guide`（译自`./zh/guide`）](./en/guide/)
 
 ## 文档入口
 

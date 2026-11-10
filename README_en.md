@@ -30,7 +30,7 @@ English | [简体中文](./README.md)
 ### 📖 Documentation
 
 - Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/compilation/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/compilation/dependencies.md).
-- Added [API Reference (Chinese)](./docs/zh/api/index.md), covering all currently published Hcomm interfaces.
+- Added [API Reference](./docs/en/api/index.md), covering all currently published Hcomm interfaces.
 - Added [Samples Directory](./examples/README_en.md), serving as the entry for AIV direct-drive Hcomm invocations and end-to-end communication samples.
 
 For detailed information on all historical releases and updates, please refer to [CHANGELOG.md](./CHANGELOG_en.md).
@@ -91,7 +91,7 @@ Protocol capability matrix:
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. `WriteWithNotifyNbi` and BatchHandle interfaces are not supported. |
 | `COMM_PROTOCOL_UB_CTP` | UBC CTP/URMA point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`; BatchHandle interfaces are additionally supported on Ascend 950. |
 
-Refer to [API Reference (Chinese)](./docs/zh/api/index.md) for detailed parameter constraints and return value descriptions.
+Refer to [API Reference](./docs/en/api/index.md) for detailed parameter constraints and return value descriptions.
 
 ### How to Use Ain Interfaces
 
@@ -117,7 +117,7 @@ Commit mode matrix:
 | `AIN_COMMIT_IMMED` | Assembles the communication task and rings the doorbell immediately, submitting it to the underlying engine. |
 | `AIN_COMMIT_DELAYED` | Only assembles the communication task without ringing the doorbell; submission is deferred until a subsequent `AIN_COMMIT_IMMED` task. |
 
-Refer to [API Reference (Chinese)](./docs/zh/api/index.md) for detailed parameter constraints and return value descriptions.
+Refer to [API Reference](./docs/en/api/index.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
 
@@ -209,8 +209,8 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/compila
   | --- | --- |
   | [Documentation Index](./docs/README_en.md) | Main entry for asc-comm documentation. |
   | [Quick Start](./docs/quick_start_en.md) | Environment setup, source compilation and UT verification. |
-  | [API Reference (Chinese)](./docs/zh/api/index.md) | List of published asc-comm interfaces. |
-  | [Communication Programming Guide (Chinese)](./docs/zh/guide/index.md) | Entry point for programming model and communication operator development guides. |
+  | [API Reference](./docs/en/api/index.md) | List of published asc-comm interfaces. |
+  | [Communication Programming Guide](./docs/en/guide/index.md) | Entry point for programming model and communication operator development guides. |
   | [Build & Test](./docs/en/compilation/build_and_test.md) | CANN environment, development run package, UT and sample build instructions. |
   | [Third-party Dependencies & Compatibility](./docs/en/compilation/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
   | [Samples Directory](./examples/README_en.md) | Entry point for asc-comm API samples. |
