@@ -124,7 +124,16 @@ static inline HcommResult HcommCreateSharedChannels(
         return ret;
     }
 
-    return DestroyChannelConfig(config, DlHcommApi::HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
+    HcommResult destroyRet =
+        DestroyChannelConfig(config, DlHcommApi::HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
+    if (destroyRet != HCCL_SUCCESS) {
+        HcommResult channelDestroyRet = DlHcommApi::HcommChannelDestroy(channels, channelNum);
+        if (channelDestroyRet != HCCL_SUCCESS) {
+            ASC_CPU_LOG_ERROR("[ERROR] [%s] cleanup HcommChannelDestroy failed, ret[%d].", __func__, channelDestroyRet);
+        }
+        return destroyRet;
+    }
+    return HCCL_SUCCESS;
 }
 
 static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, uint32_t channelNum)
