@@ -59,6 +59,12 @@ public:
     void write_reduce_with_notify(
         DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
         const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, uint64_t notifyData);
+    void send(
+        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg,
+        ConnLiteOperationOut& out);
+    void send_with_imm(
+        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, uint64_t immData, const SqeConfigLite& cfg,
+        ConnLiteOperationOut& out);
 
     void fill_comm_sqe(
         UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
@@ -97,6 +103,9 @@ private:
     void fill_one_sqe_write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, SlicePosition slicePos);
+    void fill_one_sqe_send(
+        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
+        UdmaSqOpcode opCode, uint64_t immData, SlicePosition slicePos);
     void memory_set_and_copy(uint8_t* va, uint32_t sqeSize, void* sqe);
 };
 } // namespace Asc

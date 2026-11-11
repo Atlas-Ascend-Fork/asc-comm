@@ -27,6 +27,7 @@ constexpr uint32_t WRITE_WITH_NOTIFY_OPCODE = 0x5;
 constexpr uint32_t ADDR_BIT_LOW = 0xffffffff;
 constexpr uint32_t UB_RELAX_ORDER = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
 constexpr uint32_t UB_STRONG_ORDER = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
+constexpr uint32_t RMT_OBJ_ID_MASK = 0xfffff;
 
 uint32_t get_data_type_size(DataType dataType)
 {
@@ -95,14 +96,14 @@ void UbConnLite::fill_comm_sqe(
     sqe->rmtObjId = rmt.get_token_id();
     sqe->tokenEn = 1;
     sqe->rmtTokenValue = rmt.get_token_value();
-    sqe->rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
-    sqe->rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
+    sqe->rmtAddr.rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
+    sqe->rmtAddr.rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
     ASCCOMM_INFO(
         "UbConnLite fill_comm_sqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
         "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
         "sqe->compOrder = %u, sqe->fence = %u",
-        slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn, sqe->rmtObjId, sqe->rmtAddrLow, sqe->rmtAddrHigh,
-        sqe->placeOdr, sqe->compOrder, sqe->fence);
+        slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn, sqe->rmtObjId, sqe->rmtAddr.rmtAddrLow,
+        sqe->rmtAddr.rmtAddrHigh, sqe->placeOdr, sqe->compOrder, sqe->fence);
 }
 
 void UbConnLite::fill_comm_sqe_reduce_info(
@@ -294,6 +295,36 @@ void UbConnLite::fill_one_sqe_write(
     ASCCOMM_INFO("[UbConnLite::%s] end", __func__);
 }
 
+void UbConnLite::fill_one_sqe_send(
+    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
+    UdmaSqOpcode opCode, uint64_t immData, SlicePosition slicePos)
+{
+    ASCCOMM_INFO(
+        "[UbConnLite::%s] start, loc size[%llu], remoteJettyId[%u]", __func__, loc.get_size(), target.get_token_id());
+
+    sqe->comm.inlineEn = 0;
+    fill_comm_sqe(&(sqe->comm), target, cfg, opCode, slicePos);
+    // SEND的rmtObjId是远端接收Jetty/JFR id，tokenEn表示远端token是否参与校验；二者不能复用
+    // RMA内存token的“无条件启用token”语义。
+    sqe->comm.rmtObjId = target.get_token_id() & RMT_OBJ_ID_MASK;
+    sqe->comm.tokenEn = target.get_token_value() != 0 ? 1U : 0U;
+    sqe->comm.rmtTokenValue = target.get_token_value();
+    sqe->comm.rmtAddr.rmtAddrLow = 0;
+    sqe->comm.rmtAddr.rmtAddrHigh = 0;
+    fill_local_sge_sqe(&(sqe->u.sge), loc);
+    if (sqe->u.sge.length == 0) {
+        sqe->comm.sgeNum = 0;
+    }
+    if (opCode == UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM) {
+        sqe->comm.immData.immDataLow = static_cast<uint32_t>(immData);
+        sqe->comm.immData.immDataHigh = static_cast<uint32_t>(immData >> 32U);
+    }
+
+    ASCCOMM_INFO(
+        "[UbConnLite::%s] end, opCode[%u], tokenEn[%u], remoteJettyId[%u], tokenValue[%u]", __func__,
+        static_cast<uint32_t>(opCode), sqe->comm.tokenEn, sqe->comm.rmtObjId, sqe->comm.rmtTokenValue);
+}
+
 void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
 {
     ASCCOMM_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<uint32_t>(opCode));
@@ -315,7 +346,6 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
                 string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
         }
     }
-
     ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
@@ -354,7 +384,6 @@ void UbConnLite::process_one_wqe_with_notify(
             memory_set_and_copy(va, SQE_SIZE_128, sqe);
         }
     }
-
     ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
@@ -509,6 +538,66 @@ void UbConnLite::write_reduce_with_notify(
         },
         dataType);
     out.pi = pi;
+}
+
+void UbConnLite::send(
+    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg, ConnLiteOperationOut& out)
+{
+    ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
+
+    // 零长度消息不能静默跳过：process_slices不会为size=0生成任何WQE，
+    // 必须单独下发一条sgeNum=0的SEND WQE，否则接收端感知不到本次消息，PI也不会推进
+    if (UNLIKELY(loc.get_size() == 0)) {
+        UdmaSqeWrite sqe{};
+        RmaBufSliceLite emptySlice(loc.get_addr(), 0, 0, loc.get_token_id());
+        fill_one_sqe_send(emptySlice, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND, 0, SlicePosition::ONLY);
+        process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND);
+        out.pi = pi;
+        ASCCOMM_INFO("[UbConnLite::%s] end with zero-length message, pi[%u]", __func__, out.pi);
+        return;
+    }
+
+    process_slices(
+        loc, target, maxWriteSize,
+        [&](const RmaBufSliceLite& locSlice, const RmtRmaBufSliceLite& rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_send(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND, 0, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND);
+        });
+    out.pi = pi;
+
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, out.pi);
+}
+
+void UbConnLite::send_with_imm(
+    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, uint64_t immData, const SqeConfigLite& cfg,
+    ConnLiteOperationOut& out)
+{
+    ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu], immData[%llu]", __func__, loc.get_size(), immData);
+
+    // 零长度消息不能静默跳过：process_slices不会为size=0生成任何WQE，
+    // 必须单独下发一条sgeNum=0的SEND_WITH_IMM WQE，否则immData会随本次调用静默丢失
+    if (UNLIKELY(loc.get_size() == 0)) {
+        UdmaSqeWrite sqe{};
+        RmaBufSliceLite emptySlice(loc.get_addr(), 0, 0, loc.get_token_id());
+        fill_one_sqe_send(
+            emptySlice, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, immData, SlicePosition::ONLY);
+        process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
+        out.pi = pi;
+        ASCCOMM_INFO("[UbConnLite::%s] end with zero-length message, pi[%u]", __func__, out.pi);
+        return;
+    }
+
+    process_slices(
+        loc, target, maxWriteSize,
+        [&](const RmaBufSliceLite& locSlice, const RmtRmaBufSliceLite& rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_send(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, immData, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
+        });
+    out.pi = pi;
+
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, out.pi);
 }
 
 void UbConnLite::import_context(const UbConnLiteParam& liteParam)

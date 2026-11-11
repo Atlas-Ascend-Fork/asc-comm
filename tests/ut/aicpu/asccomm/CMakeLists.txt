@@ -65,8 +65,11 @@ add_test(NAME asccomm_utest_comms_aicpu_launch COMMAND asccomm_utest_comms_aicpu
 add_executable(asccomm_utest_comms_aicpu_primitives
     main.cc
     ut_asccomm_primitives.cc
+    ut_asccomm_ub_conn_lite.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
 )
 target_include_directories(asccomm_utest_comms_aicpu_primitives PRIVATE
     ${AICPU_UT_INCLUDE_DIRS}
@@ -77,6 +80,7 @@ target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
 target_link_libraries(asccomm_utest_comms_aicpu_primitives PRIVATE
     intf_llt_pub_basic
     asccomm_aicpu_runtime_stub
+    ${ASCEND_CANN_ARCH_DIR}/lib64/libc_sec.so
     pthread
 )
 add_test(NAME asccomm_utest_comms_aicpu_primitives COMMAND asccomm_utest_comms_aicpu_primitives)

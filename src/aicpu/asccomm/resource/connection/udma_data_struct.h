@@ -125,8 +125,16 @@ struct UdmaSqeCommon {
         UdfExtData udfData;
     } inlinedata;
 
-    uint32_t rmtAddrLow;
-    uint32_t rmtAddrHigh;
+    union {
+        struct {
+            uint32_t rmtAddrLow;
+            uint32_t rmtAddrHigh;
+        } rmtAddr;
+        struct {
+            uint32_t immDataLow;
+            uint32_t immDataHigh;
+        } immData;
+    };
 };
 
 struct UdmaSqeWriteWithNotify {
