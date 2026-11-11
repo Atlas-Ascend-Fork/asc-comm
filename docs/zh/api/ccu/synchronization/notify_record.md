@@ -28,7 +28,7 @@
 在CCU kernel内通过channel向对端die发送完成信号，将对端同步寄存器中`mask`对应的notify标志位置1，供对端的[notify_wait](notify_wait.md)读取完成信号。执行期信号以die-to-die信号包经channel传输：同device跨die走片间互联（HCCS），跨device/跨节点走RDMA网络。
 
 > [!NOTE]说明
-> 适用于跨die场景：同device跨die、同节点跨device、跨节点均可，信号经channel送达对端。
+> 适用场景：同节点跨device、跨节点均可，信号经channel送达对端。
 
 ## 函数原型
 

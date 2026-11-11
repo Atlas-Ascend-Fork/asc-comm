@@ -28,7 +28,7 @@
 阻塞等待本端同步寄存器中`mask`对应的notify标志位，直到其全部为1后继续执行。该标志位由对端die的[notify_record](notify_record.md)通过channel置位。
 
 > [!NOTE]说明
-> 适用于跨die场景：同device跨die、同节点跨device、跨节点均可，信号经channel送达对端。
+> 适用场景：同节点跨device、跨节点均可，信号经channel送达对端。
 
 ## 函数原型
 

@@ -26,7 +26,7 @@
 2. 分配内存与初始化输入数据：每个Device创建一个rank，并初始化输入Buffer。
 3. 申请CCU资源：基于HCCL通信域申请CCU Channel、CCU实例、CCU变量和CCU事件资源。
 4. 下发AI Core计算任务：通过`vector_add<<<1, nullptr, streamAiv>>>`直调AI Core vector kernel，生成本地计算结果。
-5. 获取内存Token与准备任务参数：通过`HcommCcuGetMemToken`获取`computeBuf`内存Token，并准备CCU任务参数。
+5. 获取内存Token与准备任务参数：通过[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)获取`computeBuf`内存Token，并准备CCU任务参数。
 6. 下发CCU通信任务：通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`直调CCU Kernel完成AllGather。
 7. 销毁资源：销毁HCCL通信域、Stream和Device侧内存。
 
