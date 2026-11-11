@@ -47,6 +47,7 @@ asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/src
     ${ASCCOMM_ROOT}/pkg_inc
 )
 

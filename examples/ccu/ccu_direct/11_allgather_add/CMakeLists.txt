@@ -22,6 +22,8 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
+find_package(asccomm REQUIRED)
+
 add_executable(ccu_allgather_add
     main.asc
 )
@@ -35,9 +37,11 @@ target_include_directories(ccu_allgather_add PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     # 样例公共辅助头（ccu_instance.h）
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common
+    # Kernel headers in the same directory as main.asc
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_features(ccu_allgather_add PRIVATE cxx_std_14)
+target_compile_features(ccu_allgather_add PRIVATE cxx_std_17)
 target_compile_options(ccu_allgather_add PRIVATE
     -Werror
     -fstack-protector-strong
@@ -60,9 +64,11 @@ target_link_options(ccu_allgather_add PRIVATE
     -Wl,-rpath,${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_directories(ccu_allgather_add PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(ccu_allgather_add PRIVATE
+    asccomm_ccu_headers
     hcomm
     asccomm_ccu
     c_sec

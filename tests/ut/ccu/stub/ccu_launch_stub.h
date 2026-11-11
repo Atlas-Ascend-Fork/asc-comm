@@ -11,7 +11,7 @@
 #ifndef CCU_LAUNCH_STUB_H
 #define CCU_LAUNCH_STUB_H
 
-#include "ccu/hcomm/ccu_launch.h"
+#include "hcomm/primitives/ccu_launch.h"
 
 struct CcuLaunchStubCalls {
     uint32_t registerStart;

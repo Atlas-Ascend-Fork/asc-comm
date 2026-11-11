@@ -41,7 +41,7 @@ target_include_directories(ccu_allgather PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_features(ccu_allgather PRIVATE cxx_std_14)
+target_compile_features(ccu_allgather PRIVATE cxx_std_17)
 target_compile_options(ccu_allgather PRIVATE
     -Werror
     -fstack-protector-strong

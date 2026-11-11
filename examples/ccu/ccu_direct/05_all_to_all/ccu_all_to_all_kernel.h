@@ -18,7 +18,6 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_api_types.h>
 #include <ccu/hcomm/ccu_primitives.hpp>
 
 namespace ccu = ::AscendC::ccu;

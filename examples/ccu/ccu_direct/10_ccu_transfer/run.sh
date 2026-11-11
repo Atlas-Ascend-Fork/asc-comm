@@ -10,8 +10,6 @@
 # -----------------------------------------------------------------------------------------------------------
 set -euo pipefail
 
-set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO="${SCENARIO_NUM:-1}"
 BUILD_DIR="${SCRIPT_DIR}/build-${SCENARIO}"

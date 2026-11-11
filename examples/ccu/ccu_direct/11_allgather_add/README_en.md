@@ -20,7 +20,9 @@ The inputs of all ranks are first concatenated in rank order, and each rank then
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow, CCU AllGather kernel, and AICore Add kernel implementation
+├── main.asc          // Host flow
+├── ccu_allgather_add_kernel.h // CCU AllGather kernel implementation
+└── vector_allgather_add_kernel.h // Vector Add kernel implementation
 ```
 
 ## Sample Description

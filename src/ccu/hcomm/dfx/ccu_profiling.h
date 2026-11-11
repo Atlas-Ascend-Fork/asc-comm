@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "ccu/hcomm/ccu_launch.h"
+#include "hcomm/primitives/ccu_launch.h"
 
 namespace asc::ccu_profiling {
 

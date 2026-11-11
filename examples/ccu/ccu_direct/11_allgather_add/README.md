@@ -21,7 +21,9 @@
 ├── README.md         // 中文样例说明
 ├── README_en.md      // 英文样例说明
 ├── run.sh            // 一键构建运行脚本
-└── main.asc          // Host侧流程、CCU AllGather Kernel和AICore Add Kernel实现
+├── main.asc          // Host侧流程
+├── ccu_allgather_add_kernel.h // CCU AllGather Kernel侧实现
+└── vector_allgather_add_kernel.h // Vector Add Kernel侧实现
 ```
 
 ## 样例描述

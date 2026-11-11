@@ -13,7 +13,7 @@
 // 不再 include hccl 私有头，从源码层面落实控制面/数据面边界。
 #include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "ccu/hcomm/hccl_types.h"
-#include "ccu/hcomm/ccu_primitives_impl.h"
+#include "hcomm/primitives/ccu_primitives_impl.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"

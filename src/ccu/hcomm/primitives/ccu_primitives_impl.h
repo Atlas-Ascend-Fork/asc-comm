@@ -14,10 +14,10 @@
 #ifdef __cplusplus
 #include <cstdbool>
 #else
-#error "ccu/hcomm/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asc"
+#error "hcomm/primitives/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asc"
 #endif // __cplusplus
 
-// 控制面/数据面 ABI 边界：数据类型（HcclResult 等）取自 HCCL 公共类型定义
+// 内部 C ABI bridge：公开 C++ DSL 头通过本文件访问 asc-comm 数据面 primitive；不建议用户直接包含。
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_primitives.h"
 #include "ccu/hcomm/hccl_types.h"

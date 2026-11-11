@@ -13,7 +13,7 @@
 
 #include <vector>
 
-#include "ccu/hcomm/ccu_primitives_impl.h"
+#include "ccu/hcomm/primitives/ccu_primitives_impl.h"
 #include "ccu/hcomm/ccu_control_flow_macro.h"
 
 #include "ccu/hcomm/ccu_variable.hpp"

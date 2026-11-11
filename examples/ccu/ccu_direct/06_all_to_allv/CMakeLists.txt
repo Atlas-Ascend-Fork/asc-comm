@@ -22,6 +22,8 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
+find_package(asccomm REQUIRED)
+
 add_executable(ccu_all_to_allv
     main.asc
 )
@@ -59,9 +61,11 @@ target_link_options(ccu_all_to_allv PRIVATE
     -Wl,-z,noexecstack
 )
 target_link_directories(ccu_all_to_allv PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(ccu_all_to_allv PRIVATE
+    asccomm_ccu_headers
     -Wl,--no-as-needed
     hcomm
     asccomm_ccu

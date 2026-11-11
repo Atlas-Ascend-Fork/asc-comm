@@ -20,7 +20,9 @@ Each rank first adds the scalar 1.0 to its local input element by element; the r
 ├── README.md         // Chinese sample description
 ├── README_en.md      // English sample description
 ├── run.sh            // One-step build-and-run script
-└── main.asc          // Host flow, AICore Add kernel, and CCU AllGather kernel implementation
+├── main.asc          // Host flow
+├── vector_add_allgather_kernel.h // Vector Add kernel implementation
+└── ccu_add_allgather_kernel.h // CCU AllGather kernel implementation
 ```
 
 ## Sample Description

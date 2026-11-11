@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu/hcomm/ccu_launch.h"
+#include "hcomm/primitives/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
 
 #include <vector>

@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "ccu/hcomm/ccu_api_types.h"
-#include "ccu/hcomm/ccu_primitives_impl.h"
+#include "ccu/hcomm/primitives/ccu_primitives_impl.h"
 #include "ccu/hcomm/ccu_variable.hpp"
 
 namespace AscendC {

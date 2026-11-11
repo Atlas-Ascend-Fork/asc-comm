@@ -12,7 +12,7 @@
 #define CCU_CONTROL_FLOW_MACRO_H
 
 #include "ccu/hcomm/ccu_variable.hpp"
-#include "ccu/hcomm/ccu_primitives_impl.h"
+#include "ccu/hcomm/primitives/ccu_primitives_impl.h"
 
 #define CCU_CONCAT_INNER(a, b) a##b
 

@@ -268,6 +268,7 @@ target_include_directories(asccomm_ccu_host_launch
         ${ASCCOMM_ROOT}/pkg_inc/hcomm
         ${ASCCOMM_ROOT}/pkg_inc
     PRIVATE
+        ${ASCCOMM_ROOT}/src/ccu
         ${ASCEND_CANN_ARCH_DIR}/include
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
@@ -288,6 +289,7 @@ target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu

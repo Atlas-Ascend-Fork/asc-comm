@@ -21,6 +21,7 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/src/ccu
+    ${ASCCOMM_ROOT}/src
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
@@ -312,6 +313,7 @@ target_include_directories(asccomm_ccu_print_ut PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/src/ccu
+    ${ASCCOMM_ROOT}/src
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
 )
