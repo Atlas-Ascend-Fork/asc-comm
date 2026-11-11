@@ -210,8 +210,13 @@ typedef struct {
     uint8_t reserve[112];
 } ChannelEntity; // 256B
 
+typedef enum {
+    HCOMM_THREAD_SQ_CONTEXT_TYPE_INVALID = -1,
+    HCOMM_THREAD_SQ_CONTEXT_TYPE_RTSQ = 0
+} HcommThreadSqContextType;
+
 typedef struct {
-    uint32_t type;
+    HcommThreadSqContextType type;
     union {
         struct {
             uint32_t streamId;
@@ -225,20 +230,22 @@ typedef struct {
             uint64_t localSqAddr;
             uint32_t localSqDepth;
             uint32_t pendingSqeCnt;
-        } RtsqContext;
+        } rtsqContext;
         uint8_t raws[120];
     } contextInfo;
 } HcommThreadSqContext; // 128B
 
 typedef struct {
     CommAbiHeader abiHeader;
+    CommEngine engine;
+    ThreadType threadType;
     HcommDevInfo devInfo;
     uint32_t localNotifyNum;
-    RegedNotifyEntity* localNotifyAddr; // Thread IPC_RT 仅 notifyId 有效，addr/size 为 0。
+    RegedNotifyEntity* localNotifyAddr; // 首段Notify地址；链接槽首8字节为下一段地址，0表示末段。
     HcommThreadSqContext* sqContextAddr;
     // Device 侧 AICPU Thread 对象地址，仅供 hcomm 内部兼容解包，跨仓消费者不得解引用。
     ThreadHandle compatThreadHandle;
-    uint8_t reserve[168];
+    uint8_t reserve[160];
 } HcommThreadEntity; // 256B
 
 #ifdef __cplusplus
@@ -253,7 +260,7 @@ using HcommRegedNotifyEntity = RegedNotifyEntity;
 using HcommJfsContext = decltype(((SqContext*)nullptr)->contextInfo.ubJfs);
 using HcommRdmaSqContext = decltype(((SqContext*)nullptr)->contextInfo.roceSq);
 using HcommRdmaCqContext = decltype(((CqContext*)nullptr)->contextInfo.roceCq);
-using HcommRtsqContext = decltype(((HcommThreadSqContext*)nullptr)->contextInfo.RtsqContext);
+using HcommRtsqContext = decltype(((HcommThreadSqContext*)nullptr)->contextInfo.rtsqContext);
 
 static constexpr ProtectionType HCOMM_PROTECTION_TYPE_RDMA = PROTECTION_TYPE_ROCE;
 static constexpr ProtectionType HCOMM_PROTECTION_TYPE_URMA = PROTECTION_TYPE_UB;

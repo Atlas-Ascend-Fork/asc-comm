@@ -80,11 +80,20 @@ AsccommResult get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyId
         notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
         ASCCOMM_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, notifyIdx, thread.localNotifyNum),
         ASCCOMM_E_PARA);
+
+    constexpr uint32_t notifySegmentDataNum = 127U;
+    const uint32_t segmentIdx = notifyIdx / notifySegmentDataNum;
+    const uint32_t slotIdx = notifyIdx % notifySegmentDataNum;
+    const HcommRegedNotifyEntity* segment = thread.localNotifyAddr;
+    for (uint32_t i = 0; i < segmentIdx && segment != nullptr; ++i) {
+        const uint64_t nextSegmentAddr = *reinterpret_cast<const uint64_t*>(segment + notifySegmentDataNum);
+        segment = reinterpret_cast<const HcommRegedNotifyEntity*>(static_cast<uintptr_t>(nextSegmentAddr));
+    }
+    CHK_PTR_NULL(segment);
     CHK_PRT_RET(
-        thread.localNotifyAddr[notifyIdx].type != HCOMM_REGED_NOTIFY_IPC_RT,
-        ASCCOMM_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__, thread.localNotifyAddr[notifyIdx].type),
-        ASCCOMM_E_PARA);
-    const int32_t resourceId = thread.localNotifyAddr[notifyIdx].notifyInfo.ipcRt.notifyId;
+        segment[slotIdx].type != HCOMM_REGED_NOTIFY_IPC_RT,
+        ASCCOMM_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__, segment[slotIdx].type), ASCCOMM_E_PARA);
+    const int32_t resourceId = segment[slotIdx].notifyInfo.ipcRt.notifyId;
     CHK_PRT_RET(resourceId < 0, ASCCOMM_ERROR("[%s] invalid notify id[%d].", __func__, resourceId), ASCCOMM_E_PARA);
     notifyId = static_cast<uint32_t>(resourceId);
     return ASCCOMM_SUCCESS;
