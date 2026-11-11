@@ -56,7 +56,7 @@ CCU_IF(cond_expr) {
 
 - `CCU_IF`只支持匹配一个`CCU_ELSE`，当前不支持单if多else的用法。
 - `CCU_ELSE`必须紧跟在`CCU_IF { body }`之后，不可独立出现，不可出现在其他位置。
-- `CCU_IF { body } CCU_ELSE { else-body }`之间不允许插入其他CCU API调用。中间一旦插入任何CCU API调用（如数据搬运、同步等），框架会自动提前闭合该 `CCU_IF`；随后到达的`CCU_ELSE`找不到可配对的`CCU_IF`，其body会被跳过、kernel生成仍然成功，运行期不会有任何错误返回值，极难调试。务必保持`CCU_IF { ... } CCU_ELSE { ... }`之间无任何CCU API调用。
+- `CCU_IF { body } CCU_ELSE { else-body }`之间不允许插入其他CCU API调用。中间一旦插入任何CCU API调用（如数据搬运、同步等），框架会自动提前闭合该 `CCU_IF`；随后到达的`CCU_ELSE`找不到可配对的`CCU_IF`，其body会被跳过、kernel生成仍然成功，执行期不会有任何错误返回值，极难调试。务必保持`CCU_IF { ... } CCU_ELSE { ... }`之间无任何CCU API调用。
 - 不支持`else if`写法，如需多分支可嵌套`CCU_IF`：
 
 ```cpp

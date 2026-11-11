@@ -63,12 +63,12 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 
 | 情形 | 错误码 |
 | --- | --- |
-| `channel == nullptr`、channel类型非法、接口在编译阶段之外被调用 | `CCU_E_PTR` |
+| `channel == nullptr`、channel类型非法、接口在Kernel函数体之外被调用 | `CCU_E_PTR` |
 | `var_index`越界（超过channel预分配variable池大小） | `CCU_E_PARA` |
 
 ## 约束说明
 
-- 只能在编译阶段调用。
+- 只能在Kernel函数体内调用。
 - 与`variable v;`（普通构造）的分配行为完全不同，不可互换。
 - 返回的`variable`生命周期归channel管理，在channel销毁前有效。
 - 当前仅支持`T = variable`，对其他类型调用编译期失败。

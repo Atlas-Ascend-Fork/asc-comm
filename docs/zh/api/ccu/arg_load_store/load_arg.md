@@ -27,7 +27,7 @@
 
 `load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次通过`<<<>>>`下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
 
-本接口在编译阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已编译的Kernel每次下发可携带不同参数，无须重新编译。
+本接口在翻译期仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已编译的Kernel每次下发可携带不同参数，无须重新编译。
 
 ## 函数原型
 
@@ -53,7 +53,7 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`v`句柄未在当前kernel内创建。 |
 
 > [!NOTE]说明
@@ -64,7 +64,7 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 - 同一kernel内所有`load_arg`调用的`arg_id`须从0连续编号（0、1、2、…），不可重复，且个数须与`<<<>>>`的`argNum`严格相等。加载指令按`arg_id`升序对应到任务参数槽位，跳号、乱序或重复会使参数无法与槽位正确对应——以上均由`<<<>>>`统一校验，违反时返回`CCU_E_INTERNAL`。
 - `argNum`表示元素个数，而非字节数。例如`arg_id`为0、1、2的3个`load_arg`调用，`argNum`须传`3`，`taskArgs`须有至少3个`uint64_t`元素。
 - `arg_id`取值范围为0~12，因为CCU任务描述符最多携带13个参数。
-- `load_arg`只负责给`v`设初值：若kernel函数体内又对同一个`v`赋值，赋值会覆盖注入的初值。混用时须先把注入值读走、再重新赋值。
+- `load_arg`只负责给`v`设初值：若kernel函数体内又对同一个`v`赋值，赋值会覆盖注入的初值。混用时须先把注入值读走、再重新赋值（作用在不同`variable`上的场景不受此影响，如`load_arg(addrVar, 0); load(addrVar, v);`中注入值作为地址被`load`消费）。
 
 ## 调用示例
 

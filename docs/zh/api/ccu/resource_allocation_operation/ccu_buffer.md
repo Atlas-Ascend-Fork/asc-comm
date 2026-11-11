@@ -25,13 +25,13 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-`ccu::ccu_buffer`是CCU kernel内片上CCU Buffer的C++包装类，每个切片固定4096个字节，用于在片上内存与对端之间中转数据。
+`ccu::ccu_buffer`是CCU kernel内片上CCU Buffer的C++包装类，每个切片固定4096个字节，用于在片上内存与对端之间中转数据，或作为[local_reduce](../data_movement/local_reduce.md)多ccu_buffer归约的操作数（一次最多8路，经`ccu::array<ccu_buffer>`申请以保证物理连续）。
 
 - 构造即分配：默认构造只申请虚拟句柄。
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
-> 资源分配采用“先虚后实”两阶段模型：`ccu_buffer()`构造仅产生虚拟句柄，真正的物理CCU Buffer切片在编译阶段统一分配。
+> 资源分配采用“先虚后实”两阶段模型：`ccu_buffer()`构造仅产生虚拟句柄，真正的物理CCU Buffer切片在翻译期统一分配。
 
 ## 类声明
 
@@ -55,8 +55,8 @@ public:
 
 ## 约束说明
 
-- 只能在编译阶段构造；编译阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在编译阶段内恒成功不抛异常；CCU Buffer物理资源不足时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；CCU Buffer物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的CCU Buffer切片，`ccu_buffer b2 = b1;`后两个对象指向同一块切片；如需独立的`ccu_buffer`，必须显式默认构造或用[`array<ccu_buffer>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 每个`ccu_buffer`固定代表4096字节的片上切片，大小不可配置。

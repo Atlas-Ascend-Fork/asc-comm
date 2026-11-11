@@ -60,11 +60,12 @@ CcuResult write_variable_with_notify(ChannelHandle channel, variable var,
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
 | `CCU_E_NOT_FOUND` | `var`对应的variable句柄未在当前kernel内创建。 |
-| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `CCU_E_NOT_SUPPORT` | 不支持在硬件loop的循环体内调用。 |
 
 ## 约束说明
 
-- 不可在硬件loop的循环体内调用。
+- 不可在硬件loop的循环体内调用，调用时返回`CCU_E_NOT_SUPPORT`。
 - 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
 - `remote_var_idx`与`remote_notify_idx`均为channel级别的槽位编号，由两端kernel各自传入：框架不分配编号，也不校验两侧是否一致，须由开发者保证两端使用相同编号，若不一致则消费侧将永久阻塞。
 

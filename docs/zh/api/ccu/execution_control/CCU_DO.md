@@ -34,7 +34,7 @@ CCU_DO { body } CCU_WHILE(cond_expr);
 ```
 
 > [!CAUTION]注意
-> `CCU_DO`必须配`CCU_WHILE(cond);`收尾。漏写收尾不会产生编译错误，但运行期行为错误：body仅执行一次后顺序向下，且会影响后续的`CCU_WHILE`，导致循环跳转错乱，极难调试。
+> `CCU_DO`必须配`CCU_WHILE(cond);`收尾。漏写收尾不会产生编译错误，但执行期行为错误：body仅执行一次后顺序向下，且会影响后续的`CCU_WHILE`，导致循环跳转错乱，极难调试。
 
 ## 函数原型
 
@@ -54,7 +54,7 @@ CCU_DO {
 
 ## 约束说明
 
-- `CCU_DO`必须紧跟`CCU_WHILE(cond);`收尾，缺少收尾时运行期行为错误，且不会产生任何编译期错误，kernel生成也不会失败。
+- `CCU_DO`必须紧跟`CCU_WHILE(cond);`收尾，缺少收尾时执行期行为错误，且不会产生任何编译期错误，kernel生成也不会失败。
 - `CCU_DO { body }`与配套的`CCU_WHILE(cond);`之间不允许插入其他CCU API调用，否则do-while无法正确配对。
 - `CCU_DO ... CCU_WHILE`不可在`ccu::loop`的body lambda内部使用，硬件loop body内不支持软件循环。
 - `cond_expr`中比较的一方须为`uint64_t`立即数。针对Ascend 950PR&950DT系列产品，不支持`variable`与`variable`之间的比较。

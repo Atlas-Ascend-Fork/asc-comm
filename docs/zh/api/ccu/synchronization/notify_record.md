@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-在CCU kernel内通过channel向对端die发送完成信号，将对端同步寄存器中`mask`对应的notify标志位置1，供对端的[notify_wait](notify_wait.md)读取完成信号。
+在CCU kernel内通过channel向对端die发送完成信号，将对端同步寄存器中`mask`对应的notify标志位置1，供对端的[notify_wait](notify_wait.md)读取完成信号。执行期信号以die-to-die信号包经channel传输：同device跨die走片间互联（HCCS），跨device/跨节点走RDMA网络。
 
 > [!NOTE]说明
 > 适用于跨die场景：同device跨die、同节点跨device、跨节点均可，信号经channel送达对端。
@@ -45,7 +45,7 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | channel | 输入 | 通信通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
-| remote_notify_idx | 输入 | 对端notify槽位索引，取值范围为0~7。 |
+| remote_notify_idx | 输入 | 对端notify槽位索引，取值范围为0~7，由通信双方在协议层预先约定，框架不自动配对。 |
 | mask | 输入 | 16位事件掩码，指定要设置的对端notify标志位。默认值为`1`，即bit0。 |
 
 ## 返回值说明
@@ -55,13 +55,14 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `CCU_E_NOT_SUPPORT` | 不支持在硬件loop的循环体内调用。 |
 
 ## 约束说明
 
-- 不可在硬件loop的循环体内调用。循环体会被复制为多份并行执行，每份都会执行一次`notify_record`，置位语义不再明确。
+- 不可在硬件loop的循环体内调用，调用时返回`CCU_E_NOT_SUPPORT`。循环体会被复制为多份并行执行，每份都会执行一次`notify_record`，置位语义不再明确。
 - 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
-- `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
+- `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同：槽位编号由通信双方在协议层约定一致，框架不校验两侧是否一致，也不自动配对。
 - `notify_record`和`notify_wait`的`mask`相同。
 - 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`remote_notify_idx`的取值范围为0~7。
 

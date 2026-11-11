@@ -56,7 +56,7 @@ target_compile_options(ccu_transfer PRIVATE
 
 target_compile_definitions(ccu_transfer PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
-    SCENARIO_NUM=6
+    SCENARIO_NUM=${SCENARIO_NUM}
 )
 target_link_options(ccu_transfer PRIVATE
     -pie

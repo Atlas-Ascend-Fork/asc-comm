@@ -45,7 +45,7 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | channel | 输入 | 通信通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)。 |
-| local_notify_idx | 输入 | 本端notify槽位索引，取值范围为0~7。 |
+| local_notify_idx | 输入 | 本端notify槽位索引，取值范围为0~7，由通信双方在协议层预先约定，框架不自动配对。 |
 | mask | 输入 | 16位事件掩码，指定要等待的本端notify标志位。默认值为`1`，即bit0。 |
 
 ## 返回值说明
@@ -55,13 +55,13 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
 
 ## 约束说明
 
 - `notify_wait`可在硬件loop的循环体内调用。
 - 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
-- `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
+- `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同：槽位编号由通信双方在协议层约定一致，框架不校验两侧是否一致，也不自动配对。
 - `notify_record`和`notify_wait`的`mask`相同。
 - 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`local_notify_idx`的取值范围为0~7。
 - 本端`notify_wait`须与对端die通过对应channel发送的[notify_record](notify_record.md)配对，由对端置位本端的notify标志位。对端发送通知可先于或晚于本端开始等待；本端自行调用`notify_record`只会通知对端，不能代替对端发送本端等待的通知。若对端始终未发送匹配的通知，本接口将持续阻塞，可能导致硬件级死锁。

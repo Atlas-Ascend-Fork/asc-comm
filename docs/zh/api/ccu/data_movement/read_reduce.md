@@ -27,6 +27,10 @@
 
 通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据，并与本端片上内存现有数据按指定算子合并（`local = reduce(local, fetch_from_remote, op_type)`），硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
+具体支持的数据通路为：
+
+- 对端片上内存 -> 本端片上内存
+
 ## 函数原型
 
 ```cpp
@@ -42,11 +46,11 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 | ch | 输入 | 跨rank通道句柄。 |
 | local | 输入/输出 | 本端片上内存目标地址，类型为`local_addr`，同时也是归约的累加端。调用前须写入有效初值；硬件完成后更新为归约结果。 |
 | remote | 输入 | 对端源地址，类型为`remote_addr`。 |
-| len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。 |
-| data_type | 输入 | 数据类型，取值见`HcclDataType`枚举。仅支持以下6种：`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_FP32`、`HCCL_DATA_TYPE_BFP16`；其他取值会被拒绝并抛出异常（携带错误码）。 |
+| len | 输入 | 操作字节数，类型为`variable`，实际值在执行期取自对应的通用寄存器。 |
+| data_type | 输入 | 数据类型，取值见`HcclDataType`枚举。仅支持`HCCL_DATA_TYPE_INT8`、`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_UINT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_UINT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`；其他取值会被拒绝并抛出异常（携带错误码）。 |
 | op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。仅支持`HCCL_REDUCE_SUM`（求和）、`HCCL_REDUCE_MAX`（最大值）、`HCCL_REDUCE_MIN`（最小值）；`HCCL_REDUCE_PROD`不支持，传入会被拒绝并抛出异常（携带错误码）。当采用SUM操作时，低精度输入数据的求和结果会先升精度、再调整为与输入数据相同的精度。 |
 | evt | 输入 | 完成事件对象，硬件归约读完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
-| mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
+| mask | 输入 | 16位事件掩码，指定硬件完成时设置`evt`的哪些标志位。默认值为`1`，即只置位bit0。 |
 
 ## 返回值说明
 
@@ -55,8 +59,8 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在编译阶段之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`local`/`remote`/`len`/`event`句柄未在当前kernel内创建。 |
+| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `CCU_E_NOT_FOUND` | 传入的`local`/`remote`/`len`/`evt`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 

@@ -59,12 +59,34 @@
 | src | 输入 | 源片上内存地址（`local_addr`，本端片上内存 -> 本端片上内存）。 |
 | buffers | 输入/输出 | ccu_buffer数组首地址（`ccu_buffer*`，N个本端CCU Buffer -> `buffers[0]`），不可为`nullptr`。推荐通过`ccu::array<ccu_buffer>`申请以保证物理连续。`buffers[0]`为归约结果的输出位置，调用前须写入有效初值。精度膨胀场景（低精度输入 + SUM 升精度输出，如INT8→FP32时输出元素4×于输入）下，传入的ccu_buffer数组须同时覆盖输入与膨胀后的输出占用（例如2路INT8输入升FP32输出时须预留4个ccu_buffer，而非2个）；预留不足会导致硬件读写越界、行为未定义。 |
 | count | 输入 | ccu_buffer数量（N个本端CCU Buffer -> `buffers[0]`）。取值范围为`[2, 8]`（超过上限会抛出异常并携带错误码）。`count == 0`会被直接拒绝并返回`CCU_E_PARA`；`count == 1`不会被拒绝但硬件行为未定义，单个ccu_buffer场景请用“本端片上内存 -> 本端片上内存”通路。`count`须等于`buffers`数组实际长度。 |
-| data_type | 输入 | 输入数据类型，取值见`HcclDataType`枚举。仅支持以下6种：`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_FP32`、`HCCL_DATA_TYPE_BFP16`。其他取值会被拒绝并抛出异常（携带错误码）。 |
+| data_type | 输入 | 输入数据类型，取值见`HcclDataType`枚举。支持的类型集与通路及归约算子相关，详见[data_type 支持的数据类型](#data-type-table)；不在支持集合内的取值会被拒绝并抛出异常（携带错误码）。 |
 | output_data_type | 输入 | 输出数据类型（仅“N个本端CCU Buffer -> `buffers[0]`”通路），取值见`HcclDataType`枚举。支持两种组合：①同精度——取值与`data_type`相同；②升精度——仅在`op_type == HCCL_REDUCE_SUM`时支持，将低精度输入归约后升至高精度输出（如`HCCL_DATA_TYPE_INT8`→`HCCL_DATA_TYPE_FP32`，见“调用示例 - 场景2”）。其他`data_type`/`output_data_type`组合返回`CCU_E_NOT_SUPPORT`（见返回值表）。升精度场景下`buffers`须按精度膨胀比例预留ccu_buffer，详见`buffers`参数说明。 |
-| op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`；`HCCL_REDUCE_PROD`不支持，传入会被拒绝并抛出异常（携带错误码）。 |
-| len | 输入 | 操作字节数，类型为`variable`，实际值在下发阶段取自对应的通用寄存器。<br>&bull;本端片上内存 -> 本端片上内存：操作的总字节数。<br>&bull;N个本端CCU Buffer -> `buffers[0]`：每个ccu_buffer参与归约的字节数，不可超过单片大小（4096字节）。 |
+| op_type | 输入 | 归约算子，取值见`HcclReduceOp`枚举。仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`；`HCCL_REDUCE_PROD`不支持，传入会被拒绝并抛出异常（携带错误码）。当采用SUM操作时，低精度输入数据的求和结果会先升精度、再调整为与输入数据相同的精度（“N个本端CCU Buffer -> `buffers[0]`”通路下若指定了升精度的`output_data_type`，则按输出精度保留，不再调回输入精度）。 |
+| len | 输入 | 操作字节数，类型为`variable`，实际值在执行期取自对应的通用寄存器。<br>&bull;本端片上内存 -> 本端片上内存：操作的总字节数。<br>&bull;N个本端CCU Buffer -> `buffers[0]`：每个ccu_buffer参与归约的字节数，不可超过单片大小（4096字节）。 |
 | evt | 输入 | 完成事件对象，硬件归约完成时自动将`evt`中`mask`对应的标志位设置为1，下游调用`event_wait(evt, mask)`等待。 |
-| mask | 输入 | 16位事件掩码，指定硬件完成时设置`event`的哪些标志位。默认值为`1`，即只置位bit0。 |
+| mask | 输入 | 16位事件掩码，指定硬件完成时设置`evt`的哪些标志位。默认值为`1`，即只置位bit0。 |
+
+### data_type 支持的数据类型<a id="data-type-table"></a>
+
+各通路与归约算子下`data_type`的支持情况如下：
+
+| 数据类型 | 本端片上内存 -> 本端片上内存 | N个本端CCU Buffer -> `buffers[0]`（`HCCL_REDUCE_SUM`） | N个本端CCU Buffer -> `buffers[0]`（`HCCL_REDUCE_MAX`/`HCCL_REDUCE_MIN`） |
+| --- | --- | --- | --- |
+| `HCCL_DATA_TYPE_INT8` | 支持 | 仅作低精度输入，须搭配升精度输出 | 支持（仅同精度） |
+| `HCCL_DATA_TYPE_UINT8` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_INT16` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_UINT16` | 支持 | 不支持 | 不支持 |
+| `HCCL_DATA_TYPE_INT32` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_UINT32` | 支持 | 不支持 | 不支持 |
+| `HCCL_DATA_TYPE_FP16` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_BFP16` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_FP32` | 支持 | 支持（同精度） | 支持（同精度） |
+| `HCCL_DATA_TYPE_HIF8` | 不支持 | 仅作低精度输入，须搭配升精度输出 | 不支持 |
+| `HCCL_DATA_TYPE_FP8E4M3` | 不支持 | 仅作低精度输入，须搭配升精度输出 | 不支持 |
+| `HCCL_DATA_TYPE_FP8E5M2` | 不支持 | 仅作低精度输入，须搭配升精度输出 | 不支持 |
+
+- 升精度输出的合法取值为`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`，组合约束与膨胀预留要求见`output_data_type`与`buffers`参数说明。
+- 不在支持集合内的取值会被拒绝并抛出异常（携带错误码）。
 
 ## 返回值说明
 
@@ -78,11 +100,11 @@
 
 ## 约束说明
 
-- 归约为原地操作，调用前`dst`（“本端片上内存 -> 本端片上内存”通路）或`buffers[0]`（“N个本端CCU Buffer -> `buffers[0]`”通路）须已写入有效初值，否则归约结果未定义。
+- 归约为原地操作，调用前`dst`（“本端片上内存 -> 本端片上内存”通路）或`buffers[0]`（“N个本端CCU Buffer -> `buffers[0]`”通路）须已写入有效初值（如0或负无穷），否则归约结果未定义。
 - “N个本端CCU Buffer -> `buffers[0]`”通路的`buffers`须指向物理连续的`ccu_buffer`数组，推荐使用`ccu::array<ccu_buffer>`申请。
 - “N个本端CCU Buffer -> `buffers[0]`”通路的`count`取值范围为`[2, 8]`；`count > 8`时抛出异常（携带错误码），`count == 0`直接返回`CCU_E_PARA`，`count == 1`不被拒但硬件行为未定义（请改用“本端片上内存 -> 本端片上内存”通路）。
 - “N个本端CCU Buffer -> `buffers[0]`”通路在精度膨胀场景（低精度输入 + SUM 升精度输出）下，`buffers`须按膨胀比例额外预留ccu_buffer以容纳膨胀后的输出，否则硬件读写越界、行为未定义。
-- “N个本端CCU Buffer -> `buffers[0]`”通路，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出会导致运行期硬件行为未定义。
+- “N个本端CCU Buffer -> `buffers[0]`”通路，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出会导致执行期硬件行为未定义。
 - 本接口为异步操作，须通过`event_wait(evt, mask)`等待归约完成后再读取结果。
 
 ## 调用示例

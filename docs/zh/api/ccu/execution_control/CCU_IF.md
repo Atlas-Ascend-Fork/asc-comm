@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
 
-在CCU kernel内开始一个软件条件分支块。条件在下发阶段由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
+在CCU kernel内开始一个软件条件分支块。条件在执行期由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
 
 ## 函数原型
 
@@ -53,12 +53,20 @@ CCU_IF(cond_expr) {
 - 不可在硬件Loop的循环体内使用。虽然代码不会报错，但硬件会发生未定义行为。
 - `cond_expr`中比较的一方须为`uint64_t`立即数。针对Ascend 950PR&950DT系列产品，不支持`variable`与`variable`之间的比较。
 
+> [!NOTE]说明
+> `CCU_IF`的关闭并不在`CCU_IF { body }`的闭合花括号处立即发生，而是延迟到以下三种时机之一：
+> 1. 紧跟的`CCU_ELSE`；
+> 2. 其后第一个CCU API调用；
+> 3. `<<<>>>`直调结束时兜底关闭。
+>
+> 因此，在`CCU_IF { body }`之后、`CCU_ELSE`之前插入任何CCU API调用，都会使`CCU_IF`被提前关闭，随后到达的`CCU_ELSE`找不到可配对的`CCU_IF`，其body会被跳过（kernel生成仍然成功，不报错）。务必保持`CCU_IF`与`CCU_ELSE`之间没有任何其他CCU API调用，详见[CCU_ELSE](CCU_ELSE.md)的约束说明。
+
 ## 调用示例
 
 ```cpp
 using namespace AscendC::ccu;
 
-// 场景：根据下发阶段变量值选择不同的执行路径
+// 场景：根据执行期变量值选择不同的执行路径
 CcuResult my_kernel(ccu_kernel_arg arg) {
     variable flag;
     load_arg(flag, 0);   // 每次下发时从taskArgs[0]加载标志值

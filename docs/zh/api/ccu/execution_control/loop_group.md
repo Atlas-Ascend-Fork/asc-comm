@@ -37,11 +37,11 @@ namespace ccu {
 
 class loop_group {
 public:
-    // config-based：Group参数在编译阶段确定
+    // config-based：Group参数在翻译期固化
     loop_group(const ccu_loop_group_config &loopGroupCfg, uint32_t max_loop_num,
               const std::vector<loop> &loops);
 
-    // var-based：Group参数在下发阶段由variable值决定
+    // var-based：Group参数在执行期由variable值决定
     loop_group(variable &parallelCfg, variable &offsetCfg, uint32_t max_loop_num,
               const std::vector<loop> &loops);
 };
@@ -55,8 +55,8 @@ public:
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | loopGroupCfg | 输入 | config-based的Group配置，类型为[`ccu_loop_group_config`](#loop-group-cfg-config-based)。 |
-| parallelCfg | 输入 | var-based的并行配置`variable`，下发阶段决定并行参数，位段定义见[var-based：`parallel_cfg`与`offset_cfg`](#var-based-parallel-offset)。 |
-| offsetCfg | 输入 | var-based的偏移配置`variable`，下发阶段决定各实例使用的资源偏移，位段定义见[var-based：`parallel_cfg`与`offset_cfg`](#var-based-parallel-offset)。 |
+| parallelCfg | 输入 | var-based的并行配置`variable`，执行期决定并行参数，位段定义见[var-based：`parallel_cfg`与`offset_cfg`](#var-based-parallel-offset)。 |
+| offsetCfg | 输入 | var-based的偏移配置`variable`，执行期决定各实例使用的资源偏移，位段定义见[var-based：`parallel_cfg`与`offset_cfg`](#var-based-parallel-offset)。 |
 | max_loop_num | 输入 | 本Group最多容纳的Loop数量，框架据此预留LoopEngine资源池容量。 |
 | loops | 输入 | 要加入本Group的`ccu::loop`对象列表。列表中每个Loop会在`loop_group`构造函数内自动被加入Group。 |
 
@@ -110,6 +110,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 - Group内各Loop的循环体约束与独立`ccu::loop`相同（参见[loop](loop.md)的约束说明）。
 - `max_loop_num`必须大于0，为0时构造直接失败（`CCU_E_PARA`）。
 - `max_loop_num`应 ≥ `loops`列表实际大小（即真正会加入Group的Loop数，含展开复用）；偏小会导致后续加入Loop时因LoopEngine池容量不足而失败（`CCU_E_PARA`）。
+- var-based构造时，须保证`parallel_cfg`与`offset_cfg`的`variable`在执行期的取值符合预期，其中：`parallel_cfg`的[47:41]须等于实际加入Group的Loop个数；[54:48]指定的开始复制Loop编号须小于Group内Loop个数；按[61:55]展开后的总Loop个数（Loop个数 + 复制份数）须不超过`max_loop_num`。取值不符合预期会导致硬件Loop展开错乱，行为未定义。
 
 ## 调用示例
 

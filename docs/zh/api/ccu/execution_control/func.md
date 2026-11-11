@@ -63,6 +63,7 @@ public:
 ## 约束说明
 
 - `ccu::func`不可复制，拷贝构造和赋值运算符已`= delete`，每个`ccu::func`对象有唯一身份。
+- `ccu::func`对象只能定义在namespace作用域（含`static`）或作为类的静态数据成员，不能是函数局部变量（即使加`static`也不行）：对象需以引用作为[call_func](call_func.md)的模板参数，这是C++对模板实参的链接性要求，违反时编译期直接报错。
 - lambda形参类型须能从`ccu::variable&`传入，可写为`ccu::variable`、`ccu::variable&`或`const ccu::variable&`，其他类型如`int`、`ccu::address`会编译报错。
 - lambda必须返回`void`，否则编译期报错。
 - 不同的`ccu::func`对象即使lambda内容相同，也各自合成独立的FuncBlock。

@@ -51,12 +51,12 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | `notify_tag`为空指针，或接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
 
 ## 约束说明
 
 - `local_notify_wait`可在硬件loop body内调用。
-- `notify_tag`必须在Kernel函数体执行期间保持有效，约束与`local_notify_record`一致。
+- `notify_tag`必须在翻译期保持有效，约束与`local_notify_record`一致。
 - 调用前必须已存在对应的`local_notify_record`在某个先序位置，否则将永久阻塞导致硬件级死锁。
 - 等待的`mask`必须与生产侧`local_notify_record`传入的`mask`一致。
 

@@ -27,10 +27,10 @@
 
 `ccu::loop`是CCU kernel内的硬件循环类，用于描述一段需要重复执行的搬运逻辑。
 
-循环体的指令只记录一份。下发阶段由硬件LoopEngine自动迭代执行，每轮按配置的偏移更新地址、buffer和event，无须在循环体内手写地址自增或计数器更新。因此适合大量同结构迭代、循环体内只有本地搬运类操作的场景，指令开销小。
+循环体的指令只记录一份。执行期由硬件LoopEngine自动迭代执行，每轮按配置的偏移更新地址、buffer和event，无须在循环体内手写地址自增或计数器更新。因此适合大量同结构迭代、循环体内只有本地搬运类操作的场景，指令开销小。
 
 > [!NOTE]说明
-> 创建`ccu::loop`对象只是把循环体记录为指令，下发阶段不会迭代；必须将`loop`加入[`ccu::loop_group`](loop_group.md)，下发阶段硬件才会按配置迭代。
+> 创建`ccu::loop`对象只是把循环体记录为指令，执行期不会迭代；必须将`loop`加入[`ccu::loop_group`](loop_group.md)，执行期硬件才会按配置迭代。
 
 ## 类声明
 
@@ -40,10 +40,10 @@ namespace ccu {
 
 class loop {
 public:
-    // config-based：迭代参数在编译阶段确定
+    // config-based：迭代参数在翻译期固化
     loop(const ccu_loop_config &loop_cfg, const func &func);
 
-    // var-based：迭代参数在下发阶段由variable值决定
+    // var-based：迭代参数在执行期由variable值决定
     loop(variable &loop_cfg, const func &func);
 };
 
@@ -74,8 +74,8 @@ var-based构造的`loop_cfg`有64个比特位，按位段定义：
 | 位段 | 说明 |
 | --- | --- |
 | [12:0] | Loop的循环次数。 |
-| [44:13] | 数据传输类指令的地址偏移量。 |
-| [52:45] | LoopEngine编号，用户固定填`0`，由系统在下发阶段自动分配填入。 |
+| [44:13] | 数据传输类指令的地址偏移量，每轮迭代按该值递进：操作地址 = address寄存器值 + [44:13] × 当前轮次。 |
+| [52:45] | LoopEngine编号，用户固定填`0`，由系统在执行期自动分配填入。 |
 
 ## 返回值说明
 
@@ -86,11 +86,12 @@ var-based构造的`loop_cfg`有64个比特位，按位段定义：
 - 循环体的lambda必须无入参，有入参时`<<<>>>`抛出异常`CCU_E_PARA`。
 - 构造完成后不可再向该Loop追加内容。
 - 循环体内的接口限制：
-  - [event_record](../synchronization/event_record.md)不可调用，调用时返回`CCU_E_NOT_SUPPORT`。
+  - [event_record](../synchronization/event_record.md)、[local_notify_record](../synchronization/local_notify_record.md)、[notify_record](../synchronization/notify_record.md)和[write_variable_with_notify](../synchronization/write_variable_with_notify.md)不可调用，调用时返回`CCU_E_NOT_SUPPORT`。
+  - [call_func](call_func.md)不可调用，调用时抛出异常（错误码`CCU_E_INTERNAL`）。
   - [CCU_IF](CCU_IF.md)等软件分支宏不可使用，代码不会报错，但硬件会发生未定义行为。
-  - [notify_record](../synchronization/notify_record.md)和[write_variable_with_notify](../synchronization/write_variable_with_notify.md)不会报错，但循环体被复制为多份并行执行时信号会被重复发送，应避免使用。
 - `ccu::loop`必须加入`ccu::loop_group`才能下发硬件循环指令，不要单独使用，详见[功能说明](#功能说明)。
 - `ccu::loop`对象不可在`ccu::loop_group`中被重复添加。
+- var-based构造时，须保证`loop_cfg`的`variable`在执行期的取值符合预期：[12:0]为期望的循环次数、[44:13]为期望的每轮地址偏移、[52:45]预留为`0`（由系统自动分配）。取值不符合预期会导致迭代轮数与地址递进错乱，行为未定义。
 
 ## 调用示例
 

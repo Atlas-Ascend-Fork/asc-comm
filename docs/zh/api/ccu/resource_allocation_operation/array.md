@@ -32,6 +32,8 @@
 - 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
 - 仅可移动：禁止拷贝，允许移动。
 
+物理连续是某些接口的前置条件：[load](../arg_load_store/load.md)/[store](../arg_load_store/store.md)的variable数组批量形态、[local_reduce](../data_movement/local_reduce.md)的多ccu_buffer归约（`2 ≤ count ≤ 8`）都要求参数物理连续，必须通过`ccu::array<T>`申请，单独声明多个对象不保证物理连续。
+
 ## 类声明
 
 ```cpp
@@ -101,12 +103,16 @@ public:
 
 ## 约束说明
 
-- `array(count)`和`array(acq_handle, count)`只能在编译阶段构造。
-- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由编译阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- `array(count)`和`array(acq_handle, count)`只能在Kernel函数体内构造。
+- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - `array<T>`仅特化`variable`、`event`、`ccu_buffer`三种类型；预约构造只对`variable`、`event`可用，其他类型实例化或使用预约构造会在编译期失败。
-- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法时抛出异常，被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，本轮编译被中止。
+- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法（如句柄无效、`count`超出预约句柄名下的资源个数）时抛出携带`CCU_E_PARA`的异常，被`<<<>>>`统一接住后按该错误码返回，本轮编译被中止。
 - `count`须不大于预约句柄名下的资源个数；`count`为0时直接构造成空`array`（`size() == 0`），不绑定资源，也不校验`acq_handle`。
+- 多个单独声明的`variable`/`event`/`ccu_buffer`对象不保证物理连续，不可用于需要物理连续资源的接口（如`load`/`store`的variable数组批量形态、多ccu_buffer`local_reduce`）。
 - 不应在kernel之外保存元素的`handle`值，翻译完成后句柄即失效。
+
+> [!NOTE]说明
+> `load`/`store`会对variable数组做连续性校验（不连续返回`CCU_E_PARA`）；而`local_reduce`的多ccu_buffer通路不校验ccu_buffer是否物理连续，须由调用方自行保证。使用非`ccu::array`申请的多个ccu_buffer时不会立即报错，但执行期行为未定义。
 
 ## 调用示例
 

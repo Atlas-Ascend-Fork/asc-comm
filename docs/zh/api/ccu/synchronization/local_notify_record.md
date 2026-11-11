@@ -41,7 +41,7 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| notify_tag | 输入 | 字符串tag，与消费侧`local_notify_wait`的`notify_tag`保持一致即可完成配对，无需提前分配编号。不可为空指针。必须在Kernel函数体执行期间保持有效（需为字符串字面量或kernel内的`static`存储），不可使用栈上临时数组。 |
+| notify_tag | 输入 | 字符串tag，与消费侧`local_notify_wait`的`notify_tag`保持一致即可完成配对，无需提前分配编号。不可为空指针。必须在翻译期保持有效（需为字符串字面量或kernel内的`static`存储），不可使用栈上临时数组。 |
 | mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`。同一tag的不同bit相互独立。 |
 
 ## 返回值说明
@@ -51,13 +51,13 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | `notify_tag`为空指针，或接口在编译阶段之外被调用。 |
+| `CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
 | `CCU_E_NOT_SUPPORT` | 在硬件loop body内调用，不支持。 |
 
 ## 约束说明
 
 - 不可在硬件loop body内调用，否则将返回`CCU_E_NOT_SUPPORT`。loop body会被硬件并行展开为N份，notify记录语义在并行环境中不唯一。
-- `notify_tag`必须在Kernel函数体执行期间保持有效，应使用字符串字面量（如`"phase1_done"`）或kernel内的`static char[]`，禁止使用栈上临时`char[]`。
+- `notify_tag`必须在翻译期保持有效，应使用字符串字面量（如`"phase1_done"`）或kernel内的`static char[]`，禁止使用栈上临时`char[]`。
 - 生产侧`local_notify_record`与消费侧`local_notify_wait`必须使用完全相同的`notify_tag`字符串内容进行配对。
 - 同一tag可承载多组配对，由`mask`的不同bit区分；等待侧`mask`必须与此处一致。
 - `local_notify_record`与对应的`local_notify_wait`必须成对出现，且`local_notify_wait`位于`local_notify_record`的后序位置。任何无配对的`local_notify_wait`将永久阻塞，导致硬件级死锁。
