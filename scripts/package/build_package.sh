@@ -15,6 +15,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
 
 CANN_PATH=${ASCEND_HOME_PATH:-}
+CANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party"
 OUTPUT_DIR="${PROJECT_ROOT}/build_out"
 PACKAGE_VERSION=""
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
@@ -33,9 +34,10 @@ usage()
 Usage: bash scripts/package/build_package.sh [OPTION]...
 
 Options:
-  --cann_path=<PATH>       CANN installation root. Default: ASCEND_HOME_PATH
-  --output-dir=<PATH>      Output directory. Default: ${OUTPUT_DIR}
-  -h, --help               Display this help
+  --cann_path=<PATH>           CANN installation root. Default: ASCEND_HOME_PATH
+  --cann_3rd_lib_path=<PATH>   CANN third_party path. Default: third_party
+  --output-dir=<PATH>          Output directory. Default: ${OUTPUT_DIR}
+  -h, --help                   Display this help
 EOF
 }
 
@@ -56,6 +58,9 @@ parse_args()
         case "$1" in
             --cann_path=*)
                 CANN_PATH=${1#*=}
+                ;;
+            --cann_3rd_lib_path=*)
+                CANN_3RD_LIB_PATH=${1#*=}
                 ;;
             --output-dir=*)
                 OUTPUT_DIR=${1#*=}
@@ -143,7 +148,7 @@ find_ccu_libraries()
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
-        -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
+        -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=ON \
         -DASCCOMM_BUILD_CCU_RUNTIME=ON
@@ -164,7 +169,7 @@ find_cpu_ts_library()
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
-        -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
+        -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=OFF \
         -DASCCOMM_BUILD_CCU_RUNTIME=OFF \

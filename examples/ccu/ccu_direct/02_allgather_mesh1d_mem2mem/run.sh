@@ -37,13 +37,17 @@ if command -v nproc >/dev/null 2>&1; then
     jobs="$(nproc)"
 fi
 
-cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
-    -DASCEND_CANN_PACKAGE_PATH="${ASCEND_HOME_PATH}" \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build "${BUILD_DIR}" -j"${jobs}"
+# BUILD_ONLY=1: configure and compile only, skip the exec step.
+# EXEC_ONLY=1: run the exec step only, skip configure and compile.
+if [[ "${EXEC_ONLY:-0}" != "1" ]]; then
+    cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
+        -DASCEND_CANN_PACKAGE_PATH="${ASCEND_HOME_PATH}" \
+        -DCMAKE_ASC_ARCHITECTURES=dav-3510
+    cmake --build "${BUILD_DIR}" -j"${jobs}"
 
-if [[ "${BUILD_ONLY:-0}" == "1" ]]; then
-    exit 0
+    if [[ "${BUILD_ONLY:-0}" == "1" ]]; then
+        exit 0
+    fi
 fi
 
 exec "${BUILD_DIR}/ccu_allgather_mesh1d_mem2mem" \

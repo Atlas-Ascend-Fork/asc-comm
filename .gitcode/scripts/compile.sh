@@ -69,7 +69,7 @@ LOG_HEAD "WORKSPACE: ${WORKSPACE}"
 LOG_HEAD "GIT_TARGET_BRANCH: ${GIT_TARGET_BRANCH}"
 LOG_HEAD "ge_st_rt2: ${ge_st_rt2}"
 
-ASCEND_3RD_LIB_PATH="/home/jenkins/opensource"
+export ASCEND_3RD_LIB_PATH="/home/jenkins/opensource"
 
 if [[ "${task_name}" == *ubuntu24* ]]; then
     if sudo update-alternatives --set gcc /usr/bin/gcc-16 2>/dev/null; then
@@ -114,9 +114,14 @@ cd "${WORKSPACE}" || exit
 
 set +e
 source /home/jenkins/Ascend/cann/bin/setenv.bash
-LOG_DO bash build.sh
+LOG_DO bash build.sh --pkg --cann_3rd_lib_path="${ASCEND_3RD_LIB_PATH}"
 BUILD_EXIT_CODE=$?
 set -e
-DP_ASSERT_CHECK_SKIP "${BUILD_EXIT_CODE}" "bash build.sh"
-mkdir build_out
-touch build_out/cann-asc-comm_linux-x86_64.run
+DP_ASSERT_CHECK_SKIP "${BUILD_EXIT_CODE}" "bash build.sh --pkg"
+mkdir -p build_out
+RUN_PACKAGE=$(find build_out -maxdepth 1 -name '*.run' | head -n 1)
+if [ -z "${RUN_PACKAGE}" ]; then
+    LOG_ERROR "no run package was generated under build_out"
+    exit 1
+fi
+LOG_INFO "generated run package: ${RUN_PACKAGE}"

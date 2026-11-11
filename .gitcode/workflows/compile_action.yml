@@ -79,12 +79,6 @@ jobs:
             break
           done
       -
-        name: verify_package
-        if: ${{ inputs.task_name != 'Pre_Compile' }}
-        uses: cann/.gitcode/actions/verify-package@master
-        with:
-          workspace: ${{ steps.process_checkout.outputs.path }}
-      -
         name: upload
         uses: obs-upload
         with:

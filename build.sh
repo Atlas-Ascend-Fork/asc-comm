@@ -210,7 +210,8 @@ main(){
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
-            --cann_path="${Ascend_CANN_PACKAGE_PATH}" || return $?
+            --cann_path="${Ascend_CANN_PACKAGE_PATH}" \
+            --cann_3rd_lib_path="${CANN_3RD_LIB_PATH}" || return $?
     fi
 
     if [[ "${TEST}" != true ]]; then
@@ -218,6 +219,7 @@ main(){
             log "INFO" "default mode: verify the asc-comm run package build"
             bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
                 --cann_path="${Ascend_CANN_PACKAGE_PATH}" \
+                --cann_3rd_lib_path="${CANN_3RD_LIB_PATH}" \
                 --output-dir="${SCRIPT_DIR}/build_out_guard" || return $?
         fi
         exit 0

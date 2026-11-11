@@ -1,7 +1,9 @@
 build/
+build-*/
 build_out/
 oat_reports/
 log/
+presmoke_reports/
 AGENTS.md
 .claude/
 .opencode/

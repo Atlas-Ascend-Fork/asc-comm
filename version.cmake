@@ -8,4 +8,4 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(ASCCOMM_VERSION "9.2.0")
+set(ASCCOMM_VERSION "9.3.0")
