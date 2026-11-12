@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 constexpr uint32_t CCU_DIE_NUM = 2;
@@ -323,16 +307,16 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext& ctx)
 static void PreSync(AllGatherMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID));
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
     }
 
     // 等对端把 output 地址与 token 都写回本端后才可组装远端地址
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
 }
 
@@ -341,10 +325,10 @@ static void PreSync(AllGatherMesh1DMem2MemContext& ctx)
 static void PostSync(AllGatherMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
 }
 
@@ -359,11 +343,10 @@ static CcuResult DoAllGatherWrite(
         const uint32_t eventIdx = rankIdx / BITS_PER_EVENT;
         const uint16_t rankMask = 1U << (rankIdx % BITS_PER_EVENT);
         if (rankIdx == ctx.arg->rankId) {
-            CCU_CHK_RET(ccu::event_record(ctx.events[eventIdx], rankMask));
+            ccu::event_record(ctx.events[eventIdx], rankMask);
             continue;
         }
-        CCU_CHK_RET(ccu::write(
-            ctx.arg->channels[channelIdx], dst_[rankIdx], src_, ctx.chunkSize, ctx.events[eventIdx], rankMask));
+        ccu::write(ctx.arg->channels[channelIdx], dst_[rankIdx], src_, ctx.chunkSize, ctx.events[eventIdx], rankMask);
         channelIdx++;
     }
     return CCU_SUCCESS;
@@ -379,7 +362,7 @@ static CcuResult DoAllGatherWait(AllGatherMesh1DMem2MemContext& ctx)
         const uint32_t bitCount = std::min<uint32_t>(remainingRanks, BITS_PER_EVENT);
         const uint16_t eventMask = bitCount == BITS_PER_EVENT ? static_cast<uint16_t>(UINT16_MAX) :
                                                                 static_cast<uint16_t>((1U << bitCount) - 1);
-        CCU_CHK_RET(ccu::event_wait(ctx.events[eventIdx], eventMask));
+        ccu::event_wait(ctx.events[eventIdx], eventMask);
     }
     return CCU_SUCCESS;
 }
@@ -417,9 +400,9 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext& ctx)
         dst_[rankIdx].token = ctx.token[rankIdx];
     }
 
-    CCU_CHK_RET(DoAllGatherWrite(ctx, src_, dst_));
-    CCU_CHK_RET(GroupCopy(ctx, localDst, src_, ctx.goSize));
-    CCU_CHK_RET(DoAllGatherWait(ctx));
+    DoAllGatherWrite(ctx, src_, dst_);
+    GroupCopy(ctx, localDst, src_, ctx.goSize);
+    DoAllGatherWait(ctx);
     return CCU_SUCCESS;
 }
 
@@ -435,23 +418,23 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
     ctx.arg = kernelArg;
 
     // 绑定各对端 Variable 单元并分配事件数组
-    CCU_CHK_VOID_RET(InitResource(ctx));
+    InitResource(ctx);
 
     // 按 SQE 声明顺序加载任务参数，load_arg 必须在程序最开始时调用
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.input, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.output[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.token[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.inputSliceStride, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.outputSliceStride, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.chunkSize, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.addr_offset, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.loop_param_, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.parallel_param, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.residual, argId++));
+    ccu::load_arg(ctx.input, argId++);
+    ccu::load_arg(ctx.output[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.token[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.inputSliceStride, argId++);
+    ccu::load_arg(ctx.outputSliceStride, argId++);
+    ccu::load_arg(ctx.chunkSize, argId++);
+    ccu::load_arg(ctx.goSize.addr_offset, argId++);
+    ccu::load_arg(ctx.goSize.loop_param_, argId++);
+    ccu::load_arg(ctx.goSize.parallel_param, argId++);
+    ccu::load_arg(ctx.goSize.residual, argId++);
 
     PreSync(ctx);
-    CCU_IF(ctx.chunkSize != 0) { CCU_CHK_VOID_RET(DoAllGather(ctx)); }
+    CCU_IF(ctx.chunkSize != 0) { DoAllGather(ctx); }
     PostSync(ctx);
 }
 

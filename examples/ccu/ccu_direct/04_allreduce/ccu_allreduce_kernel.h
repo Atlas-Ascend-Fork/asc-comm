@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 // CCU 本地拷贝与调度的规模常量：最大 rank 数、Channel notify 槽位数、Die 数等
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -113,14 +97,14 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
     CCU_IF(ctx.sliceSize != 0)
     {
         const uint16_t selfMask = 1U << ctx.arg->rankId;
-        CCU_CHK_RET(ccu::local_copy(localDst, src_, ctx.sliceSize, ctx.event, selfMask));
-        CCU_CHK_RET(ccu::event_wait(ctx.event, selfMask));
+        ccu::local_copy(localDst, src_, ctx.sliceSize, ctx.event, selfMask);
+        ccu::event_wait(ctx.event, selfMask);
 
         for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-            CCU_CHK_RET(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << INIT_SYNC_ID));
+            ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << INIT_SYNC_ID);
         }
         for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-            CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << INIT_SYNC_ID));
+            ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << INIT_SYNC_ID);
         }
 
         uint32_t channelId = 0;
@@ -128,14 +112,14 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1U << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                CCU_CHK_RET(ccu::write_reduce(
+                ccu::write_reduce(
                     ctx.arg->channels[channelId], dst_[rankIdx], src_, ctx.sliceSize, HCCL_DATA_TYPE_FP32,
-                    HCCL_REDUCE_SUM, ctx.event, mask));
+                    HCCL_REDUCE_SUM, ctx.event, mask);
                 remoteMask |= mask;
                 channelId++;
             }
         }
-        CCU_CHK_RET(ccu::event_wait(ctx.event, remoteMask));
+        ccu::event_wait(ctx.event, remoteMask);
     }
 
     return CcuResult::CCU_SUCCESS;
@@ -147,16 +131,16 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
 static CcuResult ExchangeRemoteInput(AllReduceMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.input, REMOTE_INPUT_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_XN_MASK_BIT));
-        CCU_CHK_RET(ccu::write_variable_with_notify(
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.input, REMOTE_INPUT_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_XN_MASK_BIT);
+        ccu::write_variable_with_notify(
             ctx.arg->channels[i], ctx.token[ctx.arg->rankId], REMOTE_INPUT_TOKEN_XN_ID, CKE_IDX_0,
-            1U << REMOTE_INPUT_TOKEN_MASK_BIT));
+            1U << REMOTE_INPUT_TOKEN_MASK_BIT);
     }
 
     const uint32_t allBits = (1U << REMOTE_INPUT_XN_MASK_BIT) | (1U << REMOTE_INPUT_TOKEN_MASK_BIT);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
     return CcuResult::CCU_SUCCESS;
 }
@@ -182,8 +166,8 @@ static CcuResult ExecuteGatherLocalReduce(AllReduceMesh1DMem2MemContext& ctx)
     ccu::local_addr src;
     src.addr = ctx.input;
     src.token = ctx.token[ctx.arg->rankId];
-    CCU_CHK_RET(ccu::local_copy(bufs[ctx.arg->rankId], src, ctx.sliceSize, ctx.event, 1U));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, 1U));
+    ccu::local_copy(bufs[ctx.arg->rankId], src, ctx.sliceSize, ctx.event, 1U);
+    ccu::event_wait(ctx.event, 1U);
 
     // 2) gather：逐个对端 read（对端片上内存 -> 本端 ccu_buffer）
     uint32_t channelIdx = 0;
@@ -194,24 +178,24 @@ static CcuResult ExecuteGatherLocalReduce(AllReduceMesh1DMem2MemContext& ctx)
         ccu::remote_addr remote;
         remote.addr = ctx.remoteInput[peerId];
         remote.token = ctx.remoteInputToken[peerId];
-        CCU_CHK_RET(ccu::read(
-            ctx.arg->channels[channelIdx], bufs[static_cast<uint32_t>(peerId)], remote, ctx.sliceSize, ctx.event, 1U));
-        CCU_CHK_RET(ccu::event_wait(ctx.event, 1U));
+        ccu::read(
+            ctx.arg->channels[channelIdx], bufs[static_cast<uint32_t>(peerId)], remote, ctx.sliceSize, ctx.event, 1U);
+        ccu::event_wait(ctx.event, 1U);
         channelIdx++;
     }
 
     // 3) N 路 ccu_buffer 归约：bufs[0] = SUM(bufs[0..N-1])，结果落在 bufs[0]
-    CCU_CHK_RET(ccu::local_reduce(
+    ccu::local_reduce(
         bufs.data(), static_cast<uint32_t>(rankSize), HcclDataType::HCCL_DATA_TYPE_FP32,
-        HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.sliceSize, ctx.event, 1U));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, 1U));
+        HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.sliceSize, ctx.event, 1U);
+    ccu::event_wait(ctx.event, 1U);
 
     // 4) 结果拷回本端 output
     ccu::local_addr dst;
     dst.addr = ctx.output[ctx.arg->rankId];
     dst.token = ctx.token[ctx.arg->rankId];
-    CCU_CHK_RET(ccu::local_copy(dst, bufs[0], ctx.sliceSize, ctx.event, 1U));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, 1U));
+    ccu::local_copy(dst, bufs[0], ctx.sliceSize, ctx.event, 1U);
+    ccu::event_wait(ctx.event, 1U);
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -253,42 +237,42 @@ __ccu_host__ void CcuAllReduceMesh1DMem2MemKernel(
 
     // 按 SQE 声明顺序加载任务参数，load_arg 必须在程序最开始时调用
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.input, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.output[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.token[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.sliceSize, argId++));
+    ccu::load_arg(ctx.input, argId++);
+    ccu::load_arg(ctx.output[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.token[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.sliceSize, argId++);
 
 #if SCENARIO_NUM == 2
     // SC2 前同步：仅交换本端输入地址与 token（gather 读取对端输入需要；
     // SC2 无远端写，不交换 output 地址）
-    CCU_CHK_VOID_RET(ExchangeRemoteInput(ctx));
+    ExchangeRemoteInput(ctx);
 
     // SC2：gather + local_reduce 的独立"聚合-归约"流程，输出与场景1 相同
-    CCU_CHK_VOID_RET(ExecuteGatherLocalReduce(ctx));
+    ExecuteGatherLocalReduce(ctx);
 #else
     // 前同步：本端 output 地址与 token 写入对端并置位对端 notify，
     // 再等待对端把其地址与 token 写回本端，避免读到旧值
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID));
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
     }
 
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
 
-    CCU_CHK_VOID_RET(ExecuteAllReduceTransfer(ctx));
+    ExecuteAllReduceTransfer(ctx);
 #endif
 
     // 后同步：告知所有对端本 rank 搬运完成，并等所有对端完成
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
 }
 

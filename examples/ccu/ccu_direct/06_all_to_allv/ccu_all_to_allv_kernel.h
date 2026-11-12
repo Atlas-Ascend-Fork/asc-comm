@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 // 规模上限与每链路 notify 数；最大单次传输 256MB，超出即拒绝
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -121,16 +105,16 @@ static CcuResult ExchangeOutput(AllToAllVMesh1DContext& ctx)
         ccu::variable peerDst;
         peerDst = ctx.localOutput;
         peerDst += ctx.recvOffsets[peerId];
-        CCU_CHK_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[channelId], peerDst, OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID));
-        CCU_CHK_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[channelId], ctx.localOutputToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[channelId], peerDst, OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[channelId], ctx.localOutputToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
         channelId++;
     }
 
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
     return CCU_SUCCESS;
 }
@@ -155,23 +139,23 @@ static CcuResult ExecuteTransfer(AllToAllVMesh1DContext& ctx)
                 dst.addr = ctx.localOutput;
                 dst.addr += ctx.recvOffsets[rankIdx];
                 dst.token = ctx.localOutputToken;
-                CCU_CHK_RET(ccu::local_copy(dst, src, ctx.sendBytes[rankIdx], ctx.event, mask));
+                ccu::local_copy(dst, src, ctx.sendBytes[rankIdx], ctx.event, mask);
             } else {
                 ccu::remote_addr dst;
                 dst.addr = ctx.remoteOutput[rankIdx];
                 dst.token = ctx.remoteOutputToken[rankIdx];
-                CCU_CHK_RET(
-                    ccu::write(ctx.arg->channels[channelId], dst, src, ctx.sendBytes[rankIdx], ctx.event, mask));
+
+                ccu::write(ctx.arg->channels[channelId], dst, src, ctx.sendBytes[rankIdx], ctx.event, mask);
             }
         }
-        CCU_IF(ctx.sendBytes[rankIdx] == 0) { CCU_CHK_RET(ccu::event_record(ctx.event, mask)); }
+        CCU_IF(ctx.sendBytes[rankIdx] == 0) { ccu::event_record(ctx.event, mask); }
         if (rankIdx != ctx.arg->rankId) {
             channelId++;
         }
     }
 
     const uint16_t allRanksMask = (1U << ctx.arg->rankSize) - 1;
-    CCU_CHK_RET(ccu::event_wait(ctx.event, allRanksMask));
+    ccu::event_wait(ctx.event, allRanksMask);
     return CCU_SUCCESS;
 }
 
@@ -206,16 +190,16 @@ __ccu_host__ void CcuAllToAllVMesh1DKernel(ccu_kernel_arg arg)
     }
 
     // 执行编排：登记常量 -> 互换接收地址 -> 逐 rank 搬运
-    CCU_CHK_VOID_RET(InitVariables(ctx));
-    CCU_CHK_VOID_RET(ExchangeOutput(ctx));
-    CCU_CHK_VOID_RET(ExecuteTransfer(ctx));
+    InitVariables(ctx);
+    ExchangeOutput(ctx);
+    ExecuteTransfer(ctx);
 
     // 后同步：通知所有对端本 rank 已搬完，并等所有对端完成
     for (uint32_t i = 0; i < kernelArg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(kernelArg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_record(kernelArg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < kernelArg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(kernelArg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_wait(kernelArg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
 }
 

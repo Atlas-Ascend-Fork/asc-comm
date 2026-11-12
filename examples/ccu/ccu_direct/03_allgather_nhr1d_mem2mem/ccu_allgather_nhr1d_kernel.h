@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 constexpr uint32_t CCU_DIE_NUM = 2;
@@ -329,16 +313,16 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext& ctx)
 static void PreSync(AllGatherNhr1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID));
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
     }
 
     // 等对端把 output 地址与 token 都写回本端后才可组装远端地址
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
 }
 
@@ -347,10 +331,10 @@ static void PreSync(AllGatherNhr1DMem2MemContext& ctx)
 static void PostSync(AllGatherNhr1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
 }
 
@@ -416,14 +400,14 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo
         }
         dst_.token = ctx.token[stepInfo.toRank];
 
-        CCU_CHK_RET(ccu::write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK));
+        ccu::write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK);
         // 等本段写完再复用同一 event 提交下一段
-        CCU_CHK_RET(ccu::event_wait(ctx.transferEvent, TRANSFER_EVENT_MASK));
+        ccu::event_wait(ctx.transferEvent, TRANSFER_EVENT_MASK);
     }
 
     if (!isLastStep) {
-        CCU_CHK_RET(ccu::notify_record(sendChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID));
-        CCU_CHK_RET(ccu::notify_wait(recvChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID));
+        ccu::notify_record(sendChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID);
+        ccu::notify_wait(recvChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID);
     }
     return CcuResult::CCU_SUCCESS;
 }
@@ -432,10 +416,10 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo
 
 static CcuResult DoAllGather(AllGatherNhr1DMem2MemContext& ctx)
 {
-    CCU_CHK_RET(CopyLocalSlice(ctx));
+    CopyLocalSlice(ctx);
     for (uint32_t stepIdx = 0; stepIdx < ctx.arg->stepInfoVector.size(); stepIdx++) {
         const bool isLastStep = (stepIdx + 1 == ctx.arg->stepInfoVector.size());
-        CCU_CHK_RET(RunNhrStep(ctx, ctx.arg->stepInfoVector[stepIdx], isLastStep));
+        RunNhrStep(ctx, ctx.arg->stepInfoVector[stepIdx], isLastStep);
     }
     return CcuResult::CCU_SUCCESS;
 }
@@ -452,23 +436,23 @@ __ccu_host__ void CcuAllGatherNhr1DMem2MemKernel(
     ctx.arg = kernelArg;
 
     // 绑定各对端 Variable 单元
-    CCU_CHK_VOID_RET(InitResource(ctx));
+    InitResource(ctx);
 
     // 按 SQE 声明顺序加载任务参数，load_arg 必须在程序最开始时调用
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.input, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.output[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.token[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.inputSliceStride, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.outputSliceStride, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.chunkSize, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.addr_offset, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.loop_param_, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.parallel_param, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.residual, argId++));
+    ccu::load_arg(ctx.input, argId++);
+    ccu::load_arg(ctx.output[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.token[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.inputSliceStride, argId++);
+    ccu::load_arg(ctx.outputSliceStride, argId++);
+    ccu::load_arg(ctx.chunkSize, argId++);
+    ccu::load_arg(ctx.goSize.addr_offset, argId++);
+    ccu::load_arg(ctx.goSize.loop_param_, argId++);
+    ccu::load_arg(ctx.goSize.parallel_param, argId++);
+    ccu::load_arg(ctx.goSize.residual, argId++);
 
     PreSync(ctx);
-    CCU_CHK_VOID_RET(DoAllGather(ctx));
+    DoAllGather(ctx);
     PostSync(ctx);
 }
 

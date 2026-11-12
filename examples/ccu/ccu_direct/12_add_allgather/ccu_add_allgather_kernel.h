@@ -23,22 +23,6 @@ namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
 
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 constexpr uint64_t CCU_BUF_INTERLEAVE = 8;
 constexpr uint64_t CCU_BUF_SIZE = 4096;
 constexpr uint32_t CCU_LOCAL_COPY_BUF_PER_LOOP = 8;
@@ -387,18 +371,17 @@ static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                CCU_CHK_RET(
-                    ccu::write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask));
+                ccu::write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask);
                 channelId++;
             }
         }
     }
 
-    CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize));
-    CCU_CHK_RET(ccu::event_record(ctx.event, 1 << ctx.arg->rankId));
+    GroupCopy(ctx, localDst, src, ctx.goSize);
+    ccu::event_record(ctx.event, 1 << ctx.arg->rankId);
 
     const uint16_t totalMask = (1 << ctx.arg->rankSize) - 1;
-    CCU_CHK_RET(ccu::event_wait(ctx.event, totalMask));
+    ccu::event_wait(ctx.event, totalMask);
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -431,14 +414,14 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
     }
 
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.token[ctx.arg->rankId], argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.currentRankSliceInputOffset, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.currentRankSliceOutputOffset, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.sliceSize, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.addrOffset, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.loopParam, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.parallelParam, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.goSize.residual, argId++));
+    ccu::load_arg(ctx.token[ctx.arg->rankId], argId++);
+    ccu::load_arg(ctx.currentRankSliceInputOffset, argId++);
+    ccu::load_arg(ctx.currentRankSliceOutputOffset, argId++);
+    ccu::load_arg(ctx.sliceSize, argId++);
+    ccu::load_arg(ctx.goSize.addrOffset, argId++);
+    ccu::load_arg(ctx.goSize.loopParam, argId++);
+    ccu::load_arg(ctx.goSize.parallelParam, argId++);
+    ccu::load_arg(ctx.goSize.residual, argId++);
 
     ccu::array<ccu::event> events(ctx.arg->eventHandle, ctx.arg->eventNum);
     ccu::event_wait(events[0]);
@@ -450,25 +433,25 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(
     // 前同步：本端 output 地址与 token 写入对端并置位对端 notify，
     // 再等待对端把其地址与 token 写回本端，避免读到旧值
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_VAR_ID, EVENT_IDX_0, 1 << OUTPUT_VAR_ID));
-        CCU_CHK_VOID_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_VAR_ID, EVENT_IDX_0, 1 << TOKEN_VAR_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_VAR_ID, EVENT_IDX_0, 1 << OUTPUT_VAR_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_VAR_ID, EVENT_IDX_0, 1 << TOKEN_VAR_ID);
     }
 
     uint32_t allBit = (1 << OUTPUT_VAR_ID) | (1 << TOKEN_VAR_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], EVENT_IDX_0, allBit));
+        ccu::notify_wait(ctx.arg->channels[i], EVENT_IDX_0, allBit);
     }
 
-    CCU_CHK_VOID_RET(ExecuteAllGatherTransfer(ctx));
+    ExecuteAllGatherTransfer(ctx);
 
     // 后同步：告知所有对端本 rank 搬运完成，并等所有对端完成
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(ctx.arg->channels[i], EVENT_IDX_0, 1 << POST_SYNC_ID));
+        ccu::notify_record(ctx.arg->channels[i], EVENT_IDX_0, 1 << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], EVENT_IDX_0, 1 << POST_SYNC_ID));
+        ccu::notify_wait(ctx.arg->channels[i], EVENT_IDX_0, 1 << POST_SYNC_ID);
     }
     ccu::event_record(events[1]);
 }

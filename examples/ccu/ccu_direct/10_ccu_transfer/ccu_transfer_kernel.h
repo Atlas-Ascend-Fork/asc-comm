@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
 constexpr uint32_t CCU_DIE_NUM = 2;
@@ -117,23 +101,21 @@ ccu::remote_addr MakeRemoteAddr(const ccu::variable& address, const ccu::variabl
 
 CcuResult ExchangeRemoteOutput(TransferContext& ctx)
 {
-    CCU_CHK_RET(
-        ccu::write_variable_with_notify(ctx.arg->channels[0], ctx.output, OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID));
-    CCU_CHK_RET(ccu::write_variable_with_notify(
-        ctx.arg->channels[0], ctx.outputToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+    ccu::write_variable_with_notify(ctx.arg->channels[0], ctx.output, OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
+    ccu::write_variable_with_notify(ctx.arg->channels[0], ctx.outputToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
 #if SCENARIO_NUM == 5 || SCENARIO_NUM == 6
     // read / read_reduce 场景需要读取对端输入，额外交换对端输入地址
     // （注意槽位受通道预留限制取 0/3，掩码位取空闲的 5/6，与槽位编号无绑定关系）
-    CCU_CHK_RET(ccu::write_variable_with_notify(
-        ctx.arg->channels[0], ctx.input, REMOTE_INPUT_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_XN_MASK_BIT));
-    CCU_CHK_RET(ccu::write_variable_with_notify(
-        ctx.arg->channels[0], ctx.inputToken, REMOTE_INPUT_TOKEN_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_TOKEN_MASK_BIT));
+    ccu::write_variable_with_notify(
+        ctx.arg->channels[0], ctx.input, REMOTE_INPUT_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_XN_MASK_BIT);
+    ccu::write_variable_with_notify(
+        ctx.arg->channels[0], ctx.inputToken, REMOTE_INPUT_TOKEN_XN_ID, CKE_IDX_0, 1U << REMOTE_INPUT_TOKEN_MASK_BIT);
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID) | (1U << REMOTE_INPUT_XN_MASK_BIT) |
                              (1U << REMOTE_INPUT_TOKEN_MASK_BIT);
 #else
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
 #endif
-    CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, allBits));
+    ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, allBits);
     return CCU_SUCCESS;
 }
 
@@ -153,10 +135,10 @@ ccu::func StagedCopyFunc([](ccu::variable srcAddr, ccu::variable srcToken, ccu::
 
     ccu::ccu_buffer staging;
     ccu::event done;
-    CCU_CHK_VOID_RET(ccu::local_copy(staging, src, len, done, 1));
-    CCU_CHK_VOID_RET(ccu::event_wait(done, 1));
-    CCU_CHK_VOID_RET(ccu::local_copy(dst, staging, len, done, 1));
-    CCU_CHK_VOID_RET(ccu::event_wait(done, 1));
+    ccu::local_copy(staging, src, len, done, 1);
+    ccu::event_wait(done, 1);
+    ccu::local_copy(dst, staging, len, done, 1);
+    ccu::event_wait(done, 1);
 });
 
 // call_func 函数块：封装"经片上缓存中转的两段搬运"这一可复用步骤。
@@ -172,10 +154,10 @@ CcuResult ExecuteLocalCopy(TransferContext& ctx)
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
 
-    CCU_CHK_RET(ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     // 中转一路：源/目的地址与 token、长度经 variable 实参传入函数块，块内完成两段搬运
-    CCU_CHK_RET(ccu::call_func<StagedCopyFunc>(ctx.input, ctx.inputToken, ctx.output, ctx.outputToken, ctx.dataSize));
+    ccu::call_func<StagedCopyFunc>(ctx.input, ctx.inputToken, ctx.output, ctx.outputToken, ctx.dataSize);
     return CCU_SUCCESS;
 }
 
@@ -208,8 +190,8 @@ CcuResult ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
     // 比较立即数须为 uint64_t 字面量
     CCU_DO
     {
-        CCU_CHK_RET(ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK));
-        CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+        ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+        ccu::event_wait(ctx.event, EVENT_MASK);
         loopCounter = loopCounter + one;
     }
     CCU_WHILE(loopCounter != 1ULL);
@@ -217,18 +199,18 @@ CcuResult ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
     // CCU_IF + CCU_ELSE：分支选择（恒真走 then 分支，演示 else 存在）
     CCU_IF(loopCounter == 1ULL)
     {
-        CCU_CHK_RET(ccu::local_copy(stagingBuffer, input, ctx.dataSize, ctx.event, EVENT_MASK));
-        CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+        ccu::local_copy(stagingBuffer, input, ctx.dataSize, ctx.event, EVENT_MASK);
+        ccu::event_wait(ctx.event, EVENT_MASK);
     }
     CCU_ELSE
     {
         // 不会执行到（loopCounter == 1 恒真），保留以演示 CCU_ELSE 语法
-        CCU_CHK_RET(ccu::local_copy(stagingBuffer, output, ctx.dataSize, ctx.event, EVENT_MASK));
-        CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+        ccu::local_copy(stagingBuffer, output, ctx.dataSize, ctx.event, EVENT_MASK);
+        ccu::event_wait(ctx.event, EVENT_MASK);
     }
 
-    CCU_CHK_RET(ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
 
     // local_notify 消费侧：等待与生产侧相同 tag 的信号（先 record 后 wait，立即放行）。
     // 注意 tag 必须与 record 侧完全一致：record 的 tag 若无配对的 wait，
@@ -247,12 +229,12 @@ CcuResult ExecuteWrite(TransferContext& ctx)
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::remote_addr output = MakeRemoteAddr(ctx.remoteOutput, ctx.remoteOutputToken);
 
-    CCU_CHK_RET(ccu::write(ctx.arg->channels[0], output, input, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::local_copy(stagingBuffer, input, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::write(ctx.arg->channels[0], output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::write(ctx.arg->channels[0], output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    ccu::local_copy(stagingBuffer, input, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    ccu::write(ctx.arg->channels[0], output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     return CCU_SUCCESS;
 }
 
@@ -265,14 +247,14 @@ CcuResult ExecuteWriteReduce(TransferContext& ctx)
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
     const ccu::remote_addr remoteOutput = MakeRemoteAddr(ctx.remoteOutput, ctx.remoteOutputToken);
 
-    CCU_CHK_RET(ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::notify_record(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID));
-    CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID));
-    CCU_CHK_RET(ccu::write_reduce(
+    ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    ccu::notify_record(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID);
+    ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID);
+    ccu::write_reduce(
         ctx.arg->channels[0], remoteOutput, input, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx.event,
-        EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+        EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     return CCU_SUCCESS;
 }
 
@@ -298,8 +280,8 @@ CcuResult ExecuteLoadStore(TransferContext& ctx)
     ccu::variable dstAddr;
     dstAddr = ctx.output;
     ccu::variable loadedByVar;
-    CCU_CHK_RET(ccu::load(srcAddr, loadedByVar));
-    CCU_CHK_RET(ccu::store(dstAddr, loadedByVar));
+    ccu::load(srcAddr, loadedByVar);
+    ccu::store(dstAddr, loadedByVar);
 
     // 3) 搬运校验：address 组装的 local_addr 完成完整 input->output 拷贝
     ccu::address outputAddr;
@@ -309,8 +291,8 @@ CcuResult ExecuteLoadStore(TransferContext& ctx)
     output.addr = outputAddr;
     output.token = ctx.outputToken;
 
-    CCU_CHK_RET(ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     return CCU_SUCCESS;
 }
 
@@ -324,14 +306,14 @@ CcuResult ExecuteRead(TransferContext& ctx)
     const ccu::remote_addr remoteInput = MakeRemoteAddr(ctx.remoteInput, ctx.remoteInputToken);
 
     // mem2mem：本端 output <- 对端 remoteInput
-    CCU_CHK_RET(ccu::read(ctx.arg->channels[0], output, remoteInput, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::read(ctx.arg->channels[0], output, remoteInput, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     // buffer：本端 ccu_buffer <- 对端 remoteInput
-    CCU_CHK_RET(ccu::read(ctx.arg->channels[0], stagingBuffer, remoteInput, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::read(ctx.arg->channels[0], stagingBuffer, remoteInput, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     // stagingBuffer 落回 output，验证 buffer 通路读到的数据同样正确
-    CCU_CHK_RET(ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+    ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     return CCU_SUCCESS;
 }
 
@@ -343,14 +325,14 @@ CcuResult ExecuteReadReduce(TransferContext& ctx)
     const ccu::remote_addr remoteInput = MakeRemoteAddr(ctx.remoteInput, ctx.remoteInputToken);
 
     // output 先写入初值（对端输入值），read_reduce 后 = 初值 + 对端值（FP32 SUM）
-    CCU_CHK_RET(ccu::local_copy(output, MakeLocalAddr(ctx.input, ctx.inputToken), ctx.dataSize, ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
-    CCU_CHK_RET(ccu::notify_record(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID));
-    CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID));
-    CCU_CHK_RET(ccu::read_reduce(
+    ccu::local_copy(output, MakeLocalAddr(ctx.input, ctx.inputToken), ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    ccu::notify_record(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID);
+    ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, 1U << INIT_SYNC_ID);
+    ccu::read_reduce(
         ctx.arg->channels[0], output, remoteInput, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx.event,
-        EVENT_MASK));
-    CCU_CHK_RET(ccu::event_wait(ctx.event, EVENT_MASK));
+        EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
     return CCU_SUCCESS;
 }
 
@@ -377,37 +359,37 @@ __ccu_host__ void CcuTransferKernel(
 
     // 按 SQE 顺序加载任务参数，load_arg 必须在程序最开始时调用
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.input, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.output, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.inputToken, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.outputToken, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.dataSize, argId++));
+    ccu::load_arg(ctx.input, argId++);
+    ccu::load_arg(ctx.output, argId++);
+    ccu::load_arg(ctx.inputToken, argId++);
+    ccu::load_arg(ctx.outputToken, argId++);
+    ccu::load_arg(ctx.dataSize, argId++);
 
-    CCU_CHK_VOID_RET(ExchangeRemoteOutput(ctx));
+    ExchangeRemoteOutput(ctx);
 
     // 编译期选择搬运场景：1 本地拷贝，2 跨卡写，3 跨卡写并 SUM 规约，4 load/store/address，
     // 5 read，6 read_reduce，7 控制流宏 + local_notify
 #if SCENARIO_NUM == 1
-    CCU_CHK_VOID_RET(ExecuteLocalCopy(ctx));
+    ExecuteLocalCopy(ctx);
 #elif SCENARIO_NUM == 2
-    CCU_CHK_VOID_RET(ExecuteWrite(ctx));
+    ExecuteWrite(ctx);
 #elif SCENARIO_NUM == 3
-    CCU_CHK_VOID_RET(ExecuteWriteReduce(ctx));
+    ExecuteWriteReduce(ctx);
 #elif SCENARIO_NUM == 4
-    CCU_CHK_VOID_RET(ExecuteLoadStore(ctx));
+    ExecuteLoadStore(ctx);
 #elif SCENARIO_NUM == 5
-    CCU_CHK_VOID_RET(ExecuteRead(ctx));
+    ExecuteRead(ctx);
 #elif SCENARIO_NUM == 6
-    CCU_CHK_VOID_RET(ExecuteReadReduce(ctx));
+    ExecuteReadReduce(ctx);
 #elif SCENARIO_NUM == 7
-    CCU_CHK_VOID_RET(ExecuteControlFlowAndLocalNotify(ctx));
+    ExecuteControlFlowAndLocalNotify(ctx);
 #else
 #error "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, or 7"
 #endif
 
     // 后同步：通知对端本 rank 已完成，并等对端完成
-    CCU_CHK_VOID_RET(ccu::notify_record(kernelArg->channels[0], CKE_IDX_0, 1U << POST_SYNC_ID));
-    CCU_CHK_VOID_RET(ccu::notify_wait(kernelArg->channels[0], CKE_IDX_0, 1U << POST_SYNC_ID));
+    ccu::notify_record(kernelArg->channels[0], CKE_IDX_0, 1U << POST_SYNC_ID);
+    ccu::notify_wait(kernelArg->channels[0], CKE_IDX_0, 1U << POST_SYNC_ID);
 }
 
 // 单 rank 线程：建 2 卡通信域与任务流、建链、下发所选场景的传送任务、回读并校验结果

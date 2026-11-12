@@ -23,22 +23,6 @@
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
-#define CCU_CHK_RET(call)                                \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return ccuRet;                               \
-        }                                                \
-    } while (0)
-
-#define CCU_CHK_VOID_RET(call)                           \
-    do {                                                 \
-        CcuResult ccuRet = static_cast<CcuResult>(call); \
-        if (ccuRet != CCU_SUCCESS) {                     \
-            return;                                      \
-        }                                                \
-    } while (0)
-
 // 规模上限与每链路 notify 数
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -82,15 +66,15 @@ constexpr uint64_t MAX_TRANSFER_BYTES = 256ULL * 1024 * 1024;
 static CcuResult ExchangeBuffers(BroadcastMesh1DContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.localBuffer, BUFFER_XN_ID, CKE_IDX_0, 1U << BUFFER_XN_ID));
-        CCU_CHK_RET(ccu::write_variable_with_notify(
-            ctx.arg->channels[i], ctx.localToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID));
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.localBuffer, BUFFER_XN_ID, CKE_IDX_0, 1U << BUFFER_XN_ID);
+        ccu::write_variable_with_notify(
+            ctx.arg->channels[i], ctx.localToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
     }
 
     const uint32_t allBits = (1U << BUFFER_XN_ID) | (1U << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
     return CCU_SUCCESS;
 }
@@ -118,11 +102,11 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
         ccu::remote_addr dst_;
         dst_.addr = ctx.remoteBuffer[rankIdx];
         dst_.token = ctx.remoteToken[rankIdx];
-        CCU_CHK_RET(ccu::write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask));
+        ccu::write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask);
         remoteMask |= mask;
         channelId++;
     }
-    CCU_CHK_RET(ccu::event_wait(ctx.event, remoteMask));
+    ccu::event_wait(ctx.event, remoteMask);
     return CCU_SUCCESS;
 }
 
@@ -153,20 +137,20 @@ __ccu_host__ void CcuBroadcastMesh1DKernel(uint64_t sqeArgs1, uint64_t sqeArgs2,
 
     // 按 SQE 顺序加载任务参数，load_arg 必须在程序最开始时调用
     uint32_t argId = 0;
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.localBuffer, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.localToken, argId++));
-    CCU_CHK_VOID_RET(ccu::load_arg(ctx.data_size, argId++));
+    ccu::load_arg(ctx.localBuffer, argId++);
+    ccu::load_arg(ctx.localToken, argId++);
+    ccu::load_arg(ctx.data_size, argId++);
 
     // 互换缓冲地址 -> 根 rank 广播
-    CCU_CHK_VOID_RET(ExchangeBuffers(ctx));
-    CCU_CHK_VOID_RET(BroadcastFromRoot(ctx));
+    ExchangeBuffers(ctx);
+    BroadcastFromRoot(ctx);
 
     // 后同步：通知所有对端本 rank 已完成，并等所有对端完成
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_VOID_RET(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID));
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1U << POST_SYNC_ID);
     }
 }
 
