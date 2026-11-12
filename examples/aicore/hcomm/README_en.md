@@ -17,6 +17,8 @@ This directory provides Hcomm point-to-point communication samples, covering ord
 | [07_hcomm_roce_normal_write_read](./07_hcomm_roce_normal_write_read/README_en.md) | Demonstrates AIV Kernel invoking ordinary `WriteNbi`/`ReadNbi` over the RoCE path with MPI-managed processes: deferred tasks are triggered by a single `Commit`, and results are verified after `Drain`. |
 | [08_hcomm_roce_batch_write_read](./08_hcomm_roce_batch_write_read/README_en.md) | Demonstrates RoCE batch interfaces with MPI-managed processes: `WriteNbi`/`ReadNbi` are posted consecutively on a `MakeBatchHandle` handle, triggered by `BatchCommit`, and verified on a ring topology. |
 | [09_hcomm_roce_multi_sge](./09_hcomm_roce_multi_sge/README_en.md) | Demonstrates RoCE batch multi-SGE interfaces with MPI-managed processes: each `WriteNbi`/`ReadNbi` call carries multiple scattered SGEs, committed in groups and verified. |
+| [12_hcomm_urma_normal_api_perf](./12_hcomm_urma_normal_api_perf/README_en.md) | Measures submit latency and end-to-end bandwidth of the ordinary URMA-path interfaces (`WriteNbi`/`ReadNbi`/`WriteWithNotifyNbi`) under immediate and deferred publication, sweeping message sizes case by case. |
+| [13_hcomm_urma_batch_api_perf](./13_hcomm_urma_batch_api_perf/README_en.md) | Measures submit latency and end-to-end bandwidth of the URMA-path batch APIs (`MakeBatchHandle`+`BatchCommit`) for the three operations, sweeping both batch size and message size. |
 
 ## Usage Notes
 

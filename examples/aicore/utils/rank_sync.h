@@ -55,6 +55,9 @@ struct RankSyncMsgHeader {
 
 // 集合调用点tag的分配基址。样例自定义tag请从kTagUserBase开始编号，保证同一样例内互不相同。
 constexpr uint32_t kTagUserBase = 100U;
+// 公共工具perf_result.h（GatherPerfRowsToRoot）专用的终局结果交换tag。
+// 各样例的样例自定义tag请继续从kTagUserBase开始编号，不会与它冲突。
+constexpr uint32_t kTagPerfResult = kTagUserBase - 1U;
 
 class RankSyncContext {
 public:

@@ -17,6 +17,8 @@
 | [07_hcomm_roce_normal_write_read](./07_hcomm_roce_normal_write_read/README.md) | 演示MPI多进程场景下AIV Kernel通过RoCE路径调用普通`WriteNbi`/`ReadNbi`：延迟提交后由`Commit`统一触发，`Drain`等待完成并校验结果。 |
 | [08_hcomm_roce_batch_write_read](./08_hcomm_roce_batch_write_read/README.md) | 演示MPI多进程场景下RoCE路径批量接口：通过`MakeBatchHandle`在批量句柄上连续提交`WriteNbi`/`ReadNbi`，`BatchCommit`统一触发并校验环形拓扑读写结果。 |
 | [09_hcomm_roce_multi_sge](./09_hcomm_roce_multi_sge/README.md) | 演示MPI多进程场景下RoCE批量多SGE接口：`WriteNbi`/`ReadNbi`单次携带多段离散SGE，分组提交并校验离散读写结果。 |
+| [12_hcomm_urma_normal_api_perf](./12_hcomm_urma_normal_api_perf/README.md) | 测量URMA路径普通接口（`WriteNbi`/`ReadNbi`/`WriteWithNotifyNbi`）的提交时延与端到端带宽，覆盖立即提交/延迟提交两种发布策略与逐档数据量扫描。 |
+| [13_hcomm_urma_batch_api_perf](./13_hcomm_urma_batch_api_perf/README.md) | 测量URMA路径批量接口（`MakeBatchHandle`+`BatchCommit`）下三种操作的提交时延与端到端带宽，支持批大小与数据量双维扫描。 |
 
 ## 使用说明
 
