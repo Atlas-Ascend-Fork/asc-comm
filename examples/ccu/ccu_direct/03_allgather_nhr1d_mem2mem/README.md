@@ -91,6 +91,7 @@
   `--rank-size`必须与`DEVICES`指定的Device数量一致，`--count`必须与运行样例时的`COUNT`一致。
   `run.sh`只负责构建和运行样例，不会自动生成或校验数据；仅构建时可执行`env BUILD_ONLY=1 ./run.sh`。
   每次修改rank数量或`count`后，都需要使用相同参数重新生成、运行和校验数据。
+  输入标记按`rank * count + index + 1`生成；为保证FP32标记唯一且可精确表示，`rank-size * count`不能超过16777216（2^24）。
 
 - 编译选项说明
 

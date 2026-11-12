@@ -69,7 +69,6 @@ target_link_libraries(ccu_all_to_all PRIVATE
     -Wl,--no-as-needed
     hcomm
     asccomm_ccu
-    hccl_v2
     -Wl,--as-needed
     c_sec
     ascendcl

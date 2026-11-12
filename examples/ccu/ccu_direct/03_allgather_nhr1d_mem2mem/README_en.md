@@ -90,6 +90,7 @@ Perform the following steps in the sample root directory to build and run the sa
   `--rank-size` must match the number of devices specified by `DEVICES`, and `--count` must match the `COUNT` used when running the sample.
   `run.sh` only builds and runs the sample and does not automatically generate or verify data. To build the sample only, run `env BUILD_ONLY=1 ./run.sh`.
   After each change to the rank count or `count`, regenerate the data and run and verify it with the same parameters.
+  Input markers are generated as `rank * count + index + 1`. To keep FP32 markers unique and exactly representable, `rank-size * count` must not exceed 16777216 (2^24).
 
 - Build options
 
