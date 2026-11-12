@@ -11,6 +11,8 @@
 /*!
  * \file hcomm_jetty.h
  * \brief Low-level AIV Jetty primitives for URMA point-to-point writes.
+ * \note HcommPeer and HcommJetty require CANN 9.2.0 or later.
+ *       CANN 9.2.0 beta releases are not supported. SIMT Jetty requires CANN 9.3.0 or later.
  */
 #ifndef INCLUDE_ADV_API_JETTY_HCOMM_JETTY_H
 #define INCLUDE_ADV_API_JETTY_HCOMM_JETTY_H

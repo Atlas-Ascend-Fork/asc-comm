@@ -11,7 +11,7 @@ does not require Host involvement for each operation. Each rank then verifies th
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.2.0 |
 
 ## Directory Structure
 

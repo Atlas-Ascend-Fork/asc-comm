@@ -11,6 +11,8 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
+// Requires CANN 9.2.0 or later (excluding 9.2.0 beta releases):
+// c_api/utils/sys_var.h and ReadGmBypassDCache/WriteGmBypassDCache are SDK dependencies.
 #include <c_api/sync/sync.h>
 #include <c_api/utils/sys_var.h>
 #include <c_api/vector_datamove/vector_datamove.h>
