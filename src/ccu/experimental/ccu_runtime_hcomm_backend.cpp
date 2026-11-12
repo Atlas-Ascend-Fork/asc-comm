@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <new>
+#include <unordered_map>
 #include <vector>
 
 namespace ccu::runtime {
@@ -38,6 +39,7 @@ struct ExternalXnSet {
 struct HcommLaunch {
     HcommContext* context = nullptr;
     uint32_t kernelId = UINT32_MAX;
+    bool cachedKernel = false;
     void* stream = nullptr;
     bool submitFailed = false;
     bool terminal = false;
@@ -51,6 +53,18 @@ struct HcommContext {
     HcommLaunch* activeLaunch = nullptr;
     uint32_t rank = 0;
     uint32_t rankSize = 1;
+    bool channelsBound = false;
+    std::vector<uint64_t> boundChannels;
+    struct CachedKernel {
+        const uint8_t* ccuobj = nullptr;
+        uint64_t ccuobjSize = 0;
+        uint32_t kernelIndex = UINT32_MAX;
+        uint32_t rank = 0;
+        uint32_t rankSize = 0;
+        std::vector<uint64_t> channels;
+        uint32_t kernelId = UINT32_MAX;
+    };
+    std::unordered_map<uint64_t, CachedKernel> kernelCache;
     std::vector<ExternalEventSet*> externalEventSets;
     std::vector<ExternalXnSet*> externalXnSets;
 };
@@ -89,13 +103,29 @@ ccu_status_t bindLaunchChannels(HcommContext* context, HcomCcuSchd schd)
 {
     if (schd.channelSize != 0 && !schd.channelList)
         return CCU_STATUS_INVALID_ARGUMENT;
-    if (!schd.channelList)
-        return CCU_STATUS_SUCCESS;
     if (schd.channelSize > UINT32_MAX)
         return CCU_STATUS_INVALID_ARGUMENT;
 
-    const auto* channelList = static_cast<const uint64_t*>(schd.channelList);
-    return mapCoreError(ccu_aot_bind_channels(context->runtime, channelList, static_cast<uint32_t>(schd.channelSize)));
+    std::vector<uint64_t> channels;
+    if (schd.channelList) {
+        const auto* channelList = static_cast<const uint64_t*>(schd.channelList);
+        channels.assign(channelList, channelList + schd.channelSize);
+        for (uint64_t channel : channels)
+            if (channel == 0)
+                return CCU_STATUS_INVALID_ARGUMENT;
+    }
+    if (context->channelsBound)
+        return context->boundChannels == channels ? CCU_STATUS_SUCCESS : CCU_STATUS_INVALID_ARGUMENT;
+    if (channels.empty())
+        return CCU_STATUS_SUCCESS;
+
+    const ccu_status_t status =
+        mapCoreError(ccu_aot_bind_channels(context->runtime, channels.data(), static_cast<uint32_t>(channels.size())));
+    if (status == CCU_STATUS_SUCCESS) {
+        context->boundChannels = std::move(channels);
+        context->channelsBound = true;
+    }
+    return status;
 }
 
 std::vector<uint64_t> collectTaskArguments(const uint64_t* arguments, uint32_t argumentCount)
@@ -160,15 +190,19 @@ ccu_status_t registerKernel(
 
 ccu_status_t submitRegisteredKernel(
     HcommContext* context, uint32_t kernelId, const std::vector<uint64_t>& taskArguments, uint32_t argumentCount,
-    const std::vector<CcuAotExternalArg>& externalArguments, void* stream, bool& submitFailed)
+    const std::vector<CcuAotExternalArg>& externalArguments, void* stream, bool cachedKernel, bool& submitFailed)
 {
     CcuAotError error = ccu_aot_launch_registered_on_stream(
         context->runtime, kernelId, 0, taskArguments.empty() ? nullptr : taskArguments.data(), argumentCount,
         externalArguments.empty() ? nullptr : externalArguments.data(), static_cast<uint32_t>(externalArguments.size()),
         stream);
     if (error == CCU_AOT_E_NOT_SUBMITTED) {
-        CcuAotError releaseError = ccu_aot_unregister_kernel(context->runtime, kernelId);
-        return releaseError == CCU_AOT_SUCCESS ? mapCoreError(error) : mapCoreError(releaseError);
+        if (!cachedKernel) {
+            CcuAotError releaseError = ccu_aot_unregister_kernel(context->runtime, kernelId);
+            if (releaseError != CCU_AOT_SUCCESS)
+                return mapCoreError(releaseError);
+        }
+        return mapCoreError(error);
     }
     submitFailed = error != CCU_AOT_SUCCESS;
     return CCU_STATUS_SUCCESS;
@@ -282,14 +316,44 @@ public:
             if (externalStatus != CCU_STATUS_SUCCESS)
                 return externalStatus;
 
-            const ccu_status_t registerStatus =
-                registerKernel(hcommContext, descriptor, rankEntry, externalAotArguments, created->kernelId);
-            if (registerStatus != CCU_STATUS_SUCCESS)
-                return registerStatus;
+            auto cache = hcommContext->kernelCache.end();
+            if (schd.cacheTag != 0)
+                cache = hcommContext->kernelCache.find(schd.cacheTag);
+            if (cache != hcommContext->kernelCache.end()) {
+                const HcommContext::CachedKernel& entry = cache->second;
+                if (entry.ccuobj != descriptor->image->ccuobj || entry.ccuobjSize != descriptor->image->ccuobj_size ||
+                    entry.kernelIndex != rankEntry->kernel_index || entry.rank != hcommContext->rank ||
+                    entry.rankSize != hcommContext->rankSize || entry.channels != hcommContext->boundChannels)
+                    return CCU_STATUS_INVALID_ARGUMENT;
+                created->kernelId = entry.kernelId;
+                created->cachedKernel = true;
+            } else {
+                const ccu_status_t registerStatus =
+                    registerKernel(hcommContext, descriptor, rankEntry, externalAotArguments, created->kernelId);
+                if (registerStatus != CCU_STATUS_SUCCESS)
+                    return registerStatus;
+                if (schd.cacheTag != 0) {
+                    try {
+                        HcommContext::CachedKernel entry{};
+                        entry.ccuobj = descriptor->image->ccuobj;
+                        entry.ccuobjSize = descriptor->image->ccuobj_size;
+                        entry.kernelIndex = rankEntry->kernel_index;
+                        entry.rank = hcommContext->rank;
+                        entry.rankSize = hcommContext->rankSize;
+                        entry.channels = hcommContext->boundChannels;
+                        entry.kernelId = created->kernelId;
+                        hcommContext->kernelCache.emplace(schd.cacheTag, std::move(entry));
+                    } catch (...) {
+                        (void)ccu_aot_unregister_kernel(hcommContext->runtime, created->kernelId);
+                        throw;
+                    }
+                    created->cachedKernel = true;
+                }
+            }
 
             const ccu_status_t submitStatus = submitRegisteredKernel(
                 hcommContext, created->kernelId, taskArguments, argumentCount, externalAotArguments, stream,
-                created->submitFailed);
+                created->cachedKernel, created->submitFailed);
             if (submitStatus != CCU_STATUS_SUCCESS)
                 return submitStatus;
 
@@ -347,9 +411,11 @@ public:
             return CCU_STATUS_INVALID_ARGUMENT;
         if (!launch->terminal)
             return CCU_STATUS_BUSY;
-        CcuAotError error = ccu_aot_unregister_kernel(launch->context->runtime, launch->kernelId);
-        if (error != CCU_AOT_SUCCESS)
-            return mapCoreError(error);
+        if (!launch->cachedKernel) {
+            CcuAotError error = ccu_aot_unregister_kernel(launch->context->runtime, launch->kernelId);
+            if (error != CCU_AOT_SUCCESS)
+                return mapCoreError(error);
+        }
         launch->context->activeLaunch = nullptr;
         delete launch;
         return CCU_STATUS_SUCCESS;

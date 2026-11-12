@@ -55,7 +55,7 @@ typedef struct HcomCcuSchd {
 | `missionStart` | 任务起始编号 |
 | `rankId` | 当前rank ID，取值范围为0 <= rankId < rankSize |
 | `rankSize` | 当前通信域rank数 |
-| `cacheTag` | 预留字段，当前填`0` |
+| `cacheTag` | Kernel 注册缓存标签；`0`表示每次重新注册，非`0`时在同一 HComm instance 内复用注册结果 |
 | `channelSize` | 显式传入channel时使用；未显式传入时填`0` |
 | `channelList` | 显式传入channel时使用；未显式传入时填空指针 |
 
@@ -68,6 +68,8 @@ schd.missionStart = 0;
 schd.rankId = rank;
 schd.rankSize = world;
 ```
+
+`cacheTag` 非零时，重复提交会复用该 instance 中已注册的 kernel，任务参数仍按每次提交更新。同一 tag 必须对应相同的 kernel image、rank 配置和 channel 列表；不一致时返回 `CCU_STATUS_INVALID_ARGUMENT`。缓存随 instance 的 runtime context 保留，进程内没有单独的缓存清理接口。
 
 ## 参数说明
 

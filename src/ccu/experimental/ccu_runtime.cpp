@@ -319,6 +319,7 @@ struct ccu_context {
     uint64_t abortTimeoutMs = 0;
     ccu_instance_t boundInstance = 0;
     bool runtimeOwned = false;
+    bool hasCachedKernel = false;
     bool poisoned = false;
     ccu_launch* pendingLaunch = nullptr;
     std::unordered_set<ccu_external_event_set*> externalEventSets;
@@ -716,6 +717,8 @@ ccu_status_t ccu_compiler_submit_with_schedule(
             return status == CCU_STATUS_SUCCESS ? CCU_STATUS_RUNTIME_ERROR : status;
         }
 
+        if (schd.cacheTag != 0)
+            context->hasCachedKernel = true;
         launch->kernel = kernel.release();
         context->pendingLaunch = launch.release();
         return status;
@@ -788,7 +791,7 @@ ccu_status_t ccu_compiler_submit_by_instance(
         const bool idle = context->pendingLaunch == nullptr;
         const bool poisoned = context->poisoned;
         lock.unlock();
-        if (idle && !poisoned && context->runtimeOwned)
+        if (idle && !poisoned && context->runtimeOwned && !context->hasCachedKernel)
             (void)ccu_context_destroy(&context);
         if (cleanupStatus != CCU_STATUS_SUCCESS)
             return cleanupStatus;
@@ -817,7 +820,7 @@ ccu_status_t ccu_synchronize(ccu_instance_t instance, void* stream, uint64_t tim
         if (!context->pendingLaunch) {
             if (context->poisoned)
                 return CCU_STATUS_CONTEXT_POISONED;
-            if (context->runtimeOwned)
+            if (context->runtimeOwned && !context->hasCachedKernel)
                 return destroyContextLocked(context, lock, CCU_STATUS_SUCCESS);
             return CCU_STATUS_SUCCESS;
         }
@@ -833,7 +836,7 @@ ccu_status_t ccu_synchronize(ccu_instance_t instance, void* stream, uint64_t tim
             return cleanup.status;
         if (context->poisoned)
             return syncStatus;
-        if (context->runtimeOwned)
+        if (context->runtimeOwned && !context->hasCachedKernel)
             return destroyContextLocked(context, lock, syncStatus);
         return syncStatus;
     } catch (...) {
