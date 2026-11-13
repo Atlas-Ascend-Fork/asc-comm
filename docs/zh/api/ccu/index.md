@@ -43,3 +43,6 @@
   - [loop_group](./execution_control/loop_group.md)
   - [func](./execution_control/func.md)
   - [call_func](./execution_control/call_func.md)
+- [调试接口](./tuning_interface/_dump_node.md)
+  - [简介](./tuning_interface/README.md)
+  - [CCU_PRINTF](./tuning_interface/printf.md)

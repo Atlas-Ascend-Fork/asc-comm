@@ -109,7 +109,7 @@ CcuResult EmitPrintf(const detail::PrintInfoHandle* handle, const Args&... args)
 {
     static_assert(detail::AreVariables<Args...>::value, "CCU_PRINTF arguments must be ccu::variable");
     if (handle == nullptr) {
-        return CCU_SUCCESS; // Registration failure disables this debug call, not communication.
+        return CCU_E_PARA;
     }
 
     variable base, tail, head, next, cursor, word, sequence;
@@ -208,7 +208,11 @@ CcuResult RegisterAndEmit(const char* file, int line, const char* fmt, const Arg
 // Uses software IF blocks; do not emit inside a hardware ccu::loop body.
 // Instruction generation runs on the Host. One emitted call must have one
 // runtime writer: the same program must not run concurrently on several missions.
+#if defined(ASCENDC_DUMP) && ASCENDC_DUMP == 0
+#define CCU_PRINTF(fmt, ...) (CCU_SUCCESS)
+#else
 #define CCU_PRINTF(fmt, ...) ::AscendC::ccu::dfx::RegisterAndEmit(__FILE__, __LINE__, (fmt), ##__VA_ARGS__)
+#endif
 
 } // namespace dfx
 } // namespace ccu

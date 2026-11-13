@@ -302,7 +302,7 @@ CcuPrintStream::~CcuPrintStream() { Release(); }
 detail::PrintInfoHandle* CcuPrintStream::AllocPrintInfo(const char* file, int line, const char* fmt, size_t argc)
 {
     if (file == nullptr || !detail::ValidateFormat(fmt, argc)) {
-        Log(DLOG_WARN, "invalid format or argument count; print disabled");
+        Log(DLOG_ERROR, "invalid format or argument count");
         return nullptr;
     }
     if (argc == std::numeric_limits<size_t>::max()) {

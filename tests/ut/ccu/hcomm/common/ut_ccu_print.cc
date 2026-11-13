@@ -62,6 +62,7 @@ struct Allocation {
 };
 std::map<void*, Allocation> allocations;
 std::vector<std::string> logs;
+std::vector<int32_t> logLevels;
 int wrongContext = 0;
 
 void Record(std::function<void()> run) { program.push_back({std::move(run)}); }
@@ -262,7 +263,7 @@ aclError aclrtMemcpy(void* dst, size_t capacity, const void* src, size_t bytes, 
     std::memcpy(dst, src, bytes);
     return ACL_SUCCESS;
 }
-void DlogRecord(int32_t module, int32_t, const char* format, ...)
+void DlogRecord(int32_t module, int32_t level, const char* format, ...)
 {
     EXPECT_NE(module & RUN_LOG_MASK, 0);
     char buffer[2048];
@@ -272,6 +273,7 @@ void DlogRecord(int32_t module, int32_t, const char* format, ...)
     va_end(args);
     std::lock_guard<std::mutex> lock(runtimeMutex);
     logs.emplace_back(buffer);
+    logLevels.push_back(level);
 }
 } // extern "C"
 
@@ -291,6 +293,7 @@ protected:
         currentContext = reinterpret_cast<void*>(1);
         wrongContext = 0;
         logs.clear();
+        logLevels.clear();
     }
     void TearDown() override
     {
@@ -420,18 +423,24 @@ TEST_P(CcuPrintTest, ContextsAndRepeatedCallSitesHaveIndependentStorage)
     EXPECT_EQ(RecordCount(), 2U);
 }
 
-TEST_P(CcuPrintTest, RegistrationFailuresDisableOnlyDebugEmission)
+TEST_P(CcuPrintTest, RegistrationFailuresReturnErrors)
 {
+    ccu::variable value;
+    EXPECT_EQ(dfx::RegisterAndEmit("sample.cc", 42, "%s", value), CCU_E_PARA);
+    ASSERT_FALSE(logLevels.empty());
+    EXPECT_EQ(logLevels.back(), DLOG_ERROR);
+    EXPECT_EQ(dfx::RegisterAndEmit("sample.cc", 42, "%u"), CCU_E_PARA);
+    EXPECT_EQ(dfx::RegisterAndEmit("sample.cc", 42, nullptr), CCU_E_PARA);
     EXPECT_EQ(Allocate("%s", 1), nullptr);
     failMalloc = true;
+    EXPECT_EQ(dfx::RegisterAndEmit("sample.cc", 42, "%u", value), CCU_E_PARA);
     EXPECT_EQ(Allocate("%u", 1), nullptr);
     failMalloc = false;
     failGetContext = true;
     EXPECT_EQ(Allocate("%u", 1), nullptr);
     failGetContext = false;
     EXPECT_EQ(stream->AllocPrintInfo("sample.cc", 42, "", std::numeric_limits<size_t>::max()), nullptr);
-    ccu::variable value;
-    EXPECT_EQ(dfx::EmitPrintf(nullptr, value), CCU_SUCCESS);
+    EXPECT_EQ(dfx::EmitPrintf(nullptr, value), CCU_E_PARA);
     EXPECT_TRUE(program.empty());
 }
 

@@ -305,6 +305,7 @@ add_subdirectory(ccu_variable)
 find_package(Threads REQUIRED)
 add_executable(asccomm_ccu_print_ut
     common/ut_ccu_print.cc
+    common/ut_ccu_print_disabled.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_print.cc
 )
 target_compile_features(asccomm_ccu_print_ut PRIVATE cxx_std_17)
