@@ -33,8 +33,6 @@ ASCCOMM_API int32_t asccomm_local_reduce_on_thread(
 ASCCOMM_API int32_t
 asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx);
 ASCCOMM_API int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut);
-ASCCOMM_API int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId);
-ASCCOMM_API int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut);
 ASCCOMM_API int32_t
 asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len);
 ASCCOMM_API int32_t asccomm_write_reduce_on_thread(

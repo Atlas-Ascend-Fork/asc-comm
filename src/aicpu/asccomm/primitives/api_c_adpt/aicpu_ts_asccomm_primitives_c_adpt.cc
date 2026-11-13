@@ -321,24 +321,6 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
     });
 }
 
-int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId)
-{
-    return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
-        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
-        return asccomm_rtsq_notify_record(*threadEntity, static_cast<uint32_t>(dstNotifyId));
-    });
-}
-
-int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
-{
-    return execute_api([&]() {
-        ThreadEntity* threadEntity = nullptr;
-        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
-        return asccomm_rtsq_notify_wait(*threadEntity, static_cast<uint32_t>(notifyId), timeOut);
-    });
-}
-
 int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len)
 {
     return execute_api([&]() {
