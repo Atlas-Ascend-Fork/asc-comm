@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <cstring>
 
 namespace asc {
 namespace {
@@ -63,6 +64,14 @@ bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
            metadata.header.magicWord == HCOMM_CCU_DIE_METADATA_MAGIC_WORD &&
            metadata.header.size == sizeof(HcommCcuDieMetadata) && metadata.header.reserved == 0 &&
            metadata.reserved == 0;
+}
+
+bool is_disabled_die_metadata_placeholder(const HcommCcuDieMetadata& metadata)
+{
+    HcommCcuDieMetadata zeroMetadata{};
+    zeroMetadata.header = metadata.header;
+    zeroMetadata.enabled = metadata.enabled;
+    return memcmp(&metadata, &zeroMetadata, sizeof(metadata)) == 0;
 }
 
 // 从 die 元数据推导有效 die 位图
@@ -129,6 +138,12 @@ CcuResult append_wire_ranges(
     }
     return CcuResult::CCU_SUCCESS;
 }
+
+bool is_unused_type_view_zero(const HcommCcuDieResRangePack& type_view)
+{
+    return type_view.resourceType == 0 && type_view.resRangeNum == 0 && type_view.resRanges == nullptr &&
+           type_view.reserved == 0;
+}
 } // namespace
 
 CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
@@ -152,14 +167,14 @@ CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
                 return CcuResult::CCU_E_PARA;
             }
             // 两遍装载：第一遍取元数据（enabled 决定位图），第二遍按位图校验 range 视图
+            // 每个 die 槽位都必须携带合法元数据；未启用 die 不得携带资源视图
             if (die_res.dieMetadata == nullptr) {
-                // 未启用 die：视图必须为空
-                if (die_res.resTypeNum != 0) {
-                    return CcuResult::CCU_E_PARA;
-                }
-                continue;
+                return CcuResult::CCU_E_PARA;
             }
             if (!is_die_metadata_valid(*die_res.dieMetadata) || die_res.dieMetadata->enabled > 1) {
+                return CcuResult::CCU_E_PARA;
+            }
+            if (die_res.dieMetadata->enabled == 0 && !is_disabled_die_metadata_placeholder(*die_res.dieMetadata)) {
                 return CcuResult::CCU_E_PARA;
             }
             die_metadata[slot] = *die_res.dieMetadata; // 深拷贝元数据，此后不再触碰 hcomm 内存
@@ -176,19 +191,35 @@ CcuResult asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
     if (derived_die_mask == 0 || (derived_die_mask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0) {
         return CcuResult::CCU_E_PARA;
     }
-    // 第二遍：按推导位图校验并装载 range（启用 die 必须有元数据；未启用 die 不得携带元数据）
+    // 第二遍：按推导位图校验并装载 range（未启用 die 不得携带资源视图）
     for (uint32_t slot = 0; slot < instance.ccuDieNum; ++slot) {
         const HcommCcuDieRes& die_res = instance.ccuDieReses[slot];
         const bool enabled = (derived_die_mask & (1U << slot)) != 0;
         if (enabled) {
-            if (die_res.dieMetadata == nullptr) {
+            if (die_res.resTypeNum > HCOMM_CCU_BATCH_RES_TYPE_COUNT) {
                 return CcuResult::CCU_E_PARA;
             }
-            for (uint32_t type = 0; type < HCOMM_CCU_BATCH_RES_TYPE_COUNT; ++type) {
+            uint32_t prev_type = 0;
+            for (uint32_t index = 0; index < die_res.resTypeNum; ++index) {
+                const HcommCcuDieResRangePack& type_view = die_res.resTypes[index];
+                const uint32_t type = type_view.resourceType;
+                if (type >= HCOMM_CCU_BATCH_RES_TYPE_COUNT || (index > 0 && type <= prev_type)) {
+                    return CcuResult::CCU_E_PARA;
+                }
                 CCU_CHK_RET(append_wire_ranges(
-                    die_res.resTypes[type], type, die_res.dieId, derived_die_mask, all_ranges, instance_snapshot));
+                    type_view, type, die_res.dieId, derived_die_mask, all_ranges, instance_snapshot));
+                prev_type = type;
             }
-        } else if (die_res.dieMetadata != nullptr || die_res.resTypeNum != 0) {
+            if (!std::all_of(
+                    die_res.resTypes + die_res.resTypeNum, die_res.resTypes + 32,
+                    [](const HcommCcuDieResRangePack& type_view) { return is_unused_type_view_zero(type_view); })) {
+                return CcuResult::CCU_E_PARA;
+            }
+        } else if (
+            die_res.resTypeNum != 0 ||
+            !std::all_of(die_res.resTypes, die_res.resTypes + 32, [](const HcommCcuDieResRangePack& type_view) {
+                return is_unused_type_view_zero(type_view);
+            })) {
             return CcuResult::CCU_E_PARA;
         }
     }
@@ -218,7 +249,7 @@ asc_ccu_res_repository& asc_ccu_res_snapshot::get_ccu_res_repo() { return res_re
 
 const HcommCcuDieMetadata* asc_ccu_res_snapshot::get_die_metadata(uint32_t die_id) const
 {
-    return die_id < HCOMM_CCU_MAX_DIE_NUM && (valid_die_mask_ & (1U << die_id)) != 0 ? &die_metadata_[die_id] : nullptr;
+    return die_id < HCOMM_CCU_MAX_DIE_NUM ? &die_metadata_[die_id] : nullptr;
 }
 
 uint32_t asc_ccu_res_snapshot::get_ccu_version() const { return ccu_version_; }

@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <algorithm>
 #include <limits>
 #include <vector>
 
@@ -42,6 +43,8 @@ struct ContextStorage {
         dieMetadata[0].ccuResBuffer.type = REGED_BUFFER_RMA;
         dieMetadata[0].ccuResBuffer.bufferInfo.rma.addr = 0x1000;
         dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = 0x1000;
+        dieMetadata[1].header = {
+            HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_DIE_METADATA_MAGIC_WORD, sizeof(HcommCcuDieMetadata), 0};
         dieRanges[0][HCOMM_CCU_BATCH_RES_LOOP].push_back({10, 4, 0});
         RefreshViews();
     }
@@ -52,17 +55,18 @@ struct ContextStorage {
             HcommCcuDieRes& dieRes = instance_.ccuDieReses[die];
             dieRes.dieId = die;
             dieRes.resTypeNum = 0;
-            for (uint32_t type = 0; type < HCOMM_CCU_BATCH_RES_TYPE_COUNT; ++type) {
-                HcommCcuDieResRangePack& view = dieRes.resTypes[type];
+            std::for_each(std::begin(dieRes.resTypes), std::end(dieRes.resTypes), [](HcommCcuDieResRangePack& view) {
                 view = HcommCcuDieResRangePack{};
-                view.resourceType = type;
+            });
+            for (uint32_t type = 0; type < HCOMM_CCU_BATCH_RES_TYPE_COUNT; ++type) {
                 if (!dieRanges[die][type].empty()) {
+                    HcommCcuDieResRangePack& view = dieRes.resTypes[dieRes.resTypeNum++];
+                    view.resourceType = type;
                     view.resRanges = dieRanges[die][type].data();
                     view.resRangeNum = static_cast<uint32_t>(dieRanges[die][type].size());
-                    dieRes.resTypeNum = type + 1;
                 }
             }
-            dieRes.dieMetadata = dieMetadata[die].enabled != 0 ? &dieMetadata[die] : nullptr;
+            dieRes.dieMetadata = &dieMetadata[die];
         }
     }
 };
@@ -85,6 +89,40 @@ TEST(AscCcuXnMapping, DerivesVersionSpecificAddressWithoutChangingRegisteredBuff
         EXPECT_EQ(address + 8 * 17, 0x1000ULL + offset + 8 * 17);
         EXPECT_NE(address + 8 * 17, 0x1000ULL + 8 * 17);
         EXPECT_EQ(snapshot.get_xn_base_addr(1, address), CCU_E_PARA);
+    }
+}
+
+TEST(AscCcuResSnapshotTest, ParsesCompactResourceTypeList)
+{
+    ContextStorage storage;
+    storage.dieRanges[0][HCOMM_CCU_BATCH_RES_LOOP].clear();
+    storage.dieRanges[0][HCOMM_CCU_BATCH_RES_MISSION].push_back({8, 2, 0});
+    storage.RefreshViews();
+
+    asc::asc_ccu_res_snapshot pack;
+    ASSERT_EQ(pack.load(storage.instance_), CcuResult::CCU_SUCCESS);
+    EXPECT_EQ(storage.instance_.ccuDieReses[0].resTypeNum, 1U);
+    EXPECT_EQ(storage.instance_.ccuDieReses[0].resTypes[0].resourceType, HCOMM_CCU_BATCH_RES_MISSION);
+    ASSERT_EQ(pack.get_ccu_res_repo().mission[0].size(), 1U);
+    EXPECT_EQ(pack.get_ccu_res_repo().mission[0][0].start_id, 8U);
+    EXPECT_EQ(pack.get_ccu_res_repo().mission[0][0].count, 2U);
+}
+
+TEST(AscCcuResSnapshotTest, RejectsNonAscendingAndNonZeroTailInCompactResourceTypeList)
+{
+    {
+        ContextStorage storage;
+        storage.dieRanges[0][HCOMM_CCU_BATCH_RES_XN].push_back({20, 2, 0});
+        storage.RefreshViews();
+        storage.instance_.ccuDieReses[0].resTypes[0].resourceType = HCOMM_CCU_BATCH_RES_MISSION;
+        asc::asc_ccu_res_snapshot pack;
+        EXPECT_EQ(pack.load(storage.instance_), CcuResult::CCU_E_PARA);
+    }
+    {
+        ContextStorage storage;
+        storage.instance_.ccuDieReses[0].resTypes[1].resourceType = 1;
+        asc::asc_ccu_res_snapshot pack;
+        EXPECT_EQ(pack.load(storage.instance_), CcuResult::CCU_E_PARA);
     }
 }
 
@@ -148,7 +186,9 @@ TEST(AscCcuResSnapshotTest, ExposesDieMetadataSnapshot)
     ASSERT_NE(metadata, nullptr);
     EXPECT_EQ(metadata->ccuResBuffer.bufferInfo.rma.addr, 0x1000U);
     EXPECT_EQ(pack.get_ccu_version(), HCOMM_CCU_VERSION_V1);
-    EXPECT_EQ(pack.get_die_metadata(1), nullptr); // die 1 未启用
+    const HcommCcuDieMetadata* disabledMetadata = pack.get_die_metadata(1);
+    ASSERT_NE(disabledMetadata, nullptr); // die 1 未启用，但仍携带占位元数据
+    EXPECT_EQ(disabledMetadata->enabled, 0U);
 }
 
 TEST(AscCcuResSnapshotTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
@@ -209,12 +249,19 @@ TEST(AscCcuResSnapshotTest, RejectsReservedAndInvalidDisabledDieMetadata)
     }
     {
         ContextStorage storage;
-        // die 1 未启用（validDieMask=1）却携带了元数据指针
-        storage.dieMetadata[1].header = {
-            HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_DIE_METADATA_MAGIC_WORD, sizeof(HcommCcuDieMetadata), 0};
-        storage.dieMetadata[1].ccuResBuffer.type = REGED_BUFFER_RMA;
-        // die 1 未启用（metadata.enabled=0）却携带元数据指针
-        storage.instance_.ccuDieReses[1].dieMetadata = &storage.dieMetadata[1];
+        storage.instance_.ccuDieReses[1].dieMetadata = nullptr; // die 槽位缺少元数据
+        asc::asc_ccu_res_snapshot pack;
+        EXPECT_EQ(pack.load(storage.instance_), CcuResult::CCU_E_PARA);
+    }
+    {
+        ContextStorage storage;
+        storage.dieMetadata[1].missionKey = 1; // 禁用 die 的业务字段必须保持占位值
+        asc::asc_ccu_res_snapshot pack;
+        EXPECT_EQ(pack.load(storage.instance_), CcuResult::CCU_E_PARA);
+    }
+    {
+        ContextStorage storage;
+        storage.instance_.ccuDieReses[1].resTypes[0].resourceType = 1; // 禁用 die 不得携带 range 视图
         asc::asc_ccu_res_snapshot pack;
         EXPECT_EQ(pack.load(storage.instance_), CcuResult::CCU_E_PARA);
     }

@@ -46,12 +46,13 @@ typedef struct {
 
 /**
  * @brief 一类资源的全部 range 段。
- * @note 按资源类型枚举值挂在 HcommCcuDieRes.resTypes[type] 上；resRanges 指向 hcomm CcuInstance
- *       持有的数组，asc-comm 在 register_start 期间深拷贝。
+ * @note 作为 HcommCcuDieRes.resTypes 紧凑列表的一项；resourceType 标识真实资源类型，
+ *       列表位置不代表资源类型编号。resRanges 指向 hcomm CcuInstance 持有的数组，
+ *       asc-comm 在 register_start 期间深拷贝。
  */
 typedef struct {
     HcommCcuDieResRange* resRanges; // 该类型的 range 数组（借用）
-    uint32_t resourceType;          // 资源池槽位编号（内部约定）
+    uint32_t resourceType;          // HcommCcuBatchResType 资源类型编号
     uint32_t resRangeNum;           // range 数组元素数量
     uint64_t reserved;              // 预留字段，当前必须为 0
 } HcommCcuDieResRangePack;
@@ -59,10 +60,7 @@ typedef struct {
 /**
  * @brief 单个 die 的资源元数据。
  * @note 承载回路 channel 与 CCU 资源空间 buffer；ccuResBuffer 按
- *       {REGED_BUFFER_RMA, addr=资源空间基址, ProtectionInfo.ub{tokenId, tokenValue}} 装配。
- *       XN 基址需根据 CCU 版本加上资源空间内偏移，不可直接使用 addr。
- *       旧版控制面的 size 可能只表示资源容量，而非从 addr 开始的完整地址窗口跨度，
- *       不能据此拒绝合法的版本相关 XN 偏移；资源 ID 范围由控制面资源池约束。
+ *       {REGED_BUFFER_RMA, addr=XN 基址, ProtectionInfo.ub{tokenId, tokenValue}} 装配。
  * @note loopChannelId 为该 die 唯一的环回 channel，硬件上 die 内与 die 间访问共用同一条。
  */
 typedef struct {
@@ -70,19 +68,20 @@ typedef struct {
     uint32_t enabled;               // 该 die 是否启用（0/1）
     uint32_t missionKey;            // mission 密钥
     uint32_t loopChannelId;         // 环回 channel id（每 die 一条，die 内/间访问共用）
-    RegedBufferEntity ccuResBuffer; // CCU 资源映射元数据（基址、容量、token），不是 XN 子区域
+    RegedBufferEntity ccuResBuffer; // CCU 资源空间（XN 基址 + token）映射后的 buffer 信息
     uint32_t reserved;              // 预留字段，当前必须为 0
 } HcommCcuDieMetadata;
 
 /**
  * @brief 单个 die 的全部资源视图。
- * @note 按资源类型索引 range 段数组，并携带 die 元数据指针。
+ * @note 前 resTypeNum 项是实际存在的资源类型紧凑列表，按 resourceType 升序排列；
+ *       尾部未使用槽位必须整体为零，并携带 die 元数据指针。
  */
 typedef struct {
     uint32_t dieId;                       // 该资源视图所属 die
-    uint32_t resTypeNum;                  // 已使用的资源类型数（<= 32）
+    uint32_t resTypeNum;                  // 紧凑列表元素数量（<= 32）
     HcommCcuDieMetadata* dieMetadata;     // hcomm 持有的 die 元数据（借用）
-    HcommCcuDieResRangePack resTypes[32]; // 按资源类型枚举值索引
+    HcommCcuDieResRangePack resTypes[32]; // 前 resTypeNum 项有效，resourceType 标识类型
     uint64_t reserved[16];                // 预留字段，当前必须清零
 } HcommCcuDieRes;
 

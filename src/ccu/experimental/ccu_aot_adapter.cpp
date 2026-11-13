@@ -384,8 +384,8 @@ enum CcuAotHcommResourceType : uint32_t {
     kHcommCcuResTypeBlockMs = 3,
     kHcommCcuResTypeCke = 4,
     kHcommCcuResTypeBlockCke = 5,
-    kHcommCcuResTypeBlockXn = 6,
-    kHcommCcuResTypeXn = 7,
+    kHcommCcuResTypeXn = 6,
+    kHcommCcuResTypeBlockXn = 7,
     kHcommCcuResTypeGsa = 8,
     kHcommCcuResTypeBlockGsa = 9,
     kHcommCcuResTypeMission = 10,
@@ -942,9 +942,11 @@ static void copyDieMetadata(CcuAotPod& normalized, uint32_t die, const HcommCcuD
 
 static void copyResourceRanges(CcuAotPod& normalized, uint32_t die, const HcommCcuDieRes& sourceDie)
 {
-    for (uint32_t type = 0; type < kMaxResourceTypeCount; ++type) {
-        const auto& pack = sourceDie.resTypes[type];
-        if (pack.resourceType != type || pack.resRanges == nullptr)
+    if (sourceDie.resTypeNum > sizeof(sourceDie.resTypes) / sizeof(sourceDie.resTypes[0]))
+        return;
+    for (uint32_t index = 0; index < sourceDie.resTypeNum; ++index) {
+        const auto& pack = sourceDie.resTypes[index];
+        if (pack.resourceType >= kMaxResourceTypeCount || pack.resRanges == nullptr)
             continue;
         for (uint32_t index = 0; index < pack.resRangeNum; ++index) {
             const auto& range = pack.resRanges[index];
