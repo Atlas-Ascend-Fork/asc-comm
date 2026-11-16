@@ -19,6 +19,7 @@ CANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party"
 OUTPUT_DIR="${PROJECT_ROOT}/build_out"
 PACKAGE_VERSION=""
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
+ASCCOMM_BUILD_AICPU=ON
 PACKAGE_INPUT_PATHS=(
     build.sh
     include
@@ -36,6 +37,7 @@ Usage: bash scripts/package/build_package.sh [OPTION]...
 Options:
   --cann_path=<PATH>           CANN installation root. Default: ASCEND_HOME_PATH
   --cann_3rd_lib_path=<PATH>   CANN third_party path. Default: third_party
+  --build-device=<ON|OFF>     Build the AICPU device data plane. Default: ON
   --output-dir=<PATH>          Output directory. Default: ${OUTPUT_DIR}
   -h, --help                   Display this help
 EOF
@@ -64,6 +66,9 @@ parse_args()
                 ;;
             --output-dir=*)
                 OUTPUT_DIR=${1#*=}
+                ;;
+            --build-device=*)
+                ASCCOMM_BUILD_AICPU=${1#*=}
                 ;;
             -h|--help)
                 usage
@@ -181,6 +186,33 @@ find_cpu_ts_library()
     CPU_TS_LIBRARY="${library}"
 }
 
+find_aicpu_library()
+{
+    AICPU_LIBRARY=""
+    AICPU_ARCHIVE=""
+    [[ "${ASCCOMM_BUILD_AICPU}" == OFF ]] && return 0
+
+    local build_dir="${PROJECT_ROOT}/build/package-aicpu/package-aicpu-device"
+    local library="${build_dir}/asc-comm-build/libasccomm_aicpu.so"
+    local archive="${build_dir}/asccomm_aicpu.tar.gz"
+
+    cmake -S "${PROJECT_ROOT}" -B "${PROJECT_ROOT}/build/package-aicpu" \
+        -Wno-dev \
+        -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
+        -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DASCCOMM_BUILD_CCU=OFF \
+        -DASCCOMM_BUILD_CCU_RUNTIME=OFF \
+        -DASCCOMM_BUILD_AICPU="${ASCCOMM_BUILD_AICPU}" \
+        -DASCCOMM_BUILD_CPU_TS=OFF
+
+    cmake --build "${PROJECT_ROOT}/build/package-aicpu" --target asccomm_aicpu_device
+    [[ -f "${library}" ]] || fail "AICPU library was not built: ${library}"
+    [[ -f "${archive}" ]] || fail "AICPU package was not built: ${archive}"
+    AICPU_LIBRARY="${library}"
+    AICPU_ARCHIVE="${archive}"
+}
+
 read_package_version()
 {
     local package=$1
@@ -245,11 +277,17 @@ copy_headers()
 write_manifest()
 {
     local file
+    local arch=$1
+    local roots=(asc lib64)
+
+    [[ -n "${AICPU_LIBRARY}" ]] && roots+=(opp "${arch}-linux")
+
     (
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc lib64 -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' -o -name '*.cmake' \) -print0 | sort -z)
+        done < <(find "${roots[@]}" -type f \
+            \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' -o -name '*.cmake' -o -name '*.tar.gz' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -318,6 +356,7 @@ build_package()
     version_checker_dir=$(find_version_checker_dir)
     find_ccu_libraries
     find_cpu_ts_library
+    find_aicpu_library
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -357,7 +396,13 @@ build_package()
         "${STAGING_DIR}/payload/lib64/libccu_runtime.so"
     install -D -m 550 "${PROJECT_ROOT}/cmake/asccomm-config.cmake" \
         "${STAGING_DIR}/payload/lib64/cmake/asccomm-config.cmake"
-    write_manifest
+    if [[ -n "${AICPU_LIBRARY}" ]]; then
+        install -D -m 550 "${AICPU_LIBRARY}" \
+            "${STAGING_DIR}/payload/${arch}-linux/devlib/device/libasccomm_aicpu.so"
+        install -D -m 550 "${AICPU_ARCHIVE}" \
+            "${STAGING_DIR}/payload/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz"
+    fi
+    write_manifest "${arch}"
     write_link_manifest
     write_version_info \
         "${arch}" \

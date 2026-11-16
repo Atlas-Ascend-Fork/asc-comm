@@ -105,6 +105,9 @@ grep -q -- '--cann_path=<PATH>' "${ERROR_LOG}"
 REQUIRED_ASC_DEVKIT_VERSION=$(read_required_version "asc-devkit")
 REQUIRED_HCOMM_VERSION=$(read_required_version "hcomm")
 REQUIRED_RUNTIME_VERSION=$(read_required_version "runtime")
+PACKAGE_ARCH=$(awk -F= '$1 == "Arch" {print $2; exit}' "${EXTRACT_DIR}/version.info")
+[[ -n "${PACKAGE_ARCH}" ]] || { echo "Failed to read package architecture" >&2; exit 1; }
+PACKAGE_ARCH_DIR="${PACKAGE_ARCH}-linux"
 [[ -n "${REQUIRED_ASC_DEVKIT_VERSION}" && \
     -n "${REQUIRED_HCOMM_VERSION}" && \
     -n "${REQUIRED_RUNTIME_VERSION}" ]] || \
@@ -182,6 +185,11 @@ PKG_INC_HEADER_COUNT=$(find "${PROJECT_ROOT}/pkg_inc" -type f \
     \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
     COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + PKG_INC_HEADER_COUNT + 4))
+AICPU_LIBRARY="${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}/devlib/device/libasccomm_aicpu.so"
+AICPU_ARCHIVE="${EXTRACT_DIR}/payload/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz"
+if [[ -f "${AICPU_LIBRARY}" ]]; then
+    EXPECTED_FILE_COUNT=$((EXPECTED_FILE_COUNT + 2))
+fi
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
@@ -190,8 +198,15 @@ EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
 [[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_ccu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
-[[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
-[[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
+if [[ -e "${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}" ]]; then
+    [[ -f "${AICPU_LIBRARY}" ]]
+    [[ -f "${AICPU_ARCHIVE}" ]]
+    [[ "$(file -- "${AICPU_LIBRARY}")" == *"ARM aarch64"* ]]
+else
+    [[ ! -e "${EXTRACT_DIR}/payload/opp" ]]
+fi
+[[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" || "${PACKAGE_ARCH}" == x86_64 ]]
+[[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" || "${PACKAGE_ARCH}" == aarch64 ]]
 diff -u <(printf '%s\t%s\n' \
     'asc/include/comm_api/aicore/hcomm' '../../adv_api/hcomm' \
     'asc/impl/comm_api/aicore/hcomm' '../../adv_api/detail/hcomm') \
@@ -277,6 +292,12 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -f "${FAKE_CANN}/lib64/libccu_runtime.so" ]]
 [[ -f "${FAKE_CANN}/asc/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/cmake/asccomm-config.cmake" ]]
+if [[ -d "${FAKE_CANN}/${PACKAGE_ARCH_DIR}" ]]; then
+    [[ -f "${FAKE_CANN}/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz" ]]
+    [[ -f "${FAKE_CANN}/${PACKAGE_ARCH_DIR}/devlib/device/libasccomm_aicpu.so" ]]
+else
+    [[ ! -e "${FAKE_CANN}/opp" ]]
+fi
 
 # Relative includes must resolve through the installed layout and Hcomm links.
 while IFS= read -r installed_header; do

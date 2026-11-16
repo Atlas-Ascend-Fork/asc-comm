@@ -60,8 +60,21 @@ endif()
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
 endif()
+
 if(ASCCOMM_BUILD_AICPU)
-    add_subdirectory(src/aicpu)
+    include(ExternalProject)
+    ExternalProject_Add(asccomm_aicpu_device
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cmake/device"
+        BINARY_DIR "${CMAKE_BINARY_DIR}/package-aicpu-device"
+        CMAKE_ARGS
+            "-DASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}"
+            "-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}"
+            "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+            "-DTOOLCHAIN_DIR=${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
+            "-DCMAKE_TOOLCHAIN_FILE=${CANN_CMAKE_DIR}/toolchain/aarch64-hcc-toolchain.cmake"
+        BUILD_COMMAND "${CMAKE_COMMAND}" --build . --target pack_asccomm_aicpu
+        INSTALL_COMMAND ""
+    )
 endif()
 
 if(ASCCOMM_BUILD_CPU_TS)

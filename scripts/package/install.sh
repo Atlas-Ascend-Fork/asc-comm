@@ -53,6 +53,8 @@ OPERATION_LEVEL=""
 INPUT_PARAMS=""
 RUN_USERNAME=$(id -un)
 RUN_FILE_NAME="cann-asc-comm"
+ARCH=""
+ARCH_DIR=""
 
 usage()
 {
@@ -381,6 +383,12 @@ normalize_arch()
     esac
 }
 
+set_arch()
+{
+    ARCH=$(normalize_arch)
+    ARCH_DIR="${ARCH}-linux"
+}
+
 read_info_value()
 {
     local key=$1
@@ -410,8 +418,9 @@ is_allowed_path()
         asc/impl/comm_api/*/*/*.h|\
         asc/lib64/libasccomm_ccu.so|\
         asc/lib64/libasccomm_cpu.so|\
-        lib64/libccu_runtime.so|\
-        lib64/cmake/asccomm-config.cmake)
+        lib64/libccu_runtime.so|lib64/cmake/asccomm-config.cmake|\
+        "${ARCH_DIR}/devlib/device/libasccomm_aicpu.so"|\
+        opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz)
             ;;
         *)
             return 1
@@ -429,8 +438,7 @@ is_allowed_directory_path()
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
         asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|\
-        lib64/cmake|\
-        lib64)
+        lib64/cmake|lib64|opp|opp/*|"${ARCH_DIR}"|"${ARCH_DIR}"/*)
             ;;
         *)
             return 1
@@ -456,7 +464,8 @@ payload_file_mode()
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*|lib64/cmake/*.cmake)
+        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*|lib64/cmake/*.cmake|\
+        opp/built-in/op_impl/aicpu/kernel/*.tar.gz|"${ARCH_DIR}/devlib/device/libasccomm_aicpu.so")
             mode=550
             ;;
         *)
@@ -476,7 +485,8 @@ managed_directory_mode()
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|lib64|lib64/cmake)
+        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|lib64|lib64/cmake|opp|opp/*|\
+        "${ARCH_DIR}"|"${ARCH_DIR}"/*)
             mode=550
             ;;
         *)
@@ -529,6 +539,12 @@ collect_managed_directories()
                 ;;
             lib64/*)
                 managed_root="lib64"
+                ;;
+            "${ARCH_DIR}"/*)
+                managed_root="${ARCH_DIR}"
+                ;;
+            opp/*)
+                managed_root="opp"
                 ;;
             asc/include/comm_api/*)
                 managed_root="asc/include/comm_api"
@@ -847,14 +863,12 @@ check_dependency_versions()
 validate_package()
 {
     local package_arch
-    local current_arch
 
     [[ -d "${PAYLOAD_DIR}" && -f "${PACKAGE_INFO}" ]] || \
         fail "package payload is incomplete"
     package_arch=$(read_info_value "Arch" "${PACKAGE_INFO}")
-    current_arch=$(normalize_arch)
-    [[ "${package_arch}" == "${current_arch}" ]] || \
-        fail "package architecture ${package_arch} does not match ${current_arch}"
+    [[ "${package_arch}" == "${ARCH}" ]] || \
+        fail "package architecture ${package_arch} does not match ${ARCH}"
 
     validate_link_manifest "${PACKAGE_LINKS}"
     check_dependency_versions
@@ -1461,6 +1475,7 @@ uninstall_patch()
 main()
 {
     capture_input_params "$@"
+    set_arch
     init_logging
     trap handle_exit EXIT
     start_log

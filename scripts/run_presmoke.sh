@@ -107,6 +107,14 @@ if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
 fi
 export HCCL_OP_EXPANSION_MODE=CCU_SCHED
 
+# Presmoke 不加载 asccomm_aicpu.tar.gz。
+package_load_ini="${ASCEND_HOME_PATH}/conf/ascend_package_load.ini"
+if grep -q '^name:asccomm_aicpu.tar.gz$' "${package_load_ini}"; then
+    cp "${package_load_ini}" "${package_load_ini}.asc-comm-presmoke.bak"
+    sed -i '/name:asccomm_aicpu.tar.gz/,+4d' "${package_load_ini}"
+    echo "[presmoke] Disabled asccomm_aicpu.tar.gz loading in ${package_load_ini}"
+fi
+
 # mem2mem类样例（有scripts目录）的执行参数：rank数必须与DEVICES数量一致
 DEVICES="${DEVICES:-0,1}"
 COUNT="${COUNT:-256}"

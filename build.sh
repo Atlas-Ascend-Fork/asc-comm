@@ -35,6 +35,7 @@ dotted_line="----------------------------------------"
 TEST=false
 COV=false
 PACKAGE=false
+ASCCOMM_BUILD_AICPU=ON
 
 LOG_LEVEL=0
 
@@ -89,6 +90,7 @@ usage() {
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
     echo "    --pkg, --package     Build an asc-comm development run package"
+    echo "    --build_host_only    Omit the AICPU device-side library from packages"
     echo "    --cov                Enable code coverage for unit tests"
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
@@ -110,6 +112,10 @@ parse_args() {
                 ;;
             --pkg|--package)
                 PACKAGE=true
+                shift
+                ;;
+            --build_host_only)
+                ASCCOMM_BUILD_AICPU=OFF
                 shift
                 ;;
             --cov)
@@ -211,7 +217,8 @@ main(){
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
             --cann_path="${Ascend_CANN_PACKAGE_PATH}" \
-            --cann_3rd_lib_path="${CANN_3RD_LIB_PATH}" || return $?
+            --cann_3rd_lib_path="${CANN_3RD_LIB_PATH}" \
+            --build-device="${ASCCOMM_BUILD_AICPU}" || return $?
     fi
 
     if [[ "${TEST}" != true ]]; then
@@ -220,6 +227,7 @@ main(){
             bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
                 --cann_path="${Ascend_CANN_PACKAGE_PATH}" \
                 --cann_3rd_lib_path="${CANN_3RD_LIB_PATH}" \
+                --build-device="${ASCCOMM_BUILD_AICPU}" \
                 --output-dir="${SCRIPT_DIR}/build_out_guard" || return $?
         fi
         exit 0
