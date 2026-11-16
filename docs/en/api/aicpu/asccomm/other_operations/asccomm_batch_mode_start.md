@@ -27,7 +27,7 @@
 
 Header file path: `"aicpu/hcomm/asccomm_primitives.h"`.
 
-This API is used to enable the batch submission mode of the current AI CPU execution thread. During batch mode, data-plane communication tasks to be delivered are first cached and are submitted together when [asccomm_batch_mode_end](asccomm_batch_mode_end.md) is called.
+This API is used to enable the batch submission mode of the current AI CPU execution thread. During batch mode, data-plane communication tasks to be delivered are first cached and are submitted together when [asccomm_batch_mode_end](asccomm_batch_mode_end.md) is called. This API also disables the eager task submission mode of the current execution thread. A non-empty `batchTag` also isolates Thread resource sets of different batches in the current execution thread; an empty tag indicates a temporary batch.
 
 ## Function Prototype
 
@@ -39,7 +39,7 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| batchTag | Input | Reserved parameter. The current implementation does not read or validate this parameter, and **NULL** can be passed. |
+| batchTag | Input | Batch identifier. **NULL** or an empty string indicates a temporary batch; a non-empty string isolates and retrieves the Thread resource set of that batch. |
 
 ## Return Value
 
@@ -52,15 +52,16 @@ The return value is `int32_t`, with the following meanings.
 ## Usage Constraints
 
 - **Start** and **End** must be called in pairs, and **Start**, **End**, and the data-plane communication tasks submitted between them must be executed in the same AI CPU execution thread.
+- **Start** records the current batch tag. **End** must pass the same tag to submit and clear that batch.
 - The batch state applies only to the current AI CPU execution thread; **End** submits only the tasks cached in batch mode by the current execution thread.
+- Eager task submission is enabled by default for the current execution thread. **Start** disables eager submission, and **End** restores it.
 - In the current implementation, tasks are submitted early when the internal buffer is full; the current cache capacity is 128.
 - A successful return from this API indicates that batch mode has been set successfully, not that the data-plane tasks have been submitted or completed.
 
 ## Call Example
 
 ```cpp
-// batchTag is a reserved parameter and is not read by the current implementation; nullptr is passed in this example.
-const char *batchTag = nullptr;
+const char *batchTag = "batch-1";
 // Enable batch mode.
 int32_t ret = asccomm_batch_mode_start(batchTag);
 

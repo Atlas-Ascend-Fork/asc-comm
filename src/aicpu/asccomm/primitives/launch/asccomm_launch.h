@@ -14,6 +14,9 @@
 #include "asccomm_primitives.h"
 #include "../../common/utils/asccomm_result.h"
 
+#include <string>
+#include <unordered_map>
+
 // 登记batch模式批量launch的ThreadHandle；句柄值为控制面提供的资源实体地址。
 void asccomm_register_thread(ThreadHandle thread);
 bool asccomm_is_batch_launch_mode();
@@ -22,8 +25,10 @@ void asccomm_set_notify_wait_timeout(uint32_t timeout);
 uint32_t asccomm_get_sq_full_timeout();
 void asccomm_set_sq_full_timeout(uint32_t timeout);
 void asccomm_set_batch_launch_mode(bool batchMode);
+AsccommResult asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode);
+bool asccomm_is_eager_launch_mode();
 AsccommResult asccomm_launch_registered_threads();
 AsccommResult asccomm_try_launch_registered_threads();
-void asccomm_clear_registered_threads();
+AsccommResult asccomm_clear_registered_threads(const char* batchTag);
 
 #endif // ASCCOMM_LAUNCH_H

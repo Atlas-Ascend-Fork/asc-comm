@@ -21,5 +21,8 @@ AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
 AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
 {
     g_launchStubState.lastTryThreads.assign(threads, threads + threadNum);
+    if (g_launchStubState.threadToRegisterDuringTry != 0) {
+        asccomm_register_thread(g_launchStubState.threadToRegisterDuringTry);
+    }
     return g_launchStubState.tryResult;
 }

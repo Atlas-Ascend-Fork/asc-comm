@@ -19,6 +19,7 @@
 struct LaunchStubState {
     std::vector<ThreadHandle> lastThreads;
     std::vector<ThreadHandle> lastTryThreads;
+    ThreadHandle threadToRegisterDuringTry{0};
     AsccommResult taskResult{ASCCOMM_SUCCESS};
     AsccommResult tryResult{ASCCOMM_SUCCESS};
 };

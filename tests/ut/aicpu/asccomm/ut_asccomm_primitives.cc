@@ -15,6 +15,7 @@
 
 #include "asccomm_primitives.h"
 #include "asccom_res_entity_defs.h"
+#include "asccomm_launch.h"
 #include "asccomm_runtime_stub.h"
 
 namespace {
@@ -24,6 +25,7 @@ HcommThreadEntity MakeThread()
     HcommThreadEntity thread{};
     thread.abiHeader = {HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
     static HcommThreadSqContext rtsq{};
+    rtsq = {};
     thread.sqContextAddr = &rtsq;
     return thread;
 }
@@ -44,6 +46,7 @@ protected:
     void SetUp() override
     {
         g_runtimeStubState = {};
+        asccomm_set_batch_launch_mode_with_tag(nullptr, false);
         asccomm_batch_mode_end(nullptr);
         g_runtimeStubState = {};
     }
@@ -104,6 +107,32 @@ TEST_F(AsccommPrimitivesTest, BatchModeStartAndEndLaunchRegisteredThread)
     EXPECT_EQ(asccomm_batch_mode_start("ut"), ASCCOMM_SUCCESS);
     EXPECT_EQ(asccomm_batch_mode_end("ut"), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_runtimeStubState.launchThreads.size(), 1U);
+}
+
+TEST_F(AsccommPrimitivesTest, BatchModeUsesTagToScopeAndRetryRegisteredThread)
+{
+    const auto handle = ThreadHandleOf(thread_);
+    int value = 1;
+    EXPECT_EQ(asccomm_batch_mode_start("tag-a"), ASCCOMM_SUCCESS);
+    EXPECT_EQ(
+        asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    g_runtimeStubState.launchResult = ASCCOMM_E_INTERNAL;
+    EXPECT_EQ(asccomm_batch_mode_end("tag-a"), ASCCOMM_E_INTERNAL);
+
+    g_runtimeStubState.launchResult = ASCCOMM_SUCCESS;
+    EXPECT_EQ(asccomm_batch_mode_start("tag-a"), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm_batch_mode_end("tag-a"), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.launchThreads.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.launchThreads[0], handle);
+}
+
+TEST_F(AsccommPrimitivesTest, BatchModeControlsEagerSubmission)
+{
+    EXPECT_TRUE(asccomm_is_eager_launch_mode());
+    EXPECT_EQ(asccomm_batch_mode_start("eager"), ASCCOMM_SUCCESS);
+    EXPECT_FALSE(asccomm_is_eager_launch_mode());
+    EXPECT_EQ(asccomm_batch_mode_end("eager"), ASCCOMM_SUCCESS);
+    EXPECT_TRUE(asccomm_is_eager_launch_mode());
 }
 
 TEST_F(AsccommPrimitivesTest, TimeoutApisValidateAndPersistSeconds)

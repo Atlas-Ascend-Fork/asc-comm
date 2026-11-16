@@ -174,9 +174,33 @@ AsccommResult refresh_rtsq(ThreadEntity& thread)
     HcommThreadSqContext& contextOuter = *thread.sqContextAddr;
     HcommRtsqContext& rtsq = contextOuter.contextInfo.rtsqContext;
     ++rtsq.pendingSqeCnt;
-    if (rtsq.pendingSqeCnt == HCOMM_RESOURCE_RTSQ_BATCH_SIZE) {
+    if (asccomm_is_eager_launch_mode() || rtsq.pendingSqeCnt == HCOMM_RESOURCE_RTSQ_BATCH_SIZE) {
         return asccomm_rtsq_launch(thread);
     }
+    return ASCCOMM_SUCCESS;
+}
+
+AsccommResult launch_thread_sqes(ThreadEntity& thread, const char* caller)
+{
+    HcommRtsqContext& rtsq = thread.sqContextAddr->contextInfo.rtsqContext;
+    uint32_t localDevId = 0;
+    CHK_PRT_RET(
+        drvGetLocalDevIDByHostDevID(thread.devInfo.devPhyId, &localDevId) != 0,
+        ASCCOMM_ERROR("[%s] resolve local device failed.", caller), ASCCOMM_E_INTERNAL);
+    CHK_RET(ensure_queue_space(localDevId, rtsq));
+    if (rtsq.pendingSqeCnt == 0) {
+        return ASCCOMM_SUCCESS;
+    }
+    CHK_RET(copy_pending_sqes(rtsq));
+    const uint32_t newTail = (rtsq.sqTail + rtsq.pendingSqeCnt) % rtsq.sqDepth;
+    CHK_RET(config_sq_tail(localDevId, rtsq, newTail));
+    rtsq.sqTail = newTail;
+    rtsq.pendingSqeCnt = 0;
+    auto* localSqeBuffer = reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(rtsq.localSqAddr));
+    constexpr size_t LOCAL_SQE_BUFFER_SIZE = HCOMM_RESOURCE_RTSQ_SQE_SIZE * HCOMM_RESOURCE_RTSQ_BATCH_SIZE;
+    CHK_PRT_RET(
+        memset_s(localSqeBuffer, LOCAL_SQE_BUFFER_SIZE, 0, LOCAL_SQE_BUFFER_SIZE) != EOK,
+        ASCCOMM_ERROR("[%s] clear SQE buffer failed.", caller), ASCCOMM_E_INTERNAL);
     return ASCCOMM_SUCCESS;
 }
 
@@ -249,25 +273,7 @@ AsccommResult asccomm_rtsq_launch(ThreadEntity& thread)
         rtsq.sqDepth == 0 || rtsq.sqBaseAddr == 0,
         ASCCOMM_ERROR("[%s] invalid RTSQ context, depth[%u], base[0x%llx].", __func__, rtsq.sqDepth, rtsq.sqBaseAddr),
         ASCCOMM_E_PARA);
-    uint32_t localDevId = 0;
-    CHK_PRT_RET(
-        drvGetLocalDevIDByHostDevID(thread.devInfo.devPhyId, &localDevId) != 0,
-        ASCCOMM_ERROR("[%s] resolve local device failed.", __func__), ASCCOMM_E_INTERNAL);
-    CHK_RET(ensure_queue_space(localDevId, rtsq));
-    if (rtsq.pendingSqeCnt == 0) {
-        return ASCCOMM_SUCCESS;
-    }
-    CHK_RET(copy_pending_sqes(rtsq));
-    const uint32_t newTail = (rtsq.sqTail + rtsq.pendingSqeCnt) % rtsq.sqDepth;
-    CHK_RET(config_sq_tail(localDevId, rtsq, newTail));
-    rtsq.sqTail = newTail;
-    rtsq.pendingSqeCnt = 0;
-    auto* localSqeBuffer = reinterpret_cast<uint8_t*>(static_cast<uintptr_t>(rtsq.localSqAddr));
-    constexpr size_t LOCAL_SQE_BUFFER_SIZE = HCOMM_RESOURCE_RTSQ_SQE_SIZE * HCOMM_RESOURCE_RTSQ_BATCH_SIZE;
-    CHK_PRT_RET(
-        memset_s(localSqeBuffer, LOCAL_SQE_BUFFER_SIZE, 0, LOCAL_SQE_BUFFER_SIZE) != EOK,
-        ASCCOMM_ERROR("[%s] clear SQE buffer failed.", __func__), ASCCOMM_E_INTERNAL);
-    return ASCCOMM_SUCCESS;
+    return launch_thread_sqes(thread, __func__);
 }
 
 AsccommResult asccomm_rtsq_try_launch(ThreadEntity& thread)
@@ -286,7 +292,7 @@ AsccommResult asccomm_rtsq_try_launch(ThreadEntity& thread)
     if (get_tail_to_head_distance(rtsq) <= rtsq.pendingSqeCnt) {
         return ASCCOMM_SUCCESS;
     }
-    return asccomm_rtsq_launch(thread);
+    return launch_thread_sqes(thread, __func__);
 }
 
 AsccommResult asccomm_rtsq_notify_wait(ThreadEntity& thread, uint32_t notifyId, uint32_t timeout)
@@ -399,6 +405,9 @@ AsccommResult asccomm_rtsq_rdma_db_send(ThreadEntity& thread, uint64_t dbAddr, u
 AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
+    if (threadNum == 0) {
+        return ASCCOMM_SUCCESS;
+    }
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
         ThreadEntity* thread = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(threads[index]));
@@ -412,6 +421,9 @@ AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
 AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
+    if (threadNum == 0) {
+        return ASCCOMM_SUCCESS;
+    }
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
         ThreadEntity* thread = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(threads[index]));

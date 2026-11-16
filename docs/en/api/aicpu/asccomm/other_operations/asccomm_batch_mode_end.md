@@ -27,7 +27,7 @@
 
 Header file path: `"aicpu/hcomm/asccomm_primitives.h"`.
 
-This API is used to end the batch submission mode started by [asccomm_batch_mode_start](asccomm_batch_mode_start.md). When this API is called, the communication tasks cached by the current AI CPU execution thread in this mode are submitted together. A successful return from this API indicates that the submission action succeeded, not that all hardware communication tasks have completed.
+This API is used to end the batch submission mode started by [asccomm_batch_mode_start](asccomm_batch_mode_start.md). When this API is called, the communication tasks cached by the current AI CPU execution thread in this mode are submitted together, and eager task submission is restored for the execution thread. A successful return from this API indicates that the submission action succeeded, not that all hardware communication tasks have completed.
 
 ## Function Prototype
 
@@ -39,7 +39,7 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| batchTag | Input | Reserved parameter. The current implementation does not read or validate this parameter, and **NULL** can be passed. |
+| batchTag | Input | Batch identifier that must match the batchTag passed to asccomm_batch_mode_start. **NULL** or an empty string corresponds to a temporary batch. |
 
 ## Return Value
 
@@ -56,16 +56,17 @@ The return value is `int32_t`, with the following meanings.
 ## Usage Constraints
 
 - **Start** and **End** must be called in pairs, and **Start**, **End**, and the data-plane communication tasks submitted between them must be executed in the same AI CPU execution thread.
+- **End** submits the Thread resource set of the current batch tag and does not affect sets under other tags.
 - **End** submits only the unsubmitted tasks cached by the current AI CPU execution thread in batch mode; the current cache capacity is 128, and tasks are submitted early when the cache is full.
+- **End** restores the default eager task submission mode after the batch ends.
 - When there are no cached tasks to submit during the batch mode, **End** still returns `ASCCOMM_SUCCESS`.
-- End first closes batch mode and then submits the cached tasks of the registered thread resources; after successful submission, it clears the list of registered thread resources. If submission fails, batch mode is already closed, but the list of registered thread resources is retained, so you can call **End** again directly to retry submitting the same batch of resources. Before the retry succeeds, newly submitted data plane tasks will not enter batch caching again.
+- End first closes batch mode and then submits the cached tasks of the thread resources registered under the current tag; after successful submission, it clears the resource set of the current tag. If submission fails, batch mode is already closed, but the current tag's resource set is retained, so you can call **End** again directly to retry submitting the same batch of resources. Before the retry succeeds, newly submitted data plane tasks will not enter batch caching again.
 - A successful return from **End** indicates that the cached task submission action succeeded, not that all hardware communication tasks have been completed.
 
 ## Call Example
 
 ```cpp
-// batchTag is a reserved parameter and is not read by the current implementation. nullptr is passed in this example.
-const char *batchTag = nullptr;
+const char *batchTag = "batch-1";
 // Enable batch mode.
 int32_t ret = asccomm_batch_mode_start(batchTag);
 

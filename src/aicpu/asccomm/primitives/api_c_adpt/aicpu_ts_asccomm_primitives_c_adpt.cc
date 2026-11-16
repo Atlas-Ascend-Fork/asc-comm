@@ -235,19 +235,15 @@ AsccommResult convert_timeout(float timeout, uint32_t& timeoutSeconds)
 
 int32_t asccomm_batch_mode_start(const char* batchTag)
 {
-    return execute_api([&]() {
-        asccomm_set_batch_launch_mode(true);
-        return ASCCOMM_SUCCESS;
-    });
+    return execute_api([&]() { return asccomm_set_batch_launch_mode_with_tag(batchTag, true); });
 }
 
 int32_t asccomm_batch_mode_end(const char* batchTag)
 {
     return execute_api([&]() {
-        asccomm_set_batch_launch_mode(false);
+        CHK_RET(asccomm_set_batch_launch_mode_with_tag(batchTag, false));
         CHK_RET(asccomm_launch_registered_threads());
-        asccomm_clear_registered_threads();
-        return ASCCOMM_SUCCESS;
+        return asccomm_clear_registered_threads(batchTag);
     });
 }
 

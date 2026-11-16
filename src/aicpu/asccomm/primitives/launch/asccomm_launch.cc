@@ -9,6 +9,7 @@
  */
 
 #include <algorithm>
+#include <unordered_set>
 #include <vector>
 #include "asccomm_launch.h"
 #include "asccomm_runtime.h"
@@ -18,11 +19,14 @@ constexpr uint32_t DEFAULT_NOTIFY_WAIT_TIMEOUT = 1836U;
 constexpr uint32_t DEFAULT_SQ_FULL_TIMEOUT = 1856U;
 
 struct LaunchState {
+    std::string batchTag;
+    std::unordered_map<std::string, std::unordered_set<ThreadHandle>> taggedThreads;
     std::vector<ThreadHandle> threads;
     uint32_t notifyWaitTimeout{DEFAULT_NOTIFY_WAIT_TIMEOUT};
     uint32_t sqFullTimeout{0};
     bool sqFullTimeoutSet{false};
     bool batchMode{false};
+    bool eagerLaunch{true};
 };
 
 thread_local LaunchState g_launchState;
@@ -33,9 +37,33 @@ void asccomm_register_thread(ThreadHandle thread)
     if (!g_launchState.batchMode) {
         return;
     }
-    if (std::find(g_launchState.threads.begin(), g_launchState.threads.end(), thread) == g_launchState.threads.end()) {
-        g_launchState.threads.push_back(thread);
+    if (g_launchState.batchTag.empty()) {
+        if (std::find(g_launchState.threads.begin(), g_launchState.threads.end(), thread) ==
+            g_launchState.threads.end()) {
+            g_launchState.threads.push_back(thread);
+        }
+        return;
     }
+    g_launchState.taggedThreads[g_launchState.batchTag].insert(thread);
+}
+
+bool is_default_batch_tag(const char* batchTag) { return batchTag == nullptr || *batchTag == '\0'; }
+
+std::string normalize_batch_tag(const char* batchTag)
+{
+    return is_default_batch_tag(batchTag) ? std::string{} : std::string(batchTag);
+}
+
+std::vector<ThreadHandle> get_registered_threads()
+{
+    if (g_launchState.batchTag.empty()) {
+        return g_launchState.threads;
+    }
+    const auto it = g_launchState.taggedThreads.find(g_launchState.batchTag);
+    if (it == g_launchState.taggedThreads.end()) {
+        return {};
+    }
+    return {it->second.begin(), it->second.end()};
 }
 
 bool asccomm_is_batch_launch_mode() { return g_launchState.batchMode; }
@@ -55,22 +83,51 @@ void asccomm_set_sq_full_timeout(uint32_t timeout)
     g_launchState.sqFullTimeoutSet = true;
 }
 
-void asccomm_set_batch_launch_mode(bool batchMode) { g_launchState.batchMode = batchMode; }
+void asccomm_set_batch_launch_mode(bool batchMode)
+{
+    g_launchState.batchMode = batchMode;
+    g_launchState.eagerLaunch = !batchMode;
+}
+
+AsccommResult asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode)
+{
+    g_launchState.batchMode = batchMode;
+    g_launchState.eagerLaunch = !batchMode;
+    g_launchState.batchTag = normalize_batch_tag(batchTag);
+    return ASCCOMM_SUCCESS;
+}
+
+bool asccomm_is_eager_launch_mode() { return g_launchState.eagerLaunch && !g_launchState.batchMode; }
 
 AsccommResult asccomm_launch_registered_threads()
 {
-    if (g_launchState.threads.empty()) {
+    std::vector<ThreadHandle> threads = get_registered_threads();
+    if (threads.empty()) {
         return ASCCOMM_SUCCESS;
     }
-    return asccomm_task_launch(g_launchState.threads.data(), g_launchState.threads.size());
+    return asccomm_task_launch(threads.data(), static_cast<uint32_t>(threads.size()));
 }
 
 AsccommResult asccomm_try_launch_registered_threads()
 {
-    if (g_launchState.threads.empty()) {
+    std::vector<ThreadHandle> threads = get_registered_threads();
+    if (threads.empty()) {
         return ASCCOMM_SUCCESS;
     }
-    return asccomm_try_launch(g_launchState.threads.data(), g_launchState.threads.size());
+    return asccomm_try_launch(threads.data(), static_cast<uint32_t>(threads.size()));
 }
 
-void asccomm_clear_registered_threads() { g_launchState.threads.clear(); }
+AsccommResult asccomm_clear_registered_threads(const char* batchTag)
+{
+    const std::string tag = normalize_batch_tag(batchTag);
+    if (tag.empty()) {
+        g_launchState.threads.clear();
+        g_launchState.batchTag.clear();
+        return ASCCOMM_SUCCESS;
+    }
+    g_launchState.taggedThreads.erase(tag);
+    if (g_launchState.batchTag == tag) {
+        g_launchState.batchTag.clear();
+    }
+    return ASCCOMM_SUCCESS;
+}
