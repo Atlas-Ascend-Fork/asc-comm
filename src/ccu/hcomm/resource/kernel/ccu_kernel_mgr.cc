@@ -593,13 +593,8 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
     // 环回 channel 每 die 唯一（die 内/间访问共用），两个槽位填同一条
     trans_dep.reserve_channal_id[0] = static_cast<uint16_t>(metadata->loopChannelId);
     trans_dep.reserve_channal_id[1] = static_cast<uint16_t>(metadata->loopChannelId);
-    for (uint32_t metadata_die = 0; metadata_die < HCOMM_CCU_MAX_DIE_NUM; ++metadata_die) {
-        const HcommCcuDieMetadata* die_metadata = res_pack.get_die_metadata(metadata_die);
-        if (die_metadata != nullptr) {
-            CHK_RET(
-                static_cast<HcclResult>(res_pack.get_xn_base_addr(metadata_die, trans_dep.xn_base_addr[metadata_die])));
-        }
-    }
+    // 禁用 die 的 metadata 为占位值，地址为 0；只收集已启用 die 的 XN 基址。
+    CHK_RET(static_cast<HcclResult>(res_pack.get_xn_base_addrs(trans_dep.xn_base_addr)));
     trans_dep.ccu_res_space_token_info = ccu_rep::get_token(
         metadata->ccuResBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId,
         metadata->ccuResBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue, 1);

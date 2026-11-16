@@ -191,6 +191,18 @@ TEST(AscCcuResSnapshotTest, ExposesDieMetadataSnapshot)
     EXPECT_EQ(disabledMetadata->enabled, 0U);
 }
 
+TEST(AscCcuXnMapping, CollectsEnabledDieAddressesOnly)
+{
+    ContextStorage storage;
+    asc_ccu_res_snapshot snapshot;
+    ASSERT_EQ(snapshot.load(storage.instance_), CCU_SUCCESS);
+
+    uint64_t addresses[HCOMM_CCU_MAX_DIE_NUM]{};
+    ASSERT_EQ(snapshot.get_xn_base_addrs(addresses), CCU_SUCCESS);
+    EXPECT_EQ(addresses[0], 0x1000ULL + 0x908000ULL);
+    EXPECT_EQ(addresses[1], 0ULL); // 单 die 环境：禁用槽位保持占位 0，不触发校验失败。
+}
+
 TEST(AscCcuResSnapshotTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
 {
     {

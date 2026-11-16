@@ -286,6 +286,18 @@ CcuResult asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& addr
     return CCU_SUCCESS;
 }
 
+CcuResult asc_ccu_res_snapshot::get_xn_base_addrs(uint64_t (&addresses)[HCOMM_CCU_MAX_DIE_NUM]) const
+{
+    for (uint32_t die_id = 0; die_id < HCOMM_CCU_MAX_DIE_NUM; ++die_id) {
+        addresses[die_id] = 0;
+        if ((valid_die_mask_ & (1U << die_id)) == 0) {
+            continue;
+        }
+        CCU_CHK_RET(get_xn_base_addr(die_id, addresses[die_id]));
+    }
+    return CCU_SUCCESS;
+}
+
 uint32_t asc_ccu_res_snapshot::get_valid_die_mask() const { return valid_die_mask_; }
 
 const uint64_t* asc_ccu_res_snapshot::get_control_ops() const { return control_ops_; }
