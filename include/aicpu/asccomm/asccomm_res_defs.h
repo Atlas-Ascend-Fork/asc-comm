@@ -28,7 +28,7 @@ typedef enum {
     ASCCOMM_REDUCE_MAX = 2,
     ASCCOMM_REDUCE_MIN = 3,
     ASCCOMM_REDUCE_RESERVED = 255
-} AsccommReduceOp;
+} asccomm_reduce_op;
 #endif
 
 #ifndef ASCCOMM_DATA_TYPE_DEFINED
@@ -52,7 +52,7 @@ typedef enum {
     ASCCOMM_DATA_TYPE_FP8E5M2 = 16,
     ASCCOMM_DATA_TYPE_FP8E8M0 = 17,
     ASCCOMM_DATA_TYPE_RESERVED = 255
-} AsccommDataType;
+} asccomm_data_type;
 #endif
 
 #ifndef ASCCOMM_TRANSFER_TYPE_DEFINED
@@ -66,13 +66,13 @@ typedef enum {
     ASCCOMM_TRANSFER_TYPE_READ = 4,
     ASCCOMM_TRANSFER_TYPE_READ_REDUCE = 5,
     ASCCOMM_TRANSFER_TYPE_NOTIFY_RECORD = 6,
-} AsccommTransferType;
+} asccomm_transfer_type;
 #endif
 
 #ifndef ASCCOMM_BATCH_TRANSFER_DESC_DEFINED
 #define ASCCOMM_BATCH_TRANSFER_DESC_DEFINED
 typedef struct {
-    AsccommTransferType transType;
+    asccomm_transfer_type transType;
     uint8_t reserved[4];
     union {
         uint8_t raws[56];
@@ -90,8 +90,8 @@ typedef struct {
             uint64_t count;
             void* dst;
             void* src;
-            AsccommReduceOp reduceOp;
-            AsccommDataType dataType;
+            asccomm_reduce_op reduceOp;
+            asccomm_data_type dataType;
         } reduce;
         struct {
             uint32_t notifyIdx;
@@ -106,12 +106,12 @@ typedef struct {
             uint64_t count;
             void* dst;
             void* src;
-            AsccommReduceOp reduceOp;
-            AsccommDataType dataType;
+            asccomm_reduce_op reduceOp;
+            asccomm_data_type dataType;
             uint32_t notifyIdx;
         } writeReduceWithNotify;
     } transferInfo;
-} AsccommBatchTransferDesc;
+} asccomm_batch_transfer_desc;
 #endif
 
 #ifdef __cplusplus

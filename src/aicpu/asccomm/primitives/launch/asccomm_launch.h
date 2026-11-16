@@ -25,10 +25,10 @@ void asccomm_set_notify_wait_timeout(uint32_t timeout);
 uint32_t asccomm_get_sq_full_timeout();
 void asccomm_set_sq_full_timeout(uint32_t timeout);
 void asccomm_set_batch_launch_mode(bool batchMode);
-AsccommResult asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode);
-bool asccomm_is_eager_launch_mode();
-AsccommResult asccomm_launch_registered_threads();
-AsccommResult asccomm_try_launch_registered_threads();
-AsccommResult asccomm_clear_registered_threads(const char* batchTag);
+asccomm_result asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode);
+bool asccomm_is_automatic_launch_mode();
+asccomm_result asccomm_launch_registered_threads();
+asccomm_result asccomm_try_launch_registered_threads();
+asccomm_result asccomm_clear_registered_threads(const char* batchTag);
 
 #endif // ASCCOMM_LAUNCH_H

@@ -27,13 +27,13 @@
 
 Header file path: `"aicpu/hcomm/asccomm_primitives.h"`.
 
-Asynchronously submits a group of transfer tasks on the specified thread and channel. Each transfer task is described by `AsccommBatchTransferDesc`, which is defined in `"aicpu/hcomm/asccomm_res_defs.h"`, and supports operation types such as one-sided write, one-sided read, write reduction, reduction read, write with notification, reduction write with notification, and notification record.
+Asynchronously submits a group of transfer tasks on the specified thread and channel. Each transfer task is described by `asccomm_batch_transfer_desc`, which is defined in `"aicpu/hcomm/asccomm_res_defs.h"`, and supports operation types such as one-sided write, one-sided read, write reduction, reduction read, write with notification, reduction write with notification, and notification record.
 
 ## Function Prototype
 
 ```cpp
 int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle channel,
-    const AsccommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
+    const asccomm_batch_transfer_desc* transferDescs, uint32_t transferDescNum)
 ```
 
 ## Parameters
@@ -42,12 +42,12 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 | --- | --- | --- |
 | thread | Input | Communication thread handle. After the control plane creates the thread resource, this handle is passed in as an AI CPU kernel parameter; it must not be 0 when called. The type is `ThreadHandle`, which can be used after including `"aicpu/hcomm/asccomm_primitives.h"`. |
 | channel | Input | Communication channel handle. After the control plane creates the channel resource, this handle is passed in as an AI CPU kernel parameter; it must not be 0 when called. The type is `ChannelHandle`, which can be used after including `"aicpu/hcomm/asccomm_primitives.h"`. |
-| transferDescs | Input | Batch transfer descriptor array. Each element in the array describes a transfer task, and the tasks are submitted sequentially in array order. The type is `AsccommBatchTransferDesc`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`. |
+| transferDescs | Input | Batch transfer descriptor array. Each element in the array describes a transfer task, and the tasks are submitted sequentially in array order. The type is `asccomm_batch_transfer_desc`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`. |
 | transferDescNum | Input | Number of descriptors, which must be greater than 0. |
 
 ### transferDescs Description
 
-`AsccommBatchTransferDesc` is defined in `"aicpu/hcomm/asccomm_res_defs.h"` and is used to describe a batch transfer task. This structure contains reserved fields and a union. The caller should first initialize the entire descriptor with `{}`, and then set the corresponding union member according to `transType`.
+`asccomm_batch_transfer_desc` is defined in `"aicpu/hcomm/asccomm_res_defs.h"` and is used to describe a batch transfer task. This structure contains reserved fields and a union. The caller should first initialize the entire descriptor with `{}`, and then set the corresponding union member according to `transType`.
 
 | Field | Description |
 | --- | --- |
@@ -112,7 +112,7 @@ The return value is `int32_t`, with the following meanings.
 ```cpp
 // thread is a valid ThreadHandle resource handle passed in from the control plane; channel is a valid ChannelHandle resource handle passed in from the control plane.
 // localBuffer/localBuffer2 are the local registered communication memory source addresses, corresponding to the src field of the descriptor; remoteBuffer/remoteBuffer2 are the remote registered communication memory destination addresses, corresponding to the dst field of the descriptor.
-AsccommBatchTransferDesc descs[2] = {};
+asccomm_batch_transfer_desc descs[2] = {};
 
 // Descriptor 1: one-sided write.
 descs[0].transType = ASCCOMM_TRANSFER_TYPE_WRITE;

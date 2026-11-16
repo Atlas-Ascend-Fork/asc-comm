@@ -17,32 +17,32 @@
 #include "../../common/utils/asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
 
-AsccommResult asccomm_write(
+asccomm_result asccomm_write(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
-AsccommResult asccomm_write_reduce(
+asccomm_result asccomm_write_reduce(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn);
-AsccommResult asccomm_write_with_notify(
+asccomm_result asccomm_write_with_notify(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     uint32_t remoteNotifyIdx);
-AsccommResult asccomm_write_reduce_with_notify(
+asccomm_result asccomm_write_reduce_with_notify(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn, uint32_t remoteNotifyIdx);
-AsccommResult asccomm_read(
+asccomm_result asccomm_read(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
-AsccommResult asccomm_read_reduce(
+asccomm_result asccomm_read_reduce(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn);
-AsccommResult asccomm_send(ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len);
-AsccommResult asccomm_send_with_imm(
+asccomm_result asccomm_send(ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len);
+asccomm_result asccomm_send_with_imm(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint64_t immData);
-AsccommResult asccomm_batch_transfer(
-    ThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
+asccomm_result asccomm_batch_transfer(
+    ThreadEntity& thread, ChannelEntity& channel, const asccomm_batch_transfer_desc* transferDescs,
     uint32_t transferDescNum);
-AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx);
-AsccommResult asccomm_notify_wait(
+asccomm_result asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx);
+asccomm_result asccomm_notify_wait(
     ThreadEntity& thread, const ChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout);
-AsccommResult asccomm_fence(ChannelEntity& channel);
-AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel);
+asccomm_result asccomm_fence(ChannelEntity& channel);
+asccomm_result asccomm_drain(ThreadEntity& thread, ChannelEntity& channel);
 
 #endif // ASCCOMM_TRANSPORT_H

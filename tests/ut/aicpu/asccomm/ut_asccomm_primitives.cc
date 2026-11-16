@@ -126,13 +126,13 @@ TEST_F(AsccommPrimitivesTest, BatchModeUsesTagToScopeAndRetryRegisteredThread)
     EXPECT_EQ(g_runtimeStubState.launchThreads[0], handle);
 }
 
-TEST_F(AsccommPrimitivesTest, BatchModeControlsEagerSubmission)
+TEST_F(AsccommPrimitivesTest, BatchModeControlsAutomaticSubmission)
 {
-    EXPECT_TRUE(asccomm_is_eager_launch_mode());
-    EXPECT_EQ(asccomm_batch_mode_start("eager"), ASCCOMM_SUCCESS);
-    EXPECT_FALSE(asccomm_is_eager_launch_mode());
-    EXPECT_EQ(asccomm_batch_mode_end("eager"), ASCCOMM_SUCCESS);
-    EXPECT_TRUE(asccomm_is_eager_launch_mode());
+    EXPECT_TRUE(asccomm_is_automatic_launch_mode());
+    EXPECT_EQ(asccomm_batch_mode_start("auto-submit"), ASCCOMM_SUCCESS);
+    EXPECT_FALSE(asccomm_is_automatic_launch_mode());
+    EXPECT_EQ(asccomm_batch_mode_end("auto-submit"), ASCCOMM_SUCCESS);
+    EXPECT_TRUE(asccomm_is_automatic_launch_mode());
 }
 
 TEST_F(AsccommPrimitivesTest, TimeoutApisValidateAndPersistSeconds)
@@ -199,11 +199,11 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     uint64_t buffer = 0;
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
-            ThreadHandleOf(thread_), &buffer, &buffer, 1, static_cast<AsccommDataType>(999), ASCCOMM_REDUCE_SUM),
+            ThreadHandleOf(thread_), &buffer, &buffer, 1, static_cast<asccomm_data_type>(999), ASCCOMM_REDUCE_SUM),
         ASCCOMM_E_PARA);
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
-            ThreadHandleOf(thread_), &buffer, &buffer, 1, ASCCOMM_DATA_TYPE_INT32, static_cast<AsccommReduceOp>(999)),
+            ThreadHandleOf(thread_), &buffer, &buffer, 1, ASCCOMM_DATA_TYPE_INT32, static_cast<asccomm_reduce_op>(999)),
         ASCCOMM_E_PARA);
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }

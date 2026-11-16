@@ -196,7 +196,7 @@ public:
 
     ~Rdma1825Ops() override {}
 
-    AsccommResult build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
+    asccomm_result build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         Roce3DbEntry dbEntry;
         dbEntry.dw0.db_value = 0;
@@ -223,7 +223,7 @@ public:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
+    asccomm_result build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         if (cqDbFlush_) {
             dbAddr = cqContext_->dbSwVa;
@@ -251,7 +251,7 @@ public:
     }
 
 protected:
-    AsccommResult build_read_wqe(
+    asccomm_result build_read_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg) override
     {
         Roce3WqeEntry wqe{};
@@ -268,7 +268,7 @@ protected:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult build_write_wqe(
+    asccomm_result build_write_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg) override
     {
         Roce3WqeEntry wqe{};
@@ -285,7 +285,7 @@ protected:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult build_write_reduce_wqe(
+    asccomm_result build_write_reduce_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp) override
     {
@@ -306,7 +306,7 @@ protected:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult write_invalid_wqebb(uint32_t nextIdx) override
+    asccomm_result write_invalid_wqebb(uint32_t nextIdx) override
     {
         const uint32_t sqDepth = sqContext_->depth;
         const uint32_t sqMask = sqDepth - 1U;
@@ -353,7 +353,7 @@ protected:
     }
 
 private:
-    AsccommResult fill_ctrl_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    asccomm_result fill_ctrl_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // 赋值本wqe的owner
         uint8_t owner = (sqHead_ & (sqContext_->depth)) == 0 ? 0 : 1;
@@ -375,7 +375,7 @@ private:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult fill_task_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    asccomm_result fill_task_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // ----- Task Seg -----
         wqe->task.tskSeg.value = 0;
@@ -398,7 +398,7 @@ private:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult fill_reduce_task_seg(
+    asccomm_result fill_reduce_task_seg(
         Roce3WqeEntry* wqe, const Roce3PostSendParams& params, DataType dataType, ReduceOp reduceOp) const
     {
         // Communication type to RoCE3 type
@@ -434,7 +434,7 @@ private:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult fill_data_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    asccomm_result fill_data_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // ----- Data Seg -----
         wqe->data.bufAddr = htonll64(static_cast<uint64_t>(params.loc.get_addr()));

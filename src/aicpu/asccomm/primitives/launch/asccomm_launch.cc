@@ -26,7 +26,7 @@ struct LaunchState {
     uint32_t sqFullTimeout{0};
     bool sqFullTimeoutSet{false};
     bool batchMode{false};
-    bool eagerLaunch{true};
+    bool automaticLaunch{true};
 };
 
 thread_local LaunchState g_launchState;
@@ -86,20 +86,20 @@ void asccomm_set_sq_full_timeout(uint32_t timeout)
 void asccomm_set_batch_launch_mode(bool batchMode)
 {
     g_launchState.batchMode = batchMode;
-    g_launchState.eagerLaunch = !batchMode;
+    g_launchState.automaticLaunch = !batchMode;
 }
 
-AsccommResult asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode)
+asccomm_result asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool batchMode)
 {
     g_launchState.batchMode = batchMode;
-    g_launchState.eagerLaunch = !batchMode;
+    g_launchState.automaticLaunch = !batchMode;
     g_launchState.batchTag = normalize_batch_tag(batchTag);
     return ASCCOMM_SUCCESS;
 }
 
-bool asccomm_is_eager_launch_mode() { return g_launchState.eagerLaunch && !g_launchState.batchMode; }
+bool asccomm_is_automatic_launch_mode() { return g_launchState.automaticLaunch && !g_launchState.batchMode; }
 
-AsccommResult asccomm_launch_registered_threads()
+asccomm_result asccomm_launch_registered_threads()
 {
     std::vector<ThreadHandle> threads = get_registered_threads();
     if (threads.empty()) {
@@ -108,7 +108,7 @@ AsccommResult asccomm_launch_registered_threads()
     return asccomm_task_launch(threads.data(), static_cast<uint32_t>(threads.size()));
 }
 
-AsccommResult asccomm_try_launch_registered_threads()
+asccomm_result asccomm_try_launch_registered_threads()
 {
     std::vector<ThreadHandle> threads = get_registered_threads();
     if (threads.empty()) {
@@ -117,7 +117,7 @@ AsccommResult asccomm_try_launch_registered_threads()
     return asccomm_try_launch(threads.data(), static_cast<uint32_t>(threads.size()));
 }
 
-AsccommResult asccomm_clear_registered_threads(const char* batchTag)
+asccomm_result asccomm_clear_registered_threads(const char* batchTag)
 {
     const std::string tag = normalize_batch_tag(batchTag);
     if (tag.empty()) {

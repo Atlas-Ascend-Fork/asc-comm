@@ -30,7 +30,7 @@
 ## 函数原型
 
 ```cpp
-int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, asccomm_data_type dataType, asccomm_reduce_op reduceOp, uint32_t remoteNotifyIdx)
 ```
 
 ## 参数说明
@@ -42,13 +42,13 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 | dst | 输出 | 远端通信内存地址，用于保存归约结果。 |
 | src | 输入 | 本端通信内存地址，提供待写入的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>当前仅Ascend 950PR&950DT系列产品支持本接口，各取值行为见[dataType说明](#datatype说明)。|
-| reduceOp | 输入 | 归约操作类型。类型为`AsccommReduceOp`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>支持矩阵见[reduceOp说明](#reduceop说明)。 |
+| dataType | 输入 | 数据类型。类型为`asccomm_data_type`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>当前仅Ascend 950PR&950DT系列产品支持本接口，各取值行为见[dataType说明](#datatype说明)。|
+| reduceOp | 输入 | 归约操作类型。类型为`asccomm_reduce_op`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。<br>支持矩阵见[reduceOp说明](#reduceop说明)。 |
 | remoteNotifyIdx | 输入 | 远端Notify索引。取值范围为`[0, notifyNum)`，其中`notifyNum`为Channel资源中的远端Notify数量。 |
 
 ### dataType说明
 
-仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`AsccommDataType`各取值的行为如下。
+仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`asccomm_data_type`各取值的行为如下。
 
 | dataType | [UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 ### reduceOp说明
 
-`AsccommReduceOp`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前各通道协议的支持情况如下。
+`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前各通道协议的支持情况如下。
 
 | reduceOp | UB类协议 | RoCE协议 |
 | --- | --- | --- |

@@ -32,7 +32,7 @@ Provides local reduction: computes the `count` elements of type `dataType` in `s
 ## Function Prototype
 
 ```cpp
-int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp)
+int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t count, asccomm_data_type dataType, asccomm_reduce_op reduceOp)
 ```
 
 ## Parameters
@@ -43,14 +43,14 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 | dst | Output | Destination address in device memory. |
 | src | Input | Source address in device memory. |
 | count | Input | Number of elements. When `count` is **0**, no reduction task is generated. |
-| dataType | Input | Data type. The type is `AsccommDataType`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`. For the support status of each value, see [dataType Description](#datatype-description). |
+| dataType | Input | Data type. The type is `asccomm_data_type`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`. For the support status of each value, see [dataType Description](#datatype-description). |
 | reduceOp | Input | Reduction operation type. For the support matrix, see [reduceOp Description](#reduceop-description). |
 
-`AsccommDataType` and `AsccommReduceOp` are defined in `"aicpu/hcomm/asccomm_res_defs.h"`.
+`asccomm_data_type` and `asccomm_reduce_op` are defined in `"aicpu/hcomm/asccomm_res_defs.h"`.
 
 ### dataType Description
 
-In the current implementation, the local reduction support status of each `AsccommDataType` value is as follows.
+In the current implementation, the local reduction support status of each `asccomm_data_type` value is as follows.
 
 | dataType | Local Reduction | Return Value When Not Supported or Invalid |
 | --- | --- | --- |
@@ -60,7 +60,7 @@ In the current implementation, the local reduction support status of each `Ascco
 
 ### reduceOp Description
 
-`AsccommReduceOp` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support for local reduction is as follows.
+`asccomm_reduce_op` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support for local reduction is as follows.
 
 | reduceOp | Local Reduction | Return Value When Not Supported or Invalid |
 | --- | --- | --- |

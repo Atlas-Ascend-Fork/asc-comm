@@ -27,7 +27,7 @@
 
 Header file path: `"aicpu/hcomm/asccomm_primitives.h"`.
 
-This API is used to end the batch submission mode started by [asccomm_batch_mode_start](asccomm_batch_mode_start.md). When this API is called, the communication tasks cached by the current AI CPU execution thread in this mode are submitted together, and eager task submission is restored for the execution thread. A successful return from this API indicates that the submission action succeeded, not that all hardware communication tasks have completed.
+This API is used to end the batch submission mode started by [asccomm_batch_mode_start](asccomm_batch_mode_start.md). When this API is called, the communication tasks cached by the current AI CPU execution thread in this mode are submitted together, and automatic task submission is restored for the execution thread. A successful return from this API indicates that the submission action succeeded, not that all hardware communication tasks have completed.
 
 ## Function Prototype
 
@@ -58,7 +58,7 @@ The return value is `int32_t`, with the following meanings.
 - **Start** and **End** must be called in pairs, and **Start**, **End**, and the data-plane communication tasks submitted between them must be executed in the same AI CPU execution thread.
 - **End** submits the Thread resource set of the current batch tag and does not affect sets under other tags.
 - **End** submits only the unsubmitted tasks cached by the current AI CPU execution thread in batch mode; the current cache capacity is 128, and tasks are submitted early when the cache is full.
-- **End** restores the default eager task submission mode after the batch ends.
+- **End** restores automatic task submission after the batch ends.
 - When there are no cached tasks to submit during the batch mode, **End** still returns `ASCCOMM_SUCCESS`.
 - End first closes batch mode and then submits the cached tasks of the thread resources registered under the current tag; after successful submission, it clears the resource set of the current tag. If submission fails, batch mode is already closed, but the current tag's resource set is retained, so you can call **End** again directly to retry submitting the same batch of resources. Before the retry succeeds, newly submitted data plane tasks will not enter batch caching again.
 - A successful return from **End** indicates that the cached task submission action succeeded, not that all hardware communication tasks have been completed.

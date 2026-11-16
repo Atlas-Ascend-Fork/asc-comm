@@ -122,7 +122,7 @@ struct AicpuRuntimeStubState {
     struct BatchTransferCall {
         HcommThreadEntity* thread;
         ChannelEntity* channel;
-        const AsccommBatchTransferDesc* descs;
+        const asccomm_batch_transfer_desc* descs;
         uint32_t descNum;
     };
     std::vector<BatchTransferCall> batchTransferCalls;
@@ -146,26 +146,26 @@ struct AicpuRuntimeStubState {
     };
     std::vector<DrainCall> drainCalls;
 
-    AsccommResult resolveResult{ASCCOMM_SUCCESS};
-    AsccommResult copyResult{ASCCOMM_SUCCESS};
-    AsccommResult reduceResult{ASCCOMM_SUCCESS};
-    AsccommResult notifyRecordResult{ASCCOMM_SUCCESS};
-    AsccommResult notifyWaitResult{ASCCOMM_SUCCESS};
-    AsccommResult launchResult{ASCCOMM_SUCCESS};
-    AsccommResult tryLaunchResult{ASCCOMM_SUCCESS};
-    AsccommResult writeResult{ASCCOMM_SUCCESS};
-    AsccommResult writeReduceResult{ASCCOMM_SUCCESS};
-    AsccommResult writeNotifyResult{ASCCOMM_SUCCESS};
-    AsccommResult writeReduceNotifyResult{ASCCOMM_SUCCESS};
-    AsccommResult readResult{ASCCOMM_SUCCESS};
-    AsccommResult readReduceResult{ASCCOMM_SUCCESS};
-    AsccommResult sendResult{ASCCOMM_SUCCESS};
-    AsccommResult sendWithImmResult{ASCCOMM_SUCCESS};
-    AsccommResult batchTransferResult{ASCCOMM_SUCCESS};
-    AsccommResult channelNotifyRecordResult{ASCCOMM_SUCCESS};
-    AsccommResult channelNotifyWaitResult{ASCCOMM_SUCCESS};
-    AsccommResult fenceResult{ASCCOMM_SUCCESS};
-    AsccommResult drainResult{ASCCOMM_SUCCESS};
+    asccomm_result resolveResult{ASCCOMM_SUCCESS};
+    asccomm_result copyResult{ASCCOMM_SUCCESS};
+    asccomm_result reduceResult{ASCCOMM_SUCCESS};
+    asccomm_result notifyRecordResult{ASCCOMM_SUCCESS};
+    asccomm_result notifyWaitResult{ASCCOMM_SUCCESS};
+    asccomm_result launchResult{ASCCOMM_SUCCESS};
+    asccomm_result tryLaunchResult{ASCCOMM_SUCCESS};
+    asccomm_result writeResult{ASCCOMM_SUCCESS};
+    asccomm_result writeReduceResult{ASCCOMM_SUCCESS};
+    asccomm_result writeNotifyResult{ASCCOMM_SUCCESS};
+    asccomm_result writeReduceNotifyResult{ASCCOMM_SUCCESS};
+    asccomm_result readResult{ASCCOMM_SUCCESS};
+    asccomm_result readReduceResult{ASCCOMM_SUCCESS};
+    asccomm_result sendResult{ASCCOMM_SUCCESS};
+    asccomm_result sendWithImmResult{ASCCOMM_SUCCESS};
+    asccomm_result batchTransferResult{ASCCOMM_SUCCESS};
+    asccomm_result channelNotifyRecordResult{ASCCOMM_SUCCESS};
+    asccomm_result channelNotifyWaitResult{ASCCOMM_SUCCESS};
+    asccomm_result fenceResult{ASCCOMM_SUCCESS};
+    asccomm_result drainResult{ASCCOMM_SUCCESS};
 };
 
 extern AicpuRuntimeStubState g_runtimeStubState;

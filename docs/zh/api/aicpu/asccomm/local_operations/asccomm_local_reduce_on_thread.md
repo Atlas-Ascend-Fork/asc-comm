@@ -30,7 +30,7 @@
 ## 函数原型
 
 ```cpp
-int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp)
+int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t count, asccomm_data_type dataType, asccomm_reduce_op reduceOp)
 ```
 
 ## 参数说明
@@ -41,14 +41,14 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 | dst | 输出 | 目的地址，Device内存。 |
 | src | 输入 | 源地址，Device内存。 |
 | count | 输入 | 元素个数。`count`为0时不生成归约任务。 |
-| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。各取值支持情况见[dataType说明](#datatype说明)。 |
+| dataType | 输入 | 数据类型。类型为`asccomm_data_type`，定义见`"aicpu/asccomm/asccomm_res_defs.h"`。各取值支持情况见[dataType说明](#datatype说明)。 |
 | reduceOp | 输入 | 归约操作类型。支持矩阵见[reduceOp说明](#reduceop说明)。 |
 
-`AsccommDataType`和`AsccommReduceOp`定义于`"aicpu/asccomm/asccomm_res_defs.h"`。
+`asccomm_data_type`和`asccomm_reduce_op`定义于`"aicpu/asccomm/asccomm_res_defs.h"`。
 
 ### dataType说明
 
-当前实现中，`AsccommDataType`各取值的本地归约支持情况如下。
+当前实现中，`asccomm_data_type`各取值的本地归约支持情况如下。
 
 | dataType | 本地归约 | 不支持或非法时返回值 |
 | --- | --- | --- |
@@ -58,7 +58,7 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 
 ### reduceOp说明
 
-`AsccommReduceOp`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。本地归约的当前支持情况如下。
+`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。本地归约的当前支持情况如下。
 
 | reduceOp | 本地归约 | 不支持或非法时返回值 |
 | --- | --- | --- |

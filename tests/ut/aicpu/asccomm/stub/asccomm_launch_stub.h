@@ -20,8 +20,8 @@ struct LaunchStubState {
     std::vector<ThreadHandle> lastThreads;
     std::vector<ThreadHandle> lastTryThreads;
     ThreadHandle threadToRegisterDuringTry{0};
-    AsccommResult taskResult{ASCCOMM_SUCCESS};
-    AsccommResult tryResult{ASCCOMM_SUCCESS};
+    asccomm_result taskResult{ASCCOMM_SUCCESS};
+    asccomm_result tryResult{ASCCOMM_SUCCESS};
 };
 
 extern LaunchStubState g_launchStubState;

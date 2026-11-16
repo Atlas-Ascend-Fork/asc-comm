@@ -25,7 +25,7 @@
 
 头文件路径：`"aicpu/asccomm/asccomm_primitives.h"`。
 
-该接口用于开启当前AICPU执行线程的批量提交模式。批量模式期间，需要下发的数据面通信任务会先缓存，调用[asccomm_batch_mode_end](asccomm_batch_mode_end.md)时统一提交。该接口同时关闭当前执行线程的eager任务提交模式。非空`batchTag`还用于在当前执行线程内隔离不同批次的Thread资源集合；空标签表示临时批次。
+该接口用于开启当前AICPU执行线程的批量提交模式。批量模式外，数据面通信任务会自动提交。批量模式期间，需要下发的数据面通信任务会先缓存，调用[asccomm_batch_mode_end](asccomm_batch_mode_end.md)时统一提交。非空`batchTag`还用于在当前执行线程内隔离不同批次的Thread资源集合；空标签表示临时批次。
 
 ## 函数原型
 
@@ -52,7 +52,7 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
 - Start与End应成对调用，且Start、End以及两者之间提交的数据面通信任务必须在同一AICPU执行线程中执行。
 - Start会记录当前批次标签；End需要传入相同标签才能提交并清理该批次。
 - 批量状态仅作用于当前AICPU执行线程；End只提交当前执行线程在批量模式下缓存的任务。
-- 当前执行线程默认开启eager任务提交。Start会关闭eager提交，End会恢复eager提交。
+- 数据面通信任务默认自动提交。Start会将执行线程切换为批量缓存，End会提交缓存任务并恢复自动提交。
 - 当前实现中，内部缓存满时会提前提交；当前缓存容量为128。
 - 本接口成功返回表示批量模式设置成功，不表示数据面任务已经提交或完成。
 

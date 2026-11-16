@@ -27,7 +27,7 @@
 
 Header file path: `"aicpu/hcomm/asccomm_primitives.h"`.
 
-This API is used to enable the batch submission mode of the current AI CPU execution thread. During batch mode, data-plane communication tasks to be delivered are first cached and are submitted together when [asccomm_batch_mode_end](asccomm_batch_mode_end.md) is called. This API also disables the eager task submission mode of the current execution thread. A non-empty `batchTag` also isolates Thread resource sets of different batches in the current execution thread; an empty tag indicates a temporary batch.
+This API is used to enable the batch submission mode of the current AI CPU execution thread. Outside batch mode, data-plane communication tasks are submitted automatically. During batch mode, data-plane communication tasks to be delivered are first cached and are submitted together when [asccomm_batch_mode_end](asccomm_batch_mode_end.md) is called. A non-empty `batchTag` also isolates Thread resource sets of different batches in the current execution thread; an empty tag indicates a temporary batch.
 
 ## Function Prototype
 
@@ -54,7 +54,7 @@ The return value is `int32_t`, with the following meanings.
 - **Start** and **End** must be called in pairs, and **Start**, **End**, and the data-plane communication tasks submitted between them must be executed in the same AI CPU execution thread.
 - **Start** records the current batch tag. **End** must pass the same tag to submit and clear that batch.
 - The batch state applies only to the current AI CPU execution thread; **End** submits only the tasks cached in batch mode by the current execution thread.
-- Eager task submission is enabled by default for the current execution thread. **Start** disables eager submission, and **End** restores it.
+- Data-plane communication tasks are automatically submitted by default. **Start** switches the execution thread to batch caching, and **End** submits the cached tasks and restores automatic submission.
 - In the current implementation, tasks are submitted early when the internal buffer is full; the current cache capacity is 128.
 - A successful return from this API indicates that batch mode has been set successfully, not that the data-plane tasks have been submitted or completed.
 

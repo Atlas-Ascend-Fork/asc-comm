@@ -43,7 +43,7 @@ typedef enum {
     ASCCOMM_E_OOM = 24,
     ASCCOMM_E_IN_STATUS = 1041,
     ASCCOMM_E_RESERVED
-} AsccommResult;
+} asccomm_result;
 
 #ifdef __cplusplus
 }

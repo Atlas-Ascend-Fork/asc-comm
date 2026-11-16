@@ -107,7 +107,7 @@ public:
     }
 
     // 上层接口，不关心具体vendor类型
-    AsccommResult read(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
+    asccomm_result read(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         // read需要占用1个wr位置, 确定Sq存在空位
         constexpr int ReadWqeCount = 1;
@@ -122,7 +122,7 @@ public:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult write(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
+    asccomm_result write(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         // write需要占用1个wr位置, 确定Sq存在空位
         constexpr int WriteWqeCount = 1;
@@ -137,7 +137,7 @@ public:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult write_reduce(
+    asccomm_result write_reduce(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp)
     {
@@ -154,7 +154,7 @@ public:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult poll_cq(int32_t numEntries, int32_t timeOut, std::vector<int32_t>& errList)
+    asccomm_result poll_cq(int32_t numEntries, int32_t timeOut, std::vector<int32_t>& errList)
     {
         auto timeLimit = std::chrono::milliseconds(timeOut);
         auto startTime = std::chrono::steady_clock::now();
@@ -195,10 +195,10 @@ public:
     }
 
     // 准备Doorbell(厂商实现)
-    virtual AsccommResult build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
+    virtual asccomm_result build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
 
     // 准备CqDoorbell(厂商实现)
-    virtual AsccommResult build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
+    virtual asccomm_result build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
 
 protected:
     // 软件侧只维护Sq PI，Sq CI由硬件维护
@@ -217,7 +217,7 @@ protected:
 
     // vendor扩展点: 每个原子op一个虚函数
     // 默认 NOT_SUPPORT, 各个vendor 只重写自己支持的
-    virtual AsccommResult build_read_wqe(
+    virtual asccomm_result build_read_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         (void)loc;
@@ -227,7 +227,7 @@ protected:
         return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual AsccommResult build_write_wqe(
+    virtual asccomm_result build_write_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         (void)loc;
@@ -237,7 +237,7 @@ protected:
         return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual AsccommResult build_write_reduce_wqe(
+    virtual asccomm_result build_write_reduce_wqe(
         const RmaBufSliceLite& locNotify, const RmtRmaBufSliceLite& notify, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp)
     {
@@ -250,7 +250,7 @@ protected:
         return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual AsccommResult write_invalid_wqebb(uint32_t nextIdx)
+    virtual asccomm_result write_invalid_wqebb(uint32_t nextIdx)
     {
         (void)nextIdx;
         return ASCCOMM_SUCCESS;
@@ -264,7 +264,7 @@ protected:
     }
 
     // 搬运wqe(通用实现), 把 Wqe 写到 SQ
-    AsccommResult commit_wqe(const void* wqe, uint32_t wqeSize)
+    asccomm_result commit_wqe(const void* wqe, uint32_t wqeSize)
     {
         ASCCOMM_INFO("[RdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
 
@@ -294,7 +294,7 @@ protected:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult wait_sq_free(uint32_t wqeNum)
+    asccomm_result wait_sq_free(uint32_t wqeNum)
     {
         // wq_overflow
         bool timeOutFlag = false;
@@ -316,7 +316,7 @@ protected:
     }
 
     // 将PI更新到硬件可见地址
-    AsccommResult update_sq_pi()
+    asccomm_result update_sq_pi()
     {
         // 更新Sq PI指针
         uint32_t sqHeadNum = htonl32(sqHead_);

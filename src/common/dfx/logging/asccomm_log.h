@@ -72,7 +72,7 @@ bool IsErrorToWarn();
 
 #define CHK_RET(call)                                                          \
     do {                                                                       \
-        AsccommResult asccommRet = (call);                                     \
+        asccomm_result asccommRet = (call);                                    \
         if (UNLIKELY(asccommRet != ASCCOMM_SUCCESS)) {                         \
             ASCCOMM_ERROR("[%s] call failed, ret[%d].", __func__, asccommRet); \
             return asccommRet;                                                 \

@@ -19,15 +19,15 @@ namespace Asc {
 
 class AsccommException : public std::exception {
 public:
-    AsccommException(AsccommResult errorCode, const char* prefix, const std::string& message)
+    AsccommException(asccomm_result errorCode, const char* prefix, const std::string& message)
         : errorCode_(errorCode), errorMessage_(std::string(prefix) + message)
     {}
 
     const char* what() const noexcept override { return errorMessage_.c_str(); }
-    AsccommResult get_error_code() const { return errorCode_; }
+    asccomm_result get_error_code() const { return errorCode_; }
 
 private:
-    AsccommResult errorCode_;
+    asccomm_result errorCode_;
     std::string errorMessage_;
 };
 

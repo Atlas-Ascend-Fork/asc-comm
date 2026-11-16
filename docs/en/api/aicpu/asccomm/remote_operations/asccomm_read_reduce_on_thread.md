@@ -32,7 +32,7 @@ Initiates a reduction read on the specified channel: reads `count` elements of t
 ## Function Prototype
 
 ```cpp
-int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp)
+int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, asccomm_data_type dataType, asccomm_reduce_op reduceOp)
 ```
 
 ## Parameters
@@ -44,12 +44,12 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 | dst | Output | Local destination address, used to store the reduction result. |
 | src | Input | Remote source address, providing the data to be read. |
 | count | Input | Number of elements. |
-| dataType | Input | Data type. The type is `AsccommDataType`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>Currently only the Ascend 950PR&950DT products support this API. For the behavior of each value, see [dataType Description](#datatype-description). |
-| reduceOp | Input | Reduction operation type. The type is `AsccommReduceOp`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>For the support matrix, see [reduceOp Description](#reduceop-description). |
+| dataType | Input | Data type. The type is `asccomm_data_type`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>Currently only the Ascend 950PR&950DT products support this API. For the behavior of each value, see [dataType Description](#datatype-description). |
+| reduceOp | Input | Reduction operation type. The type is `asccomm_reduce_op`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>For the support matrix, see [reduceOp Description](#reduceop-description). |
 
 ### dataType Description
 
-Only the Ascend 950PR&950DT products support this API. In the current implementation, the behavior of each `AsccommDataType` value is as follows.
+Only the Ascend 950PR&950DT products support this API. In the current implementation, the behavior of each `asccomm_data_type` value is as follows.
 
 | dataType | [UB-type Protocol](../../../../guide/programming_model/communication_pattern_selection.md#communication-protocol-classification-and-selection) | [RoCE Protocol](../../../../guide/programming_model/communication_pattern_selection.md#communication-protocol-classification-and-selection) |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ Only the Ascend 950PR&950DT products support this API. In the current implementa
 
 ### reduceOp Description
 
-`AsccommReduceOp` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support status of each channel protocol is as follows.
+`asccomm_reduce_op` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support status of each channel protocol is as follows.
 
 | reduceOp | UB-type Protocol | RoCE Protocol |
 | --- | --- | --- |

@@ -27,7 +27,7 @@ struct CommContext {
 };
 
 template <typename Entity>
-AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
+asccomm_result validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
 {
     CHK_PTR_NULL(entity);
     CHK_PRT_RET(
@@ -45,7 +45,8 @@ AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t m
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
+asccomm_result get_thread_entity(
+    ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
@@ -64,7 +65,7 @@ AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool r
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool registerThread, CommContext& context)
+asccomm_result get_context(ThreadHandle thread, ChannelHandle channel, bool registerThread, CommContext& context)
 {
     CHK_PRT_RET(channel == 0, ASCCOMM_ERROR("[%s] channel handle is 0.", __func__), ASCCOMM_E_PTR);
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
@@ -74,7 +75,7 @@ AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool regis
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
+asccomm_result get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
     CHK_PRT_RET(
         notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
@@ -99,8 +100,8 @@ AsccommResult get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyId
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult convert_reduce_in(
-    AsccommDataType dataType, AsccommReduceOp reduceOp, Asc::DataType& innerDataType, Asc::ReduceOp& innerReduceOp,
+asccomm_result convert_reduce_in(
+    asccomm_data_type dataType, asccomm_reduce_op reduceOp, Asc::DataType& innerDataType, Asc::ReduceOp& innerReduceOp,
     uint32_t& typeSize)
 {
     switch (dataType) {
@@ -198,8 +199,8 @@ AsccommResult convert_reduce_in(
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_reduce_params(
-    AsccommDataType dataType, AsccommReduceOp reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
+asccomm_result get_reduce_params(
+    asccomm_data_type dataType, asccomm_reduce_op reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
 {
     Asc::DataType innerDataType = Asc::DataType::INVALID;
     Asc::ReduceOp innerReduceOp = Asc::ReduceOp::INVALID;
@@ -214,14 +215,14 @@ AsccommResult get_reduce_params(
 }
 
 template <typename Operation>
-AsccommResult execute_api(Operation operation)
+asccomm_result execute_api(Operation operation)
 {
-    AsccommResult ret = ASCCOMM_SUCCESS;
+    asccomm_result ret = ASCCOMM_SUCCESS;
     EXCEPTION_CATCH(ret = operation(), ret = ASCCOMM_E_INTERNAL);
     return ret;
 }
 
-AsccommResult convert_timeout(float timeout, uint32_t& timeoutSeconds)
+asccomm_result convert_timeout(float timeout, uint32_t& timeoutSeconds)
 {
     if (std::isnan(timeout) || timeout < 0.0f || static_cast<double>(timeout) > static_cast<double>(UINT32_MAX)) {
         ASCCOMM_ERROR("[%s] timeout[%f] is invalid.", __func__, timeout);
@@ -269,7 +270,8 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
 }
 
 int32_t asccomm_local_reduce_on_thread(
-    ThreadHandle thread, void* dst, const void* src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp)
+    ThreadHandle thread, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
+    asccomm_reduce_op reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -330,8 +332,8 @@ int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void
 }
 
 int32_t asccomm_write_reduce_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
-    AsccommReduceOp reduceOp)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
+    asccomm_reduce_op reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -362,8 +364,8 @@ int32_t asccomm_write_with_notify_on_thread(
 }
 
 int32_t asccomm_write_reduce_with_notify_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
-    AsccommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
+    asccomm_reduce_op reduceOp, uint32_t remoteNotifyIdx)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -392,8 +394,8 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void*
 }
 
 int32_t asccomm_read_reduce_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
-    AsccommReduceOp reduceOp)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
+    asccomm_reduce_op reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -431,7 +433,8 @@ int32_t asccomm_send_with_imm_on_thread(
 }
 
 int32_t asccomm_batch_transfer_on_thread(
-    ThreadHandle thread, ChannelHandle channel, const AsccommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
+    ThreadHandle thread, ChannelHandle channel, const asccomm_batch_transfer_desc* transferDescs,
+    uint32_t transferDescNum)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(transferDescs);

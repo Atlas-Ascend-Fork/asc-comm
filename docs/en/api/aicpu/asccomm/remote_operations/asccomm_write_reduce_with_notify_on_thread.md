@@ -32,7 +32,7 @@ Initiates a reduction write with notification on the specified channel: writes `
 ## Function Prototype
 
 ```cpp
-int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, asccomm_data_type dataType, asccomm_reduce_op reduceOp, uint32_t remoteNotifyIdx)
 ```
 
 ## Parameters
@@ -44,13 +44,13 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 | dst | Output | Remote communication memory address, used to store the reduction result. |
 | src | Input | Local communication memory address, providing the data to be written. |
 | count | Input | Number of elements. |
-| dataType | Input | Data type. The type is `AsccommDataType`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>Currently, only Ascend 950PR&950DT products support this API. For the behavior of each value, see [dataType Description](#datatype-description). |
-| reduceOp | Input | Reduction operation type. The type is `AsccommReduceOp`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>For the support matrix, see [reduceOp Description](#reduceop-description). |
+| dataType | Input | Data type. The type is `asccomm_data_type`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>Currently, only Ascend 950PR&950DT products support this API. For the behavior of each value, see [dataType Description](#datatype-description). |
+| reduceOp | Input | Reduction operation type. The type is `asccomm_reduce_op`, defined in `"aicpu/hcomm/asccomm_res_defs.h"`.<br>For the support matrix, see [reduceOp Description](#reduceop-description). |
 | remoteNotifyIdx | Input | Remote Notify index. The value range is `[0, notifyNum)`, where `notifyNum` is the number of remote Notify entries in the channel resource. |
 
 ### dataType Description
 
-Only Ascend 950PR&950DT products support this API. In the current implementation, the behavior of each `AsccommDataType` value is as follows.
+Only Ascend 950PR&950DT products support this API. In the current implementation, the behavior of each `asccomm_data_type` value is as follows.
 
 | dataType | [UB Protocol](../../../../guide/programming_model/communication_pattern_selection.md#communication-protocol-classification-and-selection) | [RoCE Protocol](../../../../guide/programming_model/communication_pattern_selection.md#communication-protocol-classification-and-selection) |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ Only Ascend 950PR&950DT products support this API. In the current implementation
 
 ### reduceOp Description
 
-`AsccommReduceOp` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support status for each channel protocol is as follows.
+`asccomm_reduce_op` includes `ASCCOMM_REDUCE_SUM`, `ASCCOMM_REDUCE_PROD`, `ASCCOMM_REDUCE_MAX`, `ASCCOMM_REDUCE_MIN`, and `ASCCOMM_REDUCE_RESERVED`. The current support status for each channel protocol is as follows.
 
 | reduceOp | UB Protocol | RoCE Protocol |
 | --- | --- | --- |
