@@ -98,6 +98,10 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
@@ -111,6 +115,10 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
@@ -125,6 +133,12 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        ChannelHandle channel, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
@@ -159,6 +173,12 @@ private:
         HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG, typename T = uint64_t>
     __aicore__ inline int32_t PostSend(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr = nullptr,
+        const UdmaParams<T>& params = UdmaParams<T>{});
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG, typename T = uint64_t>
+    __aicore__ inline int32_t PostSend(
+        ChannelHandle channel, GM_ADDR dst, const BufDesc* localDescs, uint32_t sgeNum, GM_ADDR notifyAddr = nullptr,
         const UdmaParams<T>& params = UdmaParams<T>{});
     template <HcommUrmaOpCode opCode, auto const& config>
     __aicore__ inline int32_t BatchPostSend(

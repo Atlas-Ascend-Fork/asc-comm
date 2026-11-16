@@ -128,6 +128,15 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
+    /**
+     * @brief Submit a scatter/gather Write task through a channel. Source segments are gathered in array order and
+     *        written contiguously starting at dst.
+     */
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
+
     /*!
      * @brief Add a Write task to a batch handle.
      * @tparam config: WQE control config. Default: odr = Relax Order(RO) with in-order completion + fence + CQE
@@ -231,6 +240,16 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /**
+     * @brief Submit a scatter/gather Write-with-notify task through a channel.
+     */
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        ChannelHandle channel, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
 
     /*!
      * @brief Add a Write-with-notify task to a batch handle.
@@ -338,6 +357,15 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /**
+     * @brief Submit a scatter/gather Read task through a channel. Data is read contiguously from src and scattered
+     *        into dstDescs in array order.
+     */
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
 
     /*!
      * @brief Add a Read task to a batch handle.
