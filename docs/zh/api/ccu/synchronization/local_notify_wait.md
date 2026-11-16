@@ -23,18 +23,18 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内阻塞等待同die内跨kernel同步信号的消费者侧接口，以字符串tag标识配对。硬件执行到此处会阻塞，直到对应bit被置位后继续。
 
 > [!NOTE]说明
-> 本接口在C++层实现为`AscendC::ccu::event_wait(const char* notify_tag, uint16_t mask)`重载，与`event_wait(event, mask)`共用同一函数名，通过入参类型区分。适用于同一die内不同kernel之间的顺序同步，不适用于跨die或跨rank场景，跨die场景请使用[notify_wait](notify_wait.md)。
+> 本接口在C++层实现为`asc::ccu::event_wait(const char* notify_tag, uint16_t mask)`重载，与`event_wait(event, mask)`共用同一函数名，通过入参类型区分。适用于同一die内不同kernel之间的顺序同步，不适用于跨die或跨rank场景，跨die场景请使用[notify_wait](notify_wait.md)。
 
 ## 函数原型
 
 ```cpp
 // local_notify_wait 对应 event_wait 的 const char* 重载
-CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
+ccu_result event_wait(const char* notify_tag, uint16_t mask = 1);
 ```
 
 ## 参数说明
@@ -46,12 +46,12 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
 
 ## 约束说明
 
@@ -66,16 +66,16 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：同die内，phase_consumer_kernel等待phase_producer_kernel完成阶段1后才开始阶段2
 // core 1 上的CCU kernel函数体内
-CcuResult phase_consumer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_consumer_kernel(ccu_kernel_arg arg) {
     // 等待phase_producer_kernel发出"phase1_done"信号的bit0（即local_notify_wait语义）
     event_wait("phase1_done", 0x1);
 
     // 此后可安全使用phase_producer_kernel阶段1的结果
     // ... 阶段2操作 ...
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

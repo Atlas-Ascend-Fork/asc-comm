@@ -25,14 +25,14 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Asynchronously reads data from the remote on-chip memory through the established [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) and merges it with the existing data in the local on-chip memory using the specified operator (`local = reduce(local, fetch_from_remote, op_type)`). When the hardware completes, the flag bit corresponding to `mask` in `evt` is automatically set to **1**.
 
 ## Function Prototype
 
 ```cpp
-CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
+ccu_result read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
                       event evt, uint16_t mask = 1);
 ```
@@ -52,18 +52,18 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API was called outside the compilation stage. |
-| `CCU_E_NOT_FOUND` | The passed `local`/`remote`/`len`/`event` handle was not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API was called outside the compilation stage. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `local`/`remote`/`len`/`event` handle was not created in the current kernel. |
 
 ## Usage Constraints
 
 - The parameter order is destination first and source second: `read_reduce(ch, local, remote, ...)`, where `local` is also the accumulation side of the reduction.
-- All [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) objects in the same kernel must belong to the same die. Channels from different dies cannot be mixed in the same kernel. Die consistency is uniformly checked by `<<<>>>`; if inconsistent, `CCU_E_PARA` is returned instead of the return value of this API.
+- All [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) objects in the same kernel must belong to the same die. Channels from different dies cannot be mixed in the same kernel. Die consistency is uniformly checked by `<<<>>>`; if inconsistent, `ccu_result::CCU_E_PARA` is returned instead of the return value of this API.
 - `local` must have a valid initial value (such as 0 or negative infinity) written before the call; otherwise, the reduction result is undefined.
 - This API is asynchronous. You must wait for the reduction to complete by calling `event_wait(evt, mask)` before reading the result.
 
@@ -71,7 +71,7 @@ CcuResult read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel argument struct. After the link is established on the host, it is passed in through the kernelArg of <<<>>>.
 struct my_kernel_arg {
@@ -79,7 +79,7 @@ struct my_kernel_arg {
 };
 
 // Scenario: Read from the peer on-chip memory and perform FP16 SUM reduction with the local data.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*, so first cast it to the user argument struct.
     ChannelHandle ch = params->channel_handle;
     local_addr dst;      // dst must be pre-initialized with an initial value (for example, 0.0).
@@ -89,6 +89,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     read_reduce(ch, dst, remote, len, HCCL_DATA_TYPE_FP16, HCCL_REDUCE_SUM, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

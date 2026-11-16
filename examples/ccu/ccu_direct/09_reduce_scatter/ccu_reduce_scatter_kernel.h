@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 // CCU 本地拷贝与调度的规模常量：最大 rank 数、Channel notify 槽位数、Die 数等
@@ -178,7 +179,7 @@ static void InitGroupCopyResources(
 
 // 按切分参数执行本地拷贝。
 
-static CcuResult GroupCopy(
+static ccu_result GroupCopy(
     ReduceScatterMesh1DMem2MemContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupOpSizeVars goSize)
 {
     ccu::local_addr loopSrc[2];
@@ -240,12 +241,12 @@ static CcuResult GroupCopy(
         // 构造 loop_group 即完成提交：LoopGroup 按偏移复制出多份 Loop 并发执行，无独立的提交调用
         ccu::loop_group group(goSize.parallel_param, offsetCfg, 2, grpLoops);
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 按 rank 拆分地址并执行通信：跨 rank 写入与本地拷贝配合，最后等所有 rank 完成。
 
-static CcuResult ExecuteReduceScatterTransfer(ReduceScatterMesh1DMem2MemContext& ctx)
+static ccu_result ExecuteReduceScatterTransfer(ReduceScatterMesh1DMem2MemContext& ctx)
 {
     ccu::local_addr localSrc;
     ccu::local_addr localDst;
@@ -301,7 +302,7 @@ static CcuResult ExecuteReduceScatterTransfer(ReduceScatterMesh1DMem2MemContext&
         }
         ccu::event_wait(ctx.event, remoteMask);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

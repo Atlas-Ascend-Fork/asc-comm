@@ -95,7 +95,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     }
     ```
 
-    `asccomm_ccu_*`接口返回`CcuResult`，样例中通过`ConvertCcuToHccl`转换为`HcclResult`后交由`HCCLCHECK`检查。
+    `asccomm_ccu_*`接口返回`ccu_result`，样例中通过`ConvertCcuToHccl`转换为`HcclResult`后交由`HCCLCHECK`检查。
 
     变量的VA地址（`mappedAddrs.startVa`）随AI Core Kernel参数下发，供其写通信地址；变量、事件的句柄（`varHandle`、`eventHandle`）写入`kernelArg`随CCU Kernel下发，供其读地址、等待/置位事件。
 

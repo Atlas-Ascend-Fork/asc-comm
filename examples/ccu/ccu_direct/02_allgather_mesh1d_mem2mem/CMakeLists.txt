@@ -61,7 +61,6 @@ target_link_options(ccu_allgather_mesh1d_mem2mem PRIVATE
     -Wl,-z,noexecstack
 )
 target_link_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(ccu_allgather_mesh1d_mem2mem PRIVATE

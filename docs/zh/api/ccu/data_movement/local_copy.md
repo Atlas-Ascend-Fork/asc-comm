@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 支持本端片上内存、本端CCU Buffer之间的异步数据拷贝，数据在传输过程中保持原始内容不变，硬件完成搬运时自动将`evt`中`mask`对应的标志位设置为1。
 
@@ -41,21 +41,21 @@
 - 本端片上内存 -> 本端片上内存
 
     ```cpp
-    CcuResult local_copy(local_addr dst, local_addr src, variable len,
+    ccu_result local_copy(local_addr dst, local_addr src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
 - 本端片上内存 -> 本端CCU Buffer
 
     ```cpp
-    CcuResult local_copy(ccu_buffer dst, local_addr src, variable len,
+    ccu_result local_copy(ccu_buffer dst, local_addr src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
 - 本端CCU Buffer -> 本端片上内存
 
     ```cpp
-    CcuResult local_copy(local_addr dst, ccu_buffer src, variable len,
+    ccu_result local_copy(local_addr dst, ccu_buffer src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
@@ -71,13 +71,13 @@
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`dst`/`src`/`len`/`evt`句柄未在当前kernel内创建。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_FOUND` | 传入的`dst`/`src`/`len`/`evt`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 
@@ -90,21 +90,21 @@
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景1：本端片上内存→本端片上内存拷贝
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     local_addr src, dst;
     variable len;
     event evt;
 
     local_copy(dst, src, len, evt);    // mask默认0x1
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景2：本端片上内存→本端CCU Buffer拷贝
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     ccu_buffer buf;
     local_addr src;
     variable len;
@@ -112,11 +112,11 @@ CcuResult my_kernel2(ccu_kernel_arg arg) {
 
     local_copy(buf, src, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景3：本端CCU Buffer→本端片上内存拷贝
-CcuResult my_kernel3(ccu_kernel_arg arg) {
+ccu_result my_kernel3(ccu_kernel_arg arg) {
     local_addr dst;
     ccu_buffer buf;
     variable len;
@@ -124,6 +124,6 @@ CcuResult my_kernel3(ccu_kernel_arg arg) {
 
     local_copy(dst, buf, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

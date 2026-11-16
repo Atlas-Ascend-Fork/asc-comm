@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内获取指向channel共享`variable`槽位的句柄。
 
@@ -34,7 +34,7 @@
 ## 函数原型
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 template <typename T>
 T get_res_by_channel(ChannelHandle channel, uint32_t index);
@@ -43,7 +43,7 @@ T get_res_by_channel(ChannelHandle channel, uint32_t index);
 template <>
 variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -53,7 +53,7 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | channel | 输入 | 跨rank通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)，须已完成建链。 |
-| var_index | 输入 | 通道内变量索引（0起），对应channel建链时预分配的一组variable槽位中的一个。当前每条channel固定预留4个variable槽位（`var_index`取值范围为`[0, 3]`），超出该范围返回`CCU_E_PARA`。 |
+| var_index | 输入 | 通道内变量索引（0起），对应channel建链时预分配的一组variable槽位中的一个。当前每条channel固定预留4个variable槽位（`var_index`取值范围为`[0, 3]`），超出该范围返回`ccu_result::CCU_E_PARA`。 |
 
 ## 返回值说明
 
@@ -63,8 +63,8 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 
 | 情形 | 错误码 |
 | --- | --- |
-| `channel == nullptr`、channel类型非法、接口在Kernel函数体之外被调用 | `CCU_E_PTR` |
-| `var_index`越界（超过channel预分配variable池大小） | `CCU_E_PARA` |
+| `channel == nullptr`、channel类型非法、接口在Kernel函数体之外被调用 | `ccu_result::CCU_E_PTR` |
+| `var_index`越界（超过channel预分配variable池大小） | `ccu_result::CCU_E_PARA` |
 
 ## 约束说明
 
@@ -76,7 +76,7 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧填充后通过kernelArg传入
 struct my_kernel_arg {
@@ -86,7 +86,7 @@ struct my_kernel_arg {
 // 端到端场景：对端通过write_variable_with_notify向本端channel的共享variable槽位0写值，
 // 本端kernel通过get_res_by_channel读取该值
 
-CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的my_kernel_arg
+ccu_result my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的my_kernel_arg
     auto* params = static_cast<my_kernel_arg*>(arg);
     ChannelHandle ch = params->channel_handle;
 
@@ -100,6 +100,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的m
     variable result;
     result = sync_var;
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 阻塞等待本端同步寄存器中`mask`对应的notify标志位，直到其全部为1后继续执行。该标志位由对端die的[notify_record](notify_record.md)通过channel置位。
 
@@ -33,11 +33,11 @@
 ## 函数原型
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t mask = 1);
+ccu_result notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -50,17 +50,17 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
 
 ## 约束说明
 
 - `notify_wait`可在硬件loop的循环体内调用。
-- 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
+- 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由`<<<>>>`统一校验，违反时返回`ccu_result::CCU_E_PARA`。
 - `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同：槽位编号由通信双方在协议层约定一致，框架不校验两侧是否一致，也不自动配对。
 - `notify_record`和`notify_wait`的`mask`相同。
 - 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`local_notify_idx`的取值范围为0~7。
@@ -70,7 +70,7 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧建链后通过<<<>>>的kernelArg传入
 struct my_kernel_arg {
@@ -79,7 +79,7 @@ struct my_kernel_arg {
 
 // 场景：die B等待die A完成写操作后再读取数据
 // die B的CCU kernel函数体内
-CcuResult receiver_kernel(ccu_kernel_arg arg) {
+ccu_result receiver_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
     // 等待来自die A的信号，本端notify槽位3的bit0
     // 对应die A侧notify_record(channel, /*remote_notify_idx=*/3, 0x1)
@@ -92,6 +92,6 @@ CcuResult receiver_kernel(ccu_kernel_arg arg) {
     event evt;
     read(params->channel, dst, remote, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

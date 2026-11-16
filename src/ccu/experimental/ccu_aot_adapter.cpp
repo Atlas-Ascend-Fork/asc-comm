@@ -47,7 +47,7 @@
 #include "acl/acl_rt.h"
 
 // hcomm public headers
-#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
 
 // Deployed runtime launch ABI. Public C API: link libruntime.so instead of
 // resolving rtCCULaunch / rtKernelLaunch by hand.

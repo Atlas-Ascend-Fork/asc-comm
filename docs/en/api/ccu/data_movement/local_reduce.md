@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Merges the source data with the destination memory or multiple ccu_buffers using the specified operator (asynchronous). When the hardware completes, the flag bit corresponding to `mask` in `evt` is automatically set to **1**.
 
@@ -39,7 +39,7 @@ The supported data paths are:
 - Local on-chip memory -> local on-chip memory
 
     ```cpp
-    CcuResult local_reduce(local_addr dst, local_addr src, variable len,
+    ccu_result local_reduce(local_addr dst, local_addr src, variable len,
                            HcclDataType data_type, HcclReduceOp op_type,
                            event evt, uint16_t mask = 1);
     ```
@@ -47,7 +47,7 @@ The supported data paths are:
 - N local CCU Buffers -> `buffers[0]` (2 ≤ count ≤ 8)
 
     ```cpp
-    CcuResult local_reduce(ccu_buffer* buffers, uint32_t count,
+    ccu_result local_reduce(ccu_buffer* buffers, uint32_t count,
                            HcclDataType data_type, HcclDataType output_data_type,
                            HcclReduceOp op_type,
                            variable len, event evt, uint16_t mask = 1);
@@ -60,9 +60,9 @@ The supported data paths are:
 | dst | Input/Output | Destination on-chip memory address (`local_addr`, local on-chip memory -> local on-chip memory). A valid initial value must be written before the call; it is updated to the reduction result after the hardware completes. |
 | src | Input | Source on-chip memory address (`local_addr`, local on-chip memory -> local on-chip memory). |
 | buffers | Input/Output | Base address of the ccu_buffer array (`ccu_buffer*`, N local CCU Buffers -> `buffers[0]`). It must not be `nullptr`. You are advised to allocate it through `ccu::array<ccu_buffer>` to ensure physical contiguity. `buffers[0]` is the output location of the reduction result, and a valid initial value must be written before the call. In the precision expansion scenario (low-precision input + SUM promoted-precision output, for example, when INT8→FP32, the output elements are 4× the input), the passed ccu_buffer array must cover both the input and the expanded output footprint (for example, for 2-path INT8 input promoted to FP32 output, 4 ccu_buffers must be reserved instead of 2); insufficient reservation causes hardware read/write out-of-bounds and undefined behavior. |
-| count | Input | Number of ccu_buffers (N local CCU Buffers -> `buffers[0]`). The value range is `[2, 8]` (exceeding the upper limit throws an exception with an error code). `count == 0` is rejected directly and returns `CCU_E_PARA`; `count == 1` is not rejected but the hardware behavior is undefined. For a single ccu_buffer scenario, use the "local on-chip memory -> local on-chip memory" path. `count` must equal the actual length of the `buffers` array. |
+| count | Input | Number of ccu_buffers (N local CCU Buffers -> `buffers[0]`). The value range is `[2, 8]` (exceeding the upper limit throws an exception with an error code). `count == 0` is rejected directly and returns `ccu_result::CCU_E_PARA`; `count == 1` is not rejected but the hardware behavior is undefined. For a single ccu_buffer scenario, use the "local on-chip memory -> local on-chip memory" path. `count` must equal the actual length of the `buffers` array. |
 | data_type | Input | Input data type. For values, see the `HcclDataType` enumeration. Only the following six types are supported: `HCCL_DATA_TYPE_UINT8`, `HCCL_DATA_TYPE_INT16`, `HCCL_DATA_TYPE_INT32`, `HCCL_DATA_TYPE_FP16`, `HCCL_DATA_TYPE_FP32`, and `HCCL_DATA_TYPE_BFP16`. Other values are rejected and an exception is thrown (with an error code). |
-| output_data_type | Input | Output data type (only for the "N local CCU Buffers -> `buffers[0]`" path). For values, see the `HcclDataType` enumeration. Two combinations are supported: ① same precision - the value is the same as `data_type`; ② promoted precision - supported only when `op_type == HCCL_REDUCE_SUM`, which reduces low-precision inputs and then promotes them to high-precision output (for example, `HCCL_DATA_TYPE_INT8` → `HCCL_DATA_TYPE_FP32`; see "Call Example - Scenario 2"). Other `data_type`/`output_data_type` combinations return `CCU_E_NOT_SUPPORT` (see the return value table). In the promoted-precision scenario, `buffers` must reserve ccu_buffers according to the precision expansion ratio. For details, see the `buffers` parameter description. |
+| output_data_type | Input | Output data type (only for the "N local CCU Buffers -> `buffers[0]`" path). For values, see the `HcclDataType` enumeration. Two combinations are supported: ① same precision - the value is the same as `data_type`; ② promoted precision - supported only when `op_type == HCCL_REDUCE_SUM`, which reduces low-precision inputs and then promotes them to high-precision output (for example, `HCCL_DATA_TYPE_INT8` → `HCCL_DATA_TYPE_FP32`; see "Call Example - Scenario 2"). Other `data_type`/`output_data_type` combinations return `ccu_result::CCU_E_NOT_SUPPORT` (see the return value table). In the promoted-precision scenario, `buffers` must reserve ccu_buffers according to the precision expansion ratio. For details, see the `buffers` parameter description. |
 | op_type | Input | Reduction operator. For values, see the `HcclReduceOp` enumeration. Only `HCCL_REDUCE_SUM`, `HCCL_REDUCE_MAX`, and `HCCL_REDUCE_MIN` are supported; `HCCL_REDUCE_PROD` is not supported and is rejected with an exception (carrying an error code) when passed. |
 | len | Input | Number of bytes to operate on, of type `variable`. The actual value is taken from the corresponding general-purpose register at the dispatch stage.<br>&bull;Local on-chip memory -> local on-chip memory: total number of bytes to operate on.<br>&bull;N local CCU Buffers -> `buffers[0]`: number of bytes of each ccu_buffer participating in the reduction, which must not exceed the size of a single slice (4096 bytes). |
 | evt | Input | Completion event object. When the hardware reduction completes, the flag bit corresponding to `mask` in `evt` is automatically set to 1, and the downstream calls `event_wait(evt, mask)` to wait. |
@@ -70,19 +70,19 @@ The supported data paths are:
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PARA` | Parameter error, including `buffers` being `nullptr` or `count` being 0. |
-| `CCU_E_NOT_SUPPORT` | Only for the "N Local End CCU Buffers -> `buffers[0]`" path: the `data_type`/`output_data_type` combination does not satisfy the higher-precision/same-precision constraint (see the `output_data_type` description for details). |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PARA` | Parameter error, including `buffers` being `nullptr` or `count` being 0. |
+| `ccu_result::CCU_E_NOT_SUPPORT` | Only for the "N Local End CCU Buffers -> `buffers[0]`" path: the `data_type`/`output_data_type` combination does not satisfy the higher-precision/same-precision constraint (see the `output_data_type` description for details). |
 
 ## Usage Constraints
 
 - The reduction is an in-place operation. Before the call, `dst` (for the "Local On-Chip Memory -> Local On-Chip Memory" path) or `buffers[0]` (for the "N Local End CCU Buffers -> `buffers[0]`" path) must already contain a valid initial value; otherwise, the reduction result is undefined.
 - For the "N Local End CCU Buffers -> `buffers[0]`" path, `buffers` must point to a physically contiguous `ccu_buffer` array. It is recommended to allocate it using `ccu::array<ccu_buffer>`.
-- For the "N Local End CCU Buffers -> `buffers[0]`" path, `count` ranges from `[2, 8]`. When `count > 8`, an exception is thrown (carrying an error code). When `count == 0`, `CCU_E_PARA` is returned directly. When `count == 1`, it is not rejected, but the hardware behavior is undefined (use the "Local On-Chip Memory -> Local On-Chip Memory" path instead).
+- For the "N Local End CCU Buffers -> `buffers[0]`" path, `count` ranges from `[2, 8]`. When `count > 8`, an exception is thrown (carrying an error code). When `count == 0`, `ccu_result::CCU_E_PARA` is returned directly. When `count == 1`, it is not rejected, but the hardware behavior is undefined (use the "Local On-Chip Memory -> Local On-Chip Memory" path instead).
 - For the "N Local End CCU Buffers -> `buffers[0]`" path, in a precision expansion scenario (low-precision input + SUM higher-precision output), `buffers` must reserve additional ccu_buffer entries according to the expansion ratio to accommodate the expanded output; otherwise, the hardware reads/writes out of bounds and the behavior is undefined.
 - For the "N Local End CCU Buffers -> `buffers[0]`" path, `len` must not exceed the size of a single `ccu_buffer` (4096 bytes). The caller must guarantee this upper limit; exceeding it results in undefined hardware behavior at runtime.
 - This API is asynchronous. You must wait for the reduction to complete by calling `event_wait(evt, mask)` before reading the result.
@@ -91,10 +91,10 @@ The supported data paths are:
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario 1: Local on-chip memory -> local on-chip memory reduction (FP16 SUM).
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     local_addr dst, src;
     variable len;
     event evt;
@@ -102,12 +102,12 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     // dst must be pre-initialized with an initial value (for example, 0.0).
     local_reduce(dst, src, len, HCCL_DATA_TYPE_FP16, HCCL_REDUCE_SUM, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 2: Reduce two ccu_buffers to buffers[0], with INT8 input promoted to FP32 output (a valid "input != output" combination;
 //        INT8 to FP32 = 4x expansion, so two input channels require reserving four ccu_buffers to hold the expanded output; see the `buffers` parameter description)
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     array<ccu_buffer> bufs(4);    // Two input channels; reserve four physically contiguous ccu_buffers according to the expansion ratio
     variable len;
     event evt;
@@ -118,11 +118,11 @@ CcuResult my_kernel2(ccu_kernel_arg arg) {
                  HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_FP32,
                  HCCL_REDUCE_SUM, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 3: Regular reduction with the same input and output type (FP16 SUM)
-CcuResult my_kernel3(ccu_kernel_arg arg) {
+ccu_result my_kernel3(ccu_kernel_arg arg) {
     array<ccu_buffer> bufs(4);
     variable len;
     event evt;
@@ -131,6 +131,6 @@ CcuResult my_kernel3(ccu_kernel_arg arg) {
                  HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP16,
                  HCCL_REDUCE_SUM, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

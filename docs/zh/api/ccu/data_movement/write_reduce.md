@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 将本端数据异步写入对端片上内存，同时按`op_type`指定的算子与对端现有数据进行归约`remote = reduce(remote, local, op_type)`，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
@@ -34,13 +34,13 @@
 ## 函数原型
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
+ccu_result write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
                       event evt, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -58,13 +58,13 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`remote`/`local`/`len`/`evt`句柄未在当前kernel内创建。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_FOUND` | 传入的`remote`/`local`/`len`/`evt`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 
@@ -72,7 +72,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 - 参数顺序为目的端在前、源端在后：`write_reduce(ch, remote, local, ...)`，顺序写反会因类型不同在编译期报错。
 - `len`必须大于0，否则硬件会发生未定义行为；该约束须由调用方自行保证。
 - `len`须小于256MB；该上限须由调用方自行保证，超出时硬件会发生未定义行为，超长数据须拆分为多次搬运。
-- 同一kernel内所有channel须属于同一die，该约束由`<<<>>>`统一校验，违反时返回`CCU_E_PARA`。
+- 同一kernel内所有channel须属于同一die，该约束由`<<<>>>`统一校验，违反时返回`ccu_result::CCU_E_PARA`。
 - `data_type`仅支持`HCCL_DATA_TYPE_INT8`、`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_UINT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_UINT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`。
 - `op_type`仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`。
 - `data_type`/`op_type`不在支持范围内时抛出异常（携带错误码），会被`<<<>>>`统一接住。
@@ -82,7 +82,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧建链后通过<<<>>>的kernelArg传入
 struct my_kernel_arg {
@@ -90,7 +90,7 @@ struct my_kernel_arg {
 };
 
 // 场景：将本端FP16数据写入对端并做SUM归约
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
     ChannelHandle ch = params->channel_handle;
     remote_addr remote;    // 对端须预先写入初值
@@ -100,6 +100,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     write_reduce(ch, remote, src, len, HCCL_DATA_TYPE_FP16, HCCL_REDUCE_SUM, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

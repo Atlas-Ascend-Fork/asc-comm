@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 CCU kernel内的硬件LoopGroup类，将多个`ccu::loop`对象组织为一组，共享同一份LoopEngine资源池，避免多个独立`loop`各自独占LoopEngine导致资源耗尽。
 
@@ -32,7 +32,7 @@ CCU kernel内的硬件LoopGroup类，将多个`ccu::loop`对象组织为一组�
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class loop_group {
@@ -47,7 +47,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -94,13 +94,13 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 
 ## 返回值说明
 
-无返回值。构造失败时抛出异常（携带[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)错误码），被`<<<>>>`统一捕获后以错误码返回。常见原因：
+无返回值。构造失败时抛出异常（携带`ccu_result`错误码），被`<<<>>>`统一捕获后以错误码返回。常见原因：
 
 | 原因 | 错误码 |
 | --- | --- |
-| `max_loop_num`为0，或var-based构造传入的`variable`无效 | `CCU_E_PARA` |
-| 实际加入的loop数超过`max_loop_num`（LoopEngine池容量不足） | `CCU_E_PARA` |
-| 物理资源不足 | `CCU_E_UNAVAIL`等 |
+| `max_loop_num`为0，或var-based构造传入的`variable`无效 | `ccu_result::CCU_E_PARA` |
+| 实际加入的loop数超过`max_loop_num`（LoopEngine池容量不足） | `ccu_result::CCU_E_PARA` |
+| 物理资源不足 | `ccu_result::CCU_E_UNAVAIL`等 |
 
 ## 约束说明
 
@@ -108,8 +108,8 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 - `loops`列表中的`ccu::loop`对象必须在`ccu::loop_group`构造前完成构造，即循环体已记录。
 - 同一个`ccu::loop`对象不应被加入多个`ccu::loop_group`。
 - Group内各Loop的循环体约束与独立`ccu::loop`相同（参见[loop](loop.md)的约束说明）。
-- `max_loop_num`必须大于0，为0时构造直接失败（`CCU_E_PARA`）。
-- `max_loop_num`应 ≥ `loops`列表实际大小（即真正会加入Group的Loop数，含展开复用）；偏小会导致后续加入Loop时因LoopEngine池容量不足而失败（`CCU_E_PARA`）。
+- `max_loop_num`必须大于0，为0时构造直接失败（`ccu_result::CCU_E_PARA`）。
+- `max_loop_num`应 ≥ `loops`列表实际大小（即真正会加入Group的Loop数，含展开复用）；偏小会导致后续加入Loop时因LoopEngine池容量不足而失败（`ccu_result::CCU_E_PARA`）。
 - var-based构造时，须保证`parallel_cfg`与`offset_cfg`的`variable`在执行期的取值符合预期，其中：`parallel_cfg`的[47:41]须等于实际加入Group的Loop个数；[54:48]指定的开始复制Loop编号须小于Group内Loop个数；按[61:55]展开后的总Loop个数（Loop个数 + 复制份数）须不超过`max_loop_num`。取值不符合预期会导致硬件Loop展开错乱，行为未定义。
 
 ## 调用示例
@@ -117,10 +117,10 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 - config-based：
 
     ```cpp
-    using namespace AscendC::ccu;
+    using namespace asc::ccu;
 
     // 场景：两个loop共享LoopEngine资源池
-    CcuResult my_kernel(ccu_kernel_arg arg) {
+    ccu_result my_kernel(ccu_kernel_arg arg) {
         variable r1, r2, numA, numB;
         numA = 10; numB = 20;
 
@@ -146,7 +146,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
         grp_cfg.event_offset = 0;
         loop_group g(grp_cfg, /*max_loop_num=*/2, {l1, l2});
 
-        return CCU_SUCCESS;
+        return ccu_result::CCU_SUCCESS;
     }
     ```
 
@@ -159,7 +159,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
         uint64_t numB;
     };
 
-    CcuResult my_kernel(ccu_kernel_arg arg)
+    ccu_result my_kernel(ccu_kernel_arg arg)
     {
         using namespace ccu;
         auto* args = static_cast<my_kernel_arg*>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
@@ -193,6 +193,6 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 
         loop_group group(var_parallel, var_offset, /*max_loop_num=*/4, {loop1, loop2});
 
-        return CCU_SUCCESS;
+        return ccu_result::CCU_SUCCESS;
     }
     ```

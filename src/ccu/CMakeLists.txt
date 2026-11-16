@@ -84,9 +84,9 @@ target_compile_definitions(asccomm_ccu_obj PRIVATE
 )
 target_compile_options(asccomm_ccu_obj PRIVATE -w -fPIC)
 target_compile_options(asccomm_ccu_obj PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/hcomm/common/ccu_log.h>
+    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/ccu_api/common/ccu_log.h>
 )
-add_subdirectory(hcomm)
+add_subdirectory(ccu_api)
 
 if(ASCCOMM_BUILD_CCU_RUNTIME)
     add_subdirectory(experimental)
@@ -95,7 +95,7 @@ endif()
 # 单一交付物：libasccomm_ccu.so 同时承载 CCU 数据面实现与 host-launch 兼容 wrapper。
 add_library(asccomm_ccu_host_obj OBJECT
     ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp
-    ${ASCCOMM_CCU_ROOT}/hcomm/dfx/ccu_profiling.cc
+    ${ASCCOMM_CCU_ROOT}/ccu_api/dfx/ccu_profiling.cc
 )
 target_link_libraries(asccomm_ccu_host_obj PRIVATE
     asccomm_ccu_headers

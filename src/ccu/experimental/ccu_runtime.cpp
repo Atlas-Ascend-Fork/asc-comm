@@ -62,7 +62,15 @@ bool allZero(const uint64_t (&values)[N])
     return true;
 }
 
-bool validStatus(ccu_status_t status) { return status >= CCU_STATUS_SUCCESS && status <= CCU_STATUS_CONTEXT_POISONED; }
+bool validStatus(ccu_status_t status)
+{
+    return status == CCU_STATUS_SUCCESS || status == CCU_STATUS_INVALID_ARGUMENT ||
+           status == CCU_STATUS_VERSION_MISMATCH || status == CCU_STATUS_INVALID_OBJECT ||
+           status == CCU_STATUS_KERNEL_NOT_FOUND || status == CCU_STATUS_SCHEMA_MISMATCH ||
+           status == CCU_STATUS_RESOURCE_EXHAUSTED || status == CCU_STATUS_RUNTIME_ERROR ||
+           status == CCU_STATUS_TIMEOUT_RECOVERED || status == CCU_STATUS_RECOVERY_FAILED ||
+           status == CCU_STATUS_BUSY || status == CCU_STATUS_CONTEXT_POISONED;
+}
 
 ccu_status_t normalizeStatus(ccu_status_t status) { return validStatus(status) ? status : CCU_STATUS_RUNTIME_ERROR; }
 
@@ -846,31 +854,41 @@ ccu_status_t ccu_synchronize(ccu_instance_t instance, void* stream, uint64_t tim
 
 const char* ccu_status_string(ccu_status_t status)
 {
-    switch (status) {
-        case CCU_STATUS_SUCCESS:
-            return "success";
-        case CCU_STATUS_INVALID_ARGUMENT:
-            return "invalid argument";
-        case CCU_STATUS_VERSION_MISMATCH:
-            return "version mismatch";
-        case CCU_STATUS_INVALID_OBJECT:
-            return "invalid object";
-        case CCU_STATUS_KERNEL_NOT_FOUND:
-            return "kernel not found";
-        case CCU_STATUS_SCHEMA_MISMATCH:
-            return "schema mismatch";
-        case CCU_STATUS_RESOURCE_EXHAUSTED:
-            return "resource exhausted";
-        case CCU_STATUS_RUNTIME_ERROR:
-            return "runtime error";
-        case CCU_STATUS_TIMEOUT_RECOVERED:
-            return "timeout recovered";
-        case CCU_STATUS_RECOVERY_FAILED:
-            return "recovery failed";
-        case CCU_STATUS_BUSY:
-            return "busy";
-        case CCU_STATUS_CONTEXT_POISONED:
-            return "context poisoned";
+    if (status == CCU_STATUS_SUCCESS) {
+        return "success";
+    }
+    if (status == CCU_STATUS_INVALID_ARGUMENT) {
+        return "invalid argument";
+    }
+    if (status == CCU_STATUS_VERSION_MISMATCH) {
+        return "version mismatch";
+    }
+    if (status == CCU_STATUS_INVALID_OBJECT) {
+        return "invalid object";
+    }
+    if (status == CCU_STATUS_KERNEL_NOT_FOUND) {
+        return "kernel not found";
+    }
+    if (status == CCU_STATUS_SCHEMA_MISMATCH) {
+        return "schema mismatch";
+    }
+    if (status == CCU_STATUS_RESOURCE_EXHAUSTED) {
+        return "resource exhausted";
+    }
+    if (status == CCU_STATUS_RUNTIME_ERROR) {
+        return "runtime error";
+    }
+    if (status == CCU_STATUS_TIMEOUT_RECOVERED) {
+        return "timeout recovered";
+    }
+    if (status == CCU_STATUS_RECOVERY_FAILED) {
+        return "recovery failed";
+    }
+    if (status == CCU_STATUS_BUSY) {
+        return "busy";
+    }
+    if (status == CCU_STATUS_CONTEXT_POISONED) {
+        return "context poisoned";
     }
     return "unknown status";
 }

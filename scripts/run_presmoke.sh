@@ -11,7 +11,7 @@
 # CCU direct样例前冒烟测试入口：样例提取 -> 编译/执行流水线 -> 结果汇总。
 # CPU并行编译与硬件串行执行重叠：编译完成的样例立即进入就绪队列排队执行，
 # 无需等待全部样例编译完成。
-# 用法：bash run_presmoke.sh [选项] [pattern ...]，不带pattern时执行全部样例。pattern匹配规则：
+# 用法：bash run_presmoke.sh [选项] [pattern ...]，不带pattern时默认执行 11_allgather_add 与 12_add_allgather 两个样例。pattern匹配规则：
 #   完整样例名    ccu_direct-04_allreduce-SC1   仅该场景
 #   样例名        ccu_direct-04_allreduce       该样例全部场景
 #   目录名        04_allreduce                  该样例全部场景
@@ -41,7 +41,7 @@ usage() {
 
 对CCU direct样例执行前冒烟：样例提取 -> 编译/执行流水线 -> 结果汇总。
 CPU并行编译与硬件串行执行重叠，编译完成的样例直接排队执行。
-不带pattern时执行全部样例。每个pattern按以下规则匹配用例（可叠加多个pattern）：
+不带pattern时默认执行 11_allgather_add 与 12_add_allgather 两个样例。每个pattern按以下规则匹配用例（可叠加多个pattern）：
     完整样例名    ccu_direct-04_allreduce-SC1   仅该场景
     样例名        ccu_direct-04_allreduce       该样例全部场景
     目录名        04_allreduce                  该样例全部场景
@@ -83,6 +83,11 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# 未指定pattern时默认仅执行 11_allgather_add 与 12_add_allgather 两个样例
+if [[ ${#SELECTED_PATTERNS[@]} -eq 0 ]]; then
+    SELECTED_PATTERNS=("11_allgather_add" "12_add_allgather")
+fi
 
 # 仅列出可用样例：只依赖parse_cases.py，无需CANN环境
 if [[ "${LIST_ONLY}" == "1" ]]; then

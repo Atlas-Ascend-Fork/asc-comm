@@ -25,7 +25,7 @@
 
 ## Function Description
 
-The header file is `#include "ccu/hcomm/ccu_primitives.hpp"`.
+The header file is `#include <ccu/asc_ccu.h>`.
 
 Supports asynchronous data copy between local on-chip memory and local CCU Buffer. The data remains unchanged during transfer, and the hardware automatically sets the flag bit corresponding to `mask` in `evt` to 1 when the copy is complete.
 
@@ -43,21 +43,21 @@ The supported data paths are:
 - Local on-chip memory -> local on-chip memory
 
     ```cpp
-    CcuResult local_copy(local_addr dst, local_addr src, variable len,
+    ccu_result local_copy(local_addr dst, local_addr src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
 - Local on-chip memory -> local CCU Buffer
 
     ```cpp
-    CcuResult local_copy(ccu_buffer dst, local_addr src, variable len,
+    ccu_result local_copy(ccu_buffer dst, local_addr src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
 - Local CCU Buffer -> local on-chip memory
 
     ```cpp
-    CcuResult local_copy(local_addr dst, ccu_buffer src, variable len,
+    ccu_result local_copy(local_addr dst, ccu_buffer src, variable len,
                         event evt, uint16_t mask = 1);
     ```
 
@@ -73,13 +73,13 @@ The supported data paths are:
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation stage. |
-| `CCU_E_NOT_FOUND` | The passed `dst`/`src`/`len`/`event` handle is not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation stage. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `dst`/`src`/`len`/`event` handle is not created in the current kernel. |
 
 ## Usage Constraints
 
@@ -92,21 +92,21 @@ The supported data paths are:
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario 1: local on-chip memory -> local on-chip memory copy
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     local_addr src, dst;
     variable len;
     event evt;
 
     local_copy(dst, src, len, evt);    // mask defaults to 0x1.
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 2: local on-chip memory → local CCU Buffer copy
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     ccu_buffer buf;
     local_addr src;
     variable len;
@@ -114,11 +114,11 @@ CcuResult my_kernel2(ccu_kernel_arg arg) {
 
     local_copy(buf, src, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 3: local CCU Buffer → local on-chip memory copy
-CcuResult my_kernel3(ccu_kernel_arg arg) {
+ccu_result my_kernel3(ccu_kernel_arg arg) {
     local_addr dst;
     ccu_buffer buf;
     variable len;
@@ -126,6 +126,6 @@ CcuResult my_kernel3(ccu_kernel_arg arg) {
 
     local_copy(dst, buf, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

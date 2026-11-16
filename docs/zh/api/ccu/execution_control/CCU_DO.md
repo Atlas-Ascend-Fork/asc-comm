@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内开始一个do-while循环块：body至少执行一次，然后由配套的`CCU_WHILE`判断是否继续。
 
@@ -50,7 +50,7 @@ CCU_DO {
 
 ## 返回值说明
 
-`CCU_DO`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)；在正常用法下不会失败。
+`CCU_DO`为预处理器宏，本身不返回`ccu_result`；在正常用法下不会失败。
 
 ## 约束说明
 
@@ -62,10 +62,10 @@ CCU_DO {
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：do-while循环，body至少执行一次，然后根据条件决定是否继续
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable inner, one;
     inner = 0;
     one = 1;
@@ -75,6 +75,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         inner = inner + one;
     } CCU_WHILE(inner != 5ULL);
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

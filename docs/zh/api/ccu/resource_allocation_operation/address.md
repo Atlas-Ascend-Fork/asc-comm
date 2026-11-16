@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::address`是CCU kernel内地址寄存器的C++包装类，用于保存地址值，支持赋值和加法运算。
 
@@ -39,7 +39,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class address final {
 public:
@@ -62,7 +62,7 @@ public:
 // variable + address（交换律，全局函数）
 /*内部表达式对象*/ operator+(const variable& var, const address& addr);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -92,8 +92,8 @@ public:
 
 ## 约束说明
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address`物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address`物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的`address`，`address a2 = a1;`后两个对象指向同一个地址寄存器；`operator=(const address&)`则会发出device端寄存器赋值指令。如需独立的`address`，必须显式默认构造。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - `address`不可被赋值到`variable`，即不提供`variable = address`操作。
@@ -103,9 +103,9 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     address base, dst;
     variable offset, stride;
 
@@ -129,6 +129,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     address result;
     result = base + dst;
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

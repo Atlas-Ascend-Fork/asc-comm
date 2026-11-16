@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `CCU_WHILE`是一个预处理器宏，承担两种语义，由其前面是否有`CCU_DO`自动区分：
 
@@ -50,13 +50,13 @@ CCU_DO {
 
 | 参数名 | 描述 |
 | --- | --- |
-| cond_expr | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`counter == 10`。条件在执行期由CCU硬件计算。 |
+| cond_expr | 条件表达式，类型为`asc::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`counter == 10`。条件在执行期由CCU硬件计算。 |
 
 `cond_expr`的定义与生成方式请参见[CCU_IF](CCU_IF.md#参数说明)。
 
 ## 返回值说明
 
-`CCU_WHILE`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`，此时宏不抛异常、也不阻断kernel生成：失败时body会被跳过，但kernel生成仍然成功，错误不通过返回值反馈，调试时需留意。
+`CCU_WHILE`为预处理器宏，本身不返回`ccu_result`。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`ccu_result::CCU_E_PARA`/`ccu_result::CCU_E_NOT_FOUND`，此时宏不抛异常、也不阻断kernel生成：失败时body会被跳过，但kernel生成仍然成功，错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 
@@ -70,10 +70,10 @@ CCU_DO {
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：独立while循环，对计数器循环10次
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable counter, one;
     counter = 0;
     one = 1;
@@ -83,6 +83,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         counter = counter + one;
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

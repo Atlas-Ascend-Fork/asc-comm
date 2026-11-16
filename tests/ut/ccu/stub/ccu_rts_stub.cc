@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_adapter_rts.h"
+#include "asccomm_adapter_rts.h"
 
 #include "acl/acl_rt.h"
 

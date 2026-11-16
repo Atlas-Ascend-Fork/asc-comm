@@ -67,7 +67,6 @@ target_link_options(ccu_allreduce PRIVATE
     -Wl,-z,noexecstack
 )
 target_link_directories(ccu_allreduce PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(ccu_allreduce PRIVATE

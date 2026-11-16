@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 阻塞等待本端同步寄存器中`mask`对应的event标志位，直到其全部为1后继续执行，随后自动将这些标志位清零。该标志位由同kernel内的[event_record](event_record.md)或[数据搬运接口](../data_movement/README.md)置位。
 
@@ -33,11 +33,11 @@
 ## 函数原型
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult event_wait(event e, uint16_t mask = 1);
+ccu_result event_wait(event e, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -49,16 +49,16 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel内创建。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel内创建。 |
 
 > [!NOTE]说明
-> 本接口在调用处不做参数取值校验，不会返回`CCU_E_PARA`。
+> 本接口在调用处不做参数取值校验，不会返回`ccu_result::CCU_E_PARA`。
 
 ## 约束说明
 
@@ -70,11 +70,11 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：等待本端片上内存→片上内存拷贝完成后再继续
 // CCU kernel函数体内
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     local_addr src, dst;
     variable len;
     event evt;
@@ -86,6 +86,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     event_wait(evt, 0x1);
 
     // 此后可安全使用dst指向的数据
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

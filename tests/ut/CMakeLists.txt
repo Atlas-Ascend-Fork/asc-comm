@@ -24,6 +24,9 @@ init_cann_project(PREPEND_MODULE_PATH)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 下沉头（ccu_primitives_impl.h）位于 src/ccu，公共头经 ccu_api/ 相对引用
+include_directories(${ASCCOMM_ROOT}/src/ccu)
+
 set(PRODUCT_TYPE_LIST "ascend950pr_9599_AIV;ascend910B1_AIC" CACHE STRING "Hcomm UT product types")
 set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
 option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
@@ -265,6 +268,7 @@ add_library(asccomm_ccu_host_launch STATIC
 target_include_directories(asccomm_ccu_host_launch
     PUBLIC
         ${ASCCOMM_ROOT}/include
+        ${ASCCOMM_ROOT}/src/ccu
         ${ASCCOMM_ROOT}/pkg_inc/hcomm
         ${ASCCOMM_ROOT}/pkg_inc
     PRIVATE
@@ -287,6 +291,7 @@ add_executable(asccomm_ut_ccu_host_launch
 )
 target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/src/ccu
@@ -354,4 +359,4 @@ endfunction()
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
 add_subdirectory(aicpu/asccomm aicpu_asccomm)
-add_subdirectory(ccu/hcomm ccu_hcomm)
+add_subdirectory(ccu/ccu_api ccu_api)

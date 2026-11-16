@@ -12,11 +12,11 @@
 
 namespace {
 
-CcuResult g_registerStartResult = CcuResult::CCU_SUCCESS;
-CcuResult g_registerKernelResult = CcuResult::CCU_SUCCESS;
-CcuResult g_registerEndResult = CcuResult::CCU_SUCCESS;
-CcuResult g_getTaskArgsNumResult = CcuResult::CCU_SUCCESS;
-CcuResult g_kernelLaunchResult = CcuResult::CCU_SUCCESS;
+ccu_result g_registerStartResult = ccu_result::CCU_SUCCESS;
+ccu_result g_registerKernelResult = ccu_result::CCU_SUCCESS;
+ccu_result g_registerEndResult = ccu_result::CCU_SUCCESS;
+ccu_result g_getTaskArgsNumResult = ccu_result::CCU_SUCCESS;
+ccu_result g_kernelLaunchResult = ccu_result::CCU_SUCCESS;
 uint32_t g_taskArgsNum = 0;
 CcuLaunchStubObservations g_observations{};
 
@@ -24,18 +24,18 @@ CcuLaunchStubObservations g_observations{};
 
 void ResetCcuLaunchStub()
 {
-    g_registerStartResult = CcuResult::CCU_SUCCESS;
-    g_registerKernelResult = CcuResult::CCU_SUCCESS;
-    g_registerEndResult = CcuResult::CCU_SUCCESS;
-    g_getTaskArgsNumResult = CcuResult::CCU_SUCCESS;
-    g_kernelLaunchResult = CcuResult::CCU_SUCCESS;
+    g_registerStartResult = ccu_result::CCU_SUCCESS;
+    g_registerKernelResult = ccu_result::CCU_SUCCESS;
+    g_registerEndResult = ccu_result::CCU_SUCCESS;
+    g_getTaskArgsNumResult = ccu_result::CCU_SUCCESS;
+    g_kernelLaunchResult = ccu_result::CCU_SUCCESS;
     g_taskArgsNum = 0;
     g_observations = {};
 }
 
 void SetCcuLaunchStubResults(
-    CcuResult registerStart, CcuResult registerKernel, CcuResult registerEnd, CcuResult getTaskArgsNum,
-    CcuResult kernelLaunch)
+    ccu_result registerStart, ccu_result registerKernel, ccu_result registerEnd, ccu_result getTaskArgsNum,
+    ccu_result kernelLaunch)
 {
     g_registerStartResult = registerStart;
     g_registerKernelResult = registerKernel;
@@ -48,14 +48,14 @@ void SetCcuLaunchStubTaskArgsNum(uint32_t taskArgsNum) { g_taskArgsNum = taskArg
 
 CcuLaunchStubObservations GetCcuLaunchStubObservations() { return g_observations; }
 
-extern "C" CcuResult asccomm_ccu_kernel_register_start(void* insHandle)
+extern "C" ccu_result asccomm_ccu_kernel_register_start(void* insHandle)
 {
     ++g_observations.calls.registerStart;
     g_observations.lastInsHandle = insHandle;
     return g_registerStartResult;
 }
 
-extern "C" CcuResult asccomm_ccu_kernel_register(
+extern "C" ccu_result asccomm_ccu_kernel_register(
     void* insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
     uint32_t argNum, ccu_kernel_handle* kernelHandle)
 {
@@ -68,51 +68,51 @@ extern "C" CcuResult asccomm_ccu_kernel_register(
         g_observations.lastKernelArg = kernelArgs[0];
     }
     if (kernelHandle == nullptr) {
-        return CcuResult::CCU_E_PTR;
+        return ccu_result::CCU_E_PTR;
     }
-    if (g_registerKernelResult != CcuResult::CCU_SUCCESS) {
+    if (g_registerKernelResult != ccu_result::CCU_SUCCESS) {
         return g_registerKernelResult;
     }
 
-    // The wrapper registers a trampoline returning CcuResult. Execute it here to cover the
+    // The wrapper registers a trampoline returning ccu_result. Execute it here to cover the
     // void-kernel adaptation without depending on the real kernel representation stack.
     if (argNum != 1U || kernelArgs == nullptr) {
-        return CcuResult::CCU_E_PARA;
+        return ccu_result::CCU_E_PARA;
     }
-    using CcuKernelFunc = CcuResult (*)(ccu_kernel_arg);
+    using CcuKernelFunc = ccu_result (*)(ccu_kernel_arg);
     auto kernel = reinterpret_cast<CcuKernelFunc>(const_cast<void*>(kernelFunc));
-    CcuResult ret = kernel(const_cast<void*>(kernelArgs[0]));
-    if (ret != CcuResult::CCU_SUCCESS) {
+    ccu_result ret = kernel(const_cast<void*>(kernelArgs[0]));
+    if (ret != ccu_result::CCU_SUCCESS) {
         return ret;
     }
     *kernelHandle = 0x5100U;
     g_observations.lastKernelHandle = *kernelHandle;
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult asccomm_ccu_kernel_register_end(void* insHandle)
+extern "C" ccu_result asccomm_ccu_kernel_register_end(void* insHandle)
 {
     ++g_observations.calls.registerEnd;
     g_observations.lastInsHandle = insHandle;
     return g_registerEndResult;
 }
 
-extern "C" CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernelHandle, uint32_t* taskArgsNum)
+extern "C" ccu_result asccomm_ccu_get_task_args_num(ccu_kernel_handle kernelHandle, uint32_t* taskArgsNum)
 {
     ++g_observations.calls.getTaskArgsNum;
     g_observations.lastKernelHandle = kernelHandle;
     if (taskArgsNum == nullptr) {
-        return CcuResult::CCU_E_PTR;
+        return ccu_result::CCU_E_PTR;
     }
-    if (g_getTaskArgsNumResult != CcuResult::CCU_SUCCESS) {
+    if (g_getTaskArgsNumResult != ccu_result::CCU_SUCCESS) {
         return g_getTaskArgsNumResult;
     }
     *taskArgsNum = g_taskArgsNum;
     g_observations.lastTaskArgsNum = *taskArgsNum;
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult asccomm_ccu_kernel_launch(
+extern "C" ccu_result asccomm_ccu_kernel_launch(
     ccu_launch_stream stream, ccu_kernel_handle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
     ++g_observations.calls.kernelLaunch;

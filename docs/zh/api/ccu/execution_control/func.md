@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::func`将一个lambda封装为可复用的函数块（FuncBlock）：构造时仅记录lambda，不生成指令；首次通过[call_func](call_func.md)调用时执行lambda，把逻辑合成为一份指令块；后续每次调用只追加一条跳转指令，复用同一份指令块，从而节省指令空间。lambda形参为零个或多个`ccu::variable`，在调用时绑定实参，返回`void`。
 
@@ -33,7 +33,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class func {
@@ -47,7 +47,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -71,7 +71,7 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 static func add_dbl([](variable x) {
     variable tmp;

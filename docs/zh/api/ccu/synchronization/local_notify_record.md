@@ -23,18 +23,18 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内发出同die内跨kernel同步信号的生产者侧接口，以字符串tag标识配对：相同tag的生产/消费两侧自动绑定到同一同步资源。
 
 > [!NOTE]说明
-> 本接口在C++层实现为`AscendC::ccu::event_record(const char* notify_tag, uint16_t mask)`重载，与`event_record(event, mask)`共用同一函数名，通过入参类型区分。适用于同一die内不同kernel之间的顺序同步（同device跨kernel），不适用于跨die或跨rank场景，跨die场景请使用[notify_record](notify_record.md)。
+> 本接口在C++层实现为`asc::ccu::event_record(const char* notify_tag, uint16_t mask)`重载，与`event_record(event, mask)`共用同一函数名，通过入参类型区分。适用于同一die内不同kernel之间的顺序同步（同device跨kernel），不适用于跨die或跨rank场景，跨die场景请使用[notify_record](notify_record.md)。
 
 ## 函数原型
 
 ```cpp
 // local_notify_record 对应 event_record 的 const char* 重载
-CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
+ccu_result event_record(const char* notify_tag, uint16_t mask = 1);
 ```
 
 ## 参数说明
@@ -46,17 +46,17 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_SUPPORT` | 在硬件loop body内调用，不支持。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | `notify_tag`为空指针，或接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_SUPPORT` | 在硬件loop body内调用，不支持。 |
 
 ## 约束说明
 
-- 不可在硬件loop body内调用，否则将返回`CCU_E_NOT_SUPPORT`。loop body会被硬件并行展开为N份，notify记录语义在并行环境中不唯一。
+- 不可在硬件loop body内调用，否则将返回`ccu_result::CCU_E_NOT_SUPPORT`。loop body会被硬件并行展开为N份，notify记录语义在并行环境中不唯一。
 - `notify_tag`必须在翻译期保持有效，应使用字符串字面量（如`"phase1_done"`）或kernel内的`static char[]`，禁止使用栈上临时`char[]`。
 - 生产侧`local_notify_record`与消费侧`local_notify_wait`必须使用完全相同的`notify_tag`字符串内容进行配对。
 - 同一tag可承载多组配对，由`mask`的不同bit区分；等待侧`mask`必须与此处一致。
@@ -68,24 +68,24 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：同die内，phase_producer_kernel完成阶段1操作后通知phase_consumer_kernel继续
 // core 0 上的CCU kernel函数体内
-CcuResult phase_producer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_producer_kernel(ccu_kernel_arg arg) {
     // ... 阶段1操作 ...
 
     // 通知同die内的phase_consumer_kernel，阶段1已完成（即local_notify_record语义）
     event_record("phase1_done", 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // core 1 上的CCU kernel函数体内
-CcuResult phase_consumer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_consumer_kernel(ccu_kernel_arg arg) {
     // 等待phase_producer_kernel发出的阶段1完成信号
     event_wait("phase1_done", 0x1);
 
     // 此后可安全使用phase_producer_kernel阶段1的结果
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

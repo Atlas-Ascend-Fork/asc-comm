@@ -17,9 +17,9 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 
@@ -118,7 +118,7 @@ struct AllGatherMesh1DMem2MemContext {
     bool IsLoopEntityRegistered(std::string loopStr) { return loopMap.count(loopStr) != 0; }
 };
 
-// 把 CCU 接口返回的 CcuResult 归一化为 HCCL 错误码，便于统一用 HCCLCHECK 检查
+// 把 CCU 接口返回的 ccu_result 归一化为 HCCL 错误码，便于统一用 HCCLCHECK 检查
 
 static constexpr uint64_t SetBits(uint16_t end) { return ((uint64_t(1) << (end + 1)) - uint64_t(1)); }
 
@@ -264,7 +264,7 @@ static void InitGroupCopyResources(
 }
 
 // 按切分参数执行本地拷贝。
-static CcuResult GroupCopy(
+static ccu_result GroupCopy(
     AllGatherMesh1DMem2MemContext& ctx, ccu::local_addr dst, ccu::local_addr src, GroupOpSizeVars goSize)
 {
     ccu::local_addr loopSrc[2];
@@ -336,11 +336,11 @@ static CcuResult GroupCopy(
         ccu::loop_group group(goSize.parallelParam, offsetCfg, ctx.moConfig.loopCount, grpLoops);
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 按 rank 拆分地址并执行 AllGather：跨 rank 写入与本地拷贝配合，最后等所有 rank 完成。
-static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
+static ccu_result ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
 {
     ccu::local_addr src;
     ccu::local_addr localDst;
@@ -382,7 +382,7 @@ static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
     const uint16_t totalMask = (1 << ctx.arg->rankSize) - 1;
     ccu::event_wait(ctx.event, totalMask);
 
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

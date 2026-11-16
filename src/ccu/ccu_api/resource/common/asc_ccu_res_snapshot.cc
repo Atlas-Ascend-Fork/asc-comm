@@ -1,0 +1,305 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "ccu_api/resource/common/asc_ccu_res_snapshot.h"
+#include "ccu_api/common/ccu_log.h"
+
+#include <algorithm>
+#include <limits>
+#include <cstring>
+
+namespace asc {
+namespace {
+
+constexpr uint32_t CCU_INSTANCE_DIE_CAPACITY = 8U; // Instance 预留的 die 槽数
+
+std::vector<asc_ccu_res_range>* get_ranges(asc_ccu_res_repository& repository, uint32_t resource_type, uint32_t die_id)
+{
+    switch (resource_type) {
+        case HCOMM_CCU_BATCH_RES_LOOP:
+            return &repository.loop_engine[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_LOOP:
+            return &repository.block_loop_engine[die_id];
+        case HCOMM_CCU_BATCH_RES_MS:
+            return &repository.ms[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_MS:
+            return &repository.block_ms[die_id];
+        case HCOMM_CCU_BATCH_RES_CKE:
+            return &repository.cke[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_CKE:
+            return &repository.block_cke[die_id];
+        case HCOMM_CCU_BATCH_RES_XN:
+            return &repository.xn[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_XN:
+            return &repository.block_xn[die_id];
+        case HCOMM_CCU_BATCH_RES_GSA:
+            return &repository.gsa[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_GSA:
+            return &repository.block_gsa[die_id];
+        case HCOMM_CCU_BATCH_RES_MISSION:
+            return &repository.mission[die_id];
+        default:
+            return nullptr; // INS 不走 range 视图，由控制操作槽位按需申请
+    }
+}
+
+bool is_instance_header_valid(const HcommCcuInstanceEntity& instance)
+{
+    return instance.header.version == HCOMM_CCU_INSTANCE_ENTITY_ABI_VERSION &&
+           instance.header.magicWord == HCOMM_CCU_INSTANCE_ENTITY_MAGIC_WORD &&
+           instance.header.size == sizeof(HcommCcuInstanceEntity) && instance.header.reserved == 0 &&
+           instance.reserved == 0;
+}
+
+bool is_die_metadata_valid(const HcommCcuDieMetadata& metadata)
+{
+    return metadata.header.version == HCOMM_CCU_RES_ABI_VERSION &&
+           metadata.header.magicWord == HCOMM_CCU_DIE_METADATA_MAGIC_WORD &&
+           metadata.header.size == sizeof(HcommCcuDieMetadata) && metadata.header.reserved == 0 &&
+           metadata.reserved == 0;
+}
+
+bool is_disabled_die_metadata_placeholder(const HcommCcuDieMetadata& metadata)
+{
+    HcommCcuDieMetadata zeroMetadata{};
+    zeroMetadata.header = metadata.header;
+    zeroMetadata.enabled = metadata.enabled;
+    return memcmp(&metadata, &zeroMetadata, sizeof(metadata)) == 0;
+}
+
+// 从 die 元数据推导有效 die 位图
+uint32_t derive_valid_die_mask(const HcommCcuInstanceEntity& instance)
+{
+    uint32_t mask = 0;
+    for (uint32_t slot = 0; slot < instance.ccuDieNum && slot < CCU_INSTANCE_DIE_CAPACITY; ++slot) {
+        const HcommCcuDieMetadata* metadata = instance.ccuDieReses[slot].dieMetadata;
+        if (metadata != nullptr && metadata->enabled != 0) {
+            mask |= 1U << slot;
+        }
+    }
+    return mask;
+}
+
+// 控制操作槽位校验：槽 0-2 （ChannelEntity/AllocInstSpace/SubmitInsts）
+bool is_control_ops_valid(const uint64_t (&control_ops)[8])
+{
+    return control_ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] != 0 &&
+           control_ops[HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE] != 0 &&
+           control_ops[HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS] != 0;
+}
+
+bool ranges_overlap(const asc_ccu_res_range& left, const asc_ccu_res_range& right)
+{
+    if (left.resource_type != right.resource_type || left.die_id != right.die_id) {
+        return false;
+    }
+    const uint64_t left_end = static_cast<uint64_t>(left.start_id) + left.count;
+    const uint64_t right_end = static_cast<uint64_t>(right.start_id) + right.count;
+    return static_cast<uint64_t>(left.start_id) < right_end && static_cast<uint64_t>(right.start_id) < left_end;
+}
+
+// 把一段 wire range（类型与 die 来自外层索引）追加进本地仓储，并做形状与重叠校验
+ccu_result append_wire_ranges(
+    const HcommCcuDieResRangePack& type_view, uint32_t resource_type, uint32_t die_id, uint32_t valid_die_mask,
+    std::vector<asc_ccu_res_range>& all_ranges, asc_ccu_res_repository& repository)
+{
+    if (type_view.resourceType != resource_type || type_view.reserved != 0) {
+        return ccu_result::CCU_E_PARA;
+    }
+    if (type_view.resRangeNum > 0 && type_view.resRanges == nullptr) {
+        return ccu_result::CCU_E_PARA;
+    }
+    for (uint32_t index = 0; index < type_view.resRangeNum; ++index) {
+        const HcommCcuDieResRange& range = type_view.resRanges[index];
+        if (range.reserved != 0 || (valid_die_mask & (1U << die_id)) == 0 || range.count == 0 ||
+            static_cast<uint64_t>(range.startId) + range.count >
+                static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1U) {
+            return ccu_result::CCU_E_PARA;
+        }
+        asc_ccu_res_range local{resource_type, die_id, range.startId, range.count};
+        for (const auto& existing : all_ranges) {
+            if (ranges_overlap(existing, local)) {
+                return ccu_result::CCU_E_PARA;
+            }
+        }
+        all_ranges.push_back(local);
+        auto* destination = get_ranges(repository, resource_type, die_id);
+        if (destination == nullptr) {
+            return ccu_result::CCU_E_PARA;
+        }
+        destination->push_back(local);
+    }
+    return ccu_result::CCU_SUCCESS;
+}
+
+bool is_unused_type_view_zero(const HcommCcuDieResRangePack& type_view)
+{
+    return type_view.resourceType == 0 && type_view.resRangeNum == 0 && type_view.resRanges == nullptr &&
+           type_view.reserved == 0;
+}
+} // namespace
+
+ccu_result asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
+{
+    if (!is_instance_header_valid(instance) || instance.ccuDieNum > CCU_INSTANCE_DIE_CAPACITY ||
+        instance.ccuDieNum != HCOMM_CCU_MAX_DIE_NUM || // 现网 2 die；硬件扩展后放开
+        instance.ccuVersion > HCOMM_CCU_VERSION_V2 || !is_control_ops_valid(instance.ascCustom)) {
+        return ccu_result::CCU_E_PARA;
+    }
+
+    asc_ccu_res_repository instance_snapshot{};
+    std::vector<asc_ccu_res_range> all_ranges{};
+    std::array<HcommCcuDieMetadata, HCOMM_CCU_MAX_DIE_NUM> die_metadata{};
+
+    // 先按 dieId 顺序装载各 die；有效位图从 dieMetadata.enabled 推导
+    uint32_t derived_die_mask = 0;
+    for (uint32_t slot = 0; slot < CCU_INSTANCE_DIE_CAPACITY; ++slot) {
+        const HcommCcuDieRes& die_res = instance.ccuDieReses[slot];
+        if (slot < instance.ccuDieNum) {
+            if (die_res.dieId != slot) {
+                return ccu_result::CCU_E_PARA;
+            }
+            // 两遍装载：第一遍取元数据（enabled 决定位图），第二遍按位图校验 range 视图
+            // 每个 die 槽位都必须携带合法元数据；未启用 die 不得携带资源视图
+            if (die_res.dieMetadata == nullptr) {
+                return ccu_result::CCU_E_PARA;
+            }
+            if (!is_die_metadata_valid(*die_res.dieMetadata) || die_res.dieMetadata->enabled > 1) {
+                return ccu_result::CCU_E_PARA;
+            }
+            if (die_res.dieMetadata->enabled == 0 && !is_disabled_die_metadata_placeholder(*die_res.dieMetadata)) {
+                return ccu_result::CCU_E_PARA;
+            }
+            die_metadata[slot] = *die_res.dieMetadata; // 深拷贝元数据，此后不再触碰 hcomm 内存
+            if (die_metadata[slot].enabled != 0) {
+                derived_die_mask |= 1U << slot;
+            }
+        } else if (
+            die_res.dieId != 0 || die_res.resTypeNum != 0 || die_res.dieMetadata != nullptr ||
+            std::any_of(die_res.reserved, die_res.reserved + 16, [](uint64_t field) { return field != 0; })) {
+            // 超出 ccuDieNum 的预留槽位必须整体为零
+            return ccu_result::CCU_E_PARA;
+        }
+    }
+    if (derived_die_mask == 0 || (derived_die_mask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0) {
+        return ccu_result::CCU_E_PARA;
+    }
+    // 第二遍：按推导位图校验并装载 range（未启用 die 不得携带资源视图）
+    for (uint32_t slot = 0; slot < instance.ccuDieNum; ++slot) {
+        const HcommCcuDieRes& die_res = instance.ccuDieReses[slot];
+        const bool enabled = (derived_die_mask & (1U << slot)) != 0;
+        if (enabled) {
+            if (die_res.resTypeNum > HCOMM_CCU_BATCH_RES_TYPE_COUNT) {
+                return ccu_result::CCU_E_PARA;
+            }
+            uint32_t prev_type = 0;
+            for (uint32_t index = 0; index < die_res.resTypeNum; ++index) {
+                const HcommCcuDieResRangePack& type_view = die_res.resTypes[index];
+                const uint32_t type = type_view.resourceType;
+                if (type >= HCOMM_CCU_BATCH_RES_TYPE_COUNT || (index > 0 && type <= prev_type)) {
+                    return ccu_result::CCU_E_PARA;
+                }
+                CCU_CHK_RET(append_wire_ranges(
+                    type_view, type, die_res.dieId, derived_die_mask, all_ranges, instance_snapshot));
+                prev_type = type;
+            }
+            if (!std::all_of(
+                    die_res.resTypes + die_res.resTypeNum, die_res.resTypes + 32,
+                    [](const HcommCcuDieResRangePack& type_view) { return is_unused_type_view_zero(type_view); })) {
+                return ccu_result::CCU_E_PARA;
+            }
+        } else if (
+            die_res.resTypeNum != 0 ||
+            !std::all_of(die_res.resTypes, die_res.resTypes + 32, [](const HcommCcuDieResRangePack& type_view) {
+                return is_unused_type_view_zero(type_view);
+            })) {
+            return ccu_result::CCU_E_PARA;
+        }
+    }
+
+    asc_ccu_res_repository current_repo = instance_snapshot;
+    ccu_version_ = instance.ccuVersion;
+    valid_die_mask_ = derived_die_mask;
+    for (uint32_t i = 0; i < 8; ++i) {
+        control_ops_[i] = instance.ascCustom[i];
+    }
+    initial_repo_ = std::move(instance_snapshot);
+    res_repo_ = std::move(current_repo);
+    die_metadata_ = die_metadata;
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result asc_ccu_res_snapshot::reset()
+{
+    if (valid_die_mask_ == 0) {
+        return ccu_result::CCU_E_UNAVAIL;
+    }
+    res_repo_ = initial_repo_;
+    return ccu_result::CCU_SUCCESS;
+}
+
+asc_ccu_res_repository& asc_ccu_res_snapshot::get_ccu_res_repo() { return res_repo_; }
+
+const HcommCcuDieMetadata* asc_ccu_res_snapshot::get_die_metadata(uint32_t die_id) const
+{
+    return die_id < HCOMM_CCU_MAX_DIE_NUM ? &die_metadata_[die_id] : nullptr;
+}
+
+uint32_t asc_ccu_res_snapshot::get_ccu_version() const { return ccu_version_; }
+
+ccu_result asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& address) const
+{
+    const auto* metadata = get_die_metadata(die_id);
+    if (metadata == nullptr) {
+        return ccu_result::CCU_E_PARA;
+    }
+    // Match hcomm CcuResSpecifications::GetXnBaseAddr: addr is the resource-space
+    // base, not the XN base. Preserve the reported address/size/token and derive
+    // the XN mapping separately; size is not necessarily the address-window span.
+    constexpr uint64_t v1_xn_offset = 0x800000ULL + 0x100000ULL + 0x8000ULL;
+    constexpr uint64_t v2_xn_offset = 0x100000ULL;
+    if (ccu_version_ != HCOMM_CCU_VERSION_V1 && ccu_version_ != HCOMM_CCU_VERSION_V2) {
+        return ccu_result::CCU_E_NOT_SUPPORT;
+    }
+    const uint64_t offset = ccu_version_ == HCOMM_CCU_VERSION_V1 ? v1_xn_offset : v2_xn_offset;
+    const auto& buffer = metadata->ccuResBuffer.bufferInfo.rma;
+    // 旧版控制面在 A5 上上报 size=0x180000，但原版 HComm 的 XN 地址仍为
+    // base+0x908000+id*8：size 并非从 addr 开始的完整 CCU 地址窗口跨度。
+    // 因此不能用 offset<size 做普通线性 buffer 的越界判断，否则所有注册都被挡住。
+    // XN ID 的合法范围由资源池分配保证；这里只检查元数据非空及地址加法溢出。
+    if (buffer.addr == 0 || buffer.size < sizeof(uint64_t) ||
+        buffer.addr > std::numeric_limits<uint64_t>::max() - offset - sizeof(uint64_t)) {
+        HCCL_ERROR(
+            "[CCU_XN_BASE] invalid resource mapping, die[%u] version[%u] base[0x%llx] size[%llu] offset[0x%llx]",
+            die_id, ccu_version_, static_cast<unsigned long long>(buffer.addr),
+            static_cast<unsigned long long>(buffer.size), static_cast<unsigned long long>(offset));
+        return ccu_result::CCU_E_PARA;
+    }
+    address = buffer.addr + offset;
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result asc_ccu_res_snapshot::get_xn_base_addrs(uint64_t (&addresses)[HCOMM_CCU_MAX_DIE_NUM]) const
+{
+    for (uint32_t die_id = 0; die_id < HCOMM_CCU_MAX_DIE_NUM; ++die_id) {
+        addresses[die_id] = 0;
+        if ((valid_die_mask_ & (1U << die_id)) == 0) {
+            continue;
+        }
+        CCU_CHK_RET(get_xn_base_addr(die_id, addresses[die_id]));
+    }
+    return ccu_result::CCU_SUCCESS;
+}
+
+uint32_t asc_ccu_res_snapshot::get_valid_die_mask() const { return valid_die_mask_; }
+
+const uint64_t* asc_ccu_res_snapshot::get_control_ops() const { return control_ops_; }
+
+} // namespace asc

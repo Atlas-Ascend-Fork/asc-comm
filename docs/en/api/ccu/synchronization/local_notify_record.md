@@ -25,18 +25,18 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Sends a cross-kernel synchronization signal within the same die in a CCU kernel. It is a producer-side API. Pairing is identified by a string tag: the producer and consumer sides with the same tag are automatically bound to the same synchronization resource.
 
 > [!NOTE] Note
-> This API is implemented in C++ as the `AscendC::ccu::event_record(const char* notify_tag, uint16_t mask)` overload, which shares the same function name as `event_record(event, mask)` and is distinguished by the input parameter type. It applies to sequential synchronization between different kernels within the same die (cross-kernel on the same device), and does not apply to cross-die or cross-rank scenarios. For cross-die scenarios, use [notify_record](notify_record.md).
+> This API is implemented in C++ as the `asc::ccu::event_record(const char* notify_tag, uint16_t mask)` overload, which shares the same function name as `event_record(event, mask)` and is distinguished by the input parameter type. It applies to sequential synchronization between different kernels within the same die (cross-kernel on the same device), and does not apply to cross-die or cross-rank scenarios. For cross-die scenarios, use [notify_record](notify_record.md).
 
 ## Function Prototype
 
 ```cpp
 // local_notify_record corresponds to the const char* overload of event_record.
-CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
+ccu_result event_record(const char* notify_tag, uint16_t mask = 1);
 ```
 
 ## Parameters
@@ -48,17 +48,17 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | `notify_tag` is a null pointer, or the API is called outside the compilation phase. |
-| `CCU_E_NOT_SUPPORT` | Called inside a hardware loop body, which is not supported. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | `notify_tag` is a null pointer, or the API is called outside the compilation phase. |
+| `ccu_result::CCU_E_NOT_SUPPORT` | Called inside a hardware loop body, which is not supported. |
 
 ## Usage Constraints
 
-- The API cannot be called inside a hardware loop body; otherwise, `CCU_E_NOT_SUPPORT` is returned. The loop body is expanded into N copies in parallel by the hardware, and the semantics of the notify record are not unique in a parallel environment.
+- The API cannot be called inside a hardware loop body; otherwise, `ccu_result::CCU_E_NOT_SUPPORT` is returned. The loop body is expanded into N copies in parallel by the hardware, and the semantics of the notify record are not unique in a parallel environment.
 - `notify_tag` must remain valid during the execution of the kernel function body. Use a string literal (such as `"phase1_done"`) or a `static char[]` inside the kernel. Do not use a temporary `char[]` on the stack.
 - The producer-side `local_notify_record` and the consumer-side `local_notify_wait` must use exactly the same `notify_tag` string content for pairing.
 - The same tag can carry multiple pairs, distinguished by different bits of `mask`. The `mask` on the waiting side must be consistent with the one here.
@@ -70,24 +70,24 @@ CcuResult event_record(const char* notify_tag, uint16_t mask = 1);
 
 ```cpp
 // For simplicity, the return value handling and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: On the same die, phase_producer_kernel notifies phase_consumer_kernel to continue after completing phase 1.
 // Inside the CCU kernel function body on core 0
-CcuResult phase_producer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_producer_kernel(ccu_kernel_arg arg) {
     // ... Phase 1 operations ...
 
     // Notify phase_consumer_kernel on the same die that phase 1 is complete (that is, the local_notify_record semantics).
     event_record("phase1_done", 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Inside the CCU kernel function body on core 1
-CcuResult phase_consumer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_consumer_kernel(ccu_kernel_arg arg) {
     // Wait for the phase 1 completion signal sent by phase_producer_kernel.
     event_wait("phase1_done", 0x1);
 
     // The phase 1 result of phase_producer_kernel can now be used safely.
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

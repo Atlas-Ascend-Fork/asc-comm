@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`.
+Header file: `#include <ccu/asc_ccu.h>`.
 
 `ccu::address` is a C++ wrapper class for the address register in the CCU kernel. It stores address values and supports assignment and addition operations.
 
@@ -41,7 +41,7 @@ Unlike [`variable`](variable.md), which stores scalar values, `address` specific
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class address final {
 public:
@@ -64,7 +64,7 @@ public:
 // variable + address (commutative, global function)
 /*Internal expression object*/ operator+(const variable& var, const address& addr);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Constructor Description
@@ -94,8 +94,8 @@ public:
 
 ## Usage Constraints
 
-- It can only be constructed during the compilation phase; constructing outside the compilation phase throws an exception carrying `CCU_E_PTR`.
-- The default constructor only requests a virtual handle and always succeeds without throwing an exception during the compilation phase; when `address` physical resources are insufficient, the compilation phase returns `CCU_E_UNAVAIL` instead of throwing at construction time.
+- It can only be constructed during the compilation phase; constructing outside the compilation phase throws an exception carrying `ccu_result::CCU_E_PTR`.
+- The default constructor only requests a virtual handle and always succeeds without throwing an exception during the compilation phase; when `address` physical resources are insufficient, the compilation phase returns `ccu_result::CCU_E_UNAVAIL` instead of throwing at construction time.
 - The copy/move constructors only copy the `handle` field and do not request a new `address`; after `address a2 = a1;`, both objects point to the same address register. `operator=(const address&)` issues a device-side register assignment instruction. To obtain an independent `address`, you must explicitly use the default constructor.
 - Do not save or compare the `handle` value outside the kernel; the handle becomes invalid after translation completes.
 - `address` cannot be assigned to `variable`, that is, the `variable = address` operation is not provided.
@@ -105,9 +105,9 @@ public:
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     address base, dst;
     variable offset, stride;
 
@@ -131,6 +131,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     address result;
     result = base + dst;
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

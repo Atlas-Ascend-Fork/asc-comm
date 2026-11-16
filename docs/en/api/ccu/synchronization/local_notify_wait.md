@@ -25,18 +25,18 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Blocks and waits for a cross-kernel synchronization signal in the same die within the CCU kernel, with kernels paired by a string tag. It is a consumer-side API. When hardware execution reaches this point, it blocks until the corresponding bit is set.
 
 > [!NOTE] Note
-> This API is implemented at the C++ layer as an overload of `AscendC::ccu::event_wait(const char* notify_tag, uint16_t mask)`. It shares the same function name as `event_wait(event, mask)` and is distinguished by the input parameter type. It applies to sequential synchronization between different kernels within the same die, but not to cross-die or cross-rank scenarios. For cross-die scenarios, use [notify_wait](notify_wait.md).
+> This API is implemented at the C++ layer as an overload of `asc::ccu::event_wait(const char* notify_tag, uint16_t mask)`. It shares the same function name as `event_wait(event, mask)` and is distinguished by the input parameter type. It applies to sequential synchronization between different kernels within the same die, but not to cross-die or cross-rank scenarios. For cross-die scenarios, use [notify_wait](notify_wait.md).
 
 ## Function Prototype
 
 ```cpp
 // local_notify_wait corresponds to the const char* overload of event_wait.
-CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
+ccu_result event_wait(const char* notify_tag, uint16_t mask = 1);
 ```
 
 ## Parameters
@@ -48,12 +48,12 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | `notify_tag` is a null pointer, or the API is called outside the compilation phase. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | `notify_tag` is a null pointer, or the API is called outside the compilation phase. |
 
 ## Usage Constraints
 
@@ -68,16 +68,16 @@ CcuResult event_wait(const char* notify_tag, uint16_t mask = 1);
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: Within the same die, phase_consumer_kernel waits for phase_producer_kernel to complete phase 1 before starting phase 2.
 // Inside the CCU kernel function body on core 1.
-CcuResult phase_consumer_kernel(ccu_kernel_arg arg) {
+ccu_result phase_consumer_kernel(ccu_kernel_arg arg) {
     // Wait for bit0 of the "phase1_done" signal sent by phase_producer_kernel (that is, the local_notify_wait semantics).
     event_wait("phase1_done", 0x1);
 
     // After this, the result of phase 1 of phase_producer_kernel can be safely used.
     // ... Phase 2 operations ...
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

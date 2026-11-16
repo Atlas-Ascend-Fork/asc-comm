@@ -25,7 +25,7 @@
 
 ## Function Description
 
-The header file is `#include "ccu/hcomm/ccu_primitives.hpp"`
+The header file is `#include <ccu/asc_ccu.h>`
 
 Writes the `uint64_t` value of one or more variables to an on-chip memory address in a CCU kernel.
 
@@ -43,25 +43,25 @@ The immediate address is determined at compile time and is immutable during the 
 - Single variable -> immediate address
 
     ```cpp
-    CcuResult store(uint64_t addr, variable v);
+    ccu_result store(uint64_t addr, variable v);
     ```
 
 - variable array -> immediate address
 
     ```cpp
-    CcuResult store(uint64_t addr, array<variable>& v_arr, uint32_t num);
+    ccu_result store(uint64_t addr, array<variable>& v_arr, uint32_t num);
     ```
 
 - single variable -> variable address (indirect addressing)
 
     ```cpp
-    CcuResult store(variable addr_var, variable v);
+    ccu_result store(variable addr_var, variable v);
     ```
 
 - variable array -> variable address (indirect addressing)
 
     ```cpp
-    CcuResult store(variable addr_var, array<variable>& v_arr, uint32_t num);
+    ccu_result store(variable addr_var, array<variable>& v_arr, uint32_t num);
     ```
 
 ## Parameters
@@ -76,20 +76,20 @@ The immediate address is determined at compile time and is immutable during the 
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PARA` | Parameter error: `num` is **0** or greater than `v_arr.size()`; or when `num>1`, the elements of `v_arr` are physically non-contiguous. |
-| `CCU_E_PTR` | The API is called outside the compile phase. |
-| `CCU_E_NOT_FOUND` | The passed `v`/`v_arr` handle (or the adjacent handles of `v_arr[1..num-1]`) is not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PARA` | Parameter error: `num` is **0** or greater than `v_arr.size()`; or when `num>1`, the elements of `v_arr` are physically non-contiguous. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compile phase. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `v`/`v_arr` handle (or the adjacent handles of `v_arr[1..num-1]`) is not created in the current kernel. |
 
 ## Usage Constraints
 
 - `addr` must be a physical address accessible to the CCU or a tokenized VA. Directly passing a non-tokenized process virtual address will trigger a driver error.
-- `num` must satisfy `1 ≤ num ≤ v_arr.size()`. This API performs this check before accessing `v_arr[0]`; passing 0 or a value exceeding `v_arr.size()` returns `CCU_E_PARA` without reaching the underlying API. For an empty `array` (where `v_arr.size()` is 0), passing any `num` also returns `CCU_E_PARA`.
-- When `num>1` (variable array path), `v_arr` must point to a physically contiguous array of `variable` objects, which must be allocated through `ccu::array<variable>`. Declaring multiple `variable` objects separately does not guarantee physical contiguity. If this requirement is violated, `CCU_E_PARA` is returned at the `store(...)` call site.
+- `num` must satisfy `1 ≤ num ≤ v_arr.size()`. This API performs this check before accessing `v_arr[0]`; passing 0 or a value exceeding `v_arr.size()` returns `ccu_result::CCU_E_PARA` without reaching the underlying API. For an empty `array` (where `v_arr.size()` is 0), passing any `num` also returns `ccu_result::CCU_E_PARA`.
+- When `num>1` (variable array path), `v_arr` must point to a physically contiguous array of `variable` objects, which must be allocated through `ccu::array<variable>`. Declaring multiple `variable` objects separately does not guarantee physical contiguity. If this requirement is violated, `ccu_result::CCU_E_PARA` is returned at the `store(...)` call site.
 - `addr_var` (variable address path) must have been assigned a valid address value (through `load_arg`, immediate assignment, or arithmetic operations) before this API is called.
 - The immediate address path is determined at compile time and immutable during the delivery phase; use the variable address path when a runtime dynamic address is required.
 
@@ -97,30 +97,30 @@ The immediate address is determined at compile time and is immutable during the 
 
 ```cpp
 // For simplicity, return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario 1: Store one variable to an immediate address (single variable -> immediate address).
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable result;
     // ... Compute result ...
     store(0x20000000ULL, result);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 2: Store four variables in batch to an immediate address (variable array -> immediate address).
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     array<variable> v_arr(4);    // Four physically contiguous variables.
     // ... Compute v_arr ...
     store(0x80000000ULL, v_arr, 4);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 3: Store a variable to the address specified by a variable (single variable -> variable address).
-CcuResult my_kernel3(ccu_kernel_arg arg) {
+ccu_result my_kernel3(ccu_kernel_arg arg) {
     variable dst_addr, result;
     load_arg(dst_addr, 0);    // The host passes in the destination address.
     // ... Compute result ...
     store(dst_addr, result);  // Write through indirect addressing at runtime.
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

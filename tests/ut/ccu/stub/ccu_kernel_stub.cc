@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/kernel/ccu_kernel.h"
+#include "ccu_api/resource/kernel/ccu_kernel.h"
 
 namespace asc {
 

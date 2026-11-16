@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Asynchronously writes local data to the remote on-chip memory through the established [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md). When the hardware completes the operation, it automatically sets the flag bit corresponding to `mask` in `evt` to **1**.
 
@@ -39,14 +39,14 @@ The supported data paths are:
 - Local on-chip memory -> remote on-chip memory
 
     ```cpp
-    CcuResult write(ChannelHandle ch, remote_addr remote, local_addr local,
+    ccu_result write(ChannelHandle ch, remote_addr remote, local_addr local,
                     variable len, event evt, uint16_t mask = 1);
     ```
 
 - Local CCU Buffer -> remote on-chip memory
 
     ```cpp
-    CcuResult write(ChannelHandle ch, remote_addr remote, ccu_buffer local,
+    ccu_result write(ChannelHandle ch, remote_addr remote, ccu_buffer local,
                     variable len, event evt, uint16_t mask = 1);
     ```
 
@@ -63,13 +63,13 @@ The supported data paths are:
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation phase. |
-| `CCU_E_NOT_FOUND` | The passed `remote`/`local`/`len`/`event` handle is not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation phase. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `remote`/`local`/`len`/`event` handle is not created in the current kernel. |
 
 ## Usage Constraints
 
@@ -77,14 +77,14 @@ The supported data paths are:
 - `len` must be greater than 0; otherwise, the hardware exhibits undefined behavior. This constraint must be ensured by the caller.
 - For "local on-chip memory -> remote on-chip memory", `len` must be less than 256 MB. This upper limit must be ensured by the caller; if exceeded, the hardware exhibits undefined behavior.
 - For "local CCU Buffer -> remote on-chip memory", `len` must not exceed the size of a single `ccu_buffer` slice (4096 bytes). This upper limit must be ensured by the caller; if exceeded, the hardware exhibits undefined behavior.
-- All [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) objects in the same kernel must belong to the same die. Channels from different dies cannot be mixed in the same kernel. Die consistency is uniformly verified by `<<<>>>`; if inconsistent, `CCU_E_PARA` is returned instead of the return value of this API.
+- All [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) objects in the same kernel must belong to the same die. Channels from different dies cannot be mixed in the same kernel. Die consistency is uniformly verified by `<<<>>>`; if inconsistent, `ccu_result::CCU_E_PARA` is returned instead of the return value of this API.
 - This API is asynchronous. You must call `event_wait(evt, mask)` to wait for the write to complete before the remote data is guaranteed to be visible.
 
 ## Call Example
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel input parameter struct, passed through the kernelArg of <<<>>> after the host side establishes the link.
 struct my_kernel_arg {
@@ -92,7 +92,7 @@ struct my_kernel_arg {
 };
 
 // Scenario 1: local on-chip memory -> remote on-chip memory
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*, so first cast it to the user input parameter struct.
     ChannelHandle ch = params->channel_handle;
     remote_addr remote;
@@ -102,11 +102,11 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     write(ch, remote, src, len, evt);    // remote comes first, local comes last.
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Scenario 2: local CCU buffer -> remote on-chip memory
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*, so first cast it to the user input parameter struct.
     ChannelHandle ch = params->channel_handle;
     remote_addr remote;
@@ -116,6 +116,6 @@ CcuResult my_kernel2(ccu_kernel_arg arg) {
 
     write(ch, remote, buf, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

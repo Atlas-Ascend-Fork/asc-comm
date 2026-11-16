@@ -73,7 +73,7 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
         COMPONENT asccomm)
     install(DIRECTORY ${ASCCOMM_ROOT}/include/cpu/
-        DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm/cpu
+        DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu_api/cpu
         COMPONENT asccomm
         FILES_MATCHING PATTERN "*.h")
 endif()

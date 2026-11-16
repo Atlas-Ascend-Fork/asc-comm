@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 将本端同步寄存器中`mask`对应的event标志位显式设置为1，表示当前操作或阶段已完成，供同kernel内的[event_wait](event_wait.md)读取完成信号。
 
@@ -33,11 +33,11 @@
 ## 函数原型
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult event_record(event e, uint16_t mask = 1);
+ccu_result event_record(event e, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -49,21 +49,21 @@ CcuResult event_record(event e, uint16_t mask = 1);
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel内创建。 |
-| `CCU_E_NOT_SUPPORT` | 不支持在硬件loop的循环体内调用。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel内创建。 |
+| `ccu_result::CCU_E_NOT_SUPPORT` | 不支持在硬件loop的循环体内调用。 |
 
 > [!NOTE]说明
-> 本接口在调用处不做参数取值校验，不会返回`CCU_E_PARA`。
+> 本接口在调用处不做参数取值校验，不会返回`ccu_result::CCU_E_PARA`。
 
 ## 约束说明
 
-- 不可在硬件loop的循环体内调用，否则返回`CCU_E_NOT_SUPPORT`。循环体会被复制为多份并行执行，每份都会执行一次`event_record`，置位语义不再明确。
+- 不可在硬件loop的循环体内调用，否则返回`ccu_result::CCU_E_NOT_SUPPORT`。循环体会被复制为多份并行执行，每份都会执行一次`event_record`，置位语义不再明确。
 - 置位后须有[event_wait](event_wait.md)消费该信号，否则该次置位不被使用。
 - `event_record`和`event_wait`的`mask`必须一致，否则`event_wait`永远等不到信号。
 
@@ -71,10 +71,10 @@ CcuResult event_record(event e, uint16_t mask = 1);
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // CCU kernel函数体内
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     event evt;
 
     // 执行某些操作后，手动标记bit0完成
@@ -82,6 +82,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     // 下游等待bit0被置位
     event_wait(evt, 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

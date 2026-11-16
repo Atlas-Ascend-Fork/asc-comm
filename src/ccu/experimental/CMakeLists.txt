@@ -14,7 +14,7 @@ set(_ASCCOMM_CCU_RUNTIME_SOURCES
     ccu_runtime.cpp
     ccu_runtime_backend.cpp
     ccu_aot_adapter.cpp
-    ccu_runtime_hcomm_backend.cpp
+    ccu_runtime_asccomm_backend.cpp
 )
 
 add_library(ccu_runtime SHARED ${_ASCCOMM_CCU_RUNTIME_SOURCES})

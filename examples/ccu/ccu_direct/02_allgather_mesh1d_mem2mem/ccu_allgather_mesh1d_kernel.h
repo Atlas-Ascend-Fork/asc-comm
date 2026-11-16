@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
@@ -196,7 +197,7 @@ static void InitGroupCopyResources(
 // 按 CalGoSize 的切分结果组织本地拷贝：addr_offset 非 0 时先整体循环搬运已切分的部分，
 // parallel_param 非 0 时再单独搬运尾块（尾分片 + 尾残余），两部分经 CcuBuffer 中转。
 
-static CcuResult GroupCopy(
+static ccu_result GroupCopy(
     AllGatherMesh1DMem2MemContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupOpSizeVars goSize)
 {
     ccu::local_addr loopSrc[2];
@@ -271,17 +272,17 @@ static CcuResult GroupCopy(
         ccu::loop_group group(goSize.parallel_param, offsetCfg, ctx.moConfig.loop_count, grpLoops);
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Kernel 内资源准备：把各对端 output 地址与 token 绑定到对应 Channel 的 Variable 单元，
 // 并按 rank 数分配事件数组
 
-static CcuResult InitResource(AllGatherMesh1DMem2MemContext& ctx)
+static ccu_result InitResource(AllGatherMesh1DMem2MemContext& ctx)
 {
     if (ctx.arg->rankSize < 2 || ctx.arg->rankId >= ctx.arg->rankSize ||
         ctx.arg->channelCount != ctx.arg->rankSize - 1) {
-        return CCU_E_PARA;
+        return ccu_result::CCU_E_PARA;
     }
 
     ctx.output.resize(ctx.arg->rankSize);
@@ -298,7 +299,7 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext& ctx)
 
     const uint32_t eventNum = (ctx.arg->rankSize + BITS_PER_EVENT - 1) / BITS_PER_EVENT;
     ctx.events.resize(eventNum);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 前同步：本端 output 地址与 token 写入对端并置位对端 notify，
@@ -335,7 +336,7 @@ static void PostSync(AllGatherMesh1DMem2MemContext& ctx)
 // 提交跨 rank 写任务：把本 rank 分片异步写入其余 rank，mask 位标记搬运完成后置位的 event 标志；
 // 本 rank 位用 event_record 补齐（本地拷贝分支不会自动置位）
 
-static CcuResult DoAllGatherWrite(
+static ccu_result DoAllGatherWrite(
     AllGatherMesh1DMem2MemContext& ctx, const ccu::local_addr& src_, const std::vector<ccu::remote_addr>& dst_)
 {
     uint32_t channelIdx = 0;
@@ -349,12 +350,12 @@ static CcuResult DoAllGatherWrite(
         ccu::write(ctx.arg->channels[channelIdx], dst_[rankIdx], src_, ctx.chunkSize, ctx.events[eventIdx], rankMask);
         channelIdx++;
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 等待所有搬运分支完成：逐个 event 等待其覆盖的 rank 位全部置位
 
-static CcuResult DoAllGatherWait(AllGatherMesh1DMem2MemContext& ctx)
+static ccu_result DoAllGatherWait(AllGatherMesh1DMem2MemContext& ctx)
 {
     const uint32_t eventNum = static_cast<uint32_t>(ctx.events.size());
     for (uint32_t eventIdx = 0; eventIdx < eventNum; eventIdx++) {
@@ -364,12 +365,12 @@ static CcuResult DoAllGatherWait(AllGatherMesh1DMem2MemContext& ctx)
                                                                 static_cast<uint16_t>((1U << bitCount) - 1);
         ccu::event_wait(ctx.events[eventIdx], eventMask);
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // AllGather 执行：组装源/目的地址后，先向其余 rank 写本 rank 分片，再做本 rank 分片的本地拷贝，最后统一等待
 
-static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext& ctx)
+static ccu_result DoAllGather(AllGatherMesh1DMem2MemContext& ctx)
 {
     // 源地址：本 rank 输入缓冲中偏移 rankId 个 stride 的位置（本 rank 要发送的分片）
     ccu::local_addr src_;
@@ -403,7 +404,7 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext& ctx)
     DoAllGatherWrite(ctx, src_, dst_);
     GroupCopy(ctx, localDst, src_, ctx.goSize);
     DoAllGatherWait(ctx);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

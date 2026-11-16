@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Starts a software conditional branch block inside a CCU kernel. The condition is computed by the CCU hardware during the dispatch phase. When the condition is met, the then code block is executed; otherwise, execution jumps to the exit of the **if** block.
 
@@ -41,11 +41,11 @@ CCU_IF(cond_expr) {
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| cond_expr | Input | Conditional expression of type `AscendC::ccu::cond_expr`. It is produced by `operator==(uint64_t)` or `operator!=(uint64_t)` of `ccu::variable`, for example, `v == 0` or `counter != 10`. |
+| cond_expr | Input | Conditional expression of type `asc::ccu::cond_expr`. It is produced by `operator==(uint64_t)` or `operator!=(uint64_t)` of `ccu::variable`, for example, `v == 0` or `counter != 10`. |
 
 ## Return Value
 
-`CCU_IF` is a preprocessor macro and does not return [`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md) by itself. After macro expansion, if an internal error occurs (such as a duplicate label or an invalid handle), `CCU_E_PARA`/`CCU_E_NOT_FOUND` may be produced. In this case, the macro does not throw an exception and does not block kernel generation: on failure, the code block is skipped and kernel generation still succeeds. Errors are not reported through a return value, so pay attention to them during debugging.
+`CCU_IF` is a preprocessor macro and does not return `ccu_result` by itself. After macro expansion, if an internal error occurs (such as a duplicate label or an invalid handle), `ccu_result::CCU_E_PARA`/`ccu_result::CCU_E_NOT_FOUND` may be produced. In this case, the macro does not throw an exception and does not block kernel generation: on failure, the code block is skipped and kernel generation still succeeds. Errors are not reported through a return value, so pay attention to them during debugging.
 
 ## Usage Constraints
 
@@ -58,10 +58,10 @@ CCU_IF(cond_expr) {
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: Select different execution paths based on the value of the stage variable.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable flag;
     load_arg(flag, 0);   // Load the flag value from taskArgs[0] on each dispatch.
 
@@ -72,6 +72,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         b = 20;
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

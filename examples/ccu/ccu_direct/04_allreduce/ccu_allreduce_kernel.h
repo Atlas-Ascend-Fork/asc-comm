@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 // CCU 本地拷贝与调度的规模常量：最大 rank 数、Channel notify 槽位数、Die 数等
@@ -73,7 +74,7 @@ constexpr int REMOTE_INPUT_XN_MASK_BIT = 5;
 constexpr int REMOTE_INPUT_TOKEN_MASK_BIT = 6;
 
 // 把本 rank 输入先拷入本端输出，再 write_reduce 到各对端输出并等待完成
-static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
+static ccu_result ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
 {
     ccu::local_addr src_;
     ccu::local_addr localDst;
@@ -122,13 +123,13 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
         ccu::event_wait(ctx.event, remoteMask);
     }
 
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // SC2 前同步：仅交换本端输入地址与 token（gather 需要读取对端输入；
 // SC2 无远端写，不交换 output 地址），并等待所有对端完成登记
 
-static CcuResult ExchangeRemoteInput(AllReduceMesh1DMem2MemContext& ctx)
+static ccu_result ExchangeRemoteInput(AllReduceMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::write_variable_with_notify(
@@ -142,7 +143,7 @@ static CcuResult ExchangeRemoteInput(AllReduceMesh1DMem2MemContext& ctx)
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // SC2：gather + local_reduce，独立的"聚合-归约"AllReduce 实现路径（与场景1 的
@@ -153,11 +154,11 @@ static CcuResult ExchangeRemoteInput(AllReduceMesh1DMem2MemContext& ctx)
 //   4. bufs[0] 拷回本端 output。
 // 约束：ccu_buffer 归约重载支持 2~8 路，单片缓存 4096 字节
 
-static CcuResult ExecuteGatherLocalReduce(AllReduceMesh1DMem2MemContext& ctx)
+static ccu_result ExecuteGatherLocalReduce(AllReduceMesh1DMem2MemContext& ctx)
 {
     const uint64_t rankSize = ctx.arg->rankSize;
     if (rankSize < 2U || rankSize > 8U) {
-        return CcuResult::CCU_E_NOT_SUPPORT;
+        return ccu_result::CCU_E_NOT_SUPPORT;
     }
 
     ccu::array<ccu::ccu_buffer> bufs(static_cast<uint32_t>(rankSize));
@@ -197,7 +198,7 @@ static CcuResult ExecuteGatherLocalReduce(AllReduceMesh1DMem2MemContext& ctx)
     ccu::local_copy(dst, bufs[0], ctx.sliceSize, ctx.event, 1U);
     ccu::event_wait(ctx.event, 1U);
 
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 __ccu_host__ void CcuAllReduceMesh1DMem2MemKernel(

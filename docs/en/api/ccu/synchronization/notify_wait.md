@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`.
+Header file: `#include <ccu/asc_ccu.h>`.
 
 Blocks and waits for the notify flags corresponding to `mask` in the local synchronization register until all of them are set to 1, then continues execution. These flags are set by [notify_record](notify_record.md) on the peer die through the channel.
 
@@ -35,11 +35,11 @@ Blocks and waits for the notify flags corresponding to `mask` in the local synch
 ## Function Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t mask = 1);
+ccu_result notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -52,17 +52,17 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation phase. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation phase. |
 
 ## Usage Constraints
 
 - `notify_wait` can be called inside the body of a hardware loop.
-- All channels within the same kernel must belong to the same die. Channels of different dies cannot be mixed into the same kernel. This constraint is uniformly verified by `<<<>>>`, and `CCU_E_PARA` is returned when it is violated.
+- All channels within the same kernel must belong to the same die. Channels of different dies cannot be mixed into the same kernel. This constraint is uniformly verified by `<<<>>>`, and `ccu_result::CCU_E_PARA` is returned when it is violated.
 - The `remote_notify_idx` of `notify_record` and the `local_notify_idx` of `notify_wait` have the same value.
 - `notify_record` and `notify_wait` use the same `mask`.
 - A single [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) provides up to 8 notify slots, so `local_notify_idx` ranges from 0 to 7.
@@ -72,7 +72,7 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 
 ```cpp
 // For simplicity, the example omits return value handling and error handling.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel input parameter struct, passed through the kernelArg of <<<>>> after link establishment on the host side.
 struct my_kernel_arg {
@@ -81,7 +81,7 @@ struct my_kernel_arg {
 
 // Scenario: die B waits for die A to complete the write operation before reading data.
 // Inside the CCU kernel function body of die B.
-CcuResult receiver_kernel(ccu_kernel_arg arg) {
+ccu_result receiver_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*, so first cast it to the user input parameter struct.
     // Wait for the signal from die A, bit0 of local notify slot 3.
     // Corresponds to notify_record(channel, /*remote_notify_idx=*/3, 0x1) on the die A side.
@@ -94,6 +94,6 @@ CcuResult receiver_kernel(ccu_kernel_arg arg) {
     event evt;
     read(params->channel, dst, remote, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

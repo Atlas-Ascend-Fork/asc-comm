@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 `ccu::array<T>` is a C++ template class for batch holding of physically contiguous resources within a CCU kernel.
 
@@ -37,7 +37,7 @@ Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 template <typename T>  // T supports only variable, event, and ccu_buffer.
 class array final {
@@ -57,7 +57,7 @@ public:
     array& operator=(array&& other) noexcept;
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -104,18 +104,18 @@ Currently, only the following three specialized types are supported:
 ## Usage Constraints
 
 - `array(count)` and `array(acq_handle, count)` can only be constructed at compile time.
-- `array(count)` always succeeds. When the resource pool cannot provide `count` contiguous physical resources, `CCU_E_UNAVAIL` is returned at compile time instead of being thrown at construction time.
+- `array(count)` always succeeds. When the resource pool cannot provide `count` contiguous physical resources, `ccu_result::CCU_E_UNAVAIL` is returned at compile time instead of being thrown at construction time.
 - `array<T>` is specialized only for the three types `variable`, `event`, and `ccu_buffer`. Reserved construction is available only for `variable` and `event`. Instantiating other types or using reserved construction for them fails at compile time.
-- When `count > 0`, `array(acq_handle, count)` validates the reserved handle and `count`. If the parameters are invalid, an exception is thrown, caught uniformly by `<<<>>>`, and `CCU_E_INTERNAL` is returned externally, aborting the current compilation round.
+- When `count > 0`, `array(acq_handle, count)` validates the reserved handle and `count`. If the parameters are invalid, an exception is thrown, caught uniformly by `<<<>>>`, and `ccu_result::CCU_E_INTERNAL` is returned externally, aborting the current compilation round.
 - `count` must not exceed the number of resources under the reserved handle. When `count` is 0, an empty `array` is constructed directly (`size() == 0`), with no resources bound and no validation of `acq_handle`.
 - Do not save the `handle` value of an element outside the kernel. The handle becomes invalid after translation is complete.
 
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     // Request four physically contiguous variables in a batch.
     array<variable> v_arr(4);
 
@@ -125,14 +125,14 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     // Access a single element by subscript.
     v_arr[0] = 1024;    // Assign an immediate value to the 0th variable.
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```
 
 Usage of binding resources reserved on the host side:
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // After the host reserves resources through asccomm_ccu_variable_alloc/asccomm_ccu_event_alloc,
 // put the reserved handles and counts into kernelArg and pass them to the kernel.
@@ -143,7 +143,7 @@ struct my_kernel_arg {
     uint32_t event_num;
 };
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto* args = static_cast<my_kernel_arg*>(arg);
 
     // Bind the var_num scalar registers reserved on the host without requesting new scalar registers. The bound variables are used in the same way as
@@ -159,6 +159,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         event_record(events[i]);
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

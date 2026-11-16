@@ -37,7 +37,7 @@ uint32_t g_hcommObservedArgNum = 0;
 ThreadHandle g_hcommObservedThread = 0;
 ThreadHandle g_hcommObservedAllocThread = 0;
 uint32_t g_hcommTaskArgsNum = 3;
-CcuResult g_hcommKernelLaunchResult = CCU_SUCCESS;
+ccu_result g_hcommKernelLaunchResult = ccu_result::CCU_SUCCESS;
 HcommResult g_hcommThreadAllocResult = 0;
 CcuKernelHandle g_hcommNextKernelHandle = 1;
 
@@ -57,7 +57,7 @@ void ResetHcommStub()
     g_hcommObservedThread = 0;
     g_hcommObservedAllocThread = 0;
     g_hcommTaskArgsNum = 3;
-    g_hcommKernelLaunchResult = CCU_SUCCESS;
+    g_hcommKernelLaunchResult = ccu_result::CCU_SUCCESS;
     g_hcommThreadAllocResult = 0;
     g_hcommNextKernelHandle = 1;
 }
@@ -103,14 +103,14 @@ asccomm_launch_kernel_cfg MakeLegacyLaunchCfg()
 } // namespace
 
 // hcomm 旧接口桩：强定义覆盖 ccu_host_launch.cpp 中的 weak 未定义符号
-extern "C" CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle)
+extern "C" ccu_result HcommCcuKernelRegisterStart(CcuInsHandle insHandle)
 {
     ++g_hcommRegisterStartCalls;
     g_hcommObservedIns = insHandle;
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult HcommCcuKernelRegister(
+extern "C" ccu_result HcommCcuKernelRegister(
     CcuInsHandle insHandle, uint32_t dieId, const char*, const void*, const void**, uint32_t,
     CcuKernelHandle* kernelHandle)
 {
@@ -118,23 +118,23 @@ extern "C" CcuResult HcommCcuKernelRegister(
     g_hcommObservedIns = insHandle;
     g_hcommObservedDieId = dieId;
     *kernelHandle = g_hcommNextKernelHandle++;
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle)
+extern "C" ccu_result HcommCcuKernelRegisterEnd(CcuInsHandle)
 {
     ++g_hcommRegisterEndCalls;
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle, uint32_t* taskArgsNum)
+extern "C" ccu_result HcommCcuGetTaskArgsNum(CcuKernelHandle, uint32_t* taskArgsNum)
 {
     ++g_hcommGetTaskArgsNumCalls;
     *taskArgsNum = g_hcommTaskArgsNum;
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
-extern "C" CcuResult HcommCcuKernelLaunch(
+extern "C" ccu_result HcommCcuKernelLaunch(
     ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
     ++g_hcommKernelLaunchCalls;
@@ -170,13 +170,13 @@ TEST_F(TestCcuHostLaunch, NullArgumentsReturnPtr)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
 
-    EXPECT_EQ(asccomm_ccu_host_kernel_launch(nullptr, DUMMY_KERNEL_NAME, &cfg, args), CCU_E_PTR);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(nullptr, DUMMY_KERNEL_NAME, &cfg, args), ccu_result::CCU_E_PTR);
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, nullptr, args),
-        CCU_E_PTR);
+        ccu_result::CCU_E_PTR);
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, nullptr),
-        CCU_E_PTR);
+        ccu_result::CCU_E_PTR);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
@@ -187,12 +187,12 @@ TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
     cfg.ccu_schd.phy_die_mask = 0;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
 
     cfg.ccu_schd.phy_die_mask = 0x03;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
@@ -203,12 +203,12 @@ TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
     cfg.ccu_schd.num_blocks = 0;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
 
     cfg.ccu_schd.num_blocks = 2;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
 }
 
 TEST_F(TestCcuHostLaunch, NullInstanceWithBinaryCacheTagSkipsDataplane)
@@ -221,7 +221,7 @@ TEST_F(TestCcuHostLaunch, NullInstanceWithBinaryCacheTagSkipsDataplane)
     // 实体路径的数据面 stub 不应被触碰；桩不校验 ins，返回 SUCCESS
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
     EXPECT_EQ(g_hcommRegisterCalls, 1U);
     EXPECT_EQ(g_hcommObservedIns, 0U);
@@ -245,7 +245,7 @@ TEST_F(TestCcuHostLaunch, LaunchSuccessForwardsRegisterAndLaunchParameters)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerStart, 1U);
@@ -271,7 +271,8 @@ TEST_F(TestCcuHostLaunch, NullKernelNameIsForwardedToRegister)
     uint64_t args[] = {1, 2, 3};
 
     EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), nullptr, &cfg, args), CCU_SUCCESS);
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), nullptr, &cfg, args),
+        ccu_result::CCU_SUCCESS);
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.lastKernelName, nullptr);
@@ -283,12 +284,12 @@ TEST_F(TestCcuHostLaunch, RegisterFailureClosesRegisterRound)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
     SetCcuLaunchStubResults(
-        CcuResult::CCU_SUCCESS, CcuResult::CCU_E_INTERNAL, CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS,
-        CcuResult::CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS, ccu_result::CCU_E_INTERNAL, ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS,
+        ccu_result::CCU_SUCCESS);
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_INTERNAL);
+        ccu_result::CCU_E_INTERNAL);
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerStart, 1U);
@@ -304,19 +305,19 @@ TEST_F(TestCcuHostLaunch, LaunchFailureIsPropagatedAndCachedHandleIsReused)
     cfg.ccu_schd.binary_cache_tag = 0x5301U;
     uint64_t args[] = {1, 2, 3};
     SetCcuLaunchStubResults(
-        CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS,
-        CcuResult::CCU_E_INTERNAL);
+        ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS,
+        ccu_result::CCU_E_INTERNAL);
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_INTERNAL);
+        ccu_result::CCU_E_INTERNAL);
 
     SetCcuLaunchStubResults(
-        CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS, CcuResult::CCU_SUCCESS,
-        CcuResult::CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS, ccu_result::CCU_SUCCESS,
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerStart, 1U);
@@ -335,7 +336,7 @@ TEST_F(TestCcuHostLaunch, SameCacheTagRegistersOnceAndLaunchesEachTime)
     for (uint32_t idx = 0; idx < 2; idx++) {
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
@@ -355,7 +356,7 @@ TEST_F(TestCcuHostLaunch, ZeroCacheTagRegistersEachLaunch)
     for (uint32_t idx = 0; idx < 2; idx++) {
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
@@ -374,7 +375,7 @@ TEST_F(TestCcuHostLaunch, DifferentCacheTagsRegisterIndependently)
         cfg.ccu_schd.binary_cache_tag = cacheTag;
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
 
     const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
@@ -404,17 +405,17 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &secondCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerKernel, 2U);
     EXPECT_EQ(observed.lastInsHandle, secondCfg.ccu_ins);
@@ -424,7 +425,7 @@ TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
     thirdCfg.ccu_schd.phy_die_mask = 0x02U;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &thirdCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     observed = GetCcuLaunchStubObservations();
     EXPECT_EQ(observed.calls.registerKernel, 3U);
     EXPECT_EQ(observed.lastInsHandle, thirdCfg.ccu_ins);
@@ -440,7 +441,7 @@ TEST_F(TestCcuHostLaunch, InvalidInstanceEntityHeaderReturnsPara)
     g_defaultCcuInstance.header.magicWord = 0xDEADBEEFU;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
 
     // 坏 size
@@ -448,7 +449,7 @@ TEST_F(TestCcuHostLaunch, InvalidInstanceEntityHeaderReturnsPara)
     g_defaultCcuInstance.header.size = 0U;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+        ccu_result::CCU_E_PARA);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
 }
 
@@ -459,7 +460,7 @@ TEST_F(TestCcuHostLaunch, LegacyTokenRoutesToHcommApis)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
 
     // 实体路径的数据面 stub 不应被触碰
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 0U);
@@ -486,7 +487,7 @@ TEST_F(TestCcuHostLaunch, LegacyDie1MaskMapsToDieIdOne)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommObservedDieId, 1U);
 }
 
@@ -500,7 +501,7 @@ TEST_F(TestCcuHostLaunch, LegacyThreadHandleIsCachedPerStream)
     for (uint32_t idx = 0; idx < 2; idx++) {
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
     // 同 stream 复用 ThreadHandle，仅首次申请
     EXPECT_EQ(g_hcommThreadAllocCalls, 1U);
@@ -510,7 +511,7 @@ TEST_F(TestCcuHostLaunch, LegacyThreadHandleIsCachedPerStream)
     cfg.stream = reinterpret_cast<aclrtStream>(0x77);
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommThreadAllocCalls, 2U);
 }
 
@@ -523,7 +524,7 @@ TEST_F(TestCcuHostLaunch, LegacyCacheTagReusesHandleAcrossLaunches)
     for (uint32_t idx = 0; idx < 2; idx++) {
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
     // 同 (tag, token, mask) 只注册一次
     EXPECT_EQ(g_hcommRegisterCalls, 1U);
@@ -543,13 +544,13 @@ TEST_F(TestCcuHostLaunch, LegacyCacheTagIsScopedToTokenAndDie)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommRegisterCalls, 1U);
 
     // 不同 token：重新注册
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &secondCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommRegisterCalls, 2U);
 
     // 同 token 不同 die mask：重新注册
@@ -557,7 +558,7 @@ TEST_F(TestCcuHostLaunch, LegacyCacheTagIsScopedToTokenAndDie)
     thirdCfg.ccu_schd.phy_die_mask = 0x02U;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &thirdCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommRegisterCalls, 3U);
 }
 
@@ -570,7 +571,7 @@ TEST_F(TestCcuHostLaunch, LegacyZeroCacheTagRegistersEachLaunch)
     for (uint32_t idx = 0; idx < 2; idx++) {
         EXPECT_EQ(
             asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-            CCU_SUCCESS);
+            ccu_result::CCU_SUCCESS);
     }
     EXPECT_EQ(g_hcommRegisterCalls, 2U);
     EXPECT_EQ(g_hcommKernelLaunchCalls, 2U);
@@ -584,7 +585,7 @@ TEST_F(TestCcuHostLaunch, LegacyTaskArgsNumOverflowReturnsNotSupport)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_NOT_SUPPORT);
+        ccu_result::CCU_E_NOT_SUPPORT);
     EXPECT_EQ(g_hcommKernelLaunchCalls, 0U);
 }
 
@@ -596,7 +597,7 @@ TEST_F(TestCcuHostLaunch, LegacyNullStreamReturnsPtr)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PTR);
+        ccu_result::CCU_E_PTR);
     EXPECT_EQ(g_hcommThreadAllocCalls, 0U);
     EXPECT_EQ(g_hcommKernelLaunchCalls, 0U);
 }
@@ -609,7 +610,7 @@ TEST_F(TestCcuHostLaunch, LegacyNullInstanceIsRejectedByHcommRegister)
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS); // 桩不校验 ins，真实 hcomm 会返回 CCU_E_PTR
+        ccu_result::CCU_SUCCESS); // 桩不校验 ins，真实 hcomm 会返回 ccu_result::CCU_E_PTR
     EXPECT_EQ(g_hcommRegisterStartCalls, 1U);
 }
 
@@ -617,11 +618,11 @@ TEST_F(TestCcuHostLaunch, LegacyKernelLaunchFailureIsPropagated)
 {
     asccomm_launch_kernel_cfg cfg = MakeLegacyLaunchCfg();
     uint64_t args[] = {1, 2, 3};
-    g_hcommKernelLaunchResult = CCU_E_INTERNAL;
+    g_hcommKernelLaunchResult = ccu_result::CCU_E_INTERNAL;
 
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_INTERNAL);
+        ccu_result::CCU_E_INTERNAL);
     EXPECT_EQ(g_hcommKernelLaunchCalls, 1U);
 }
 
@@ -638,12 +639,12 @@ TEST_F(TestCcuHostLaunch, HcommCompatEntryConvertsFieldsAndRoutesByToken)
     uint64_t args[] = {1, 2, 3};
 
     // cfg 为 null 时等价主入口判空
-    EXPECT_EQ(HcommCcuHostKernelLaunch(nullptr, DUMMY_KERNEL_NAME, &hcommCfg, args), CCU_E_PTR);
+    EXPECT_EQ(HcommCcuHostKernelLaunch(nullptr, DUMMY_KERNEL_NAME, &hcommCfg, args), ccu_result::CCU_E_PTR);
 
     // token 形态 ccuIns → 旧路径
     EXPECT_EQ(
         HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcommCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(g_hcommRegisterCalls, 1U);
     EXPECT_EQ(g_hcommObservedIns, 0x11U);
     EXPECT_EQ(g_hcommObservedDieId, 1U);
@@ -655,7 +656,7 @@ TEST_F(TestCcuHostLaunch, HcommCompatEntryConvertsFieldsAndRoutesByToken)
     entityCfg.ccuIns = reinterpret_cast<CcuInsHandle>(&g_defaultCcuInstance);
     EXPECT_EQ(
         HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &entityCfg, args),
-        CCU_SUCCESS);
+        ccu_result::CCU_SUCCESS);
     EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
     EXPECT_EQ(g_hcommRegisterCalls, 1U);
 }

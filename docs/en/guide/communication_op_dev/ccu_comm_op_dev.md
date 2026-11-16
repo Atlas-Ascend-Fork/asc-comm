@@ -202,7 +202,7 @@ The subsequent content of this chapter is organized according to this process, a
     HCCLCHECK(ConvertCcuToHccl(HcommCcuGetMemToken(baseInputAddr, inputSize, &token)));
     ```
 
-    The `asccomm_ccu_*` APIs return `CcuResult`. In the sample, it is converted to `HcclResult` through `ConvertCcuToHccl` and then checked by `HCCLCHECK`.
+    The `asccomm_ccu_*` APIs return `ccu_result`. In the sample, it is converted to `HcclResult` through `ConvertCcuToHccl` and then checked by `HCCLCHECK`.
 
 - Preparing **taskArgs**
 
@@ -351,16 +351,16 @@ The execution of AllGather consists of two parts: writing the local rank data to
 
     ```cpp
     ccu::local_addr src;
-    src.addr_ = ctx.input;
-    src.addr_ += ctx.currentRankSliceInputOffset;
+    src.addr = ctx.input;
+    src.addr += ctx.currentRankSliceInputOffset;
     src.token = ctx.token[ctx.arg->rankId];
 
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
         if (rankIdx == ctx.arg->rankId) {
-            localDst.addr_ = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
+            localDst.addr = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
             localDst.token = ctx.token[rankIdx];
         } else {
-            dst[rankIdx].addr_ = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
+            dst[rankIdx].addr = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
             dst[rankIdx].token = ctx.token[rankIdx];
         }
     }

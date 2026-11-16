@@ -200,7 +200,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     HCCLCHECK(ConvertCcuToHccl(HcommCcuGetMemToken(baseInputAddr, inputSize, &token)));
     ```
 
-    `asccomm_ccu_*`接口返回`CcuResult`，样例中通过`ConvertCcuToHccl`转换为`HcclResult`后交由`HCCLCHECK`检查。
+    `asccomm_ccu_*`接口返回`ccu_result`，样例中通过`ConvertCcuToHccl`转换为`HcclResult`后交由`HCCLCHECK`检查。
 
 - 准备taskArgs
 
@@ -349,16 +349,16 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
     ```cpp
     ccu::local_addr src;
-    src.addr_ = ctx.input;
-    src.addr_ += ctx.currentRankSliceInputOffset;
+    src.addr = ctx.input;
+    src.addr += ctx.currentRankSliceInputOffset;
     src.token = ctx.token[ctx.arg->rankId];
 
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
         if (rankIdx == ctx.arg->rankId) {
-            localDst.addr_ = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
+            localDst.addr = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
             localDst.token = ctx.token[rankIdx];
         } else {
-            dst[rankIdx].addr_ = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
+            dst[rankIdx].addr = ctx.output[rankIdx] + ctx.currentRankSliceOutputOffset;
             dst[rankIdx].token = ctx.token[rankIdx];
         }
     }

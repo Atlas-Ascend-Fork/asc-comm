@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 `ccu::event` is a C++ wrapper class for synchronization register slots in the CCU kernel, used to mark the completion status of asynchronous operations (such as data transfers).
 
@@ -38,7 +38,7 @@ Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class event final {
 public:
@@ -51,7 +51,7 @@ public:
     ccu_event_handle handle{0};  // Virtual handle.
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Constructor Description
@@ -67,15 +67,15 @@ public:
     | Parameter | Input/Output | Description |
     | --- | --- | --- |
     | acq_handle | Input | Reservation handle, that is, the handle returned after the host side calls `asccomm_ccu_event_alloc` to reserve a segment of physical event slots from the instance resource pool in advance, and passes it to the kernel through `kernelArg`. |
-    | index | Input | Index of the event slot to bind within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of event slots reserved by `asccomm_ccu_event_alloc` on the host side). If the value is out of this range, a `CCU_E_PARA` exception is thrown. |
+    | index | Input | Index of the event slot to bind within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of event slots reserved by `asccomm_ccu_event_alloc` on the host side). If the value is out of this range, a `ccu_result::CCU_E_PARA` exception is thrown. |
 
     Constructing multiple `event` objects with the same reservation handle and the same `index` makes them share the same physical event slot.
 
 ## Usage Constraints
 
-- Construction is allowed only in the compile phase. Constructing outside the compile phase throws an exception carrying `CCU_E_PTR`.
-- The default constructor only requests a virtual handle and always succeeds without throwing an exception in the compile phase. When physical event slot resources are insufficient, the compile phase returns `CCU_E_UNAVAIL` instead of throwing an exception at construction time.
-- The reserved constructor validates the reservation handle and `index`. If `index` is out of the reserved segment range (`[0, num-1]`, where `num` is the number of event slots reserved on the host side), a `CCU_E_PARA` exception is thrown.
+- Construction is allowed only in the compile phase. Constructing outside the compile phase throws an exception carrying `ccu_result::CCU_E_PTR`.
+- The default constructor only requests a virtual handle and always succeeds without throwing an exception in the compile phase. When physical event slot resources are insufficient, the compile phase returns `ccu_result::CCU_E_UNAVAIL` instead of throwing an exception at construction time.
+- The reserved constructor validates the reservation handle and `index`. If `index` is out of the reserved segment range (`[0, num-1]`, where `num` is the number of event slots reserved on the host side), a `ccu_result::CCU_E_PARA` exception is thrown.
 - The copy/move constructors only copy the `handle` field and do not request a new event slot. After `event e2 = e1;`, the two objects are handles within the same kernel, and `event_record`/`event_wait` on either object operates on the same hardware status bit. To obtain an independent `event`, use the default constructor or [`array<event>`](array.md).
 - Do not save or compare the `handle` value outside the kernel. The handle becomes invalid after translation is complete.
 - `event` has no `mask` field. `mask` is passed as a parameter in `event_record`/`event_wait` and data movement APIs, with a C++ default value of `1`. Different bits of the same `event` are independent of each other and can carry multiple pairs.
@@ -83,9 +83,9 @@ public:
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     event evt;    // Request one event slot.
 
     // When used with data transfer APIs: the flag bit corresponding to mask in evt is automatically set to 1 when hardware transfer completes.
@@ -94,6 +94,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     local_copy(dst, src, len, evt);    // mask defaults to 0x1.
     event_wait(evt);                    // Wait until bit 0 is set to 1.
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

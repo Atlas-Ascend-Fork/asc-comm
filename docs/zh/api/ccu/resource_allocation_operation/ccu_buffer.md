@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::ccu_buffer`是CCU kernel内片上CCU Buffer的C++包装类，每个切片固定4096个字节，用于在片上内存与对端之间中转数据，或作为[local_reduce](../data_movement/local_reduce.md)多ccu_buffer归约的操作数（一次最多8路，经`ccu::array<ccu_buffer>`申请以保证物理连续）。
 
@@ -36,7 +36,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class ccu_buffer final {
 public:
@@ -44,7 +44,7 @@ public:
     ccu_buffer_handle handle{0};       // 虚拟句柄
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -55,8 +55,8 @@ public:
 
 ## 约束说明
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；CCU Buffer物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；CCU Buffer物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的CCU Buffer切片，`ccu_buffer b2 = b1;`后两个对象指向同一块切片；如需独立的`ccu_buffer`，必须显式默认构造或用[`array<ccu_buffer>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 每个`ccu_buffer`固定代表4096字节的片上切片，大小不可配置。
@@ -65,9 +65,9 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     ccu_buffer buf;    // 申请1块4KB CCU Buffer切片
     local_addr src;
     variable len;
@@ -77,6 +77,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     local_copy(buf, src, len, evt);
     event_wait(evt);
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

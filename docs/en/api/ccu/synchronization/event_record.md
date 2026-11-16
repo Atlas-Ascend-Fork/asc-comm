@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Explicitly sets the event flag bit corresponding to `mask` in the local synchronization register to **1**, indicating that the current operation or phase is complete, so that [event_wait](event_wait.md) within the same kernel can read the completion signal.
 
@@ -35,11 +35,11 @@ Explicitly sets the event flag bit corresponding to `mask` in the local synchron
 ## Function Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult event_record(event e, uint16_t mask = 1);
+ccu_result event_record(event e, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -51,18 +51,18 @@ CcuResult event_record(event e, uint16_t mask = 1);
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation phase. |
-| `CCU_E_NOT_FOUND` | The passed `e` handle is not created in the current kernel. |
-| `CCU_E_NOT_SUPPORT` | Calling this API inside the loop body of a hardware loop is not supported. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation phase. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `e` handle is not created in the current kernel. |
+| `ccu_result::CCU_E_NOT_SUPPORT` | Calling this API inside the loop body of a hardware loop is not supported. |
 
 ## Usage Constraints
 
-- This API cannot be called inside the loop body of a hardware loop; otherwise, `CCU_E_NOT_SUPPORT` is returned. The loop body is replicated into multiple copies for parallel execution, and each copy executes `event_record` once, making the set semantics ambiguous.
+- This API cannot be called inside the loop body of a hardware loop; otherwise, `ccu_result::CCU_E_NOT_SUPPORT` is returned. The loop body is replicated into multiple copies for parallel execution, and each copy executes `event_record` once, making the set semantics ambiguous.
 - After the bit is set, an [event_wait](event_wait.md) must consume the signal; otherwise, this set operation is not used.
 - The `mask` of `event_record` and `event_wait` must be consistent; otherwise, `event_wait` never receives the signal.
 
@@ -70,10 +70,10 @@ CcuResult event_record(event e, uint16_t mask = 1);
 
 ```cpp
 // For simplicity, return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Inside the CCU kernel function body.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     event evt;
 
     // After performing some operations, manually mark bit0 as complete.
@@ -81,6 +81,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     // The downstream waits for bit0 to be set.
     event_wait(evt, 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

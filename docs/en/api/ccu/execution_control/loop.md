@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 `ccu::loop` is a hardware loop class within the CCU kernel, used to describe a piece of copy logic that needs to be executed repeatedly.
 
@@ -37,7 +37,7 @@ Only one copy of the loop body instructions is recorded. During the delivery pha
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class loop {
@@ -50,7 +50,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -85,10 +85,10 @@ None. If construction fails, an exception is thrown and uniformly caught by `<<<
 
 ## Usage Constraints
 
-- The lambda of the loop body must have no input parameters. If it has input parameters, `<<<>>>` throws the `CCU_E_PARA` exception.
+- The lambda of the loop body must have no input parameters. If it has input parameters, `<<<>>>` throws the `ccu_result::CCU_E_PARA` exception.
 - After construction is complete, no more content can be appended to this loop.
 - API restrictions within the loop body:
-  - [event_record](../synchronization/event_record.md) cannot be called. If called, it returns `CCU_E_NOT_SUPPORT`.
+  - [event_record](../synchronization/event_record.md) cannot be called. If called, it returns `ccu_result::CCU_E_NOT_SUPPORT`.
   - Software branch macros such as [CCU_IF](CCU_IF.md) cannot be used. The code does not report an error, but the hardware exhibits undefined behavior.
   - [notify_record](../synchronization/notify_record.md) and [write_variable_with_notify](../synchronization/write_variable_with_notify.md) do not report an error, but when the loop body is replicated into multiple copies for parallel execution, the signal is sent repeatedly. Avoid using them.
 - `ccu::loop` must be added to a `ccu::loop_group` to issue hardware loop instructions. Do not use it alone. For details, see [Function Description](#function-description).
@@ -97,11 +97,11 @@ None. If construction fails, an exception is thrown and uniformly caught by `<<<
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: Move four contiguous 4 KB data blocks from on-chip memory to the CCU Buffer in sequence.
 // The hardware loop updates the address by addr_offset each round, so no manual address increment is required.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable r1, numA, numB;
     numA = 10;
     numB = 20;
@@ -121,6 +121,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     ccu_loop_group_config grp_cfg{};   // For a single-loop scenario, set all fields to 0.
     loop_group g(grp_cfg, /*max_loop_num=*/1, {l});
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

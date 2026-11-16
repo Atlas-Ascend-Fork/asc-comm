@@ -97,7 +97,7 @@ The subsequent content of this chapter is organized according to this process, a
     }
     ```
 
-    The `asccomm_ccu_*` APIs return `CcuResult`. In the sample, the result is converted to `HcclResult` through `ConvertCcuToHccl` and then checked by `HCCLCHECK`.
+    The `asccomm_ccu_*` APIs return `ccu_result`. In the sample, the result is converted to `HcclResult` through `ConvertCcuToHccl` and then checked by `HCCLCHECK`.
 
     The VA address of the variable (`mappedAddrs.startVa`) is dispatched along with the AI Core kernel parameters for writing the communication address. The handles of the variable and event (`varHandle` and `eventHandle`) are written into `kernelArg` and dispatched along with the CCU kernel for reading the address and waiting for/setting events.
 

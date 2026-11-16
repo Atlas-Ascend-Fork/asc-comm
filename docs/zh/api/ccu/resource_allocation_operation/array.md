@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::array<T>`是CCU kernel内批量持有物理连续资源的C++模板类。
 
@@ -37,7 +37,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 template <typename T>  // T仅支持variable、event、ccu_buffer
 class array final {
@@ -57,7 +57,7 @@ public:
     array& operator=(array&& other) noexcept;
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -104,22 +104,22 @@ public:
 ## 约束说明
 
 - `array(count)`和`array(acq_handle, count)`只能在Kernel函数体内构造。
-- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
 - `array<T>`仅特化`variable`、`event`、`ccu_buffer`三种类型；预约构造只对`variable`、`event`可用，其他类型实例化或使用预约构造会在编译期失败。
-- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法（如句柄无效、`count`超出预约句柄名下的资源个数）时抛出携带`CCU_E_PARA`的异常，被`<<<>>>`统一接住后按该错误码返回，本轮编译被中止。
+- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法（如句柄无效、`count`超出预约句柄名下的资源个数）时抛出携带`ccu_result::CCU_E_PARA`的异常，被`<<<>>>`统一接住后按该错误码返回，本轮编译被中止。
 - `count`须不大于预约句柄名下的资源个数；`count`为0时直接构造成空`array`（`size() == 0`），不绑定资源，也不校验`acq_handle`。
 - 多个单独声明的`variable`/`event`/`ccu_buffer`对象不保证物理连续，不可用于需要物理连续资源的接口（如`load`/`store`的variable数组批量形态、多ccu_buffer`local_reduce`）。
 - 不应在kernel之外保存元素的`handle`值，翻译完成后句柄即失效。
 
 > [!NOTE]说明
-> `load`/`store`会对variable数组做连续性校验（不连续返回`CCU_E_PARA`）；而`local_reduce`的多ccu_buffer通路不校验ccu_buffer是否物理连续，须由调用方自行保证。使用非`ccu::array`申请的多个ccu_buffer时不会立即报错，但执行期行为未定义。
+> `load`/`store`会对variable数组做连续性校验（不连续返回`ccu_result::CCU_E_PARA`）；而`local_reduce`的多ccu_buffer通路不校验ccu_buffer是否物理连续，须由调用方自行保证。使用非`ccu::array`申请的多个ccu_buffer时不会立即报错，但执行期行为未定义。
 
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     // 批量申请4个物理连续variable
     array<variable> v_arr(4);
 
@@ -129,14 +129,14 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     // 下标访问单个元素
     v_arr[0] = 1024;    // 对第0个variable赋立即数
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```
 
 绑定Host侧预约资源的用法：
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Host侧通过asccomm_ccu_variable_alloc/asccomm_ccu_event_alloc预约资源后，
 // 把预约句柄和个数放进kernelArg传入kernel
@@ -147,7 +147,7 @@ struct my_kernel_arg {
     uint32_t event_num;
 };
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto* args = static_cast<my_kernel_arg*>(arg);
 
     // 绑定Host侧预约的var_num个标量寄存器，不申请新的标量寄存器；绑定后的variable用法与
@@ -163,6 +163,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         event_record(events[i]);
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

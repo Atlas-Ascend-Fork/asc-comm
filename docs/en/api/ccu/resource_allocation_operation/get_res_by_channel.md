@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Obtains the handle to a channel-shared `variable` slot within a CCU kernel.
 
@@ -36,7 +36,7 @@ Typical scenario: the remote rank writes a value into shared `variable` slot N o
 ## Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 template <typename T>
 T get_res_by_channel(ChannelHandle channel, uint32_t index);
@@ -45,7 +45,7 @@ T get_res_by_channel(ChannelHandle channel, uint32_t index);
 template <>
 variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -55,7 +55,7 @@ The template parameter `T` is the type of the resource to obtain. Currently only
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | channel | Input | Cross-rank channel handle, of type [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md), which must have completed link establishment. |
-| var_index | Input | Variable index within the channel (starting from 0), corresponding to one of the variable slots pre-allocated when the channel establishes a link. Each channel currently reserves 4 variable slots (`var_index` ranges from `[0, 3]`); values outside this range return `CCU_E_PARA`. |
+| var_index | Input | Variable index within the channel (starting from 0), corresponding to one of the variable slots pre-allocated when the channel establishes a link. Each channel currently reserves 4 variable slots (`var_index` ranges from `[0, 3]`); values outside this range return `ccu_result::CCU_E_PARA`. |
 
 ## Return Value
 
@@ -65,8 +65,8 @@ If the call fails, an exception is thrown (carrying an error code). Common error
 
 | Scenario | Error Code |
 | --- | --- |
-| `channel == nullptr`, invalid channel type, or the API is called outside the compilation phase | `CCU_E_PTR` |
-| `var_index` out of range (exceeding the size of the pre-allocated variable pool of the channel) | `CCU_E_PARA` |
+| `channel == nullptr`, invalid channel type, or the API is called outside the compilation phase | `ccu_result::CCU_E_PTR` |
+| `var_index` out of range (exceeding the size of the pre-allocated variable pool of the channel) | `ccu_result::CCU_E_PARA` |
 
 ## Usage Constraints
 
@@ -78,7 +78,7 @@ If the call fails, an exception is thrown (carrying an error code). Common error
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel argument structure, filled on the host side and passed in through kernelArg.
 struct my_kernel_arg {
@@ -88,7 +88,7 @@ struct my_kernel_arg {
 // End-to-end scenario: the peer writes a value to shared variable slot 0 of the local channel through write_variable_with_notify.
 // The local kernel reads the value through get_res_by_channel.
 
-CcuResult my_kernel(ccu_kernel_arg arg) {  // arg is void*, pointing to my_kernel_arg passed from the host.
+ccu_result my_kernel(ccu_kernel_arg arg) {  // arg is void*, pointing to my_kernel_arg passed from the host.
     auto* params = static_cast<my_kernel_arg*>(arg);
     ChannelHandle ch = params->channel_handle;
 
@@ -102,6 +102,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg is void*, pointing to my_kerne
     variable result;
     result = sync_var;
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

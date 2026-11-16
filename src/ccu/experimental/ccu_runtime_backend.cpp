@@ -10,7 +10,7 @@
 
 #include "ccu_runtime_backend.h"
 
-#include "ccu_runtime_hcomm_backend.h"
+#include "ccu_runtime_asccomm_backend.h"
 
 namespace ccu::runtime {
 namespace {

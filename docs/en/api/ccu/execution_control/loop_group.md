@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 A hardware **LoopGroup** class in the CCU kernel that organizes multiple `ccu::loop` objects into a group to share the same **LoopEngine** resource pool, preventing resource exhaustion caused by multiple independent `loop` objects each exclusively occupying the **LoopEngine**.
 
@@ -34,7 +34,7 @@ When constructing `ccu::loop_group`, each `loop` in the passed `loops` list is a
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class loop_group {
@@ -49,7 +49,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -96,13 +96,13 @@ Example: [47:41]=4, [54:48]=1, and [61:55]=3 indicate a total of 4 loop instruct
 
 ## Return Value
 
-None. If construction fails, an exception is thrown (carrying the [`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md) error code), which is uniformly caught by `<<<>>>` and returned as an error code. Common reasons:
+None. If construction fails, an exception is thrown (carrying the `ccu_result` error code), which is uniformly caught by `<<<>>>` and returned as an error code. Common reasons:
 
 | Reason | Error Code |
 | --- | --- |
-| `max_loop_num` is 0, or the `variable` passed in var-based construction is invalid. | `CCU_E_PARA` |
-| The number of loops actually added exceeds `max_loop_num` (insufficient LoopEngine pool capacity). | `CCU_E_PARA` |
-| Insufficient physical resources. | `CCU_E_UNAVAIL`, etc. |
+| `max_loop_num` is 0, or the `variable` passed in var-based construction is invalid. | `ccu_result::CCU_E_PARA` |
+| The number of loops actually added exceeds `max_loop_num` (insufficient LoopEngine pool capacity). | `ccu_result::CCU_E_PARA` |
+| Insufficient physical resources. | `ccu_result::CCU_E_UNAVAIL`, etc. |
 
 ## Usage Constraints
 
@@ -110,18 +110,18 @@ None. If construction fails, an exception is thrown (carrying the [`CcuResult`](
 - The `ccu::loop` objects in the `loops` list must have been constructed before the `ccu::loop_group` is constructed, that is, the loop body has been recorded.
 - The same `ccu::loop` object should not be added to multiple `ccu::loop_group` objects.
 - The loop body constraints of each loop in a group are the same as those of an independent `ccu::loop` (see the constraints in [loop](loop.md)).
-- `max_loop_num` must be greater than 0. If it is 0, construction fails directly (`CCU_E_PARA`).
-- `max_loop_num` should be greater than or equal to the actual size of the `loops` list (that is, the number of loops that will actually be added to the group, including those reused by unrolling). If it is too small, adding loops later will fail due to insufficient LoopEngine pool capacity (`CCU_E_PARA`).
+- `max_loop_num` must be greater than 0. If it is 0, construction fails directly (`ccu_result::CCU_E_PARA`).
+- `max_loop_num` should be greater than or equal to the actual size of the `loops` list (that is, the number of loops that will actually be added to the group, including those reused by unrolling). If it is too small, adding loops later will fail due to insufficient LoopEngine pool capacity (`ccu_result::CCU_E_PARA`).
 
 ## Call Example
 
 - config-based:
 
     ```cpp
-    using namespace AscendC::ccu;
+    using namespace asc::ccu;
 
     // Scenario: two loops share the LoopEngine resource pool.
-    CcuResult my_kernel(ccu_kernel_arg arg) {
+    ccu_result my_kernel(ccu_kernel_arg arg) {
         variable r1, r2, numA, numB;
         numA = 10; numB = 20;
 
@@ -147,7 +147,7 @@ None. If construction fails, an exception is thrown (carrying the [`CcuResult`](
         grp_cfg.event_offset = 0;
         loop_group g(grp_cfg, /*max_loop_num=*/2, {l1, l2});
 
-        return CCU_SUCCESS;
+        return ccu_result::CCU_SUCCESS;
     }
     ```
 
@@ -160,7 +160,7 @@ None. If construction fails, an exception is thrown (carrying the [`CcuResult`](
         uint64_t numB;
     };
 
-    CcuResult my_kernel(ccu_kernel_arg arg)
+    ccu_result my_kernel(ccu_kernel_arg arg)
     {
         using namespace ccu;
         auto* args = static_cast<my_kernel_arg*>(arg);  // ccu_kernel_arg is void*. Cast it to the user argument struct first.
@@ -194,6 +194,6 @@ None. If construction fails, an exception is thrown (carrying the [`CcuResult`](
 
         loop_group group(var_parallel, var_offset, /*max_loop_num=*/4, {loop1, loop2});
 
-        return CCU_SUCCESS;
+        return ccu_result::CCU_SUCCESS;
     }
     ```

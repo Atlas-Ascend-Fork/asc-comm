@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据到本端，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
@@ -37,14 +37,14 @@
 - 对端片上内存 -> 本端片上内存
 
     ```cpp
-    CcuResult read(ChannelHandle ch, local_addr local, remote_addr remote,
+    ccu_result read(ChannelHandle ch, local_addr local, remote_addr remote,
                    variable len, event evt, uint16_t mask = 1);
     ```
 
 - 对端片上内存 -> 本端CCU Buffer
 
     ```cpp
-    CcuResult read(ChannelHandle ch, ccu_buffer local, remote_addr remote,
+    ccu_result read(ChannelHandle ch, ccu_buffer local, remote_addr remote,
                    variable len, event evt, uint16_t mask = 1);
     ```
 
@@ -61,18 +61,18 @@
 
 ## 返回值说明
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`ccu_result`：接口成功返回`ccu_result::CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
-| `CCU_E_NOT_FOUND` | 传入的`local`/`remote`/`len`/`evt`句柄未在当前kernel内创建。 |
+| `ccu_result::CCU_SUCCESS` | 操作成功。 |
+| `ccu_result::CCU_E_PTR` | 接口在Kernel函数体之外被调用。 |
+| `ccu_result::CCU_E_NOT_FOUND` | 传入的`local`/`remote`/`len`/`evt`句柄未在当前kernel内创建。 |
 
 ## 约束说明
 
 - 参数顺序为目的端在前、源端在后：`read(ch, local, remote, ...)`，与`write`相反，顺序写反会因类型不同在编译期报错。
-- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`CCU_E_PARA`，而非本接口的返回值。
+- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
 - “对端片上内存 -> 本端CCU Buffer”时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出会导致执行期硬件行为未定义。
 - 本接口为异步操作，须通过`event_wait(evt, mask)`等待读取完成后再访问目标内存。
 
@@ -80,7 +80,7 @@
 
 ```cpp
 // 为简化示例，省略返回值接收与错误处理
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧建链后通过<<<>>>的kernelArg传入
 struct my_kernel_arg {
@@ -88,7 +88,7 @@ struct my_kernel_arg {
 };
 
 // 场景1：从对端片上内存读取到本端片上内存
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
     ChannelHandle ch = params->channel_handle;
     local_addr dst;
@@ -98,11 +98,11 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     read(ch, dst, remote, len, evt);    // local在前，remote在后
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景2：从对端片上内存读取到本端CCU Buffer
-CcuResult my_kernel2(ccu_kernel_arg arg) {
+ccu_result my_kernel2(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
     ChannelHandle ch = params->channel_handle;
     ccu_buffer buf;
@@ -112,6 +112,6 @@ CcuResult my_kernel2(ccu_kernel_arg arg) {
 
     read(ch, buf, remote, len, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 `ccu::ccu_buffer` is a C++ wrapper class for the on-chip CCU Buffer inside a CCU kernel. Each slice is fixed at 4096 bytes and is used to relay data between on-chip memory and the peer.
 
@@ -38,7 +38,7 @@ Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class ccu_buffer final {
 public:
@@ -46,7 +46,7 @@ public:
     ccu_buffer_handle handle{0};       // Virtual handle.
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Constructor Description
@@ -57,8 +57,8 @@ public:
 
 ## Usage Constraints
 
-- It can only be constructed during the compilation phase; constructing it outside the compilation phase throws an exception carrying `CCU_E_PTR`.
-- The default constructor only requests a virtual handle and always succeeds without throwing an exception during the compilation phase; when CCU Buffer physical resources are insufficient, the compilation phase returns `CCU_E_UNAVAIL` instead of throwing an exception at construction time.
+- It can only be constructed during the compilation phase; constructing it outside the compilation phase throws an exception carrying `ccu_result::CCU_E_PTR`.
+- The default constructor only requests a virtual handle and always succeeds without throwing an exception during the compilation phase; when CCU Buffer physical resources are insufficient, the compilation phase returns `ccu_result::CCU_E_UNAVAIL` instead of throwing an exception at construction time.
 - The copy/move constructors only copy the `handle` field and do not request a new CCU Buffer slice. After `ccu_buffer b2 = b1;`, both objects point to the same slice. To obtain an independent `ccu_buffer`, you must explicitly use the default constructor or use [`array<ccu_buffer>`](array.md).
 - Do not save or compare the `handle` value outside the kernel; the handle becomes invalid once translation is complete.
 - Each `ccu_buffer` always represents a 4096-byte on-chip slice, and its size is not configurable.
@@ -67,9 +67,9 @@ public:
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     ccu_buffer buf;    // Request one 4 KB CCU Buffer slice.
     local_addr src;
     variable len;
@@ -79,6 +79,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     local_copy(buf, src, len, evt);
     event_wait(evt);
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

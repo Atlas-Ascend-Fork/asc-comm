@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/dfx/ccu_profiling.h"
+#include "ccu_api/dfx/ccu_profiling.h"
 
 namespace asc::ccu_profiling {
 
@@ -18,10 +18,10 @@ uint64_t msprof_sys_cycle_time() { return 0; }
 
 bool query_ccu_task_id_and_stream_id(uint32_t&, uint32_t&) { return false; }
 
-CcuResult get_ccu_profiling_details(ccu_kernel_handle, const void*, uint32_t, std::vector<profiling_detail>& details)
+ccu_result get_ccu_profiling_details(ccu_kernel_handle, const void*, uint32_t, std::vector<profiling_detail>& details)
 {
     details.clear();
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 void report_ccu_data_plane_after_launch(const ccu_prof_report_context&, const std::vector<profiling_detail>&) {}

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::local_addr`是CCU kernel内本端片上内存地址的C++包装类，是“地址（`address`）+ token（`variable`）”的复合对象。
 
@@ -38,7 +38,7 @@ CCU硬件不接受进程虚拟地址，访问片上内存必须使用由[`HcommC
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class local_addr final {
 public:
@@ -49,7 +49,7 @@ public:
     ccu_local_addr_handle handle{0};     // 复合句柄
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -72,8 +72,8 @@ public:
 > [!CAUTION]注意
 > `token`属于安全信息，host/device日志均不允许打印，禁止以明文形式跨rank透传。
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address/variable`物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address/variable`物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段，不申请新的`address/variable`，`local_addr l2 = l1;`后两个对象指向同一组寄存器；`operator=(const local_addr&)`则会发出两条device端寄存器赋值指令（把`other.addr`、`other.token`的值搬移过来），两者语义不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
@@ -83,7 +83,7 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 用户自定义的kernel入参结构体，Host侧填充后通过kernelArg传入
 // （src_addr为本端片上内存地址，src_token由Host调用HcommCcuGetMemToken换算获得）
@@ -92,7 +92,7 @@ struct my_kernel_arg {
     uint64_t src_token;  // 配套的安全token
 };
 
-CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的my_kernel_arg
+ccu_result my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的my_kernel_arg
     auto* params = static_cast<my_kernel_arg*>(arg);
 
     local_addr src;
@@ -108,6 +108,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {  // arg为void*，指向Host传入的m
     src2.addr = addrVar;    // 执行期动态地址
     src2.token = tokenVar;
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

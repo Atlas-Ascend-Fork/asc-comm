@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 // CCU 本地拷贝与调度的规模常量：最大 rank 数、Channel notify 槽位数、Die 数等
@@ -177,7 +178,7 @@ static void InitGroupCopyResources(
 
 // 按切分参数执行本地拷贝。
 
-static CcuResult GroupCopy(
+static ccu_result GroupCopy(
     AllToAllMesh1DMem2MemContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupOpSizeVars goSize)
 {
     ccu::local_addr loopSrc[2];
@@ -241,13 +242,13 @@ static CcuResult GroupCopy(
         std::vector<ccu::loop> grpLoops{*loops.loops[0], *loops.loops[1]};
         ccu::loop_group group(goSize.parallel_param, offsetCfg, 2, grpLoops);
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 按 rank 拆分地址：本 rank 段写入本端输出，其余 rank 段写入各自远端输出；
 // 再将本 rank 数据写入其余 rank，并用本地拷贝补全本端段，最后等所有 rank 完成。
 
-static CcuResult ExecuteAllToAllTransfer(AllToAllMesh1DMem2MemContext& ctx)
+static ccu_result ExecuteAllToAllTransfer(AllToAllMesh1DMem2MemContext& ctx)
 {
     ccu::local_addr localSrc;
     ccu::local_addr localDst;
@@ -305,7 +306,7 @@ static CcuResult ExecuteAllToAllTransfer(AllToAllMesh1DMem2MemContext& ctx)
         // 等所有 rank 位均置位，AllToAll 才算完成
         ccu::event_wait(ctx.event, totalMask);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

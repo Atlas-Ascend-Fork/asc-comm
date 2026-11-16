@@ -11,7 +11,7 @@
 #ifndef CCU_LAUNCH_STUB_H
 #define CCU_LAUNCH_STUB_H
 
-#include "hcomm/primitives/ccu_launch.h"
+#include "ccu_api/ccu_launch.h"
 
 struct CcuLaunchStubCalls {
     uint32_t registerStart;
@@ -37,8 +37,8 @@ struct CcuLaunchStubObservations {
 
 void ResetCcuLaunchStub();
 void SetCcuLaunchStubResults(
-    CcuResult registerStart, CcuResult registerKernel, CcuResult registerEnd, CcuResult getTaskArgsNum,
-    CcuResult kernelLaunch);
+    ccu_result registerStart, ccu_result registerKernel, ccu_result registerEnd, ccu_result getTaskArgsNum,
+    ccu_result kernelLaunch);
 void SetCcuLaunchStubTaskArgsNum(uint32_t taskArgsNum);
 CcuLaunchStubObservations GetCcuLaunchStubObservations();
 

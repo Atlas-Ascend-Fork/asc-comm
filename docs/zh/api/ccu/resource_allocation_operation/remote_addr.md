@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::remote_addr`是CCU kernel内对端片上内存地址的C++包装类，是“地址（`address`）+ token（`variable`）”的复合对象，结构与[local_addr](local_addr.md)相同。
 
@@ -38,7 +38,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class remote_addr final {
 public:
@@ -49,7 +49,7 @@ public:
     ccu_remote_addr_handle handle{0};     // 复合句柄
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -70,8 +70,8 @@ public:
 > [!CAUTION]注意
 > `token`属于安全信息，host/device日志均不允许打印，禁止以明文形式跨rank透传。`addr`和`token`字段必须是对端rank目标内存的值，与本端`local_addr`字段来源完全不同。
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address/variable`物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；`address/variable`物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段，不申请新的`address/variable`，`remote_addr r2 = r1;`后两个对象指向同一组寄存器；`operator=(const remote_addr&)`则会执行device端寄存器赋值指令（语义与`local_addr`相同），两者不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`remote_addr()`已一次性完成所有子字段的分配。
@@ -80,7 +80,7 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 对端rank的地址与token须通过进程间通信（如消息传递框架）从对端获取，
 // 再通过kernelArg或taskArgs+load_arg传入kernel。
@@ -92,7 +92,7 @@ struct my_kernel_arg {
     uint64_t local_token;
 };
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto* params = static_cast<my_kernel_arg*>(arg);  // ccu_kernel_arg为void*，先转型为用户入参结构体
 
     remote_addr remote;
@@ -112,6 +112,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     write(ch, remote, local, len, evt);   // 将本端片上内存数据写入对端片上内存
     event_wait(evt);
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

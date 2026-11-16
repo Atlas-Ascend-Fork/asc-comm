@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内开始`CCU_IF`的else分支：当`CCU_IF`条件不满足时执行该分支。
 
@@ -50,7 +50,7 @@ CCU_IF(cond_expr) {
 
 ## 返回值说明
 
-`CCU_ELSE`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)；在正常用法下不会失败。
+`CCU_ELSE`为预处理器宏，本身不返回`ccu_result`；在正常用法下不会失败。
 
 ## 约束说明
 
@@ -74,9 +74,9 @@ CCU_IF(v == 0) {
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable mode;
     load_arg(mode, 0);
 
@@ -90,6 +90,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         result = 200;
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

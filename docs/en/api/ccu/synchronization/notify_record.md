@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Sends a completion signal to the peer die through a channel within the CCU kernel, setting the notify flag corresponding to `mask` in the peer synchronization register to 1 so that the peer's [notify_wait](notify_wait.md) can read the completion signal.
 
@@ -35,11 +35,11 @@ Sends a completion signal to the peer die through a channel within the CCU kerne
 ## Function Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint16_t mask = 1);
+ccu_result notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -52,17 +52,17 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation phase. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation phase. |
 
 ## Usage Constraints
 
 - It cannot be called inside the loop body of a hardware loop. The loop body is replicated into multiple copies for parallel execution, and each copy executes `notify_record` once, making the set semantics ambiguous.
-- All channels within the same kernel must belong to the same die. Channels of different dies cannot be mixed into the same kernel. This constraint is uniformly checked by `<<<>>>`, and `CCU_E_PARA` is returned when it is violated.
+- All channels within the same kernel must belong to the same die. Channels of different dies cannot be mixed into the same kernel. This constraint is uniformly checked by `<<<>>>`, and `ccu_result::CCU_E_PARA` is returned when it is violated.
 - The `remote_notify_idx` of `notify_record` and the `local_notify_idx` of `notify_wait` have the same value.
 - `notify_record` and `notify_wait` use the same `mask`.
 - A single [`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/ChannelHandle.md) provides at most 8 notify slots, so `remote_notify_idx` ranges from 0 to 7.
@@ -71,7 +71,7 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 
 ```cpp
 // For simplicity, return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel argument struct, passed in through the kernelArg of <<<>>> after the host side establishes the link.
 struct my_kernel_arg {
@@ -80,22 +80,22 @@ struct my_kernel_arg {
 
 // Scenario: die A notifies die B that data can be read after completing the write operation.
 // Inside the CCU kernel function body of die A.
-CcuResult sender_kernel(ccu_kernel_arg arg) {
+ccu_result sender_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*, so first cast it to the user argument struct.
     // ... Perform the write operation to write data to the peer memory ...
 
     // Notify slot 3 of die B that bit0 is complete.
     notify_record(params->channel, /*remote_notify_idx=*/3, 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Inside the CCU kernel function body of die B, corresponding to the kernel of die A.
-CcuResult receiver_kernel(ccu_kernel_arg arg) {
+ccu_result receiver_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // Cast ccu_kernel_arg, which is void*, to the user input parameter struct.
     // Wait for the signal from die A, bit0 of the local notify slot 3.
     notify_wait(params->channel, /*local_notify_idx=*/3, 0x1);
 
     // After this, the data written by die A can be safely read.
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

@@ -418,7 +418,10 @@ is_allowed_path()
         asc/impl/comm_api/*/*/*.h|\
         asc/lib64/libasccomm_ccu.so|\
         asc/lib64/libasccomm_cpu.so|\
-        lib64/libccu_runtime.so|lib64/cmake/asccomm-config.cmake|\
+        lib64/libasccomm_ccu.so|\
+        lib64/libasccomm_cpu.so|\
+        lib64/libccu_runtime.so|\
+        lib64/cmake/asccomm-config.cmake|\
         "${ARCH_DIR}/devlib/device/libasccomm_aicpu.so"|\
         opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz)
             ;;
@@ -464,7 +467,7 @@ payload_file_mode()
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
         asc/impl/comm_api/*.h|asc/impl/comm_api/*/*.h|\
-        asc/impl/comm_api/*/*/*.h|asc/lib64/*.so|lib64/*.so|lib64/*.so.*|lib64/cmake/*.cmake|\
+        asc/impl/comm_api/*/*/*.h|lib64/*.so|lib64/*.so.*|lib64/cmake/*.cmake|\
         opp/built-in/op_impl/aicpu/kernel/*.tar.gz|"${ARCH_DIR}/devlib/device/libasccomm_aicpu.so")
             mode=550
             ;;

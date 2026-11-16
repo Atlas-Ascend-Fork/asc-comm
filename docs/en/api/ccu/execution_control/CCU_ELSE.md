@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Starts the **else** branch of `CCU_IF` in a CCU kernel: this branch is executed when the `CCU_IF` condition is not met.
 
@@ -52,7 +52,7 @@ For the complete usage, see [CCU_IF](CCU_IF.md).
 
 ## Return Value
 
-`CCU_ELSE` is a preprocessor macro and does not return [`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md) by itself; it does not fail under normal usage.
+`CCU_ELSE` is a preprocessor macro and does not return `ccu_result` by itself; it does not fail under normal usage.
 
 ## Usage Constraints
 
@@ -76,9 +76,9 @@ CCU_IF(v == 0) {
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable mode;
     load_arg(mode, 0);
 
@@ -92,6 +92,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         result = 200;
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

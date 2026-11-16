@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::variable`是CCU kernel内通用寄存器的C++包装类，用于保存标量值，支持赋值、加法运算，以及供`CCU_IF`/`CCU_WHILE`/`CCU_DO`等控制流宏使用的比较运算。
 
@@ -37,7 +37,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class variable final {
 public:
@@ -61,7 +61,7 @@ public:
     ccu_variable_handle handle{0};                                // 虚拟句柄
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -77,7 +77,7 @@ public:
     | 参数名 | 输入/输出 | 描述 |
     | --- | --- | --- |
     | var_handle | 输入 | 预约句柄，即Host侧调用`asccomm_ccu_variable_alloc`预先从实例资源池划出一段物理标量寄存器后返回的句柄，通过`kernelArg`传入kernel。 |
-    | index | 输入 | 要绑定的标量寄存器在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_variable_alloc`预约的标量寄存器数量），超出该范围抛出`CCU_E_PARA`异常。 |
+    | index | 输入 | 要绑定的标量寄存器在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_variable_alloc`预约的标量寄存器数量），超出该范围抛出`ccu_result::CCU_E_PARA`异常。 |
 
     多次用同一预约句柄和同一`index`构造，得到的多个`variable`对象共享同一个物理标量寄存器。
 
@@ -112,9 +112,9 @@ public:
 
 ## 约束说明
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；标量寄存器物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
-- 预约构造会校验预约句柄与`index`，`index`超出预约段范围（`[0, num-1]`，`num`为Host侧预约的标量寄存器数量）时抛出`CCU_E_PARA`异常。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；标量寄存器物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
+- 预约构造会校验预约句柄与`index`，`index`超出预约段范围（`[0, num-1]`，`num`为Host侧预约的标量寄存器数量）时抛出`ccu_result::CCU_E_PARA`异常。
 - copy/move构造函数只拷贝`handle`字段、不申请新的标量寄存器，`variable v2 = v1;`后两个对象是同一个kernel内句柄；如需独立的`variable`，使用默认构造或[`array<variable>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 当前仅支持加法运算，不支持减法、乘法、除法、按位逻辑与移位运算。
@@ -123,9 +123,9 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable n, i, one, step;
 
     // 赋立即数（翻译期固化）
@@ -150,6 +150,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         // ...
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

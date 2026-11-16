@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
@@ -210,7 +211,7 @@ static void InitGroupCopyResources(
 // 按 CalGoSize 的切分结果组织本地拷贝：addr_offset 非 0 时先整体循环搬运已切分的部分，
 // parallel_param 非 0 时再单独搬运尾块（尾分片 + 尾残余），两部分经 CcuBuffer 中转。
 
-static CcuResult GroupCopy(
+static ccu_result GroupCopy(
     AllGatherNhr1DMem2MemContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupOpSizeVars goSize)
 {
     ccu::local_addr loopSrc[2];
@@ -281,16 +282,16 @@ static CcuResult GroupCopy(
         // 构造 loop_group 即完成提交：LoopGroup 按偏移复制出多份 Loop 并发执行，无独立的提交调用
         ccu::loop_group group(goSize.parallel_param, offsetCfg, ctx.moConfig.loop_count, grpLoops);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Kernel 内资源准备：按 rank→Channel 映射把各对端的 output 地址与 token 绑定到对应 Variable 单元
 
-static CcuResult InitResource(AllGatherNhr1DMem2MemContext& ctx)
+static ccu_result InitResource(AllGatherNhr1DMem2MemContext& ctx)
 {
     if (ctx.arg->rankSize < 2 || ctx.arg->rankId >= ctx.arg->rankSize ||
         ctx.arg->channelCount != ctx.arg->rank2ChannelIdx.size()) {
-        return CcuResult::CCU_E_PARA;
+        return ccu_result::CCU_E_PARA;
     }
 
     ctx.output.resize(ctx.arg->rankSize);
@@ -299,12 +300,12 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext& ctx)
         const uint32_t peerRank = rankAndChannel.first;
         const uint32_t channelIdx = rankAndChannel.second;
         if (peerRank >= ctx.arg->rankSize || channelIdx >= ctx.arg->channelCount) {
-            return CcuResult::CCU_E_PARA;
+            return ccu_result::CCU_E_PARA;
         }
         ctx.output[peerRank] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
         ctx.token[peerRank] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 前同步：本端 output 地址与 token 写入对端并置位对端 notify，
@@ -340,7 +341,7 @@ static void PostSync(AllGatherNhr1DMem2MemContext& ctx)
 
 // 把本 rank 的 slice 就地拷贝到输出缓冲中本 rank 的区段
 
-static CcuResult CopyLocalSlice(AllGatherNhr1DMem2MemContext& ctx)
+static ccu_result CopyLocalSlice(AllGatherNhr1DMem2MemContext& ctx)
 {
     // 源地址：本 rank 输入缓冲中偏移 rankId 个 stride 的位置
     ccu::local_addr src_;
@@ -363,12 +364,12 @@ static CcuResult CopyLocalSlice(AllGatherNhr1DMem2MemContext& ctx)
 // 执行单个 NHR step：把本步负责的 slice 逐片写入 toRank，写后即等待完成；
 // 非末尾 step 还要与 fromRank 做一次对端同步，确保下一步转发的数据已写入本地输出。
 
-static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo& stepInfo, bool isLastStep)
+static ccu_result RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo& stepInfo, bool isLastStep)
 {
     const auto sendIt = ctx.arg->rank2ChannelIdx.find(stepInfo.toRank);
     const auto recvIt = ctx.arg->rank2ChannelIdx.find(stepInfo.fromRank);
     if (sendIt == ctx.arg->rank2ChannelIdx.end() || recvIt == ctx.arg->rank2ChannelIdx.end()) {
-        return CcuResult::CCU_E_NOT_FOUND;
+        return ccu_result::CCU_E_NOT_FOUND;
     }
 
     const uint32_t sendChannelIdx = sendIt->second;
@@ -409,19 +410,19 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo
         ccu::notify_record(sendChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID);
         ccu::notify_wait(recvChannel, CKE_IDX_0, 1U << STEP_POST_SYNC_ID);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // AllGather 执行：先做本 rank slice 的本地落位，再按 NHR 调度逐步向对端转发 slice
 
-static CcuResult DoAllGather(AllGatherNhr1DMem2MemContext& ctx)
+static ccu_result DoAllGather(AllGatherNhr1DMem2MemContext& ctx)
 {
     CopyLocalSlice(ctx);
     for (uint32_t stepIdx = 0; stepIdx < ctx.arg->stepInfoVector.size(); stepIdx++) {
         const bool isLastStep = (stepIdx + 1 == ctx.arg->stepInfoVector.size());
         RunNhrStep(ctx, ctx.arg->stepInfoVector[stepIdx], isLastStep);
     }
-    return CcuResult::CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 AllGather NHR 编排指令。

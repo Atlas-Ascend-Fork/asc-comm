@@ -10,8 +10,8 @@
 
 #include "ccu_channel_get_stub.h"
 
-#include "hcomm/common/ccu_device_context.h"
-#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
+#include "ccu_api/common/ccu_device_context.h"
+#include "ccu_api/resource/common/asc_ccu_res_snapshot.h"
 
 // 本文件底部提供的 stub 入口（控制操作槽 0：填充实体快照）
 extern "C" int32_t HcommCcuChannelGetEntity(ChannelHandle channel, HcommCcuChannelEntity* channelEntity);

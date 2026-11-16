@@ -18,8 +18,8 @@
 #include <hccl/hccl_rank_graph.h>
 #include <hccl_ccu_res.h>
 #include <ccu_res.h>
-#include <ccu/hcomm/ccu_api_types.h>
-#include <hcomm/ccu/hcomm_res_ccu_entity_defs.h>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu_api/ccu/asccomm_res_ccu_entity_defs.h>
 
 namespace asccomm_examples {
 
@@ -149,43 +149,43 @@ inline void DestroyAllDescs(std::vector<HcommCcuResDescHandle>& descs)
 /**
  * 用所有已使能 IO Die 的"默认资源比例"显式创建一个 CCU 实例。
  * 流程：逐 die 创建资源描述符 -> HcommCcuQueryRemainResDesc 探测该 die 是否使能
- *       (CCU_E_UNAVAIL 视为未使能，跳过) -> 按 CCU_DEFAULT_RES 设置各类型数量 ->
+ *       (ccu_result::CCU_E_UNAVAIL 视为未使能，跳过) -> 按 CCU_DEFAULT_RES 设置各类型数量 ->
  *       HcommCcuInsCreate 创建实例。
  * 注意：
  * - 创建出的实例尚未绑定通信域；调用方需再调用 HcclCommAssignCcuIns(comm, insHandle)
  *   将其绑定（失败时应 HcommCcuInsDestroy(insHandle) 销毁实例，避免泄漏）。
  * - 与 QueryCcuInstance 的自动创建（按展开模式 CCU_MS/CCU_SCHED 的固定量）不同，
  *   这里由调用方显式指定各资源类型数量。
- * - 返回 CCU_SUCCESS 时 insHandle 有效；其余返回值下已清理内部描述符，不产生泄漏。
+ * - 返回 ccu_result::CCU_SUCCESS 时 insHandle 有效；其余返回值下已清理内部描述符，不产生泄漏。
  */
-inline CcuResult CreateCcuInsWithCustomNum(CcuInsHandle& insHandle)
+inline ccu_result CreateCcuInsWithCustomNum(CcuInsHandle& insHandle)
 {
     std::vector<HcommCcuResDescHandle> resDescs;
     for (uint32_t dieId = 0; dieId < CCU_MAX_DIE_NUM; dieId++) {
         HcommCcuResDescHandle desc = 0;
-        CcuResult descCreateRet = HcommCcuInsResDescCreate(dieId, &desc);
-        if (descCreateRet != CCU_SUCCESS) {
+        ccu_result descCreateRet = static_cast<ccu_result>(HcommCcuInsResDescCreate(dieId, &desc));
+        if (descCreateRet != ccu_result::CCU_SUCCESS) {
             (void)HcommCcuInsResDescDestroy(desc);
             DestroyAllDescs(resDescs);
             return descCreateRet;
         }
 
-        // 探测该 die 是否使能：未使能返回 CCU_E_UNAVAIL，跳过该 die。
-        CcuResult probeRet = HcommCcuQueryRemainResDesc(desc);
-        if (probeRet == CCU_E_UNAVAIL) {
+        // 探测该 die 是否使能：未使能返回 ccu_result::CCU_E_UNAVAIL，跳过该 die。
+        ccu_result probeRet = static_cast<ccu_result>(HcommCcuQueryRemainResDesc(desc));
+        if (probeRet == ccu_result::CCU_E_UNAVAIL) {
             printf(">> die %u is not enabled, skipped.\n", dieId);
             (void)HcommCcuInsResDescDestroy(desc);
             continue;
         }
-        if (probeRet != CCU_SUCCESS) {
+        if (probeRet != ccu_result::CCU_SUCCESS) {
             (void)HcommCcuInsResDescDestroy(desc);
             DestroyAllDescs(resDescs);
             return probeRet;
         }
 
         for (const auto& res : CCU_DEFAULT_RES) {
-            CcuResult setRet = HcommCcuInsResDescSetNum(desc, res.type, res.num);
-            if (setRet != CCU_SUCCESS) {
+            ccu_result setRet = static_cast<ccu_result>(HcommCcuInsResDescSetNum(desc, res.type, res.num));
+            if (setRet != ccu_result::CCU_SUCCESS) {
                 (void)HcommCcuInsResDescDestroy(desc);
                 DestroyAllDescs(resDescs);
                 return setRet;
@@ -195,10 +195,11 @@ inline CcuResult CreateCcuInsWithCustomNum(CcuInsHandle& insHandle)
     }
 
     if (resDescs.empty()) {
-        return CcuResult::CCU_E_INTERNAL;
+        return ccu_result::CCU_E_INTERNAL;
     }
 
-    CcuResult createRet = HcommCcuInsCreate(resDescs.data(), static_cast<uint32_t>(resDescs.size()), &insHandle);
+    ccu_result createRet =
+        static_cast<ccu_result>(HcommCcuInsCreate(resDescs.data(), static_cast<uint32_t>(resDescs.size()), &insHandle));
     DestroyAllDescs(resDescs);
     return createRet;
 }
@@ -206,7 +207,7 @@ inline CcuResult CreateCcuInsWithCustomNum(CcuInsHandle& insHandle)
 /**
  * 用设备各已使能 IO Die 的"剩余资源"显式创建一个 CCU 实例。
  * 流程：逐 die 创建资源描述符 -> HcommCcuQueryRemainResDesc 探测该 die 是否使能
- *       (CCU_E_UNAVAIL 视为未使能，跳过) -> 收集使能 die 的描述符 ->
+ *       (ccu_result::CCU_E_UNAVAIL 视为未使能，跳过) -> 收集使能 die 的描述符 ->
  *       HcommCcuInsCreate 创建实例。
  * 用户信息：
  * - 创建成功后经 HcommCcuInsQueryResDesc 回填、HcommCcuInsResDescQueryDieId /
@@ -214,28 +215,28 @@ inline CcuResult CreateCcuInsWithCustomNum(CcuInsHandle& insHandle)
  * 注意：
  * - 创建出的实例尚未绑定通信域；调用方需再调用 HcclCommAssignCcuIns(comm, insHandle)
  *   将其绑定（失败时应 HcommCcuInsDestroy(insHandle) 销毁实例，避免泄漏）。
- * - 返回 CCU_SUCCESS 时 insHandle 有效；其余返回值下已清理内部描述符，不产生泄漏。
+ * - 返回 ccu_result::CCU_SUCCESS 时 insHandle 有效；其余返回值下已清理内部描述符，不产生泄漏。
  */
-inline CcuResult CreateCcuInsWithRemainResDesc(CcuInsHandle& insHandle)
+inline ccu_result CreateCcuInsWithRemainResDesc(CcuInsHandle& insHandle)
 {
     std::vector<HcommCcuResDescHandle> resDescs;
     for (uint32_t dieId = 0; dieId < CCU_MAX_DIE_NUM; dieId++) {
         HcommCcuResDescHandle desc = 0;
-        CcuResult descCreateRet = HcommCcuInsResDescCreate(dieId, &desc);
-        if (descCreateRet != CCU_SUCCESS) {
+        ccu_result descCreateRet = static_cast<ccu_result>(HcommCcuInsResDescCreate(dieId, &desc));
+        if (descCreateRet != ccu_result::CCU_SUCCESS) {
             (void)HcommCcuInsResDescDestroy(desc);
             DestroyAllDescs(resDescs);
             return descCreateRet;
         }
 
-        // 探测该 die 是否使能：未使能返回 CCU_E_UNAVAIL，跳过该 die。
-        CcuResult probeRet = HcommCcuQueryRemainResDesc(desc);
-        if (probeRet == CCU_E_UNAVAIL) {
+        // 探测该 die 是否使能：未使能返回 ccu_result::CCU_E_UNAVAIL，跳过该 die。
+        ccu_result probeRet = static_cast<ccu_result>(HcommCcuQueryRemainResDesc(desc));
+        if (probeRet == ccu_result::CCU_E_UNAVAIL) {
             printf(">> die %u is not enabled, skipped.\n", dieId);
             (void)HcommCcuInsResDescDestroy(desc);
             continue;
         }
-        if (probeRet != CCU_SUCCESS) {
+        if (probeRet != ccu_result::CCU_SUCCESS) {
             (void)HcommCcuInsResDescDestroy(desc);
             DestroyAllDescs(resDescs);
             return probeRet;
@@ -245,15 +246,16 @@ inline CcuResult CreateCcuInsWithRemainResDesc(CcuInsHandle& insHandle)
     }
 
     if (resDescs.empty()) {
-        return CcuResult::CCU_E_INTERNAL;
+        return ccu_result::CCU_E_INTERNAL;
     }
 
-    CcuResult createRet = HcommCcuInsCreate(resDescs.data(), static_cast<uint32_t>(resDescs.size()), &insHandle);
-    if (createRet == CCU_SUCCESS) {
+    ccu_result createRet =
+        static_cast<ccu_result>(HcommCcuInsCreate(resDescs.data(), static_cast<uint32_t>(resDescs.size()), &insHandle));
+    if (createRet == ccu_result::CCU_SUCCESS) {
         // 用户信息：逐个打印实例在各 die 上占用的资源
         // resDescs 中每个元素对应一个 die 的描述符，互不覆盖；HcommCcuInsQueryResDesc 回填 + QueryDieId / QueryNum 读取
         for (auto& desc : resDescs) {
-            if (HcommCcuInsQueryResDesc(insHandle, desc) != CCU_SUCCESS) {
+            if (static_cast<ccu_result>(HcommCcuInsQueryResDesc(insHandle, desc)) != ccu_result::CCU_SUCCESS) {
                 continue;
             }
             uint32_t occDieId = 0;
@@ -261,7 +263,8 @@ inline CcuResult CreateCcuInsWithRemainResDesc(CcuInsHandle& insHandle)
             printf(">> ccu ins die %u occupied res:", occDieId);
             for (const auto& res : CCU_DEFAULT_RES) {
                 uint32_t resNum = 0;
-                if (HcommCcuInsResDescQueryNum(desc, res.type, &resNum) == CCU_SUCCESS) {
+                if (static_cast<ccu_result>(HcommCcuInsResDescQueryNum(desc, res.type, &resNum)) ==
+                    ccu_result::CCU_SUCCESS) {
                     printf(" %s=%u", CcuResTypeName(res.type), resNum);
                 }
             }

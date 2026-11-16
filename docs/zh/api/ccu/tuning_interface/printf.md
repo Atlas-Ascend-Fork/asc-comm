@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-使用该接口需要包含头文件`ccu/hcomm/ccu_print.hpp`。
+使用该接口需要包含头文件`ccu/asc_ccu.h`。
 
 打印CCU kernel执行到调用位置时的`ccu::variable`值，用于调试。日志包含`[CCU_PRINT]`前缀、文件名、行号和格式化后的变量值。
 
@@ -42,7 +42,7 @@ CCU_PRINTF(fmt, args...)
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | fmt | 输入 | 有效的、以`\0`结尾的Host格式字符串，构建时保存。不支持`nullptr`。 |
-| args | 输入 | 零个或多个`AscendC::ccu::variable`，按设备运行时值输出。不支持Host整数、字符串、指针或浮点数。 |
+| args | 输入 | 零个或多个`asc::ccu::variable`，按设备运行时值输出。不支持Host整数、字符串、指针或浮点数。 |
 
 | 格式符 | 含义 |
 | --- | --- |
@@ -57,16 +57,16 @@ CCU_PRINTF(fmt, args...)
 
 ## 返回值说明
 
-返回`CcuResult`，表示Host侧打印指令的构建状态。
+返回`ccu_result`，表示Host侧打印指令的构建状态。
 
 | 返回值/行为 | 说明 |
 | --- | --- |
-| `CCU_SUCCESS` | 打印指令构建成功。 |
-| `CCU_E_PARA` | 格式字符串非法、格式符数量与参数数量不匹配，或注册失败导致打印句柄为空。 |
-| 其他`CcuResult` | 构建内部`load`、`store`或条件控制指令失败，向调用方透传错误。 |
+| `ccu_result::CCU_SUCCESS` | 打印指令构建成功。 |
+| `ccu_result::CCU_E_PARA` | 格式字符串非法、格式符数量与参数数量不匹配，或注册失败导致打印句柄为空。 |
+| 其他`ccu_result` | 构建内部`load`、`store`或条件控制指令失败，向调用方透传错误。 |
 | 编译期错误 | 可变参数中包含非`ccu::variable`类型，触发静态类型检查。 |
 
-格式不合法时，不分配打印缓冲区、不生成打印指令，返回`CCU_E_PARA`，并输出ERROR级别运行日志（`DLOG_ERROR`）：
+格式不合法时，不分配打印缓冲区、不生成打印指令，返回`ccu_result::CCU_E_PARA`，并输出ERROR级别运行日志（`DLOG_ERROR`）：
 
 ```text
 [CCU_PRINT] invalid format or argument count
@@ -82,7 +82,7 @@ Host处理记录时若检测到非法格式，输出WARNING日志，并停止本
 | 宽度、精度、标志或位置参数 | `%08x`、`%.2u`、`%+u`、`% u`、`%#x`、`%*u`、`%1$u` |
 | 格式符与参数数量不匹配 | `CCU_PRINTF("%u")`，或向`""`、`"%%"`传入变量 |
 
-资源分配等其他注册失败不生成打印指令，返回`CCU_E_PARA`。
+资源分配等其他注册失败不生成打印指令，返回`ccu_result::CCU_E_PARA`。
 
 ## 约束说明
 
@@ -94,7 +94,7 @@ Host处理记录时若检测到非法格式，输出WARNING日志，并停止本
 > [!CAUTION]注意
 > CCU_PRINTF接口打印功能会对CCU kernel实际运行的性能带来一定影响，通常在调测阶段使用。开发者可以按需在编译包含CCU_PRINTF调用的源文件时设置`-DASCENDC_DUMP=0`，关闭打印功能。
 
-关闭打印时，CCU_PRINTF不求值参数、不分配打印缓冲区、不生成打印指令，返回`CCU_SUCCESS`。未定义ASCENDC_DUMP或其值非0时，打印功能开启。
+关闭打印时，CCU_PRINTF不求值参数、不分配打印缓冲区、不生成打印指令，返回`ccu_result::CCU_SUCCESS`。未定义ASCENDC_DUMP或其值非0时，打印功能开启。
 
 ## 使用说明
 
@@ -107,19 +107,19 @@ CCU_PRINTF正文沿用HCCL_RUN_INFO的INFO级运行日志通道，可在Host侧�
 以下代码为kernel构建函数中的打印片段，`load_arg`参数0、1由Host launch传入：
 
 ```cpp
-#include "ccu/hcomm/ccu_print.hpp"
+#include "ccu/asc_ccu.h"
 
-namespace ccu = AscendC::ccu;
+namespace ccu = asc::ccu;
 
-CcuResult BuildPrintBody()
+ccu_result BuildPrintBody()
 {
     ccu::variable a, b, sum;
-    CcuResult ret = ccu::load_arg(a, 0);
-    if (ret != CCU_SUCCESS) {
+    ccu_result ret = ccu::load_arg(a, 0);
+    if (ret != ccu_result::CCU_SUCCESS) {
         return ret;
     }
     ret = ccu::load_arg(b, 1);
-    if (ret != CCU_SUCCESS) {
+    if (ret != ccu_result::CCU_SUCCESS) {
         return ret;
     }
     sum = a + b;

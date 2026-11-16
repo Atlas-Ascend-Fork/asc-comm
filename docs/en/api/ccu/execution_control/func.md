@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 `ccu::func` wraps a lambda into a reusable function block (FuncBlock): at construction, it only records the lambda without generating instructions; when first called through [call_func](call_func.md), it executes the lambda and synthesizes the logic into a single instruction block; each subsequent call only appends a jump instruction and reuses the same instruction block, thereby saving instruction space. The lambda has zero or more `ccu::variable` parameters, which are bound to arguments at calls, and returns `void`.
 
@@ -35,7 +35,7 @@ Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class func {
@@ -49,7 +49,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -72,7 +72,7 @@ None.
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 static func add_dbl([](variable x) {
     variable tmp;

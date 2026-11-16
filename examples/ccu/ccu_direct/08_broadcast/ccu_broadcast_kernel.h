@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 // 规模上限与每链路 notify 数
@@ -63,7 +64,7 @@ constexpr int POST_SYNC_ID = 3;
 constexpr uint64_t MAX_TRANSFER_BYTES = 256ULL * 1024 * 1024;
 
 // 与所有对端互换缓冲地址与 token：先把本端地址写给对端，再等对端写回
-static CcuResult ExchangeBuffers(BroadcastMesh1DContext& ctx)
+static ccu_result ExchangeBuffers(BroadcastMesh1DContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::write_variable_with_notify(
@@ -76,15 +77,15 @@ static CcuResult ExchangeBuffers(BroadcastMesh1DContext& ctx)
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 由根 rank 把本端数据写到其余所有 rank 的缓冲；非根 rank 直接返回
 
-static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
+static ccu_result BroadcastFromRoot(BroadcastMesh1DContext& ctx)
 {
     if (ctx.arg->rankId != ctx.arg->rootId) {
-        return CCU_SUCCESS;
+        return ccu_result::CCU_SUCCESS;
     }
 
     ccu::local_addr src_;
@@ -107,7 +108,7 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
         channelId++;
     }
     ccu::event_wait(ctx.event, remoteMask);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

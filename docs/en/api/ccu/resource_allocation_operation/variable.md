@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`.
+Header file: `#include <ccu/asc_ccu.h>`.
 
 `ccu::variable` is a C++ wrapper class for general-purpose registers in a CCU kernel. It stores scalar values and supports assignment, addition, and comparison operations used by control-flow macros such as `CCU_IF`/`CCU_WHILE`/`CCU_DO`.
 
@@ -39,7 +39,7 @@ Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`.
 ## Class Declaration
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class variable final {
 public:
@@ -63,7 +63,7 @@ public:
     ccu_variable_handle handle{0};                                // Virtual handle.
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Constructor Description
@@ -79,7 +79,7 @@ public:
     | Parameter | Input/Output | Description |
     | --- | --- | --- |
     | var_handle | Input | Reserved handle, which is returned after the host side calls `asccomm_ccu_variable_alloc` to pre-allocate a segment of physical scalar registers from the instance resource pool, and is passed into the kernel through `kernelArg`. |
-    | index | Input | Sequence number of the scalar register to be bound within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of scalar registers reserved by `asccomm_ccu_variable_alloc` on the host side). If the value is out of range, a `CCU_E_PARA` exception is thrown. |
+    | index | Input | Sequence number of the scalar register to be bound within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of scalar registers reserved by `asccomm_ccu_variable_alloc` on the host side). If the value is out of range, a `ccu_result::CCU_E_PARA` exception is thrown. |
 
     Constructing multiple `variable` objects with the same reserved handle and the same `index` makes them share the same physical scalar register.
 
@@ -114,9 +114,9 @@ public:
 
 ## Usage Constraints
 
-- It can only be constructed during the compile phase; constructing outside the compile phase throws an exception carrying `CCU_E_PTR`.
-- The default constructor only allocates a virtual handle and always succeeds without throwing an exception during the compile phase; when physical scalar register resources are insufficient, the compile phase returns `CCU_E_UNAVAIL` instead of throwing an exception at construction time.
-- The reserved constructor validates the reserved handle and `index`; when `index` is outside the reserved segment range (`[0, num-1]`, where `num` is the number of scalar registers reserved on the host side), it throws a `CCU_E_PARA` exception.
+- It can only be constructed during the compile phase; constructing outside the compile phase throws an exception carrying `ccu_result::CCU_E_PTR`.
+- The default constructor only allocates a virtual handle and always succeeds without throwing an exception during the compile phase; when physical scalar register resources are insufficient, the compile phase returns `ccu_result::CCU_E_UNAVAIL` instead of throwing an exception at construction time.
+- The reserved constructor validates the reserved handle and `index`; when `index` is outside the reserved segment range (`[0, num-1]`, where `num` is the number of scalar registers reserved on the host side), it throws a `ccu_result::CCU_E_PARA` exception.
 - The copy/move constructors only copy the `handle` field and do not allocate a new scalar register. After `variable v2 = v1;`, the two objects are the same in-kernel handle; if an independent `variable` is required, use the default constructor or [`array<variable>`](array.md).
 - Do not save or compare the `handle` value outside the kernel; the handle becomes invalid after translation is complete.
 - Currently only addition is supported; subtraction, multiplication, division, bitwise logic, and shift operations are not supported.
@@ -125,9 +125,9 @@ public:
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable n, i, one, step;
 
     // Assign an immediate value (determined during the compile phase).
@@ -152,6 +152,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         // ...
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 // 规模上限与每链路 notify 数；最大单次传输 256MB，超出即拒绝
@@ -76,7 +77,7 @@ static constexpr int CKE_IDX_0 = 0;
 static constexpr int POST_SYNC_ID = 3;
 
 // 把上下文中的常量（收发地址、token、各 rank 收发偏移）登记为 Kernel 可读的 CCU Variable
-static CcuResult InitVariables(AllToAllVMesh1DContext& ctx)
+static ccu_result InitVariables(AllToAllVMesh1DContext& ctx)
 {
     ctx.input = ctx.arg->inputAddr;
     ctx.localOutput = ctx.arg->outputAddr;
@@ -88,13 +89,13 @@ static CcuResult InitVariables(AllToAllVMesh1DContext& ctx)
         ctx.sendOffsets[rankIdx] = ctx.arg->sendOffsets[rankIdx];
         ctx.recvOffsets[rankIdx] = ctx.arg->recvOffsets[rankIdx];
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 与所有对端互换接收区地址与 token：把本端对应接收偏移处的地址告知对端，
 // 再等所有对端把它们的地址写回，为后续直接 write 到对端接收区做准备
 
-static CcuResult ExchangeOutput(AllToAllVMesh1DContext& ctx)
+static ccu_result ExchangeOutput(AllToAllVMesh1DContext& ctx)
 {
     uint32_t channelId = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
@@ -116,13 +117,13 @@ static CcuResult ExchangeOutput(AllToAllVMesh1DContext& ctx)
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits);
     }
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 逐目的 rank 搬运发送数据：本 rank 的数据走本地拷贝，其余走跨 rank write；
 // 每段各记一个事件位，最后按全量掩码等待所有搬运完成
 
-static CcuResult ExecuteTransfer(AllToAllVMesh1DContext& ctx)
+static ccu_result ExecuteTransfer(AllToAllVMesh1DContext& ctx)
 {
     uint32_t channelId = 0;
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
@@ -156,7 +157,7 @@ static CcuResult ExecuteTransfer(AllToAllVMesh1DContext& ctx)
 
     const uint16_t allRanksMask = (1U << ctx.arg->rankSize) - 1;
     ccu::event_wait(ctx.event, allRanksMask);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

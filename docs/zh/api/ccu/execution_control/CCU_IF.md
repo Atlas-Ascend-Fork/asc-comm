@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 在CCU kernel内开始一个软件条件分支块。条件在执行期由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
 
@@ -39,11 +39,11 @@ CCU_IF(cond_expr) {
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| cond_expr | 输入 | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`counter != 10`。 |
+| cond_expr | 输入 | 条件表达式，类型为`asc::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`counter != 10`。 |
 
 ## 返回值说明
 
-`CCU_IF`为预处理器宏，本身不返回[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断kernel生成：失败时代码块被跳过，kernel生成仍然成功。错误不通过返回值反馈，调试时需留意。
+`CCU_IF`为预处理器宏，本身不返回`ccu_result`。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`ccu_result::CCU_E_PARA`/`ccu_result::CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断kernel生成：失败时代码块被跳过，kernel生成仍然成功。错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 
@@ -64,10 +64,10 @@ CCU_IF(cond_expr) {
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：根据执行期变量值选择不同的执行路径
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable flag;
     load_arg(flag, 0);   // 每次下发时从taskArgs[0]加载标志值
 
@@ -78,6 +78,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         b = 20;
     }
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

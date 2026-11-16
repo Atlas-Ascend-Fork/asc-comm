@@ -18,9 +18,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/hcomm/ccu_primitives.hpp>
+#include <ccu/ccu_api/ccu_types.h>
+#include <ccu/ccu_api/ccu_primitives.h>
 
-namespace ccu = ::AscendC::ccu;
+namespace ccu = ::asc::ccu;
 
 namespace ops_comm_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -99,7 +100,7 @@ ccu::remote_addr MakeRemoteAddr(const ccu::variable& address, const ccu::variabl
 
 // 与对端互换输出地址与 token，为跨卡写准备目的地址
 
-CcuResult ExchangeRemoteOutput(TransferContext& ctx)
+ccu_result ExchangeRemoteOutput(TransferContext& ctx)
 {
     ccu::write_variable_with_notify(ctx.arg->channels[0], ctx.output, OUTPUT_XN_ID, CKE_IDX_0, 1U << OUTPUT_XN_ID);
     ccu::write_variable_with_notify(ctx.arg->channels[0], ctx.outputToken, TOKEN_XN_ID, CKE_IDX_0, 1U << TOKEN_XN_ID);
@@ -116,7 +117,7 @@ CcuResult ExchangeRemoteOutput(TransferContext& ctx)
     const uint32_t allBits = (1U << OUTPUT_XN_ID) | (1U << TOKEN_XN_ID);
 #endif
     ccu::notify_wait(ctx.arg->channels[0], CKE_IDX_0, allBits);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 ccu::func StagedCopyFunc([](ccu::variable srcAddr, ccu::variable srcToken, ccu::variable dstAddr,
@@ -149,7 +150,7 @@ ccu::func StagedCopyFunc([](ccu::variable srcAddr, ccu::variable srcToken, ccu::
 // 场景 1：本地拷贝。输入直接写本地输出一次，再经片上 staging buffer 中转写一次，
 // 两条路径结果应一致，验证本地搬移的直连与中转两种写法；
 // 中转一路改由 call_func 函数块完成，演示带参函数块对真实搬运步骤的封装
-CcuResult ExecuteLocalCopy(TransferContext& ctx)
+ccu_result ExecuteLocalCopy(TransferContext& ctx)
 {
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
@@ -158,7 +159,7 @@ CcuResult ExecuteLocalCopy(TransferContext& ctx)
     ccu::event_wait(ctx.event, EVENT_MASK);
     // 中转一路：源/目的地址与 token、长度经 variable 实参传入函数块，块内完成两段搬运
     ccu::call_func<StagedCopyFunc>(ctx.input, ctx.inputToken, ctx.output, ctx.outputToken, ctx.dataSize);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 7：CCU_DO/CCU_WHILE/CCU_ELSE 软件控制流宏 + local_notify 跨 kernel 同步。
@@ -167,7 +168,7 @@ CcuResult ExecuteLocalCopy(TransferContext& ctx)
 //   - CCU_IF(cond) { ... } CCU_ELSE { ... } 分支选择搬运通路；
 //   - event_record("tag", mask)/event_wait("tag", mask) 为 local_notify 重载（同 die 跨 kernel）。
 
-CcuResult ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
+ccu_result ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
 {
     ccu::ccu_buffer stagingBuffer;
 
@@ -216,13 +217,13 @@ CcuResult ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
     // 注意 tag 必须与 record 侧完全一致：record 的 tag 若无配对的 wait，
     // kernel 注册（翻译）阶段会因找不到 exported 资源而失败
     ccu::event_wait("transfer_ready", 0x1);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 2：跨卡写。输入直接写到对端输出一次，再先落到片上 staging buffer、
 // 由 staging buffer 写到对端输出一次，两次都写同一目标，验证跨卡写的直连与中转两种写法
 
-CcuResult ExecuteWrite(TransferContext& ctx)
+ccu_result ExecuteWrite(TransferContext& ctx)
 {
     ccu::ccu_buffer stagingBuffer;
 
@@ -235,13 +236,13 @@ CcuResult ExecuteWrite(TransferContext& ctx)
     ccu::event_wait(ctx.event, EVENT_MASK);
     ccu::write(ctx.arg->channels[0], output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 3：跨卡写并 SUM 规约。先把输入落到本地输出，再与对端做一次同步，
 // 最后以求和方式写到对端输出（两 rank 输入相加的结果落在对端）
 
-CcuResult ExecuteWriteReduce(TransferContext& ctx)
+ccu_result ExecuteWriteReduce(TransferContext& ctx)
 {
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
@@ -255,7 +256,7 @@ CcuResult ExecuteWriteReduce(TransferContext& ctx)
         ctx.arg->channels[0], remoteOutput, input, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx.event,
         EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 4：load/store + address 演示。
@@ -263,7 +264,7 @@ CcuResult ExecuteWriteReduce(TransferContext& ctx)
 // address 是独立的地址资源类型，支持 imm/var/addr+var 赋值，
 // 此处用 address 承载输入地址并装入 local_addr，演示其与 variable 的互换性。
 
-CcuResult ExecuteLoadStore(TransferContext& ctx)
+ccu_result ExecuteLoadStore(TransferContext& ctx)
 {
     // 1) address 资源：variable 间接赋值后作为 local_addr 的地址成员
     //    （local_addr.addr 为 address 类型，local_addr.token 为 variable 类型）
@@ -293,12 +294,12 @@ CcuResult ExecuteLoadStore(TransferContext& ctx)
 
     ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 5：read 演示（对端写 -> 本端读回，注意 read 参数序为"目的在前，源在后"）。
 
-CcuResult ExecuteRead(TransferContext& ctx)
+ccu_result ExecuteRead(TransferContext& ctx)
 {
     ccu::ccu_buffer stagingBuffer;
 
@@ -314,12 +315,12 @@ CcuResult ExecuteRead(TransferContext& ctx)
     // stagingBuffer 落回 output，验证 buffer 通路读到的数据同样正确
     ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // 场景 6：read_reduce 演示（对端写 -> 本端读取并原地归约）。
 
-CcuResult ExecuteReadReduce(TransferContext& ctx)
+ccu_result ExecuteReadReduce(TransferContext& ctx)
 {
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
     const ccu::remote_addr remoteInput = MakeRemoteAddr(ctx.remoteInput, ctx.remoteInputToken);
@@ -333,7 +334,7 @@ CcuResult ExecuteReadReduce(TransferContext& ctx)
         ctx.arg->channels[0], output, remoteInput, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx.event,
         EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。

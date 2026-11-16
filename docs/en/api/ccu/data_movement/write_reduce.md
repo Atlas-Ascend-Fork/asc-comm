@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Asynchronously writes local data to the remote on-chip memory and, at the same time, reduces it with the existing remote data using the operator specified by `op_type`: `remote = reduce(remote, local, op_type)`. When the hardware completes, the flag bits corresponding to `mask` in `evt` are automatically set to **1**.
 
@@ -36,13 +36,13 @@ The supported data paths are:
 ## Function Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
+ccu_result write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
                       event evt, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -60,13 +60,13 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation stage. |
-| `CCU_E_NOT_FOUND` | The passed `remote`/`local`/`len`/`event` handle is not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation stage. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `remote`/`local`/`len`/`event` handle is not created in the current kernel. |
 
 ## Usage Constraints
 
@@ -74,7 +74,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 - The parameter order is destination-first, source-second: `write_reduce(ch, remote, local, ...)`. Reversing the order causes a compile-time error because the types differ.
 - `len` must be greater than 0; otherwise, the hardware exhibits undefined behavior. The caller must ensure this constraint.
 - `len` must be less than 256 MB. The caller must ensure this upper limit; if it is exceeded, the hardware exhibits undefined behavior. Overlong data must be split into multiple transfers.
-- All channels within the same kernel must belong to the same die. This constraint is uniformly checked by `<<<>>>`, and `CCU_E_PARA` is returned when it is violated.
+- All channels within the same kernel must belong to the same die. This constraint is uniformly checked by `<<<>>>`, and `ccu_result::CCU_E_PARA` is returned when it is violated.
 - `data_type` supports only `HCCL_DATA_TYPE_INT8`, `HCCL_DATA_TYPE_UINT8`, `HCCL_DATA_TYPE_INT16`, `HCCL_DATA_TYPE_UINT16`, `HCCL_DATA_TYPE_INT32`, `HCCL_DATA_TYPE_UINT32`, `HCCL_DATA_TYPE_FP16`, `HCCL_DATA_TYPE_BFP16`, and `HCCL_DATA_TYPE_FP32`.
 - `op_type` supports only `HCCL_REDUCE_SUM`, `HCCL_REDUCE_MAX`, and `HCCL_REDUCE_MIN`.
 - When `data_type`/`op_type` is outside the supported range, an exception is thrown (carrying an error code), which is uniformly caught by `<<<>>>`.
@@ -84,7 +84,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 ```cpp
 // For simplicity, the return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // User-defined kernel argument structure, passed through kernelArg of <<<>>> after the link is established on the host side.
 struct my_kernel_arg {
@@ -92,7 +92,7 @@ struct my_kernel_arg {
 };
 
 // Scenario: Write local FP16 data to the remote end and perform SUM reduction.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     auto *params = static_cast<my_kernel_arg *>(arg);  // ccu_kernel_arg is void*. Cast it to the user input parameter struct first.
     ChannelHandle ch = params->channel_handle;
     remote_addr remote;    // The remote end must write the initial value in advance.
@@ -102,6 +102,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 
     write_reduce(ch, remote, src, len, HCCL_DATA_TYPE_FP16, HCCL_REDUCE_SUM, evt);
     event_wait(evt);
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

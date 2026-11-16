@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::event`是CCU kernel内同步寄存器槽位的C++包装类，用于标记异步操作（如数据搬运）的完成状态。
 
@@ -36,7 +36,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 class event final {
 public:
@@ -49,7 +49,7 @@ public:
     ccu_event_handle handle{0};  // 虚拟句柄
 };
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 构造函数说明
@@ -65,7 +65,7 @@ public:
     | 参数名 | 输入/输出 | 描述 |
     | --- | --- | --- |
     | acq_handle | 输入 | 预约句柄，即Host侧调用`asccomm_ccu_event_alloc`预先从实例资源池划出一段物理event槽位后返回的句柄，通过`kernelArg`传入kernel。不可传入其他类型资源（如`variable`）的预约句柄。 |
-    | index | 输入 | 要绑定的event槽位在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_event_alloc`预约的event槽位数量），超出该范围抛出`CCU_E_PARA`异常。 |
+    | index | 输入 | 要绑定的event槽位在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_event_alloc`预约的event槽位数量），超出该范围抛出`ccu_result::CCU_E_PARA`异常。 |
 
     多次用同一预约句柄和同一`index`构造，得到的多个`event`对象共享同一个物理event槽位。
 
@@ -74,9 +74,9 @@ public:
 
 ## 约束说明
 
-- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；event槽位物理资源不足时，由<<<>>>统一校验并返回`CCU_E_UNAVAIL`，不是在构造时抛出。
-- 预约构造会校验预约句柄与`index`，`index`超出预约段范围（`[0, num-1]`，`num`为Host侧预约的event槽位数量）时抛出`CCU_E_PARA`异常。
+- 只能在Kernel函数体内构造；在Kernel函数体之外构造时，抛出携带`ccu_result::CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在Kernel函数体内恒成功不抛异常；event槽位物理资源不足时，由<<<>>>统一校验并返回`ccu_result::CCU_E_UNAVAIL`，不是在构造时抛出。
+- 预约构造会校验预约句柄与`index`，`index`超出预约段范围（`[0, num-1]`，`num`为Host侧预约的event槽位数量）时抛出`ccu_result::CCU_E_PARA`异常。
 - copy/move构造函数只拷贝`handle`字段、不申请新的event槽位，`event e2 = e1;`后两个对象是同一个kernel内句柄，对任一对象`event_record`/`event_wait`操作的是同一份硬件状态位；如需独立的`event`，使用默认构造或[`array<event>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - `event`没有`mask`字段，`mask`在`event_record`/`event_wait`及数据搬运接口中以参数形式传入，C++默认值为`1`。同一个`event`的不同bit相互独立，可承载多组配对。
@@ -84,9 +84,9 @@ public:
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     event evt;    // 申请1个event槽位
 
     // 配合数据搬运接口使用：硬件搬运完成时自动将evt中mask对应的标志位设置为1
@@ -95,6 +95,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     local_copy(dst, src, len, evt);    // mask默认0x1
     event_wait(evt);                    // 等待bit0被设置为1
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

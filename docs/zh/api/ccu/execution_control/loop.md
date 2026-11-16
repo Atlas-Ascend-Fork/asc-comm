@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件为：`#include "ccu/hcomm/ccu_primitives.hpp"`
+头文件为：`#include <ccu/asc_ccu.h>`
 
 `ccu::loop`是CCU kernel内的硬件循环类，用于描述一段需要重复执行的搬运逻辑。
 
@@ -35,7 +35,7 @@
 ## 类声明
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
 
 class loop {
@@ -48,7 +48,7 @@ public:
 };
 
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## 参数说明
@@ -83,11 +83,11 @@ var-based构造的`loop_cfg`有64个比特位，按位段定义：
 
 ## 约束说明
 
-- 循环体的lambda必须无入参，有入参时`<<<>>>`抛出异常`CCU_E_PARA`。
+- 循环体的lambda必须无入参，有入参时`<<<>>>`抛出异常`ccu_result::CCU_E_PARA`。
 - 构造完成后不可再向该Loop追加内容。
 - 循环体内的接口限制：
-  - [event_record](../synchronization/event_record.md)、[local_notify_record](../synchronization/local_notify_record.md)、[notify_record](../synchronization/notify_record.md)和[write_variable_with_notify](../synchronization/write_variable_with_notify.md)不可调用，调用时返回`CCU_E_NOT_SUPPORT`。
-  - [call_func](call_func.md)不可调用，调用时抛出异常（错误码`CCU_E_INTERNAL`）。
+  - [event_record](../synchronization/event_record.md)、[local_notify_record](../synchronization/local_notify_record.md)、[notify_record](../synchronization/notify_record.md)和[write_variable_with_notify](../synchronization/write_variable_with_notify.md)不可调用，调用时返回`ccu_result::CCU_E_NOT_SUPPORT`。
+  - [call_func](call_func.md)不可调用，调用时抛出异常（错误码`ccu_result::CCU_E_INTERNAL`）。
   - [CCU_IF](CCU_IF.md)等软件分支宏不可使用，代码不会报错，但硬件会发生未定义行为。
 - `ccu::loop`必须加入`ccu::loop_group`才能下发硬件循环指令，不要单独使用，详见[功能说明](#功能说明)。
 - `ccu::loop`对象不可在`ccu::loop_group`中被重复添加。
@@ -96,11 +96,11 @@ var-based构造的`loop_cfg`有64个比特位，按位段定义：
 ## 调用示例
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // 场景：将4个连续4KB数据块依次从片上内存搬到CCU Buffer
 // 硬件Loop每轮按addr_offset更新地址，无需手写地址自增
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable r1, numA, numB;
     numA = 10;
     numB = 20;
@@ -120,6 +120,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     ccu_loop_group_config grp_cfg{};   // 单Loop场景全字段置0即可
     loop_group g(grp_cfg, /*max_loop_num=*/1, {l});
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

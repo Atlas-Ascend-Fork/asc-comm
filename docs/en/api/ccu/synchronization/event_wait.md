@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`.
+Header file: `#include <ccu/asc_ccu.h>`.
 
 Blocks and waits for the `event` flag bits corresponding to `mask` in the local synchronization register until all of them are set to **1**, then continues execution and automatically clears these flag bits. These flag bits are set by [event_record](event_record.md) or the [data movement API](../data_movement/README.md) in the same kernel.
 
@@ -35,11 +35,11 @@ Blocks and waits for the `event` flag bits corresponding to `mask` in the local 
 ## Function Prototype
 
 ```cpp
-namespace AscendC {
+namespace asc {
 namespace ccu {
-CcuResult event_wait(event e, uint16_t mask = 1);
+ccu_result event_wait(event e, uint16_t mask = 1);
 } // namespace ccu
-} // namespace AscendC
+} // namespace asc
 ```
 
 ## Parameters
@@ -51,13 +51,13 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 ## Return Value
 
-[`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md): The API returns `CCU_SUCCESS` on success, and other values on failure.
+`ccu_result`: The API returns `ccu_result::CCU_SUCCESS` on success, and other values on failure.
 
 | Return Value | Description |
 | --- | --- |
-| `CCU_SUCCESS` | The operation is successful. |
-| `CCU_E_PTR` | The API is called outside the compilation phase. |
-| `CCU_E_NOT_FOUND` | The passed `e` handle is not created in the current kernel. |
+| `ccu_result::CCU_SUCCESS` | The operation is successful. |
+| `ccu_result::CCU_E_PTR` | The API is called outside the compilation phase. |
+| `ccu_result::CCU_E_NOT_FOUND` | The passed `e` handle is not created in the current kernel. |
 
 ## Usage Constraints
 
@@ -69,11 +69,11 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 ```cpp
 // For simplicity, return value reception and error handling are omitted.
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: Wait for the copy from the local on-chip memory to the on-chip memory to complete before continuing.
 // Inside the CCU kernel function body.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     local_addr src, dst;
     variable len;
     event evt;
@@ -85,6 +85,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     event_wait(evt, 0x1);
 
     // After this, the data pointed to by dst can be safely used.
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```

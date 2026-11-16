@@ -177,7 +177,7 @@ function build () {
 
 function run_ccu_ut() {
     local ut_build_dir="$1"
-    local ccu_ctest_dir="${ut_build_dir}/ccu_hcomm"
+    local ccu_ctest_dir="${ut_build_dir}/ccu_api"
 
     if [[ ! -f "${ccu_ctest_dir}/CTestTestfile.cmake" ]]; then
         log "ERROR" "CCU CTest registration not found: ${ccu_ctest_dir}"

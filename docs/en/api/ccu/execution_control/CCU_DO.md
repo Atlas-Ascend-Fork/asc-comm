@@ -25,7 +25,7 @@
 
 ## Function Description
 
-Header file: `#include "ccu/hcomm/ccu_primitives.hpp"`
+Header file: `#include <ccu/asc_ccu.h>`
 
 Starts a do-while loop block in a CCU kernel: the body is executed at least once, and then the accompanying `CCU_WHILE` determines whether to continue.
 
@@ -52,7 +52,7 @@ CCU_DO {
 
 ## Return Value
 
-`CCU_DO` is a preprocessor macro and does not return [`CcuResult`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_opdev/datatype_definition/CcuResult.md) itself; it does not fail under normal usage.
+`CCU_DO` is a preprocessor macro and does not return `ccu_result` itself; it does not fail under normal usage.
 
 ## Usage Constraints
 
@@ -64,10 +64,10 @@ CCU_DO {
 ## Call Example
 
 ```cpp
-using namespace AscendC::ccu;
+using namespace asc::ccu;
 
 // Scenario: do-while loop, where the body is executed at least once and then the condition determines whether to continue.
-CcuResult my_kernel(ccu_kernel_arg arg) {
+ccu_result my_kernel(ccu_kernel_arg arg) {
     variable inner, one;
     inner = 0;
     one = 1;
@@ -77,6 +77,6 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
         inner = inner + one;
     } CCU_WHILE(inner != 5ULL);
 
-    return CCU_SUCCESS;
+    return ccu_result::CCU_SUCCESS;
 }
 ```
