@@ -14,7 +14,7 @@
 #include <limits>
 
 #include "asccomm_primitives.h"
-#include "asccom_res_entity_defs.h"
+#include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
 #include "asccomm_runtime_stub.h"
 
