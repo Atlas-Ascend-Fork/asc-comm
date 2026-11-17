@@ -217,6 +217,64 @@ ccu_result ccu_kernel_mgr::register_kernel(
     return ccu_result::CCU_SUCCESS;
 }
 
+// 查询 kernel 资源需求：独立回放统计，只统计不注册。
+ccu_result ccu_kernel_mgr::query_kernel_res_req(
+    asc_ccu_res_snapshot& res_pack, const uint32_t die_id, const void* kernel_func, const void** kernel_args,
+    const uint32_t arg_num, asc_ccu_res_request& res_req, uint32_t& instr_count)
+{
+    CCU_CHK_PTR_NULL(kernel_func);
+
+    // 当前argNum仅允许 0 或 1
+    if (arg_num > 1) {
+        HCCL_ERROR("[%s] failed, arg_num[%u] now only support 0 or 1.", __func__, arg_num);
+        return ccu_result::CCU_E_PARA;
+    }
+
+    // 注意处理时序，需要先重置后处理rep（与 register_kernel 一致）
+    std::unique_lock<std::mutex> lock(kernel_map_mutex_);
+    curr_kernel_ = std::make_unique<ccu_kernel>();
+    curr_kernel_->set_die_id(0);
+
+    // 初始化 ins 生成器
+    if (!ins_gene_ptr_) {
+        ins_gene_ptr_ = std::make_shared<ccu_rep::ccu_ins_generater_v1>();
+    }
+    curr_kernel_->set_ins_generater(ins_gene_ptr_.get());
+    curr_kernel_->set_ccu_version(res_pack.get_ccu_version());
+
+    if (arg_num == 0) {
+        auto ccu_kernel_func = reinterpret_cast<ccu_kernel_func_no_arg>(kernel_func);
+        CCU_CHK_RET(ccu_kernel_func()); // 执行算法流程，生成rep和计算资源占用
+    } else {
+        CCU_CHK_PTR_NULL(kernel_args);
+        const void* kernel_arg = kernel_args[0];
+        CCU_CHK_PTR_NULL(kernel_arg);
+        const auto kernel_arg_value = const_cast<ccu_kernel_arg>(kernel_arg);
+        auto ccu_kernel_func = reinterpret_cast<ccu_kernel_func_one_arg>(kernel_func);
+        CCU_CHK_RET(ccu_kernel_func(kernel_arg_value)); // 执行算法流程，生成rep和计算资源占用
+    }
+
+    curr_kernel_->flush_closable_pending_ifs(); // 处理未闭合的if
+    CCU_CHK_RET(curr_kernel_->validate_and_apply_die(die_id, res_pack.get_valid_die_mask()));
+
+    // 常量计入指令空间需求
+    if (translators_.find(static_cast<uint16_t>(curr_kernel_->get_die_id())) != translators_.end()) {
+        CCU_CHK_RET(prepare_const_value_resources());
+    } else {
+        HCCL_INFO(
+            "[%s] translators not ready on die[%u], skip const value stat.", __func__, curr_kernel_->get_die_id());
+    }
+
+    const uint32_t kernel_die_id = curr_kernel_->get_die_id();
+    res_req = curr_kernel_->get_resource_request();
+    instr_count = static_cast<uint32_t>(compute_kernel_instr_region_size(*curr_kernel_));
+
+    // 只统计不注册：丢弃 curr_kernel_，不动 kernel_id_/kernel_map_
+    curr_kernel_.reset();
+    HCCL_INFO("[%s] success, die_id[%u], instr_count[%u].", __func__, kernel_die_id, instr_count);
+    return ccu_result::CCU_SUCCESS;
+}
+
 static void dump_res_req_info(const asc_ccu_res_request& total_res)
 {
     for (uint32_t i = 0; i < CCU_MAX_IODIE_NUM; i++) {
@@ -240,6 +298,43 @@ static void dump_res_req_info(const asc_ccu_res_request& total_res)
                 total_res.count[HCOMM_CCU_BATCH_RES_XN][i], total_res.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][i],
                 total_res.count[HCOMM_CCU_BATCH_RES_MISSION][i]);
         }
+    }
+}
+
+// 汇总某资源区间列表的数量总和（区间 count 求和）
+static uint32_t sum_range_count(const std::vector<asc_ccu_res_range>& ranges)
+{
+    uint32_t total = 0;
+    for (const auto& range : ranges) {
+        total += range.count;
+    }
+    return total;
+}
+
+// 打印资源池每 die 各类型的剩余数量
+static void dump_res_pool_info(const char* tag, const asc_ccu_res_repository& res_repo)
+{
+    for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; dieId++) {
+        const uint32_t loopNum = sum_range_count(res_repo.loop_engine[dieId]);
+        const uint32_t blockLoopNum = sum_range_count(res_repo.block_loop_engine[dieId]);
+        const uint32_t msNum = sum_range_count(res_repo.ms[dieId]);
+        const uint32_t blockMsNum = sum_range_count(res_repo.block_ms[dieId]);
+        const uint32_t ckeNum = sum_range_count(res_repo.cke[dieId]);
+        const uint32_t blockCkeNum = sum_range_count(res_repo.block_cke[dieId]);
+        const uint32_t gsaNum = sum_range_count(res_repo.gsa[dieId]);
+        const uint32_t blockGsaNum = sum_range_count(res_repo.block_gsa[dieId]);
+        const uint32_t xnNum = sum_range_count(res_repo.xn[dieId]);
+        const uint32_t blockXnNum = sum_range_count(res_repo.block_xn[dieId]);
+        const uint32_t missionNum = sum_range_count(res_repo.mission[dieId]);
+        if (loopNum == 0 && blockLoopNum == 0 && msNum == 0 && blockMsNum == 0 && ckeNum == 0 && blockCkeNum == 0 &&
+            gsaNum == 0 && blockGsaNum == 0 && xnNum == 0 && blockXnNum == 0 && missionNum == 0) {
+            continue;
+        }
+        HCCL_INFO(
+            "dump_res_pool_info[%s]: die_id[%u], loop[%u], block_loop[%u], ms[%u], block_ms[%u], cke[%u], "
+            "block_cke[%u], gsa[%u], block_gsa[%u], xn[%u], block_xn[%u], mission[%u]",
+            tag, dieId, loopNum, blockLoopNum, msNum, blockMsNum, ckeNum, blockCkeNum, gsaNum, blockGsaNum, xnNum,
+            blockXnNum, missionNum);
     }
 }
 
@@ -329,11 +424,15 @@ ccu_result ccu_kernel_mgr::alloc_res(asc_ccu_res_snapshot& res_pack)
     ccu_result plan_ret = plan_kernel_resources(res_pack.get_ccu_res_repo(), res_req, remaining, allocated);
     if (plan_ret != ccu_result::CCU_SUCCESS) {
         dump_res_req_info(res_req);
+        // 失败时 remaining/allocated 未写入，打印分配前的池余量定位缺哪种资源
+        dump_res_pool_info("avail_on_alloc_fail", res_pack.get_ccu_res_repo());
         HCCL_WARNING("[ccu_kernel_mgr][%s] resource is not enough.", __func__);
         return plan_ret;
     }
 
     CCU_CHK_RET(set_kernel_instruction_resource(curr_kernel_, allocated));
+    dump_res_pool_info("allocated", allocated);
+    dump_res_pool_info("remaining_after_alloc", remaining);
 
     res_pack.get_ccu_res_repo() = std::move(remaining);
     curr_kernel_->set_res_repository(std::move(allocated));
@@ -625,6 +724,7 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
         plan_kernel_resources(res_pack.get_ccu_res_repo(), request, remaining_repository, translator_res_repository);
     if (ccu_ret != ccu_result::CCU_SUCCESS) {
         dump_res_req_info(request);
+        dump_res_pool_info("avail_on_translator_fail", res_pack.get_ccu_res_repo());
         HCCL_WARNING("[ccu_kernel_mgr][%s] translator resource is not enough, die_id[%u].", __func__, die_id);
         return static_cast<HcclResult>(ccu_ret);
     }
@@ -639,6 +739,7 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
         return hccl_ret;
     }
     res_pack.get_ccu_res_repo() = std::move(remaining_repository);
+    dump_res_pool_info("remaining_after_translator", res_pack.get_ccu_res_repo());
     return HcclResult::HCCL_SUCCESS;
 }
 

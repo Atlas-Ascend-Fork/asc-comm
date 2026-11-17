@@ -38,6 +38,11 @@ public:
         asc_ccu_res_snapshot& res_pack, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
         const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle);
 
+    // 查询 kernel 资源需求，出参按 kernel 所属 die 汇总
+    ccu_result query_kernel_res_req(
+        asc_ccu_res_snapshot& res_pack, uint32_t die_id, const void* kernel_func, const void** kernel_args,
+        const uint32_t arg_num, asc_ccu_res_request& res_req, uint32_t& instr_count);
+
     ccu_result translate(const std::vector<ccu_kernel_handle>& kernel_handles);
 
     ccu_kernel* get_kernel(ccu_kernel_handle kernel_handle);

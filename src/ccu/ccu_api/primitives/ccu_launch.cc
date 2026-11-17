@@ -150,6 +150,85 @@ ccu_result asccomm_ccu_kernel_register_end(void* ins_handle)
     return ccu_result::CCU_SUCCESS;
 }
 
+// resNum 下标，对齐 hcomm HcommCcuResType 值 0~6（见 hcomm include/ccu/ccu_res_defs.h）
+constexpr uint32_t CCU_RES_TYPE_LOOP = 0;        // LoopEngine 需求（含 block）
+constexpr uint32_t CCU_RES_TYPE_CCU_BUF = 1;     // Memory Slice 需求（含 block）
+constexpr uint32_t CCU_RES_TYPE_VARIABLE = 2;    // 变量需求（含 block）
+constexpr uint32_t CCU_RES_TYPE_ADDRESS = 3;     // 通用存储地址需求（含 block）
+constexpr uint32_t CCU_RES_TYPE_EVENT = 4;       // 完成事件/信号量需求（含 block 与 notify）
+constexpr uint32_t CCU_RES_TYPE_CCU_THREAD = 5;  // mission 需求
+constexpr uint32_t CCU_RES_TYPE_INSTRUCTION = 6; // 指令空间需求（含翻译器指令与常量）
+
+ccu_result asccomm_ccu_kernel_query_res_req(
+    void* ins_handle, uint32_t die_id, const void* kernel_func, const void** kernel_args, uint32_t arg_num,
+    asccomm_ccu_res_desc* res_desc)
+{
+    CCU_CHK_PTR_NULL_ASC(ins_handle);
+    HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
+    HCCL_RUN_INFO("Entry-%s, die_id[%u]", __func__, die_id);
+
+    CCU_CHK_PTR_NULL_ASC(kernel_func);
+    CCU_CHK_PTR_NULL_ASC(res_desc);
+    if (arg_num != 0) {
+        CCU_CHK_PTR_NULL_ASC(kernel_args);
+    }
+
+    int32_t dev_logic_id = -1;
+    asc::ccu_kernel_registry* ccu_ins = nullptr;
+    CCU_CHK_RET_ASC(ccu_prepare_instance(instanceHandle, ccu_ins, dev_logic_id));
+    CCU_CHK_PTR_NULL_ASC(ccu_ins);
+
+    asc::set_current_ccu_control_ops(instanceHandle.ascCustom);
+
+    auto* res_snapshot = ccu_ins->get_res_snapshot();
+    CCU_CHK_PTR_NULL(res_snapshot);
+
+    CCU_EXCEPTION_HANDLE_BEGIN
+    asc::asc_ccu_res_request res_req{};
+    uint32_t instr_count = 0;
+    CCU_CHK_RET_ASC(
+        asc::ccu_kernel_mgr::get_instance(dev_logic_id)
+            .query_kernel_res_req(*res_snapshot, die_id, kernel_func, kernel_args, arg_num, res_req, instr_count));
+
+    *res_desc = asccomm_ccu_res_desc{};
+    res_desc->dieId = die_id;
+    res_desc->resNum[CCU_RES_TYPE_LOOP] = res_req.count[asc::HCOMM_CCU_BATCH_RES_LOOP][die_id] +
+                                          res_req.count[asc::HCOMM_CCU_BATCH_RES_BLOCK_LOOP][die_id];
+    res_desc->resNum[CCU_RES_TYPE_CCU_BUF] =
+        res_req.count[asc::HCOMM_CCU_BATCH_RES_MS][die_id] + res_req.count[asc::HCOMM_CCU_BATCH_RES_BLOCK_MS][die_id];
+    res_desc->resNum[CCU_RES_TYPE_VARIABLE] =
+        res_req.count[asc::HCOMM_CCU_BATCH_RES_XN][die_id] + res_req.count[asc::HCOMM_CCU_BATCH_RES_BLOCK_XN][die_id];
+    res_desc->resNum[CCU_RES_TYPE_ADDRESS] =
+        res_req.count[asc::HCOMM_CCU_BATCH_RES_GSA][die_id] + res_req.count[asc::HCOMM_CCU_BATCH_RES_BLOCK_GSA][die_id];
+    res_desc->resNum[CCU_RES_TYPE_EVENT] =
+        res_req.count[asc::HCOMM_CCU_BATCH_RES_CKE][die_id] + res_req.count[asc::HCOMM_CCU_BATCH_RES_BLOCK_CKE][die_id];
+    res_desc->resNum[CCU_RES_TYPE_CCU_THREAD] = res_req.count[asc::HCOMM_CCU_BATCH_RES_MISSION][die_id];
+    res_desc->resNum[CCU_RES_TYPE_INSTRUCTION] = instr_count;
+
+    // 翻译器固定占用（对齐 register_start 时 build_translator_resource_request 的扣减）：
+    // XN 144 / CKE 32 / GSA 48（V1），每 register_start 一次。与 resNum 分离返回，
+    // mc2 聚合时仅加一次，避免多 kernel 重复计入。
+    constexpr uint32_t slot_num = asc::ccu_rep::ccu_translator_mission_slot_num;
+    constexpr uint32_t xn_per_slot = asc::ccu_rep::ccu_reference_manager_xn_num + asc::ccu_rep::ccu_translator_xn_num;
+    constexpr uint32_t cke_per_slot = asc::ccu_rep::ccu_translator_cke_num;
+    constexpr uint32_t gsa_per_slot = asc::ccu_rep::ccu_translator_gsa_num;
+    res_desc->translatorResNum[CCU_RES_TYPE_VARIABLE] = slot_num * xn_per_slot;
+    res_desc->translatorResNum[CCU_RES_TYPE_EVENT] = slot_num * cke_per_slot;
+    if (res_snapshot->get_ccu_version() == asc::HCOMM_CCU_VERSION_V1) {
+        res_desc->translatorResNum[CCU_RES_TYPE_ADDRESS] = slot_num * gsa_per_slot;
+    }
+    HCCL_INFO(
+        "[%s] success, die_id[%u], loop[%u], ccu_buf[%u], variable[%u], address[%u], event[%u], ccu_thread[%u], "
+        "instruction[%u].",
+        __func__, die_id, res_desc->resNum[CCU_RES_TYPE_LOOP], res_desc->resNum[CCU_RES_TYPE_CCU_BUF],
+        res_desc->resNum[CCU_RES_TYPE_VARIABLE], res_desc->resNum[CCU_RES_TYPE_ADDRESS],
+        res_desc->resNum[CCU_RES_TYPE_EVENT], res_desc->resNum[CCU_RES_TYPE_CCU_THREAD],
+        res_desc->resNum[CCU_RES_TYPE_INSTRUCTION]);
+    CCU_EXCEPTION_HANDLE_END_ASC
+
+    return ccu_result::CCU_SUCCESS;
+}
+
 ccu_result asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num)
 {
     HCCL_INFO("Entry-%s", __func__);

@@ -36,6 +36,19 @@ extern ccu_result asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle,
 extern ccu_result asccomm_ccu_kernel_launch(
     ccu_launch_stream stream, ccu_kernel_handle kernel_handle, const void* task_args, uint32_t arg_num);
 
+#define ASCCOMM_CCU_RES_DESC_TYPE_COUNT 7U
+
+typedef struct asccomm_ccu_res_desc {
+    uint32_t dieId;                                             // kernel 所属 die
+    uint32_t resNum[ASCCOMM_CCU_RES_DESC_TYPE_COUNT];           // 按 HCOMM_CCU_RES_TYPE_* 值（0~6）索引
+    uint32_t translatorResNum[ASCCOMM_CCU_RES_DESC_TYPE_COUNT]; // 翻译器固定占用
+} asccomm_ccu_res_desc;
+
+// 查询kernel需要的资源数
+extern ccu_result asccomm_ccu_kernel_query_res_req(
+    void* ins_handle, uint32_t die_id, const void* kernel_func, const void** kernel_args, uint32_t arg_num,
+    asccomm_ccu_res_desc* res_desc);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
