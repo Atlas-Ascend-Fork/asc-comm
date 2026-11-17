@@ -181,10 +181,8 @@ COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f \
 COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f \
     \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" | wc -l)
-PKG_INC_HEADER_COUNT=$(find "${PROJECT_ROOT}/pkg_inc" -type f \
-    \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
-    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + PKG_INC_HEADER_COUNT + 4))
+    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + 4))
 AICPU_LIBRARY="${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}/devlib/device/libasccomm_aicpu.so"
 AICPU_ARCHIVE="${EXTRACT_DIR}/payload/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz"
 if [[ -f "${AICPU_LIBRARY}" ]]; then
@@ -195,7 +193,7 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
-[[ -f "${EXTRACT_DIR}/payload/asc/lib64/libasccomm_ccu.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_ccu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
 if [[ -e "${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}" ]]; then
@@ -240,13 +238,6 @@ done < <(find "${PROJECT_ROOT}/src" -type f \
     \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" -print0 | sort -z)
 
-while IFS= read -r -d '' source_file; do
-    relative_path=${source_file#"${PROJECT_ROOT}/pkg_inc/"}
-    cmp "${source_file}" \
-        "${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
-done < <(find "${PROJECT_ROOT}/pkg_inc" -type f \
-    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
-
 mkdir -p \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
     "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common" \
@@ -290,7 +281,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm")" == "../../adv_api/detail/hcomm" ]]
 [[ -f "${FAKE_CANN}/lib64/libccu_runtime.so" ]]
-[[ -f "${FAKE_CANN}/asc/lib64/libasccomm_ccu.so" ]]
+[[ -f "${FAKE_CANN}/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/cmake/asccomm-config.cmake" ]]
 if [[ -d "${FAKE_CANN}/${PACKAGE_ARCH_DIR}" ]]; then
     [[ -f "${FAKE_CANN}/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz" ]]

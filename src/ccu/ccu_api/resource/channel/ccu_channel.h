@@ -15,8 +15,8 @@
 
 #include <vector>
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
-#include "ccu_api/ccu/hccl_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "hccl/hccl_types.h"
 
 namespace asc {
 

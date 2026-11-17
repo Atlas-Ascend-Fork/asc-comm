@@ -20,7 +20,7 @@
 // 内部 C ABI bridge：公开 C++ DSL 头通过本文件访问 asc-comm 数据面 primitive；不建议用户直接包含。
 #include "ccu/ccu_api/ccu_types.h"
 #include "hcomm/hcomm_primitives.h"
-#include "ccu_api/ccu/hccl_types.h"
+#include "hccl/hccl_types.h"
 
 // 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asc，
 // 与 hcomm 仓保留 C ABI 的同名接口（pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，

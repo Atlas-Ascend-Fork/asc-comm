@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_block_v1.h"
 

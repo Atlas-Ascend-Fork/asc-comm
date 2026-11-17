@@ -15,7 +15,7 @@
 #include <vector>
 #include <functional>
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "ccu_api/resource/microcode/ccu_instr_info_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"

@@ -11,10 +11,10 @@
 #ifndef ASCCOMM_CCU_UT_HCOMM_C_ADPT_H
 #define ASCCOMM_CCU_UT_HCOMM_C_ADPT_H
 
-#include "ccu_api/ccu/hccl_types.h"
+#include "hccl/hccl_types.h"
 
 #include "asccomm_primitives.h"
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
 
 #endif

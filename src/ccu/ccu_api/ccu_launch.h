@@ -14,7 +14,7 @@
 // CCU kernel 注册与 launch 的 C ABI 头（仓内实现使用，不随用户头发布）。
 // Register Context 以 void* 不透明句柄传递，与 hccl 内部类型解耦，符合控制面/数据面 ABI 边界约束。
 #include "ccu/ccu_api/ccu_types.h"
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #ifdef __cplusplus
 extern "C" {

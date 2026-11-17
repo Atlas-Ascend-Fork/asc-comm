@@ -378,12 +378,6 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
         aicore/hcomm
-    # CCU pod 契约头位于 pkg_inc/ccu_api/（含 ccu/ 子目录）；pkg_inc/hcomm 仍为 hcomm 产品契约，随 pkg_inc 整体装载到 comm_api/hcomm/
-    # hccl_types.h 为仓内私有副本，随包安装到 asc/include/comm_api，用户编译不依赖 CANN 包内同名头
-    copy_headers \
-        "${PROJECT_ROOT}/pkg_inc" \
-        "${STAGING_DIR}/payload/asc/include/comm_api" \
-        550
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \

@@ -32,8 +32,8 @@
 #include "ccu_api/resource/representation/interface/ccu_loopcall_v1.h"
 
 // 类型（HcclResult 等）统一取自 hccl 公共类型定义，避免依赖 hcomm 私有类型头
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
-#include "ccu_api/ccu/hccl_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "hccl/hccl_types.h"
 // 数据面 C ABI 与 hcomm 保持同名符号，内部实现仍使用 hcomm 的 ccu_result。
 #include "ccu_api/resource/representation/interface/ccu_datatype_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_interface_assist_v1.h"

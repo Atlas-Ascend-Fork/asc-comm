@@ -11,8 +11,8 @@
 #ifndef ASCCOMM_CCU_CHANNEL_GET_STUB_H
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
-#include "ccu_api/ccu/hccl_types.h"
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hccl/hccl_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace asc {
 

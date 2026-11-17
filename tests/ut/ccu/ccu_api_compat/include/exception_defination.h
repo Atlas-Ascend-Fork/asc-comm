@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-#include "ccu_api/ccu/hccl_types.h"
+#include "hccl/hccl_types.h"
 
 namespace Hccl {
 

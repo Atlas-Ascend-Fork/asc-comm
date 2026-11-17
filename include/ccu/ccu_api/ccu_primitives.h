@@ -12,7 +12,7 @@
 #define CCU_PRIMITIVES_H
 
 #include "ccu/ccu_api/ccu_control_flow_macro.h"
-#include "ccu_api/ccu/hccl_types.h"
+#include "hccl/hccl_types.h"
 
 #include "ccu/ccu_api/ccu_variable.h"
 #include "ccu/ccu_api/ccu_address.h"

@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #ifdef __cplusplus
 extern "C" {

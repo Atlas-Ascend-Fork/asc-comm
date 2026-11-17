@@ -11,8 +11,8 @@
 // 数据面 primitive C ABI 实现入口。
 // 头部统一走 hcomm 包内 header（asccomm_ccu_channel.h / hcomm_types.h），
 // 不再 include hccl 私有头，从源码层面落实控制面/数据面边界。
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
-#include "ccu_api/ccu/hccl_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
+#include "hccl/hccl_types.h"
 // 数据面实现与 hcomm 的 C ABI 契约同名符号，内部保留 ccu_result；对外统一为 ccu_result。
 #include "ccu/ccu_api/ccu_primitives_impl.h"
 

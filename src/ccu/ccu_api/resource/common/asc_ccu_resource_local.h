@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "ccu_api/ccu/asccomm_res_ccu_entity_defs.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 namespace asc {
 

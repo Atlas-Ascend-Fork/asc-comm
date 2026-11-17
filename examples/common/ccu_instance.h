@@ -19,7 +19,7 @@
 #include <hccl_ccu_res.h>
 #include <ccu_res.h>
 #include <ccu/ccu_api/ccu_types.h>
-#include <ccu_api/ccu/asccomm_res_ccu_entity_defs.h>
+#include <hcomm/ccu/hcomm_res_ccu_entity_defs.h>
 
 namespace asccomm_examples {
 

@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "ccu_api/ccu/hccl_types.h"
+#include "hccl/hccl_types.h"
 
 using s32 = int32_t;
 
