@@ -58,6 +58,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
 - `dstNotifyIdx`必须小于目标Thread资源的Notify数量，且对应Notify资源须为当前实现支持的类型。
 - 该接口需与[asccomm_thread_notify_wait_on_thread](asccomm_thread_notify_wait_on_thread.md)配合使用。
 - 通知任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
+- 同一个`ThreadHandle`不支持多线程并发访问。
 
 ## 调用示例
 

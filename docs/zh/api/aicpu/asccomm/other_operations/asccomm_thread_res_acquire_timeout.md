@@ -54,6 +54,7 @@ int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 - 未设置时，当前实现默认超时时间为1856秒。
 - 超时时间为0表示永不超时，可能造成长时间等待，需谨慎使用。
 - `timeOut`为非负浮点数时允许传入，但会向零截断为整数秒；负数、NaN和大于`UINT32_MAX`的取值返回`ASCCOMM_E_PARA`。
+- 并发说明：本接口为全局配置接口，须串行调用。
 
 ## 调用示例
 

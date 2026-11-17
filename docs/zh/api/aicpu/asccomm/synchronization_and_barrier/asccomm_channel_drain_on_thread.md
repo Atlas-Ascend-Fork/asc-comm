@@ -48,18 +48,18 @@ int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle chann
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 等待处理成功。[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)或[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)内部drain资源缺失时直接返回成功。 |
+| `ASCCOMM_SUCCESS`（0） | 等待处理成功；内部drain资源缺失时直接返回成功。 |
 | `ASCCOMM_E_PTR` | Thread或Channel句柄为0，或Thread资源、本地任务缓存指针为空。 |
 | `ASCCOMM_E_PARA` | Thread/Channel资源、通信任务提交队列或UB drain资源参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
 | `ASCCOMM_E_TIMEOUT` | 触发任务提交时，等待通信任务提交队列空间超时。 |
 | `ASCCOMM_E_INTERNAL` | 任务生成、驱动查询或配置、本地任务缓存操作等内部执行失败。 |
 
 ## 约束说明
 
-- 当前实现支持UB类协议和RoCE协议；其他协议返回`ASCCOMM_E_NOT_SUPPORT`。
-- RoCE协议调用本接口时直接返回成功，不执行额外等待。
-- UB类协议通过内部完成通知等待；内部drain资源缺失时跳过等待并返回成功。
+- 本接口通过内部完成通知等待；内部drain资源缺失时跳过等待并返回成功。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

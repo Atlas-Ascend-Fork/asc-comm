@@ -84,6 +84,7 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 ## 约束说明
 
 - dst和src必须为非NULL且可被AICPU直接访问的有效Device地址。
+- 同一个`ThreadHandle`不支持多线程并发访问。
 
 ## 调用示例
 

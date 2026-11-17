@@ -49,19 +49,21 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 读请求处理成功。[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)表示读任务已提交；[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)在返回前检查读操作完成结果。 |
+| `ASCCOMM_SUCCESS`（0） | 读请求处理成功，读任务已提交。 |
 | `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | Thread或Channel资源、通信上下文或内存保护参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |
-| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列或RoCE队列等待超时，或RoCE完成事件轮询超时。 |
-| `ASCCOMM_E_REMOTE` | RoCE完成事件报告远端通信错误。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
+| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时。 |
+| `ASCCOMM_E_REMOTE` | 通信完成事件报告远端通信错误。 |
 | `ASCCOMM_E_INTERNAL` | 任务、队列等内部异常。 |
 
 ## 约束说明
 
-- 本接口同时支持UB类协议和RoCE协议。
+- 本接口仅支持通信协议UB_CTP、UBoE、UB_RTP。
 - `dst`和`src`应使用该Channel对应的本端和远端通信内存地址。
 - `src`地址范围必须落在远端已注册的通信内存范围内。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

@@ -60,6 +60,8 @@ int32_t asccomm_channel_notify_wait_on_thread(ThreadHandle thread, ChannelHandle
 - 该接口需与[asccomm_channel_notify_record_on_thread](asccomm_channel_notify_record_on_thread.md)配合使用。
 - 通知等待任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
 - `timeOut`仅作用于Notify等待任务本身。本接口提交等待任务后立即返回，Notify等待超时不通过返回值反馈。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

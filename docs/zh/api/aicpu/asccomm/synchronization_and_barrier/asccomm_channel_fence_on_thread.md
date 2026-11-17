@@ -54,6 +54,9 @@ int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle chann
 
 - 本接口只设置Channel的fence标志；该标志由下一次相关传输任务消费，消费后自动清零。
 - Channel资源必须已具备可用的通信上下文；缺少该上下文时返回`ASCCOMM_E_PARA`。
+- AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UB_CTP、UBoE、UB_RTP。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

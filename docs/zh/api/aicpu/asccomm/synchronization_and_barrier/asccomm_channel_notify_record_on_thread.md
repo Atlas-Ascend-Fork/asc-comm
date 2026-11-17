@@ -47,20 +47,21 @@ int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHand
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 通知任务处理成功。[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)表示任务已生成；[RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)在返回前检查通知写操作完成结果。 |
+| `ASCCOMM_SUCCESS`（0） | 通知任务处理成功。 |
 | `ASCCOMM_E_PTR` | Thread或Channel句柄为0，或通信资源、内存保护指针为空。 |
 | `ASCCOMM_E_PARA` | Thread/Channel资源、通信上下文、Notify或内存保护参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |
-| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列或RoCE队列等待超时，或RoCE完成事件轮询超时。 |
-| `ASCCOMM_E_REMOTE` | RoCE完成事件报告远端通信错误。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
+| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时，或通信完成事件轮询超时。 |
+| `ASCCOMM_E_REMOTE` | 通信完成事件报告远端通信错误。 |
 | `ASCCOMM_E_INTERNAL` | 任务生成、队列或本地任务缓存等内部异常。 |
 
 ## 约束说明
 
-- 当前实现支持UB类协议和RoCE协议；其他协议返回`ASCCOMM_E_NOT_SUPPORT`。
 - `remoteNotifyIdx`必须小于通道远端Notify数量，并且对应的Notify资源类型和内存保护参数须正确。
 - 通知任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
 - 该接口需与[asccomm_channel_notify_wait_on_thread](asccomm_channel_notify_wait_on_thread.md)配合使用。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

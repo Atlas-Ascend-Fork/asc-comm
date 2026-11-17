@@ -50,25 +50,23 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`asccomm_data_type`各取值的行为如下。
 
-| dataType | [UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) |
-| --- | --- | --- |
-| `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32` | 支持带通知的归约写。 | 支持带通知的归约写。 |
-| `ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持带通知的归约写。 | 不支持，当前实现返回`ASCCOMM_E_PARA`。 |
-| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 不支持，返回`ASCCOMM_E_NOT_SUPPORT`。 |
-| `ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 不支持，当前实现返回`ASCCOMM_E_PARA`。 |
-| `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | 当前实现不接受，返回`ASCCOMM_E_PARA`。 | 当前实现不接受，返回`ASCCOMM_E_PARA`。 |
+| dataType | 支持情况 |
+| --- | --- |
+| `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持带通知的归约写。 |
+| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | 当前实现不接受，返回`ASCCOMM_E_PARA`。 |
 
 ### reduceOp说明
 
-`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前各通道协议的支持情况如下。
+`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前实现支持情况如下。
 
-| reduceOp | UB类协议 | RoCE协议 |
-| --- | --- | --- |
-| `ASCCOMM_REDUCE_SUM` | 支持带通知的归约写。 | 支持带通知的归约写。 |
-| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 不支持，返回`ASCCOMM_E_NOT_SUPPORT`。 |
-| `ASCCOMM_REDUCE_MAX` | 支持带通知的归约写。 | 支持带通知的归约写。 |
-| `ASCCOMM_REDUCE_MIN` | 支持带通知的归约写。 | 支持带通知的归约写。 |
-| `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 | 非法保留值，返回`ASCCOMM_E_PARA`。 |
+| reduceOp | 支持情况 |
+| --- | --- |
+| `ASCCOMM_REDUCE_SUM` | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_REDUCE_MAX` | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_MIN` | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 |
 
 ## 返回值说明
 
@@ -76,20 +74,22 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 带通知的归约写请求处理成功。UB类协议表示任务已提交；RoCE协议在返回前检查归约写和通知操作完成结果。 |
+| `ASCCOMM_SUCCESS`（0） | 带通知的归约写请求处理成功，任务已提交。 |
 | `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | `dataType`或`reduceOp`非法，`count * sizeof(dataType)`溢出，或Thread/Channel资源、内存保护参数及远端Notify参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不受支持，或RoCE inline归约不支持指定的数据类型或归约操作。 |
-| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列或RoCE队列等待超时，或RoCE完成事件轮询超时。 |
-| `ASCCOMM_E_REMOTE` | RoCE完成事件报告远端通信错误。 |
-| `ASCCOMM_E_INTERNAL` | UB归约任务编码、任务提交或其他内部操作异常。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
+| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时。 |
+| `ASCCOMM_E_REMOTE` | 通信完成事件报告远端通信错误。 |
+| `ASCCOMM_E_INTERNAL` | 归约任务编码、任务提交或其他内部操作异常。 |
 
 ## 约束说明
 
-- 当前实现支持UB类协议和RoCE协议；其他协议返回`ASCCOMM_E_NOT_SUPPORT`。
 - `src`和`dst`应分别使用通道本端和远端已注册通信内存中的地址。
 - `remoteNotifyIdx`必须小于通道远端Notify数量，并且对应的远端Notify资源类型须正确。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
+- 该接口需与[asccomm_channel_notify_wait_on_thread](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread.md)配合使用。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

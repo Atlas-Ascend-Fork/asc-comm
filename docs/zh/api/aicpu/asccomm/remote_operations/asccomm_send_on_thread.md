@@ -57,20 +57,21 @@ int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 发送请求处理成功。[UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择)表示发送任务已提交。 |
+| `ASCCOMM_SUCCESS`（0） | 发送请求处理成功，发送任务已提交。 |
 | `ASCCOMM_E_PTR` | `src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | Thread或Channel资源、UB通信上下文或内存保护参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的UB类协议。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
 | `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时。 |
 | `ASCCOMM_E_INTERNAL` | 任务、队列等内部异常。 |
 
 ## 约束说明
 
-- 本接口仅支持UB类协议，RoCE等其他协议返回`ASCCOMM_E_NOT_SUPPORT`。
 - `src`应使用该Channel对应的本端通信内存地址，`[src, src + len)`应落在本端已注册的通信内存范围内。
 - `len`无固定单次上限，超过单条消息硬件传输上限的数据由接口内部自动分段发送，调用方无需自行拆分。
 - `len`为0时，本接口仍会向对端下发一条零长度消息（`src`仍需为有效的本端通信内存地址），对端可感知到本次消息。
 - 返回`ASCCOMM_SUCCESS`仅表示发送任务已提交，不表示对端已完成接收。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

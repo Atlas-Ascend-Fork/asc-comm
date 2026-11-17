@@ -56,6 +56,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
 - 手动传入超时时间的[asccomm_channel_notify_wait_on_thread](../synchronization_and_barrier/asccomm_channel_notify_wait_on_thread.md)和[asccomm_thread_notify_wait_on_thread](../synchronization_and_barrier/asccomm_thread_notify_wait_on_thread.md)不受本接口影响。
 - 未设置时，当前实现默认超时时间为1836秒。
 - `timeOut`为非负浮点数时允许传入，但会向零截断为整数秒；负数、NaN和大于`UINT32_MAX`的取值返回`ASCCOMM_E_PARA`。
+- 并发说明：本接口为全局配置接口，须串行调用。
 
 ## 调用示例
 

@@ -49,23 +49,23 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 
 仅Ascend 950PR&950DT系列产品支持本接口。当前实现中，`asccomm_data_type`各取值的行为如下。
 
-| dataType | [UB类协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) | [RoCE协议](../../../../guide/programming_model/communication_pattern_selection.md#通信协议分类与选择) |
-| --- | --- | --- |
-| `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持归约读。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | 当前实现不接受，返回`ASCCOMM_E_PARA`。 | 当前实现不接受，返回`ASCCOMM_E_PARA`。 |
+| dataType | 支持情况 |
+| --- | --- |
+| `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持归约读。 |
+| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | 当前实现不接受，返回`ASCCOMM_E_PARA`。 |
 
 ### reduceOp说明
 
-`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前各通道协议的支持情况如下。
+`asccomm_reduce_op`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前实现支持情况如下。
 
-| reduceOp | UB类协议 | RoCE协议 |
-| --- | --- | --- |
-| `ASCCOMM_REDUCE_SUM` | 支持归约读。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_REDUCE_MAX` | 支持归约读。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_REDUCE_MIN` | 支持归约读。 | 直接返回成功，但不执行归约读，`dst`不更新。 |
-| `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 | 非法保留值，返回`ASCCOMM_E_PARA`。 |
+| reduceOp | 支持情况 |
+| --- | --- |
+| `ASCCOMM_REDUCE_SUM` | 支持归约读。 |
+| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_REDUCE_MAX` | 支持归约读。 |
+| `ASCCOMM_REDUCE_MIN` | 支持归约读。 |
+| `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 |
 
 ## 返回值说明
 
@@ -73,19 +73,19 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | UB类协议归约读任务提交成功；RoCE协议直接返回成功，但不执行归约读，`dst`不会因本次调用更新。 |
-| `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或UB类协议所需资源地址为空。 |
+| `ASCCOMM_SUCCESS`（0） | 归约读任务提交成功。 |
+| `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | `dataType`或`reduceOp`非法，`count * sizeof(dataType)`溢出，或Thread/Channel资源及内存保护参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议既不是当前支持的UB类协议，也不是RoCE协议。 |
-| `ASCCOMM_E_TIMEOUT` | UB任务提交时通信任务提交队列空间不足且等待超时。 |
-| `ASCCOMM_E_INTERNAL` | UB归约任务编码、任务提交或其他内部操作异常。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
+| `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时。 |
+| `ASCCOMM_E_INTERNAL` | 归约任务编码、任务提交或其他内部操作异常。 |
 
 ## 约束说明
 
-- UB类协议支持归约读操作。
-- RoCE协议当前不执行归约读操作，直接返回成功；调用成功不代表目的内存被更新。
 - `dst`和`src`应使用该Channel对应的本端和远端通信内存地址；`src`地址范围必须落在远端已注册的通信内存范围内。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
+- 同一个`ThreadHandle`不支持多线程并发访问。
+- 同一个`ChannelHandle`不支持多线程并发访问。
 
 ## 调用示例
 

@@ -58,6 +58,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
 
 - dst和src必须为非NULL且可被AICPU直接访问的有效Device地址。
 - len为0时不生成本地拷贝任务。
+- 同一个`ThreadHandle`不支持多线程并发访问。
 
 ## 调用示例
 
