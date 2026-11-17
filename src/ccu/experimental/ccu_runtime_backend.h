@@ -65,9 +65,9 @@ public:
     virtual ccu_status_t externalEventVa(void* context, uint32_t count, void** eventSet, uint64_t* vas) noexcept = 0;
     virtual ccu_status_t externalXnVa(void* context, uint32_t count, void** xnSet, uint64_t* vas) noexcept = 0;
     virtual ccu_status_t launch(
-        void* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
-        HcomCcuSchd schd, const uint64_t* arguments, uint32_t argumentCount,
-        const BackendExternalArg* externalArguments, uint32_t externalArgumentCount, void** launch) noexcept = 0;
+        void* context, const ccu_kernel_descriptor_t* descriptor, uint32_t kernelIndex, void* stream, HcomCcuSchd schd,
+        const uint64_t* arguments, uint32_t argumentCount, const BackendExternalArg* externalArguments,
+        uint32_t externalArgumentCount, void** launch) noexcept = 0;
     virtual BackendSyncResult synchronize(void* launch, uint64_t syncTimeoutMs, uint64_t abortTimeoutMs) noexcept = 0;
     virtual ccu_status_t launchDestroy(void* launch) noexcept = 0;
 };

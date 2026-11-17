@@ -47,7 +47,6 @@ namespace {
 
 constexpr uint32_t kCcuobjVersion = 1;
 constexpr uint32_t kCcuobjAbiRevision = 4;
-constexpr uint32_t kMaxSpecializationBitWidth = 64;
 constexpr const char* kNpuArch = "dav-3510";
 constexpr uint64_t kDefaultSyncTimeoutMs = 30000;
 constexpr uint64_t kDefaultAbortTimeoutMs = 10000;
@@ -89,46 +88,36 @@ constexpr size_t kCcuobjHeaderSize = 64;
 struct OwnedDescriptor {
     ccu_image_descriptor_t image{};
     ccu_kernel_descriptor_t descriptor{};
-    ccu_rank_entry_t selectedRank{};
+    uint32_t selectedKernelIndex = 0;
     std::string target;
     std::vector<uint8_t> blob;
-    std::vector<ccu_specialization_value_t> values;
-    std::vector<std::string> valueTypeNames;
-    std::vector<ccu_rank_entry_t> ranks;
-    std::vector<ccu_task_arg_schema_t> taskArgs;
-    std::vector<std::string> taskArgNames;
+    std::vector<uint32_t> kernelIndices;
 
     void finalizePointers()
     {
         image.target = target.c_str();
         image.ccuobj = blob.data();
         descriptor.image = &image;
-        descriptor.specialization_values = values.empty() ? nullptr : values.data();
-        descriptor.rank_entries = ranks.data();
-        descriptor.task_args = taskArgs.empty() ? nullptr : taskArgs.data();
-        for (size_t index = 0; index < values.size(); ++index)
-            values[index].type_identity = valueTypeNames[index].empty() ? nullptr : valueTypeNames[index].c_str();
-        for (size_t index = 0; index < taskArgs.size(); ++index)
-            taskArgs[index].name = taskArgNames[index].c_str();
+        descriptor.kernel_indices = kernelIndices.data();
     }
 };
 
 struct ValidatedDescriptor {
     ccu::ccuobj::ParsedModule parsed;
-    const ccu_rank_entry_t* selected = nullptr;
+    uint32_t selectedKernelIndex = 0;
 };
 
 ccu_status_t validateDescriptorHeader(const ccu_kernel_descriptor_t* source)
 {
-    if (!source || source->struct_size != sizeof(*source) || !source->image)
+    if (!source || !source->image)
         return invalidObject("descriptor-header");
     return CCU_STATUS_SUCCESS;
 }
 
 ccu_status_t validateImageHeader(const ccu_image_descriptor_t& image)
 {
-    if (image.struct_size != sizeof(image) || !image.target || std::strcmp(image.target, kNpuArch) != 0 ||
-        !image.ccuobj || image.ccuobj_size < kCcuobjHeaderSize || image.ccuobj_size > static_cast<uint64_t>(SIZE_MAX) ||
+    if (!image.target || std::strcmp(image.target, kNpuArch) != 0 || !image.ccuobj ||
+        image.ccuobj_size < kCcuobjHeaderSize || image.ccuobj_size > static_cast<uint64_t>(SIZE_MAX) ||
         image.ccuobj_size > UINT64_MAX / kBitsPerByte)
         return invalidObject("image-header");
     return CCU_STATUS_SUCCESS;
@@ -148,90 +137,41 @@ ccu_status_t validateDescriptorSchema(
     const ccu_kernel_descriptor_t* source, uint32_t contextRank, uint32_t contextRankSize)
 {
     if (source->communicator_size == 0 || source->communicator_size != contextRankSize ||
-        contextRank >= contextRankSize || !source->rank_entries)
+        contextRank >= contextRankSize || !source->kernel_indices)
         return CCU_STATUS_SCHEMA_MISMATCH;
-    if ((source->task_arg_count != 0 && !source->task_args) ||
-        (source->specialization_value_count != 0 && !source->specialization_values))
-        return invalidObject("schema-pointers");
     return CCU_STATUS_SUCCESS;
 }
 
-ccu_status_t validateRanks(
-    const ccu_kernel_descriptor_t* source, uint32_t contextRank, uint32_t contextRankSize,
-    ValidatedDescriptor& validated)
+ccu_status_t validateRanks(const ccu_kernel_descriptor_t* source, uint32_t contextRank, ValidatedDescriptor& validated)
 {
-    std::vector<bool> seenRanks(contextRankSize, false);
     for (uint32_t index = 0; index < source->communicator_size; ++index) {
-        const ccu_rank_entry_t& rank = source->rank_entries[index];
-        if (rank.communicator_rank >= contextRankSize || seenRanks[rank.communicator_rank] ||
-            rank.kernel_index >= validated.parsed.kernels.size())
+        const uint32_t kernelIndex = source->kernel_indices[index];
+        if (kernelIndex >= validated.parsed.kernels.size())
             return CCU_STATUS_SCHEMA_MISMATCH;
 
-        const ccu::ccuobj::ParsedKernel& kernel = validated.parsed.kernels[rank.kernel_index];
+        const ccu::ccuobj::ParsedKernel& kernel = validated.parsed.kernels[kernelIndex];
         if (!kernel.microcode || kernel.instrCount == 0 || kernel.taskArgCount != source->task_arg_count ||
             kernel.channelArgCount > source->communicator_size - 1)
             return CCU_STATUS_SCHEMA_MISMATCH;
 
-        seenRanks[rank.communicator_rank] = true;
-        if (rank.communicator_rank == contextRank)
-            validated.selected = &rank;
-    }
-    if (!validated.selected)
-        return CCU_STATUS_SCHEMA_MISMATCH;
-    return CCU_STATUS_SUCCESS;
-}
-
-ccu_status_t validateTaskArgs(const ccu_kernel_descriptor_t* source)
-{
-    for (uint32_t index = 0; index < source->task_arg_count; ++index) {
-        const ccu_task_arg_schema_t& argument = source->task_args[index];
-        if ((argument.kind != CCU_TASK_ARG_U64 && argument.kind != CCU_TASK_ARG_I64) || argument.flags != 0 ||
-            !argument.name || !*argument.name)
-            return CCU_STATUS_SCHEMA_MISMATCH;
+        if (index == contextRank)
+            validated.selectedKernelIndex = kernelIndex;
     }
     return CCU_STATUS_SUCCESS;
-}
-
-ccu_status_t validateSpecializationValues(const ccu_kernel_descriptor_t* source)
-{
-    for (uint32_t index = 0; index < source->specialization_value_count; ++index) {
-        const ccu_specialization_value_t& value = source->specialization_values[index];
-        if ((value.kind != CCU_SPECIALIZATION_UNSIGNED && value.kind != CCU_SPECIALIZATION_SIGNED &&
-             value.kind != CCU_SPECIALIZATION_ENUM) ||
-            value.bit_width == 0 || value.bit_width > kMaxSpecializationBitWidth ||
-            (value.kind == CCU_SPECIALIZATION_ENUM && (!value.type_identity || !*value.type_identity)))
-            return CCU_STATUS_SCHEMA_MISMATCH;
-    }
-    return CCU_STATUS_SUCCESS;
-}
-
-void copyOwnedStrings(OwnedDescriptor& result, const ccu_image_descriptor_t& image)
-{
-    result.target = image.target;
-    result.valueTypeNames.reserve(result.values.size());
-    for (const ccu_specialization_value_t& value : result.values)
-        result.valueTypeNames.emplace_back(value.type_identity ? value.type_identity : "");
-    result.taskArgNames.reserve(result.taskArgs.size());
-    for (const ccu_task_arg_schema_t& argument : result.taskArgs)
-        result.taskArgNames.emplace_back(argument.name);
 }
 
 void copyOwnedArrays(
     OwnedDescriptor& result, const ccu_kernel_descriptor_t* source, const ccu_image_descriptor_t& image,
-    const ccu_rank_entry_t* selected)
+    uint32_t selectedKernelIndex)
 {
     result.blob.assign(image.ccuobj, image.ccuobj + static_cast<size_t>(image.ccuobj_size));
+    result.target = image.target;
     result.image = image;
     result.image.ccuobj_size = result.blob.size();
     result.descriptor = *source;
 
-    if (source->specialization_value_count != 0)
-        result.values.assign(
-            source->specialization_values, source->specialization_values + source->specialization_value_count);
-    result.ranks.assign(source->rank_entries, source->rank_entries + source->communicator_size);
-    result.selectedRank = *selected;
-    if (source->task_arg_count != 0)
-        result.taskArgs.assign(source->task_args, source->task_args + source->task_arg_count);
+    result.kernelIndices.assign(source->kernel_indices, source->kernel_indices + source->communicator_size);
+    result.selectedKernelIndex = selectedKernelIndex;
 }
 
 ccu_status_t makeOwnedDescriptor(
@@ -240,8 +180,7 @@ ccu_status_t makeOwnedDescriptor(
 {
     try {
         auto result = std::make_unique<OwnedDescriptor>();
-        copyOwnedArrays(*result, source, image, validated.selected);
-        copyOwnedStrings(*result, image);
+        copyOwnedArrays(*result, source, image, validated.selectedKernelIndex);
         result->finalizePointers();
         owned = std::move(result);
     } catch (const std::bad_alloc&) {
@@ -271,16 +210,9 @@ ccu_status_t copyAndValidateDescriptorImpl(
     status = validateDescriptorSchema(source, contextRank, contextRankSize);
     if (status != CCU_STATUS_SUCCESS)
         return status;
-    status = validateRanks(source, contextRank, contextRankSize, validated);
+    status = validateRanks(source, contextRank, validated);
     if (status != CCU_STATUS_SUCCESS)
         return status;
-    status = validateTaskArgs(source);
-    if (status != CCU_STATUS_SUCCESS)
-        return status;
-    status = validateSpecializationValues(source);
-    if (status != CCU_STATUS_SUCCESS)
-        return status;
-
     return makeOwnedDescriptor(source, image, validated, owned);
 }
 
@@ -718,8 +650,8 @@ ccu_status_t ccu_compiler_submit_with_schedule(
         launch->kernel = kernel.get();
         launch->stream = stream;
         status = normalizeStatus(context->backend->launch(
-            context->backendContext, &kernel->owned->descriptor, &kernel->owned->selectedRank, stream, schd, arguments,
-            argumentCount, backendExternalArguments.empty() ? nullptr : backendExternalArguments.data(),
+            context->backendContext, &kernel->owned->descriptor, kernel->owned->selectedKernelIndex, stream, schd,
+            arguments, argumentCount, backendExternalArguments.empty() ? nullptr : backendExternalArguments.data(),
             static_cast<uint32_t>(backendExternalArguments.size()), &launch->backendLaunch));
         if (!launch->backendLaunch) {
             return status == CCU_STATUS_SUCCESS ? CCU_STATUS_RUNTIME_ERROR : status;

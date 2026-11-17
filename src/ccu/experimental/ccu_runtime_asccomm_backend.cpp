@@ -87,12 +87,12 @@ ccu_status_t mapCoreError(CcuAotError error)
 }
 
 ccu_status_t validateLaunchArguments(
-    HcommContext* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
+    HcommContext* context, const ccu_kernel_descriptor_t* descriptor, uint32_t kernelIndex, void* stream,
     void** launchHandle, const uint64_t* arguments, uint32_t argumentCount, const BackendExternalArg* externalArguments,
     uint32_t externalArgumentCount)
 {
-    if (!context || !descriptor || !descriptor->image || !rankEntry || !stream || !launchHandle || *launchHandle ||
-        (argumentCount != 0 && !arguments) || (externalArgumentCount != 0 && !externalArguments))
+    if (!context || !descriptor || !descriptor->image || kernelIndex == UINT32_MAX || !stream || !launchHandle ||
+        *launchHandle || (argumentCount != 0 && !arguments) || (externalArgumentCount != 0 && !externalArguments))
         return CCU_STATUS_INVALID_ARGUMENT;
     if (context->activeLaunch)
         return CCU_STATUS_BUSY;
@@ -178,11 +178,11 @@ ccu_status_t convertExternalArguments(
 }
 
 ccu_status_t registerKernel(
-    HcommContext* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry,
+    HcommContext* context, const ccu_kernel_descriptor_t* descriptor, uint32_t kernelIndex,
     const std::vector<CcuAotExternalArg>& externalArguments, uint32_t& kernelId)
 {
     CcuAotError error = ccu_aot_register_kernel_with_external(
-        context->runtime, descriptor->image->ccuobj, descriptor->image->ccuobj_size, rankEntry->kernel_index,
+        context->runtime, descriptor->image->ccuobj, descriptor->image->ccuobj_size, kernelIndex,
         externalArguments.empty() ? nullptr : externalArguments.data(), static_cast<uint32_t>(externalArguments.size()),
         &kernelId);
     return mapCoreError(error);
@@ -275,14 +275,13 @@ public:
     }
 
     ccu_status_t launch(
-        void* context, const ccu_kernel_descriptor_t* descriptor, const ccu_rank_entry_t* rankEntry, void* stream,
-        HcomCcuSchd schd, const uint64_t* arguments, uint32_t argumentCount,
-        const BackendExternalArg* externalArguments, uint32_t externalArgumentCount,
-        void** launchHandle) noexcept override
+        void* context, const ccu_kernel_descriptor_t* descriptor, uint32_t kernelIndex, void* stream, HcomCcuSchd schd,
+        const uint64_t* arguments, uint32_t argumentCount, const BackendExternalArg* externalArguments,
+        uint32_t externalArgumentCount, void** launchHandle) noexcept override
     {
         auto* hcommContext = static_cast<HcommContext*>(context);
         const ccu_status_t argumentStatus = validateLaunchArguments(
-            hcommContext, descriptor, rankEntry, stream, launchHandle, arguments, argumentCount, externalArguments,
+            hcommContext, descriptor, kernelIndex, stream, launchHandle, arguments, argumentCount, externalArguments,
             externalArgumentCount);
         if (argumentStatus != CCU_STATUS_SUCCESS)
             return argumentStatus;
@@ -322,14 +321,14 @@ public:
             if (cache != hcommContext->kernelCache.end()) {
                 const HcommContext::CachedKernel& entry = cache->second;
                 if (entry.ccuobj != descriptor->image->ccuobj || entry.ccuobjSize != descriptor->image->ccuobj_size ||
-                    entry.kernelIndex != rankEntry->kernel_index || entry.rank != hcommContext->rank ||
+                    entry.kernelIndex != kernelIndex || entry.rank != hcommContext->rank ||
                     entry.rankSize != hcommContext->rankSize || entry.channels != hcommContext->boundChannels)
                     return CCU_STATUS_INVALID_ARGUMENT;
                 created->kernelId = entry.kernelId;
                 created->cachedKernel = true;
             } else {
                 const ccu_status_t registerStatus =
-                    registerKernel(hcommContext, descriptor, rankEntry, externalAotArguments, created->kernelId);
+                    registerKernel(hcommContext, descriptor, kernelIndex, externalAotArguments, created->kernelId);
                 if (registerStatus != CCU_STATUS_SUCCESS)
                     return registerStatus;
                 if (schd.cacheTag != 0) {
@@ -337,7 +336,7 @@ public:
                         HcommContext::CachedKernel entry{};
                         entry.ccuobj = descriptor->image->ccuobj;
                         entry.ccuobjSize = descriptor->image->ccuobj_size;
-                        entry.kernelIndex = rankEntry->kernel_index;
+                        entry.kernelIndex = kernelIndex;
                         entry.rank = hcommContext->rank;
                         entry.rankSize = hcommContext->rankSize;
                         entry.channels = hcommContext->boundChannels;
