@@ -10,6 +10,6 @@
 - [asccomm_write_reduce_with_notify_on_thread](asccomm_write_reduce_with_notify_on_thread.md)
 - [asccomm_read_on_thread](asccomm_read_on_thread.md)
 - [asccomm_read_reduce_on_thread](asccomm_read_reduce_on_thread.md)
-- [asccomm_send_on_thread](asccomm_send_on_thread.md)
-- [asccomm_send_with_imm_on_thread](asccomm_send_with_imm_on_thread.md)
+- [asccomm_send_on_thread（实验）](asccomm_send_on_thread.md)
+- [asccomm_send_with_imm_on_thread（实验）](asccomm_send_with_imm_on_thread.md)
 - [asccomm_batch_transfer_on_thread](asccomm_batch_transfer_on_thread.md)

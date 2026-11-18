@@ -64,9 +64,11 @@ add_test(NAME asccomm_utest_comms_aicpu_launch COMMAND asccomm_utest_comms_aicpu
 add_executable(asccomm_utest_comms_aicpu_primitives
     main.cc
     ut_asccomm_primitives.cc
+    experimental/ut_asccomm_experimental_primitives.cc
     ut_asccomm_ub_conn_lite.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/experimental/asccomm_experimental_primitives_c_adpt.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
 )
@@ -98,3 +100,18 @@ target_compile_options(asccomm_public_header_isolation_check PRIVATE
     -Werror
 )
 add_test(NAME asccomm_public_header_isolation_check COMMAND asccomm_public_header_isolation_check)
+
+add_executable(asccomm_experimental_header_isolation_check
+    experimental/experimental_header_isolation_check.cc
+)
+target_include_directories(asccomm_experimental_header_isolation_check PRIVATE
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCCOMM_ROOT}/include/aicpu
+    ${ASCCOMM_ROOT}/pkg_inc/hcomm
+)
+target_compile_features(asccomm_experimental_header_isolation_check PRIVATE cxx_std_17)
+target_compile_options(asccomm_experimental_header_isolation_check PRIVATE
+    -Wall
+    -Werror
+)
+add_test(NAME asccomm_experimental_header_isolation_check COMMAND asccomm_experimental_header_isolation_check)

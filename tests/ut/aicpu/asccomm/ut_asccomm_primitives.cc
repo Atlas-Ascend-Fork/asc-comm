@@ -17,43 +17,11 @@
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
 #include "asccomm_runtime_stub.h"
+#include "asccomm_ut_fixture.h"
+
+using namespace asccomm_ut;
 
 namespace {
-
-HcommThreadEntity MakeThread()
-{
-    HcommThreadEntity thread{};
-    thread.abiHeader = {HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
-    static HcommThreadSqContext rtsq{};
-    rtsq = {};
-    thread.sqContextAddr = &rtsq;
-    return thread;
-}
-
-ChannelEntity MakeChannel()
-{
-    ChannelEntity channel{};
-    channel.abiHeader = {HCOMM_CHANNEL_ENTITY_VERSION, HCOMM_CHANNEL_ENTITY_MAGIC_WORD, sizeof(ChannelEntity), 0};
-    return channel;
-}
-
-ThreadHandle ThreadHandleOf(HcommThreadEntity& thread) { return reinterpret_cast<ThreadHandle>(&thread); }
-
-ChannelHandle ChannelHandleOf(ChannelEntity& channel) { return reinterpret_cast<ChannelHandle>(&channel); }
-
-class AsccommPrimitivesTest : public testing::Test {
-protected:
-    void SetUp() override
-    {
-        g_runtimeStubState = {};
-        asccomm_set_batch_launch_mode_with_tag(nullptr, false);
-        asccomm_batch_mode_end(nullptr);
-        g_runtimeStubState = {};
-    }
-
-    HcommThreadEntity thread_{MakeThread()};
-    ChannelEntity channel_{MakeChannel()};
-};
 
 TEST_F(AsccommPrimitivesTest, RejectsNullThreadAndInvalidResourceHeader)
 {
@@ -206,49 +174,6 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
             ThreadHandleOf(thread_), &buffer, &buffer, 1, ASCCOMM_DATA_TYPE_INT32, static_cast<asccomm_reduce_op>(999)),
         ASCCOMM_E_PARA);
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
-}
-
-TEST_F(AsccommPrimitivesTest, SendPassesLocalBuffer)
-{
-    int value = 7;
-    const auto threadHandle = ThreadHandleOf(thread_);
-    const auto channelHandle = ChannelHandleOf(channel_);
-    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, nullptr, sizeof(value)), ASCCOMM_E_PTR);
-    EXPECT_TRUE(g_runtimeStubState.sendCalls.empty());
-
-    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_SUCCESS);
-    ASSERT_EQ(g_runtimeStubState.sendCalls.size(), 1U);
-    EXPECT_EQ(g_runtimeStubState.sendCalls[0].thread, &thread_);
-    EXPECT_EQ(g_runtimeStubState.sendCalls[0].channel, &channel_);
-    EXPECT_EQ(g_runtimeStubState.sendCalls[0].local, reinterpret_cast<uintptr_t>(&value));
-    EXPECT_EQ(g_runtimeStubState.sendCalls[0].len, sizeof(value));
-
-    g_runtimeStubState.sendResult = ASCCOMM_E_NOT_SUPPORT;
-    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_E_NOT_SUPPORT);
-}
-
-TEST_F(AsccommPrimitivesTest, SendWithImmPassesLocalBufferAndImmediate)
-{
-    int value = 7;
-    const auto threadHandle = ThreadHandleOf(thread_);
-    const auto channelHandle = ChannelHandleOf(channel_);
-    EXPECT_EQ(
-        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, nullptr, sizeof(value), 0xa5), ASCCOMM_E_PTR);
-    EXPECT_TRUE(g_runtimeStubState.sendWithImmCalls.empty());
-
-    EXPECT_EQ(
-        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5), ASCCOMM_SUCCESS);
-    ASSERT_EQ(g_runtimeStubState.sendWithImmCalls.size(), 1U);
-    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].thread, &thread_);
-    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].channel, &channel_);
-    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].local, reinterpret_cast<uintptr_t>(&value));
-    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].len, sizeof(value));
-    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].immData, 0xa5U);
-
-    g_runtimeStubState.sendWithImmResult = ASCCOMM_E_NOT_SUPPORT;
-    EXPECT_EQ(
-        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5),
-        ASCCOMM_E_NOT_SUPPORT);
 }
 
 TEST_F(AsccommPrimitivesTest, ChannelNotifyWaitAndFenceDrainPassArguments)

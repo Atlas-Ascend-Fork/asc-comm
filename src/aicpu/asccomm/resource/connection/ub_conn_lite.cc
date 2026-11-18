@@ -545,25 +545,11 @@ void UbConnLite::send(
 {
     ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
 
-    // 零长度消息不能静默跳过：process_slices不会为size=0生成任何WQE，
-    // 必须单独下发一条sgeNum=0的SEND WQE，否则接收端感知不到本次消息，PI也不会推进
-    if (UNLIKELY(loc.get_size() == 0)) {
-        UdmaSqeWrite sqe{};
-        RmaBufSliceLite emptySlice(loc.get_addr(), 0, 0, loc.get_token_id());
-        fill_one_sqe_send(emptySlice, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND, 0, SlicePosition::ONLY);
-        process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND);
-        out.pi = pi;
-        ASCCOMM_INFO("[UbConnLite::%s] end with zero-length message, pi[%u]", __func__, out.pi);
-        return;
-    }
-
-    process_slices(
-        loc, target, maxWriteSize,
-        [&](const RmaBufSliceLite& locSlice, const RmtRmaBufSliceLite& rmtSlice, SlicePosition slicePos) {
-            UdmaSqeWrite sqe{};
-            fill_one_sqe_send(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND, 0, slicePos);
-            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND);
-        });
+    // UB_CTP（4KB）/UB_RTP（64KB）单条消息上限与hcomm下发的maxWriteSize不配套，send不支持按maxWriteSize拆包，
+    // 每次调用仅下发一条WQE；零长度消息同样下发一条sgeNum=0的WQE，保证对端可感知本次消息且PI推进
+    UdmaSqeWrite sqe{};
+    fill_one_sqe_send(loc, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND, 0, SlicePosition::ONLY);
+    process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND);
     out.pi = pi;
 
     ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, out.pi);
@@ -575,26 +561,11 @@ void UbConnLite::send_with_imm(
 {
     ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu], immData[%llu]", __func__, loc.get_size(), immData);
 
-    // 零长度消息不能静默跳过：process_slices不会为size=0生成任何WQE，
-    // 必须单独下发一条sgeNum=0的SEND_WITH_IMM WQE，否则immData会随本次调用静默丢失
-    if (UNLIKELY(loc.get_size() == 0)) {
-        UdmaSqeWrite sqe{};
-        RmaBufSliceLite emptySlice(loc.get_addr(), 0, 0, loc.get_token_id());
-        fill_one_sqe_send(
-            emptySlice, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, immData, SlicePosition::ONLY);
-        process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
-        out.pi = pi;
-        ASCCOMM_INFO("[UbConnLite::%s] end with zero-length message, pi[%u]", __func__, out.pi);
-        return;
-    }
-
-    process_slices(
-        loc, target, maxWriteSize,
-        [&](const RmaBufSliceLite& locSlice, const RmtRmaBufSliceLite& rmtSlice, SlicePosition slicePos) {
-            UdmaSqeWrite sqe{};
-            fill_one_sqe_send(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, immData, slicePos);
-            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
-        });
+    // UB_CTP（4KB）/UB_RTP（64KB）单条消息上限与hcomm下发的maxWriteSize不配套，send不支持按maxWriteSize拆包，
+    // 每次调用仅下发一条WQE；零长度消息同样下发一条sgeNum=0的WQE，immData随该WQE正常传递给对端
+    UdmaSqeWrite sqe{};
+    fill_one_sqe_send(loc, target, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, immData, SlicePosition::ONLY);
+    process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
     out.pi = pi;
 
     ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, out.pi);

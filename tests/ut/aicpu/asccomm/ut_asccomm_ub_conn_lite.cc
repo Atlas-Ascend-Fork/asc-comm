@@ -124,7 +124,7 @@ TEST(UbConnLiteSendSqeTest, SendZeroLengthStillEmitsWqeAndAdvancesPi)
     EXPECT_EQ(sqe->u.sge.length, 0U);
 }
 
-TEST(UbConnLiteSendSqeTest, SlicesKeepRemoteTargetWhileAdvancingLocalAddress)
+TEST(UbConnLiteSendSqeTest, SendBeyondMaxWriteSizeStaysSingleWqe)
 {
     std::vector<uint8_t> sqStorage;
     auto connection = MakeSendConnection(sqStorage);
@@ -136,12 +136,14 @@ TEST(UbConnLiteSendSqeTest, SlicesKeepRemoteTargetWhileAdvancingLocalAddress)
 
     connection.send(local, target, cfg, out);
 
-    const auto* first = reinterpret_cast<const Asc::UdmaSqeWrite*>(sqStorage.data());
-    const auto* last = reinterpret_cast<const Asc::UdmaSqeWrite*>(sqStorage.data() + 64U);
-    EXPECT_EQ(first->u.sge.length, MAX_WRITE_SIZE);
-    EXPECT_EQ(last->u.sge.length, 8U);
-    EXPECT_EQ(last->u.sge.dataAddrLow, 0x1040U);
-    EXPECT_EQ(last->comm.rmtObjId, REMOTE_JETTY_ID & 0xfffffU);
-    EXPECT_EQ(last->comm.tokenEn, 1U);
-    EXPECT_EQ(last->comm.rmtTokenValue, REMOTE_TOKEN_VALUE);
+    const auto* sqe = reinterpret_cast<const Asc::UdmaSqeWrite*>(sqStorage.data());
+    const auto* second = reinterpret_cast<const Asc::UdmaSqeWrite*>(sqStorage.data() + 64U);
+    EXPECT_EQ(out.pi, 1U);
+    EXPECT_EQ(sqe->u.sge.length, MAX_WRITE_SIZE + 8U);
+    EXPECT_EQ(sqe->u.sge.dataAddrLow, 0x1000U);
+    EXPECT_EQ(sqe->comm.rmtObjId, REMOTE_JETTY_ID & 0xfffffU);
+    EXPECT_EQ(sqe->comm.tokenEn, 1U);
+    EXPECT_EQ(sqe->comm.rmtTokenValue, REMOTE_TOKEN_VALUE);
+    EXPECT_EQ(second->comm.rmtObjId, 0U);
+    EXPECT_EQ(second->comm.rmtTokenValue, 0U);
 }

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <limits>
 #include "asccomm_primitives.h"
+#include "asccomm_adpt_internal.h"
 #include "asccomm_res_defs.h"
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
@@ -21,59 +22,10 @@
 
 namespace {
 
-struct CommContext {
-    ThreadEntity* thread;
-    ChannelEntity* channel;
-};
-
-template <typename Entity>
-asccomm_result validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
-{
-    CHK_PTR_NULL(entity);
-    CHK_PRT_RET(
-        entity->abiHeader.version != version || entity->abiHeader.magicWord != magicWord,
-        ASCCOMM_ERROR(
-            "[%s] invalid resource ABI header, version[%u], magicWord[0x%x].", __func__, entity->abiHeader.version,
-            entity->abiHeader.magicWord),
-        ASCCOMM_E_PARA);
-    CHK_PRT_RET(
-        entity->abiHeader.size < sizeof(Entity),
-        ASCCOMM_ERROR(
-            "[%s] resource entity size[%u] is less than expected size[%zu].", __func__, entity->abiHeader.size,
-            sizeof(Entity)),
-        ASCCOMM_E_PARA);
-    return ASCCOMM_SUCCESS;
-}
-
-asccomm_result get_thread_entity(
-    ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
-{
-    CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
-    // The public ThreadHandle is the device resource entity address.  The control
-    // plane performs the original-handle -> POD conversion before launch.
-    threadEntity = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(thread));
-    CHK_RET(validate_entity(threadEntity, HCOMM_THREAD_ENTITY_VERSION, HCOMM_THREAD_ENTITY_MAGIC_WORD));
-    // A host stream can be exported as a notify-only thread entity. Such an entity
-    // has no RTSQ, so only callers that submit work through the thread require it.
-    if (resolveRtsq) {
-        CHK_PTR_NULL(threadEntity->sqContextAddr);
-        CHK_RET(asccomm_resolve_thread_rtsq(threadEntity));
-    }
-    if (registerThread) {
-        asccomm_register_thread(thread);
-    }
-    return ASCCOMM_SUCCESS;
-}
-
-asccomm_result get_context(ThreadHandle thread, ChannelHandle channel, bool registerThread, CommContext& context)
-{
-    CHK_PRT_RET(channel == 0, ASCCOMM_ERROR("[%s] channel handle is 0.", __func__), ASCCOMM_E_PTR);
-    CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
-    // ChannelHandle follows the same resource-address ABI as ThreadHandle.
-    context.channel = reinterpret_cast<ChannelEntity*>(static_cast<uintptr_t>(channel));
-    CHK_RET(validate_entity(context.channel, HCOMM_CHANNEL_ENTITY_VERSION, HCOMM_CHANNEL_ENTITY_MAGIC_WORD));
-    return ASCCOMM_SUCCESS;
-}
+using asccomm_adpt::CommContext;
+using asccomm_adpt::execute_api;
+using asccomm_adpt::get_context;
+using asccomm_adpt::get_thread_entity;
 
 asccomm_result get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
@@ -212,14 +164,6 @@ asccomm_result get_reduce_params(
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerDataType, innerReduceOp);
     return ASCCOMM_SUCCESS;
-}
-
-template <typename Operation>
-asccomm_result execute_api(Operation operation)
-{
-    asccomm_result ret = ASCCOMM_SUCCESS;
-    EXCEPTION_CATCH(ret = operation(), ret = ASCCOMM_E_INTERNAL);
-    return ret;
 }
 
 asccomm_result convert_timeout(float timeout, uint32_t& timeoutSeconds)
@@ -408,27 +352,6 @@ int32_t asccomm_read_reduce_on_thread(
         return asccomm_read_reduce(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len,
             reduceIn);
-    });
-}
-
-int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len)
-{
-    return execute_api([&]() {
-        CHK_PTR_NULL(src);
-        CommContext context{};
-        CHK_RET(get_context(thread, channel, true, context));
-        return asccomm_send(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len);
-    });
-}
-
-int32_t asccomm_send_with_imm_on_thread(
-    ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint64_t immData)
-{
-    return execute_api([&]() {
-        CHK_PTR_NULL(src);
-        CommContext context{};
-        CHK_RET(get_context(thread, channel, true, context));
-        return asccomm_send_with_imm(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len, immData);
     });
 }
 

@@ -48,9 +48,6 @@ asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, co
 ASCCOMM_API int32_t asccomm_read_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
     asccomm_reduce_op reduceOp);
-ASCCOMM_API int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len);
-ASCCOMM_API int32_t asccomm_send_with_imm_on_thread(
-    ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint64_t immData);
 ASCCOMM_API int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const asccomm_batch_transfer_desc* transferDescs,
     uint32_t transferDescNum);
