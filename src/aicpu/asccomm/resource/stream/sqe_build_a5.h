@@ -12,6 +12,7 @@
 #define ASCCOMM_SQE_BUILD_A5_H
 
 #include <stdint.h>
+#include "../common/asccomm_device.h"
 #include "../connection/ub_jetty_lite.h"
 #include "sqe_v82.h"
 
@@ -24,6 +25,11 @@ inline void set_sqe_header_task_fields(void* sqe, uint32_t taskId)
     auto header = reinterpret_cast<Rt91095StarsSqeHeader*>(sqe);
     header->rtStreamId = static_cast<uint16_t>(taskId);
     header->taskId = static_cast<uint16_t>(taskId >> LOW_BITS);
+}
+
+inline void set_sqe_prof_field(void* sqe, bool enabled)
+{
+    reinterpret_cast<Rt91095StarsSqeHeader*>(sqe)->sqeProf = enabled ? 1U : 0U;
 }
 
 inline void build_a5_sqe_notify_wait(
@@ -40,6 +46,7 @@ inline void build_a5_sqe_notify_wait(
     sqe->subType = static_cast<uint16_t>(Rt91095NotifySubType::NOTIFY_SUB_TYPE_SINGLE_NOTIFY_WAIT);
     sqe->notifyId = notifyId;
     sqe->timeout = timeout;
+    set_sqe_prof_field(sqe, asccomm_is_sqe_profiling_enabled());
 }
 
 inline void build_a5_sqe_notify_record(uint32_t streamId, uint32_t taskId, uint32_t notifyId, uint8_t* sqeIn)
@@ -52,6 +59,7 @@ inline void build_a5_sqe_notify_record(uint32_t streamId, uint32_t taskId, uint3
     sqe->kernelCredit = RT_STARS_DEFAULT_KERNEL_CREDIT;
     sqe->subType = static_cast<uint16_t>(Rt91095NotifySubType::NOTIFY_SUB_TYPE_SINGLE_NOTIFY_RECORD);
     sqe->notifyId = notifyId;
+    set_sqe_prof_field(sqe, asccomm_is_sqe_profiling_enabled());
 }
 
 inline void build_a5_sqe_sdma_copy(
@@ -75,6 +83,7 @@ inline void build_a5_sqe_sdma_copy(
     sqe->u.strideMode0.srcAddrHigh = static_cast<uint32_t>(srcAddr >> 32U);
     sqe->u.strideMode0.dstAddrLow = static_cast<uint32_t>(dstAddr & 0xffffffffULL);
     sqe->u.strideMode0.dstAddrHigh = static_cast<uint32_t>(dstAddr >> 32U);
+    set_sqe_prof_field(sqe, asccomm_is_sqe_profiling_enabled());
 }
 
 inline void build_a5_sqe_ub_db_send(
@@ -91,6 +100,7 @@ inline void build_a5_sqe_ub_db_send(
     sqe->funcId1 = jettyLiteId.get_func_id();
     sqe->piValue1 = piValue;
     sqe->dieId1 = jettyLiteId.get_die_id();
+    set_sqe_prof_field(sqe, asccomm_is_sqe_profiling_enabled());
 }
 
 void build_a5_sqe_rdma_db_send(uint32_t streamId, uint32_t taskId, uint64_t dbAddr, uint64_t dbValue, uint8_t* sqeIn);

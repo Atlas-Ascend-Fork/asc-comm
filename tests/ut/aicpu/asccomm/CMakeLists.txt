@@ -16,11 +16,13 @@ set(AICPU_UT_INCLUDE_DIRS
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/common/utils
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream
     ${ASCCOMM_ROOT}/src/common/dfx/logging
     ${CMAKE_CURRENT_SOURCE_DIR}/stub
 )
@@ -66,17 +68,22 @@ add_executable(asccomm_utest_comms_aicpu_primitives
     ut_asccomm_primitives.cc
     experimental/ut_asccomm_experimental_primitives.cc
     ut_asccomm_ub_conn_lite.cc
+    ut_asccomm_sqe.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_device.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/experimental/asccomm_experimental_primitives_c_adpt.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
-    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
 )
 target_include_directories(asccomm_utest_comms_aicpu_primitives PRIVATE
     ${AICPU_UT_INCLUDE_DIRS}
 )
 target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
     OPEN_BUILD_PROJECT
+)
+target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
+    __NPU_ARCH__=${ASCCOMM_UT_V310_NPU_ARCH}
 )
 target_link_libraries(asccomm_utest_comms_aicpu_primitives PRIVATE
     intf_llt_pub_basic

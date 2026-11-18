@@ -57,6 +57,10 @@ target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
 
 add_library(asccomm_aicpu SHARED)
 add_subdirectory(asccomm)
+if(TARGET runtime_headers)
+    target_include_directories(asccomm_aicpu PRIVATE
+        $<TARGET_PROPERTY:runtime_headers,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
 
 target_compile_definitions(asccomm_aicpu PRIVATE
     HCCD
@@ -86,11 +90,13 @@ target_include_directories(asccomm_aicpu PRIVATE
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/include
     ${ASCCOMM_CANN_ARCH_DIR}/include/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/api_c_adpt
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/launch
     ${ASCCOMM_AICPU_ROOT}/asccomm/common/exception
@@ -116,6 +122,9 @@ foreach(_target acl_rt_headers slog_headers ascend_hal c_sec)
         list(APPEND _asccomm_aicpu_link_targets ${_target})
     endif()
 endforeach()
+if(TARGET runtime_headers)
+    list(APPEND _asccomm_aicpu_link_targets runtime_headers)
+endif()
 target_link_libraries(asccomm_aicpu PRIVATE
     ${_asccomm_aicpu_link_targets}
     dl

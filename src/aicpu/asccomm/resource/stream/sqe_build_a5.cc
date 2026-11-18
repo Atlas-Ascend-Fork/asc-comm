@@ -26,6 +26,7 @@ void build_a5_sqe_rdma_db_send(uint32_t streamId, uint32_t taskId, uint64_t dbAd
     sqe->writeValuePart[0] = static_cast<uint32_t>(dbValue & MASK_32_BIT);
     sqe->writeValuePart[1] = static_cast<uint32_t>((dbValue >> UINT32_BIT_NUM) & MASK_32_BIT);
     sqe->va = 1U;
+    set_sqe_prof_field(sqe, asccomm_is_sqe_profiling_enabled());
 }
 
 } // namespace Asc
