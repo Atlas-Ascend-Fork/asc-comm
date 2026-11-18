@@ -239,9 +239,21 @@ bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 Option 2: Direct CMake invocation with offline GTest path
 
 ```bash
-cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
-cmake --build build/ut-hcomm
+# 1. Load CANN environment variables first (test binaries load libruntime_common.so at runtime; skipping this causes RC=127 failures); replace ${install_path} with your CANN installation path (default /usr/local/Ascend, ${HOME}/Ascend for non-root users)
+source ${install_path}/cann/set_env.sh
+# 2. Use a dedicated build directory; do not reuse the build/ut-hcomm cache produced by Option 1 (build.sh -t)
+cmake -S tests/ut -B build/ut-hcomm-cmake -DCANN_3RD_LIB_PATH=<path-to-third-party>
+cmake --build build/ut-hcomm-cmake
+# 3. CCU and AICPU tests are registered in subdirectories; run CTest in each of them (same as build.sh -t)
+(cd build/ut-hcomm-cmake/ccu_hcomm && ctest --output-on-failure)
+(cd build/ut-hcomm-cmake/aicpu_asccomm && ctest --output-on-failure)
 ```
+
+> [!NOTE]Notes
+>
+> - CCU and AICPU tests are registered in the `ccu_hcomm` and `aicpu_asccomm` subdirectories of the build directory (matching `build.sh -t` behavior), so `ctest` must be run inside each of them. Running `ctest` from the build root prints `No tests were found!!!` and exits with 0, which can be mistaken for a UT pass; use `ctest -N` first to confirm test registration.
+> - Option 1 (`build.sh -t`) builds to `build/ut-hcomm` by default. Re-running `cmake` directly against that existing cache fails because the cached third-party (e.g. mockcpp) source directory no longer matches (`The source ".../mockcpp/CMakeLists.txt" does not match the source "... used to generate cache"`). Use a dedicated directory (e.g. `build/ut-hcomm-cmake`) for Option 2, or clean the stale cache first.
+> - Direct `cmake` invocation bypasses the `set_env()` check performed by `build.sh`. `source set_env.sh` first; otherwise, in an independent shell `ctest` silently fails for test cases depending on CANN runtime libraries (`error while loading shared libraries: libruntime_common.so`, exit code 127), and `LastTest.log` only shows `Test Failed.` without any cause.
 
 #### Open-Source Third-Party Dependencies
 
@@ -256,6 +268,21 @@ Third-party open-source software used for UT execution:
 [hcomm_urma_write_read_nbi](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:
+
+> [!IMPORTANT]Confirm OS/distribution support via the official compatibility query before compiling
+> Compiling the sample relies on the Ascend C compiler toolchain bundled with CANN. For supported
+> OS/distributions, follow the OS compatibility statement of the CANN version in use: visit the
+> [Ascend Compatibility Query Assistant](https://www.hiascend.com/hardware/compatibility) and query by your
+> actual product model (Ascend 950PR&950DT products), CPU architecture, CANN version (>= 9.1.0), and
+> deployment form (physical machine, virtual machine, or container) for the matching OS and kernel
+> versions; do not choose an OS based only on generic distribution names. On a Debian 13
+> (glibc 2.41) host, running the following commands with the CANN 9.1.X bundled toolchain has been
+> observed to fail in the system header `bits/floatn.h` with `unsupported machine mode '__TC__'` /
+> `__float128 is not supported on this target` (make Error 2). This observation only indicates that
+> this toolchain/system combination is unsupported; the error is unrelated to the sample code and
+> cannot be bypassed by source changes or macros such as `-U__HAVE_FLOAT128`. Please use the
+> [CANN Docker image](#cann-docker-image) or the CANNLab cloud development environment for
+> compilation verification.
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh

@@ -190,8 +190,19 @@ tests/ut/CMakeLists.txt
 UT会优先查找系统GTest。若系统中没有GTest，可以通过`CANN_3RD_LIB_PATH`指向CANN third_party目录。
 
 ```bash
-cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
+# 1. 先配置CANN环境变量（测试目标运行时会加载 libruntime_common.so 等运行库，跳过会导致RC=127运行失败）；将${install_path}替换为CANN安装路径（默认/usr/local/Ascend，非root用户为$HOME/Ascend）
+source ${install_path}/cann/set_env.sh
+# 2. 使用独立构建目录，请勿复用 build.sh -t 默认生成的 build/ut-hcomm 缓存
+cmake -S tests/ut -B build/ut-hcomm-cmake -DCANN_3RD_LIB_PATH=<path-to-third-party>
+cmake --build build/ut-hcomm-cmake
+# 3. CCU和AICPU用例分别注册在子目录，需分别进入执行CTest（与 build.sh -t 行为一致）
+(cd build/ut-hcomm-cmake/ccu_hcomm && ctest --output-on-failure)
+(cd build/ut-hcomm-cmake/aicpu_asccomm && ctest --output-on-failure)
 ```
+
+> 注意：CCU和AICPU的用例分别注册在构建目录的`ccu_hcomm`和`aicpu_asccomm`子目录，需分别进入对应目录执行`ctest`。在构建根目录直接执行`ctest`会提示`No tests were found!!!`且退出码为0，易误判为UT通过，可先用`ctest -N`确认用例注册情况。
+>
+> 直接执行`cmake`时，`build.sh`中的`set_env()`环境检查不再生效，需先`source set_env.sh`。同时，`build.sh -t`默认在`build/ut-hcomm`构建，复用该缓存再次配置会因mockcpp等第三方缓存源目录与缓存不一致而报错（`The source ".../mockcpp/CMakeLists.txt" does not match the source "... used to generate cache"`），请使用独立构建目录（如`build/ut-hcomm-cmake`）或先清理旧缓存。
 
 也可以通过构建脚本传入CANN third_party目录：
 

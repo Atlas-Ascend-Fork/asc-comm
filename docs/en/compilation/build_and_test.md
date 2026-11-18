@@ -190,8 +190,19 @@ Common CMake variables:
 UTs will search for system-installed GTest first. If GTest is unavailable locally, point `CANN_3RD_LIB_PATH` to the CANN third-party directory.
 
 ```bash
-cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
+# 1. Load CANN environment variables first (test binaries load libruntime_common.so at runtime; skipping this causes RC=127 failures); replace ${install_path} with your CANN installation path (default /usr/local/Ascend, ${HOME}/Ascend for non-root users)
+source ${install_path}/cann/set_env.sh
+# 2. Use a dedicated build directory; do not reuse the build/ut-hcomm cache produced by build.sh -t
+cmake -S tests/ut -B build/ut-hcomm-cmake -DCANN_3RD_LIB_PATH=<path-to-third-party>
+cmake --build build/ut-hcomm-cmake
+# 3. CCU and AICPU tests are registered in subdirectories; run CTest in each of them (same as build.sh -t)
+(cd build/ut-hcomm-cmake/ccu_hcomm && ctest --output-on-failure)
+(cd build/ut-hcomm-cmake/aicpu_asccomm && ctest --output-on-failure)
 ```
+
+> Note: CCU and AICPU tests are registered in the `ccu_hcomm` and `aicpu_asccomm` subdirectories of the build directory, so `ctest` must be run inside each of them. Running `ctest` from the build root prints `No tests were found!!!` and exits with 0, which can be mistaken for a UT pass; use `ctest -N` first to confirm test registration.
+> 
+> Direct `cmake` invocation bypasses the `set_env()` check performed by `build.sh`, so `source set_env.sh` first. Also, `build.sh -t` builds to `build/ut-hcomm` by default; reconfiguring that existing cache fails because the cached third-party (e.g. mockcpp) source directory no longer matches (`The source ".../mockcpp/CMakeLists.txt" does not match the source "... used to generate cache"`). Use a dedicated build directory (e.g. `build/ut-hcomm-cmake`) or clean the stale cache first.
 
 You may also pass the CANN third-party directory via the build script:
 

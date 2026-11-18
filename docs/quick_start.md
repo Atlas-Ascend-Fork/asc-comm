@@ -239,9 +239,21 @@ bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 方式二：用户也可直接使用CMake命令指定离线GTest路径。
 
 ```bash
-cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
-cmake --build build/ut-hcomm
+# 1. 先配置CANN环境变量（测试目标运行时会加载 libruntime_common.so 等运行库，跳过会导致RC=127运行失败）；将${install_path}替换为CANN安装路径（默认/usr/local/Ascend，非root用户为$HOME/Ascend）
+source ${install_path}/cann/set_env.sh
+# 2. 使用独立构建目录，请勿复用方式一 build.sh -t 生成的 build/ut-hcomm 缓存
+cmake -S tests/ut -B build/ut-hcomm-cmake -DCANN_3RD_LIB_PATH=<path-to-third-party>
+cmake --build build/ut-hcomm-cmake
+# 3. CCU和AICPU用例分别注册在子目录，需分别进入执行CTest（与 build.sh -t 行为一致）
+(cd build/ut-hcomm-cmake/ccu_hcomm && ctest --output-on-failure)
+(cd build/ut-hcomm-cmake/aicpu_asccomm && ctest --output-on-failure)
 ```
+
+> [!NOTE]注意事项
+>
+> - CCU和AICPU的用例分别注册在构建目录的`ccu_hcomm`和`aicpu_asccomm`子目录（与`build.sh -t`的行为一致），需分别进入对应目录执行`ctest`。在构建根目录直接执行`ctest`会提示`No tests were found!!!`且退出码为0，易误判为UT通过，可先用`ctest -N`确认用例注册情况。
+> - 方式一的`build.sh -t`默认在`build/ut-hcomm`目录构建。若对该目录已生成的CMake缓存再次直接执行`cmake`，会因mockcpp等第三方缓存源目录与缓存记录不一致而报错（`The source ".../mockcpp/CMakeLists.txt" does not match the source "... used to generate cache"`）并退出。方式二请改用独立目录（如`build/ut-hcomm-cmake`），或先清理旧缓存。
+> - 直接执行`cmake`时，`build.sh`中的`set_env()`环境检查不再生效。请先`source set_env.sh`，否则在独立shell执行`ctest`时，依赖runtime运行库的用例会因`error while loading shared libraries: libruntime_common.so`（退出码127）静默失败，`LastTest.log`仅显示`Test Failed.`无任何原因。
 
 #### 开源第三方软件依赖
 
@@ -256,6 +268,16 @@ cmake --build build/ut-hcomm
 [hcomm_urma_write_read_nbi](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR&950DT系列产品，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 
 进入样例目录后执行：
+
+> [!IMPORTANT]请先通过官方兼容性查询确认OS/发行版后再编译验证
+> 编译样例依赖CANN自带的Ascend C编译工具链。受支持的OS/发行版请以所用CANN版本的操作系统兼容性说明为准：
+> 请访问[昇腾兼容性查询助手](https://www.hiascend.com/hardware/compatibility)，按实际的产品型号（Ascend 950PR&950DT
+> 系列产品）、CPU架构、CANN版本（>= 9.1.0）和部署形态（物理机/虚拟机/容器）查询配套的OS及内核版本，
+> 请勿仅凭通用发行版名称选型。在Debian 13（glibc 2.41）主机上，使用CANN 9.1.X自带工具链执行下列命令，
+> 曾观察到编译在系统头文件`bits/floatn.h`处报`unsupported machine mode '__TC__'` /
+> `__float128 is not supported on this target`（make Error 2）。该现象仅说明此工具链与该系统的组合未经
+> 支持，报错与样例代码无关，无法通过源码修改或`-U__HAVE_FLOAT128`等宏绕开，
+> 请优先使用[CANN官方Docker镜像](#cann-docker-image)或CANNLab云开发环境完成编译验证。
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
