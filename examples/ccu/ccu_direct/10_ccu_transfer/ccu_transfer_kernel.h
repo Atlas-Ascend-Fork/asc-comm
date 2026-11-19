@@ -34,6 +34,10 @@ struct CcuTransferKernelArg {
     uint32_t channelCount{0};
     uint32_t rankId{0};
     uint32_t rankSize{0};
+    // 立即数地址演示用：taskArgs 翻译期不可见（load_arg 存在的原因），
+    // 立即数地址形态须经 kernelArg 传入、翻译期固化进指令
+    uint64_t immInputAddr{0};
+    uint64_t immOutputAddr{0};
 };
 
 // Kernel 运行期上下文：本端输入/输出地址与 token、数据量，以及对端登记的输出地址与 token
@@ -162,11 +166,16 @@ ccu_result ExecuteLocalCopy(TransferContext& ctx)
     return ccu_result::CCU_SUCCESS;
 }
 
-// 场景 7：CCU_DO/CCU_WHILE/CCU_ELSE 软件控制流宏 + local_notify 跨 kernel 同步。
-// 三段拷贝与 SCENARIO 1 相同，但用软件控制流宏组织：
-//   - CCU_DO { ... } CCU_WHILE(cond) 循环执行搬运直至计数达到；
-//   - CCU_IF(cond) { ... } CCU_ELSE { ... } 分支选择搬运通路；
-//   - event_record("tag", mask)/event_wait("tag", mask) 为 local_notify 重载（同 die 跨 kernel）。
+// 场景 7：CCU_DO/CCU_WHILE/CCU_IF/CCU_ELSE 软件控制流宏 + local_notify 跨 kernel 同步。
+// 以"路径位累加器"确保每个控制宏的预期路径都实际执行：
+//   - do-while 循环 1 遍，result += 0b0001；
+//   - 独立 CCU_WHILE 循环 1 遍（前判语义），result += 0b0010；
+//   - 独立 CCU_IF 走 true 分支，result += 0b0100；
+//   - CCU_IF + CCU_ELSE 走 false（else）分支，result += 0b1000；
+// 四条路径全部走对后 result == 0b1111，终检门控据此选择最终搬运通路，回读校验才 PASS。
+// 各宏的条件与前序宏的执行结果关联（如 IF 的条件引用 while 的循环计数），
+// 任一路径未按预期执行都会使 result 缺位，被终检暴露。
+// event_record("tag", mask)/event_wait("tag", mask) 为 local_notify 重载（同 die 跨 kernel）。
 
 ccu_result ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
 {
@@ -175,43 +184,76 @@ ccu_result ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
 
-    // 循环计数 variable：Ascend 950PR&950DT系列产品的控制流条件仅支持"变量与立即数"比较（双变量比较是
-    // A6/V2 能力，A5 上翻译会直接失败），此处与立即数 1 比较，固定循环 1 次
-    ccu::variable loopCounter;
+    // 控制流条件仅支持"变量与立即数"比较（双变量比较是 A6/V2 能力，A5 上翻译会直接失败），
+    // 立即数不可直接参与算术，故位值与计数均先赋给 variable
+    ccu::variable result;
+    result = 0;
+    ccu::variable bitDoWhile;
+    bitDoWhile = 0b0001;
+    ccu::variable bitWhile;
+    bitWhile = 0b0010;
+    ccu::variable bitIf;
+    bitIf = 0b0100;
+    ccu::variable bitIfElse;
+    bitIfElse = 0b1000;
     ccu::variable one;
-    loopCounter = 0;
     one = 1;
+    ccu::variable doCounter;
+    doCounter = 0;
+    ccu::variable whileCounter;
+    whileCounter = 0;
 
     // local_notify 生产侧：record 与 wait 以相同 tag 配对（同 die 跨 kernel 同步）。
     // 本 kernel 内先 record 后 wait 同一 tag：信号已置位，wait 立即放行，
     // 用于演示配对用法且不阻塞流程
     ccu::event_record("transfer_ready", 0x1);
 
-    // CCU_DO + CCU_WHILE：do-while 循环（body 至少执行一次，条件满足后退出）。
-    // 比较立即数须为 uint64_t 字面量
+    // 1) CCU_DO + CCU_WHILE：do-while 循环 1 遍（body 至少执行一次，条件满足后退出），
+    //    置 0b0001；body 内含本端片上内存 -> 本端CCU Buffer 搬运
     CCU_DO
     {
-        ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
-        ccu::event_wait(ctx.event, EVENT_MASK);
-        loopCounter = loopCounter + one;
-    }
-    CCU_WHILE(loopCounter != 1ULL);
-
-    // CCU_IF + CCU_ELSE：分支选择（恒真走 then 分支，演示 else 存在）
-    CCU_IF(loopCounter == 1ULL)
-    {
         ccu::local_copy(stagingBuffer, input, ctx.dataSize, ctx.event, EVENT_MASK);
+        ccu::event_wait(ctx.event, EVENT_MASK);
+        result = result + bitDoWhile;
+        doCounter = doCounter + one;
+    }
+    CCU_WHILE(doCounter != 1ULL);
+
+    // 2) 独立 CCU_WHILE 循环：先判断条件再执行 body（与 do-while 的"先执行后判断"相对），
+    //    循环 1 遍，置 0b0010
+    CCU_WHILE(whileCounter != 1ULL)
+    {
+        result = result + bitWhile;
+        whileCounter = whileCounter + one;
+    }
+
+    // 3) 独立 CCU_IF：走 true 分支，置 0b0100。
+    //    条件关联 while 的执行结果：while 恰好循环 1 遍时 whileCounter == 1 为真
+    CCU_IF(whileCounter == 1ULL) { result = result + bitIf; }
+
+    // 4) CCU_IF + CCU_ELSE：走 false（else）分支，置 0b1000。
+    //    前三步全部按预期执行时 result == 0b0111，条件为假进入 else
+    CCU_IF(result != 0b0111ULL)
+    {
+        // 前序宏未按预期执行才会进入此分支：不置位，交由终检暴露
+    }
+    CCU_ELSE { result = result + bitIfElse; }
+
+    // 5) 终检门控：四个控制宏全部按预期路径执行后 result == 0b1111
+    CCU_IF(result == 0b1111ULL)
+    {
+        // 全部路径走对：staging 落回 output（本端CCU Buffer -> 本端片上内存），
+        // 输出 = 输入，回读校验 PASS
+        ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
         ccu::event_wait(ctx.event, EVENT_MASK);
     }
     CCU_ELSE
     {
-        // 不会执行到（loopCounter == 1 恒真），保留以演示 CCU_ELSE 语法
-        ccu::local_copy(stagingBuffer, output, ctx.dataSize, ctx.event, EVENT_MASK);
-        ccu::event_wait(ctx.event, EVENT_MASK);
+        // 任一路径未走对：把 result 写进 output 首 8 字节，写坏数据使回读校验 FAIL
+        ccu::variable dstAddr;
+        dstAddr = ctx.output;
+        ccu::store(dstAddr, result);
     }
-
-    ccu::local_copy(output, stagingBuffer, ctx.dataSize, ctx.event, EVENT_MASK);
-    ccu::event_wait(ctx.event, EVENT_MASK);
 
     // local_notify 消费侧：等待与生产侧相同 tag 的信号（先 record 后 wait，立即放行）。
     // 注意 tag 必须与 record 侧完全一致：record 的 tag 若无配对的 wait，
@@ -261,8 +303,9 @@ ccu_result ExecuteWriteReduce(TransferContext& ctx)
 
 // 场景 4：load/store + address 演示。
 // load 从片上内存地址取 uint64 值装入 variable，store 为其反向操作；
-// address 是独立的地址资源类型，支持 imm/var/addr+var 赋值，
-// 此处用 address 承载输入地址并装入 local_addr，演示其与 variable 的互换性。
+// 地址源覆盖 variable 间接寻址与立即数两类，立即数形态翻译期固化；
+// address 是独立的地址资源类型，支持 imm/var/addr 间赋值与 addr+addr / addr+var / var+addr
+// 三种加法写法，本场景用加法链求得输入地址并完成搬运校验。
 
 ccu_result ExecuteLoadStore(TransferContext& ctx)
 {
@@ -284,7 +327,32 @@ ccu_result ExecuteLoadStore(TransferContext& ctx)
     ccu::load(srcAddr, loadedByVar);
     ccu::store(dstAddr, loadedByVar);
 
-    // 3) 搬运校验：address 组装的 local_addr 完成完整 input->output 拷贝
+    // 3) 立即数地址装载：load(imm, var) 与 store(imm, var)。
+    //    taskArgs 翻译期不可见（load_arg 存在的原因），立即数地址经 kernelArg 传入，
+    //    翻译期固化进指令；token 由翻译期统一的 HBM 内存 token 提供
+    ccu::variable loadedByImm;
+    ccu::load(ctx.arg->immInputAddr, loadedByImm);
+    ccu::store(ctx.arg->immOutputAddr, loadedByImm);
+
+    // 4) address 立即数赋值与加法：立即数不可直接参与算术，零偏移先赋给 variable/address，
+    //    三种加法写法与就地加求和后地址仍指向输入缓冲，供第 6) 步搬运校验
+    ccu::address immAddr;
+    immAddr = ctx.arg->immInputAddr; // address = 立即数（uint64_t）
+
+    ccu::variable zeroVar;
+    zeroVar = 0;
+    ccu::address zeroAddr;
+    zeroAddr = 0; // address = 立即数 0
+
+    ccu::address sumByVar;
+    sumByVar = immAddr + zeroVar; // address = address + variable
+    ccu::address sumByVarSwap;
+    sumByVarSwap = zeroVar + immAddr; // address = variable + address（交换律写法）
+    ccu::address sumByAddr;
+    sumByAddr = immAddr + zeroAddr; // address = address + address
+    sumByAddr += zeroAddr;          // address += address（就地加，值不变）
+
+    // 5) 搬运校验 1：variable 路径 address 组装的 local_addr 完成完整 input->output 拷贝
     ccu::address outputAddr;
     outputAddr = ctx.output;
 
@@ -294,6 +362,24 @@ ccu_result ExecuteLoadStore(TransferContext& ctx)
 
     ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
     ccu::event_wait(ctx.event, EVENT_MASK);
+
+    // 6) 搬运校验 2：立即数 + 加法链求得的地址同样完成 input->output 拷贝，
+    //    验证 imm/arith 地址来源与 variable 路径结果一致
+    ccu::local_addr inputBySum;
+    inputBySum.addr = sumByAddr;
+    inputBySum.token = ctx.inputToken;
+
+    ccu::local_copy(output, inputBySum, ctx.dataSize, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+
+    // 7) 数组批量装载：load/store 的 array<variable> 形态（元素须物理连续、num ≤ 数组长度），
+    //    立即数与 variable 间接寻址各覆盖读/写通路，按 8 字节步进连续搬运整块数据；
+    //    bulkVars 从 input 装入后写回 output 且置于最后一步，最终回读值即批量通路的结果
+    ccu::array<ccu::variable> bulkVars(2);
+    ccu::load(ctx.arg->immInputAddr, bulkVars, 2);   // 立即数地址 -> variable 数组
+    ccu::store(ctx.arg->immOutputAddr, bulkVars, 2); // variable 数组 -> 立即数地址
+    ccu::load(srcAddr, bulkVars, 2);                 // variable 地址 -> variable 数组
+    ccu::store(dstAddr, bulkVars, 2);                // variable 数组 -> variable 地址
     return ccu_result::CCU_SUCCESS;
 }
 
@@ -337,6 +423,52 @@ ccu_result ExecuteReadReduce(TransferContext& ctx)
     return ccu_result::CCU_SUCCESS;
 }
 
+// 场景 8：片上内存原地归约 local_reduce 演示（本端片上内存 -> 本端片上内存）。
+// 归约为原地操作，dst 须已写入有效初值：output 由 host 侧清零，初值即 0；
+// 先做 SUM 再做 MAX，结果 = max(0 + 输入值, 输入值) = 输入值，回读校验保持一致
+
+ccu_result ExecuteLocalReduce(TransferContext& ctx)
+{
+    const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
+    const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
+
+    ccu::local_reduce(output, input, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    ccu::local_reduce(output, input, ctx.dataSize, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_MAX, ctx.event, EVENT_MASK);
+    ccu::event_wait(ctx.event, EVENT_MASK);
+    return ccu_result::CCU_SUCCESS;
+}
+
+// 场景 9：config-based 硬件 Loop 演示。
+// loop/loop_group 的编译期配置形态：迭代参数翻译期固化为常量，
+// 与 var-based 形态（由 variable 位段在执行期决定）相对。
+// 缓冲区仅 4 个 FP32（16 字节），故地址偏移置 0、固定 2 轮，两轮重复拷贝同一块，
+// 结果仍为 input；LoopGroup 为单 Loop、无克隆，构造即完成提交
+
+ccu_result ExecuteConfigLoop(TransferContext& ctx)
+{
+    const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
+    const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
+
+    // 循环体：无入参 lambda，仅含本地搬运与等待
+    //（loop body 内禁止 event_record/notify 类接口与软件分支宏）
+    ccu::func body([&input, &output, &ctx]() {
+        ccu::local_copy(output, input, ctx.dataSize, ctx.event, EVENT_MASK);
+        ccu::event_wait(ctx.event, EVENT_MASK);
+    });
+
+    // config-based loop：迭代参数翻译期固化
+    ccu_loop_config loopCfg{};
+    loopCfg.addr_offset = 0;
+    loopCfg.iter_num = 2;
+    ccu::loop transferLoop(loopCfg, body);
+
+    // config-based loop_group：单 Loop 场景全字段置 0，构造即完成提交
+    ccu_loop_group_config groupCfg{};
+    ccu::loop_group group(groupCfg, 1, {transferLoop});
+    return ccu_result::CCU_SUCCESS;
+}
+
 // Host 侧 CCU Kernel：通过 SQE 下发 CCU 编排指令。
 // 编排为：读取对端输出 Variable -> 加载任务参数 -> 互换输出地址 -> 按场景搬运 -> 后同步
 
@@ -369,7 +501,7 @@ __ccu_host__ void CcuTransferKernel(
     ExchangeRemoteOutput(ctx);
 
     // 编译期选择搬运场景：1 本地拷贝，2 跨卡写，3 跨卡写并 SUM 规约，4 load/store/address，
-    // 5 read，6 read_reduce，7 控制流宏 + local_notify
+    // 5 read，6 read_reduce，7 控制流宏 + local_notify，8 片上内存原地归约，9 config-based 硬件Loop
 #if SCENARIO_NUM == 1
     ExecuteLocalCopy(ctx);
 #elif SCENARIO_NUM == 2
@@ -384,8 +516,12 @@ __ccu_host__ void CcuTransferKernel(
     ExecuteReadReduce(ctx);
 #elif SCENARIO_NUM == 7
     ExecuteControlFlowAndLocalNotify(ctx);
+#elif SCENARIO_NUM == 8
+    ExecuteLocalReduce(ctx);
+#elif SCENARIO_NUM == 9
+    ExecuteConfigLoop(ctx);
 #else
-#error "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, or 7"
+#error "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, 7, 8, or 9"
 #endif
 
     // 后同步：通知对端本 rank 已完成，并等对端完成

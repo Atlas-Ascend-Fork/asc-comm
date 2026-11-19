@@ -6,7 +6,7 @@ This sample shows how to implement AllReduce SUM with the direct-launch `<<<>>>`
 
 The inputs of all ranks are summed element by element, and each rank obtains the same sum result.
 
-A compile-time parameter `SCENARIO_NUM` selects the teaching scenario:
+A compile-time parameter `SCENARIO_NUM` selects the application scenario:
 
 - Scenario 1 (recommended): the classic AllReduce SUM flow (scatter-reduce with `write_reduce`); the output of every rank is the element-wise sum of all rank inputs.
 - Scenario 2 (inferior to scenario 1 in performance and scalability, mainly for API demonstration): an independent "gather-then-reduce" flow — first `read` moves every rank's input into local `ccu_buffer`s, then `local_reduce` (the N-way `ccu_buffer` overload) reduces them locally; the output is identical to scenario 1.
@@ -37,7 +37,7 @@ A compile-time parameter `SCENARIO_NUM` selects the teaching scenario:
 | --- | --- |
 | Communication mode | CCU AllReduce in an HCCL communication domain |
 | Invocation | Direct CCU kernel launch with `<<<>>>` |
-| Teaching scenario | Selected by the compile-time parameter `SCENARIO_NUM`, value 1 or 2 |
+| application scenario | Selected by the compile-time parameter `SCENARIO_NUM`, value 1 or 2 |
 | Data type | FP32 (`HCCL_DATA_TYPE_FP32`) |
 | Reduce operation | SUM (`HCCL_REDUCE_SUM`) |
 | Per-rank input size | `rankSize` FP32 elements |
@@ -82,7 +82,7 @@ Perform the following steps in the sample root directory to build and run the sa
 
 - Run the sample
 
-  Run the following command in the sample directory. Set `SCENARIO_NUM` to `1` or `2` to build and run each of the two teaching scenarios.
+  Run the following command in the sample directory. Set `SCENARIO_NUM` to `1` or `2` to build and run each of the two application scenarios.
 
   ```bash
   SCENARIO_NUM=1 bash run.sh
@@ -93,7 +93,7 @@ Perform the following steps in the sample root directory to build and run the sa
   | Option | Possible values | Description |
   | --- | --- | --- |
   | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture, corresponding to the Ascend 950PR&950DT series products |
-  | `SCENARIO_NUM` | `1`/`2` | Teaching scenario: 1 classic AllReduce SUM, 2 independent gather-then-reduce flow; default is `1` |
+  | `SCENARIO_NUM` | `1`/`2` | application scenario: 1 classic AllReduce SUM, 2 independent gather-then-reduce flow; default is `1` |
 
 - Expected result
 

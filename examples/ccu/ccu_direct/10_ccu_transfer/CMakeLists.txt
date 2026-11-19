@@ -12,9 +12,9 @@ cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
 project(asccomm_examples_ccu_ccu_transfer LANGUAGES CXX ASC)
 
-set(SCENARIO_NUM "1" CACHE STRING "Transfer scenario: 1 local copy, 2 remote write, 3 write reduce, 4 load/store/address, 5 read, 6 read reduce, 7 control flow + local notify")
-if(NOT SCENARIO_NUM MATCHES "^[1-7]$")
-    message(FATAL_ERROR "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, or 7")
+set(SCENARIO_NUM "1" CACHE STRING "Transfer scenario: 1 local copy, 2 remote write, 3 write reduce, 4 load/store/address, 5 read, 6 read reduce, 7 control flow + local notify, 8 local reduce, 9 config-based loop")
+if(NOT SCENARIO_NUM MATCHES "^[1-9]$")
+    message(FATAL_ERROR "SCENARIO_NUM must be 1, 2, 3, 4, 5, 6, 7, 8, or 9")
 endif()
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)

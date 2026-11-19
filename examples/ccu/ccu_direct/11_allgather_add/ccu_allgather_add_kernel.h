@@ -14,8 +14,8 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
-
 #include <hccl/hccl_res.h>
 #include <ccu/ccu_api/ccu_primitives.h>
 
@@ -410,8 +410,11 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
         }
     }
 
+    // 预约构造 array 后立即移动构造新对象接管元素（array 仅可移动、禁止拷贝），
+    // 移出后的 events 成为空对象，后续等待/置位均经 movedEvents 访问
     ccu::array<ccu::event> events(ctx.arg->eventHandle, ctx.arg->eventNum);
-    ccu::event_wait(events[0]);
+    ccu::array<ccu::event> movedEvents(std::move(events));
+    ccu::event_wait(movedEvents[0]);
 
     ccu::array<ccu::variable> vars(ctx.arg->varHandle, ctx.arg->varNum);
     ctx.input = vars[0];
@@ -424,6 +427,14 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
     ctx.goSize.loopParam = vars[7];
     ctx.goSize.parallelParam = vars[8];
     ctx.goSize.residual = vars[9];
+
+    // 单对象预约构造：绑定预约段内指定 index 的物理资源，与 array 形态绑定的
+    // 同一物理寄存器/槽位共享（同句柄同 index 即同一物理资源）。
+    // reservedVar 与 vars[5] 为同一寄存器，读回赋值为恒等操作；
+    // reservedEvent 与 movedEvents[1] 为同一槽位，Kernel 末尾经其完成置位
+    ccu::variable reservedVar(ctx.arg->varHandle, 5);
+    ctx.sliceSize = reservedVar;
+    ccu::event reservedEvent(ctx.arg->eventHandle, 1);
 
     // 前同步：本端 output 地址与 token 写入对端并置位对端 notify，
     // 再等待对端把其地址与 token 写回本端，避免读到旧值
@@ -448,7 +459,8 @@ __ccu_host__ void CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
         ccu::notify_wait(ctx.arg->channels[i], EVENT_IDX_0, 1 << POST_SYNC_ID);
     }
-    ccu::event_record(events[1]);
+    // 经单对象预约构造的 reservedEvent 置位（与 movedEvents[1] 为同一物理槽位）
+    ccu::event_record(reservedEvent);
 }
 } // namespace ops_comm_ag
 

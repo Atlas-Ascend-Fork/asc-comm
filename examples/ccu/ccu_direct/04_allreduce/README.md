@@ -6,7 +6,7 @@
 
 所有rank的输入逐元素求和，每个rank都得到相同的求和结果。
 
-通过编译参数`SCENARIO_NUM`选择教学场景：
+通过编译参数`SCENARIO_NUM`选择应用场景：
 
 - 场景1（推荐）：经典AllReduce SUM流程（`write_reduce`散射归约），每个rank的output为所有rank输入的逐元素和。
 - 场景2（性能和扩展性不如场景1，主要用作接口示例）：独立的"聚合-归约"流程——先`read`把各rank输入搬运到本地`ccu_buffer`，再`local_reduce`（N路`ccu_buffer`重载）本地归约，输出与场景1相同。
@@ -37,7 +37,7 @@
 | --- | --- |
 | 通信模式 | HCCL通信域内CCU AllReduce |
 | 调用方式 | CCU Kernel直调`<<<>>>` |
-| 教学场景 | 通过编译参数`SCENARIO_NUM`选择，取值1/2 |
+| 应用场景 | 通过编译参数`SCENARIO_NUM`选择，取值1/2 |
 | 数据类型 | FP32（`HCCL_DATA_TYPE_FP32`） |
 | 归约操作 | SUM（`HCCL_REDUCE_SUM`） |
 | 单rank输入规模 | `rankSize`个FP32元素 |
@@ -83,7 +83,7 @@
 
 - 样例执行
 
-  在本样例目录下执行如下命令。将`SCENARIO_NUM`分别设置为`1`、`2`可以编译并运行两个教学场景。
+  在本样例目录下执行如下命令。将`SCENARIO_NUM`分别设置为`1`、`2`可以编译并运行两个应用场景。
 
   ```bash
   SCENARIO_NUM=1 bash run.sh
@@ -94,7 +94,7 @@
   | 选项 | 可选值 | 说明 |
   | --- | --- | --- |
   | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
-  | `SCENARIO_NUM` | `1`/`2` | 教学场景：1经典AllReduce SUM、2独立聚合-归约流程，默认为`1` |
+  | `SCENARIO_NUM` | `1`/`2` | 应用场景：1经典AllReduce SUM、2独立聚合-归约流程，默认为`1` |
 
 - 执行结果
 
