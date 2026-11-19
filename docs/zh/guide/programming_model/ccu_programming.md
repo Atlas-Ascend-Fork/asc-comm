@@ -434,22 +434,7 @@ CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>(
 
 每次`<<<>>>`直调Kernel都会执行完整注册流程：执行Kernel函数体记录中间表示、翻译生成CCU指令并申请指令空间，开销较大。通信任务常在循环中反复下发同一Kernel，可通过`schd`中的`binary_cache_tag`字段启用句柄缓存：非0时，相同标签（且同一CCU实例、同一Die）的重复调用直接复用已注册的Kernel句柄，跳过注册与翻译；未命中时注册一次并写入缓存。缓存仅复用Kernel注册结果，`taskArgs`等执行期参数仍随每次调用正常下发。
 
-标签值通过Host侧接口`asccomm_ccu_get_launch_hash_tag`生成（头文件`#include "ccu/ccu_host_launch.h"`），将任意标签字符串哈希为`uint64_t`；传入`nullptr`返回0，即不启用缓存。
-
-使用约束：
-
-- 相同标签必须对应同一个Kernel：命中缓存后不再执行Kernel函数体，不同Kernel共用标签（同一实例、同一Die下）会复用错误句柄。
-- 多个rank共用进程或CCU实例时，标签需包含rank等区分维度，避免不同rank的Kernel错误复用。
-
-启用缓存的调用方式如下（取自[add_allgather](../../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，标签按rankId生成以保证各rank唯一）：
-
-```cpp
-const std::string launchTag = "CcuAllGatherMesh1DMem2MemKernel_rank_" + std::to_string(rankId);
-uint64_t tag = asccomm_ccu_get_launch_hash_tag(launchTag.c_str());
-
-asccomm_ccu_schd schd = {1, 0, dieMask, tag};   // 启用Kernel句柄缓存
-
-```
+标签值由Host侧接口[`asccomm_ccu_get_launch_hash_tag`](../../api/ccu/host/asccomm_ccu_get_launch_hash_tag.md)生成，标签生成规则、使用约束与调用示例详见该接口文档。
 
 #### mission
 
