@@ -24,6 +24,7 @@ and then performs the Add computation on the gathered result.
 ├── CMakeLists.txt    // Build configuration file
 ├── README.md         // Chinese documentation
 ├── README_en.md      // English documentation
+├── run.sh            // One-step build-and-run script
 └── main.asc          // Host flow, CCU resource setup, AICore communication Client, and Add kernel implementation
 ```
 
@@ -99,7 +100,15 @@ Perform the following steps in the sample root directory to build and run the sa
 
   > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
 
-- Run the Sample
+- One-Step Execution Script
+
+  Run the following command in the sample directory.
+
+  ```bash
+  bash run.sh
+  ```
+
+- Run the Sample Manually
 
   Run the following commands in the sample directory.
 

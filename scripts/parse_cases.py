@@ -9,12 +9,13 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""提取CCU direct样例列表：样例名(case)、路径(path)、场景(scenario)。
+"""提取CCU样例列表：样例名(case)、路径(path)、场景(scenario)。
 
-读取examples/ccu/ccu_direct下每个样例目录的README.md：
-- 无`SCENARIO_NUM`表格行：单场景样例，scenario为"-"，样例名为ccu_direct-<目录名>；
+读取examples/ccu下每个样例目录的README.md：
+- 无`SCENARIO_NUM`表格行：单场景样例，scenario为"-"，样例名为<目录名>-<样例目录>；
 - 有`SCENARIO_NUM`表格行：多场景样例，取值单元格中`N`/`M`表示场景N和M、`N`~`M`表示场景N到M，
-  每个场景单独一行，样例名为ccu_direct-<目录名>-SC<N>。
+  每个场景单独一行，样例名为<目录名>-<样例目录>-SC<N>。
+<目录名>取examples目录的basename（如ccu_direct、ccu_builtin）。
 结果输出为JSON数组（每行一个dict），供run_presmoke.sh使用。
 """
 
@@ -25,6 +26,7 @@ from pathlib import Path
 
 SCENARIO_CELL = "`SCENARIO_NUM`"
 RANGE_SEPARATORS = ("~", "～")
+DEFAULT_EXAMPLE_KINDS = ("ccu_direct", "ccu_builtin")
 
 
 def parse_scenario_cell(readme_path):
@@ -54,7 +56,7 @@ def parse_value_cell(value_cell):
     return sorted(set(numbers))
 
 
-def collect_cases(examples_dir, repo_root):
+def collect_cases(examples_dir, repo_root, prefix):
     """扫描样例目录，构建case/path/scenario记录列表。"""
     cases = []
     for sample_dir in sorted(examples_dir.iterdir()):
@@ -65,7 +67,7 @@ def collect_cases(examples_dir, repo_root):
         if not scenarios:
             cases.append(
                 {
-                    "case": f"ccu_direct-{sample_dir.name}",
+                    "case": f"{prefix}-{sample_dir.name}",
                     "path": rel_path,
                     "scenario": "-",
                 }
@@ -74,7 +76,7 @@ def collect_cases(examples_dir, repo_root):
         for scenario in scenarios:
             cases.append(
                 {
-                    "case": f"ccu_direct-{sample_dir.name}-SC{scenario}",
+                    "case": f"{prefix}-{sample_dir.name}-SC{scenario}",
                     "path": rel_path,
                     "scenario": str(scenario),
                 }
@@ -82,15 +84,21 @@ def collect_cases(examples_dir, repo_root):
     return cases
 
 
+def default_examples_dirs(repo_root):
+    """默认样例目录：examples/ccu下各样例类别目录。"""
+    return [repo_root / "examples" / "ccu" / kind for kind in DEFAULT_EXAMPLE_KINDS]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Extract CCU direct sample cases into presmoke case_list.json."
+        description="Extract CCU sample cases into presmoke case_list.json."
     )
     parser.add_argument(
         "--examples-dir",
         type=Path,
+        action="append",
         default=None,
-        help="ccu_direct样例根目录，默认为仓库内examples/ccu/ccu_direct",
+        help="CCU样例根目录，可指定多次；默认为examples/ccu/ccu_direct与examples/ccu/ccu_builtin",
     )
     parser.add_argument(
         "--output",
@@ -104,12 +112,17 @@ def parse_args():
 def main():
     args = parse_args()
     repo_root = Path(__file__).resolve().parent.parent
-    examples_dir = args.examples_dir or repo_root / "examples" / "ccu" / "ccu_direct"
+    examples_dirs = args.examples_dir or default_examples_dirs(repo_root)
     output = args.output or repo_root / "presmoke_reports" / "case_list.json"
-    if not examples_dir.is_dir():
-        raise SystemExit(f"[parse_cases][ERROR] examples dir not found: {examples_dir}")
 
-    cases = collect_cases(examples_dir, repo_root)
+    cases = []
+    for examples_dir in examples_dirs:
+        if not examples_dir.is_dir():
+            raise SystemExit(
+                f"[parse_cases][ERROR] examples dir not found: {examples_dir}"
+            )
+        cases.extend(collect_cases(examples_dir, repo_root, examples_dir.name))
+
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", encoding="utf-8") as file:
         json.dump(cases, file, ensure_ascii=False, indent=2)

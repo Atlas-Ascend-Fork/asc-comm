@@ -8,10 +8,10 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-# CCU direct样例前冒烟测试入口：样例提取 -> 编译/执行流水线 -> 结果汇总。
+# CCU样例前冒烟测试入口：样例提取 -> 编译/执行流水线 -> 结果汇总。
 # CPU并行编译与硬件串行执行重叠：编译完成的样例立即进入就绪队列排队执行，
 # 无需等待全部样例编译完成。
-# 用法：bash run_presmoke.sh [选项] [pattern ...]，不带pattern时默认执行 11_allgather_add 与 12_add_allgather 两个样例。pattern匹配规则：
+# 用法：bash run_presmoke.sh [选项] [pattern ...]，不带pattern时执行 examples/ccu 下 ccu_direct 与 ccu_builtin 全部样例。pattern匹配规则：
 #   完整样例名    ccu_direct-04_allreduce-SC1   仅该场景
 #   样例名        ccu_direct-04_allreduce       该样例全部场景
 #   目录名        04_allreduce                  该样例全部场景
@@ -19,7 +19,7 @@
 # 结果输出到asc-comm/presmoke_reports/：
 #   case_list.json   样例列表（样例名/路径/场景）
 #   build_log/       每个样例的编译日志和编译状态
-#   log/             每个样例的执行日志（仅写文件不打屏，匹配"test pass"判定通过）
+#   log/             每个样例的执行日志与退出码（仅写文件不打屏；退出码为0且匹配"test pass"才判定通过）
 #   data/            有scripts目录样例的输入和golden数据（避免写入样例目录）
 #   result.txt       汇总结果
 set -euo pipefail
@@ -27,7 +27,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-EXAMPLES_DIR="${REPO_ROOT}/examples/ccu/ccu_direct"
+EXAMPLES_DIRS=(
+    "${REPO_ROOT}/examples/ccu/ccu_direct"
+    "${REPO_ROOT}/examples/ccu/ccu_builtin"
+)
 REPORT_DIR="${REPO_ROOT}/presmoke_reports"
 LOG_DIR="${REPORT_DIR}/log"
 BUILD_LOG_DIR="${REPORT_DIR}/build_log"
@@ -35,13 +38,18 @@ DATA_DIR="${REPORT_DIR}/data"
 CASE_LIST="${REPORT_DIR}/case_list.json"
 RESULT_FILE="${REPORT_DIR}/result.txt"
 
+EXAMPLES_ARGS=()
+for examples_dir in "${EXAMPLES_DIRS[@]}"; do
+    EXAMPLES_ARGS+=(--examples-dir "${examples_dir}")
+done
+
 usage() {
     cat <<'EOF'
 用法: bash run_presmoke.sh [选项] [pattern ...]
 
-对CCU direct样例执行前冒烟：样例提取 -> 编译/执行流水线 -> 结果汇总。
+对CCU样例执行前冒烟：样例提取 -> 编译/执行流水线 -> 结果汇总。
 CPU并行编译与硬件串行执行重叠，编译完成的样例直接排队执行。
-不带pattern时默认执行 11_allgather_add 与 12_add_allgather 两个样例。每个pattern按以下规则匹配用例（可叠加多个pattern）：
+不带pattern时执行 examples/ccu 下 ccu_direct 与 ccu_builtin 全部样例。每个pattern按以下规则匹配用例（可叠加多个pattern）：
     完整样例名    ccu_direct-04_allreduce-SC1   仅该场景
     样例名        ccu_direct-04_allreduce       该样例全部场景
     目录名        04_allreduce                  该样例全部场景
@@ -84,16 +92,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# 未指定pattern时默认仅执行 11_allgather_add 与 12_add_allgather 两个样例
-if [[ ${#SELECTED_PATTERNS[@]} -eq 0 ]]; then
-    SELECTED_PATTERNS=("11_allgather_add" "12_add_allgather")
-fi
-
 # 仅列出可用样例：只依赖parse_cases.py，无需CANN环境
 if [[ "${LIST_ONLY}" == "1" ]]; then
     TMP_CASE_LIST="$(mktemp)"
     trap 'rm -f "${TMP_CASE_LIST}"' EXIT
-    python3 "${SCRIPT_DIR}/parse_cases.py" --examples-dir "${EXAMPLES_DIR}" --output "${TMP_CASE_LIST}"
+    python3 "${SCRIPT_DIR}/parse_cases.py" "${EXAMPLES_ARGS[@]}" --output "${TMP_CASE_LIST}"
     python3 - "${TMP_CASE_LIST}" <<'PYEOF'
 import json
 import sys
@@ -132,7 +135,7 @@ EXEC_TIMEOUT="${EXEC_TIMEOUT:-600}"
 rm -rf "${LOG_DIR}" "${BUILD_LOG_DIR}" "${DATA_DIR}"
 rm -f "${CASE_LIST}" "${RESULT_FILE}"
 mkdir -p "${LOG_DIR}" "${BUILD_LOG_DIR}" "${DATA_DIR}"
-python3 "${SCRIPT_DIR}/parse_cases.py" --examples-dir "${EXAMPLES_DIR}" --output "${CASE_LIST}"
+python3 "${SCRIPT_DIR}/parse_cases.py" "${EXAMPLES_ARGS[@]}" --output "${CASE_LIST}"
 
 CASE_TABLE="$(python3 - "${CASE_LIST}" <<'PYEOF'
 import json
@@ -156,9 +159,8 @@ if [[ ${#SELECTED_PATTERNS[@]} -gt 0 ]]; then
     CASE_TABLE="$(while IFS='|' read -r case_name path scenario; do
         for pattern in "${SELECTED_PATTERNS[@]}"; do
             if [[ "${case_name}" == ${pattern} \
-                || "${case_name}" == "ccu_direct-"${pattern} \
-                || "${case_name}" == ${pattern}-* \
-                || "${case_name}" == "ccu_direct-"${pattern}"-"* ]]; then
+                || "${case_name#*-}" == ${pattern} \
+                || "${case_name#*-}" == ${pattern}-* ]]; then
                 echo "${case_name}|${path}|${scenario}"
                 break
             fi
@@ -217,6 +219,7 @@ run_case() {
     local scenario="$3"
     local sample_dir="${REPO_ROOT}/${path}"
     local log_file="${LOG_DIR}/${case_name}.txt"
+    local rc_file="${LOG_DIR}/${case_name}.rc"
     local status_file="${BUILD_LOG_DIR}/build_${case_name}.status"
     local rc=0
 
@@ -225,6 +228,7 @@ run_case() {
 
     if [[ ! -f "${status_file}" || "$(cat "${status_file}")" != "0" ]]; then
         echo "[presmoke] build failed or missing, skip exec; see build_log/build_${case_name}.txt" | tee -a "${log_file}"
+        echo "1" >"${rc_file}"
         return 1
     fi
 
@@ -254,6 +258,7 @@ run_case() {
             >>"${log_file}" 2>&1 || rc=1
     fi
 
+    echo "${rc}" >"${rc_file}"
     if [[ "${rc}" == "0" ]]; then
         echo "[presmoke] ${case_name} finished" | tee -a "${log_file}"
     else
@@ -292,7 +297,7 @@ exec 3>&-
 wait "${EXECUTOR_PID}" || true
 echo "[presmoke] build+exec pipeline finished in $(( $(date +%s) - PIPELINE_START ))s"
 
-# 结果汇总：执行日志中匹配"test pass"判定样例通过
+# 结果汇总：执行退出码为0且日志中匹配"test pass"才判定样例通过
 summarize() {
     local total=0
     local pass_count=0
@@ -301,7 +306,11 @@ summarize() {
         echo "==================== presmoke result ===================="
         while IFS='|' read -r case_name path scenario; do
             total=$((total + 1))
-            if grep -q "test pass" "${LOG_DIR}/${case_name}.txt" 2>/dev/null; then
+            local case_rc="1"
+            if [[ -f "${LOG_DIR}/${case_name}.rc" ]]; then
+                case_rc="$(cat "${LOG_DIR}/${case_name}.rc")"
+            fi
+            if [[ "${case_rc}" == "0" ]] && grep -q "test pass" "${LOG_DIR}/${case_name}.txt" 2>/dev/null; then
                 pass_count=$((pass_count + 1))
                 printf '%-50s %s\n' "${case_name}" "PASS"
             else

@@ -23,6 +23,7 @@ and `Hccl::AlltoAllV` performs the variable-size data exchange.
 ├── CMakeLists.txt    // Build configuration file
 ├── README.md         // Chinese documentation
 ├── README_en.md      // English documentation
+├── run.sh            // One-step build-and-run script
 └── main.asc          // Host flow, CCU resource setup, and AICore communication Client implementation
 ```
 
@@ -81,6 +82,15 @@ ccResCtx
 9. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication domain and does not need to be freed separately.
 
 ## Build and Run
+
+- One-Step Execution Script
+
+  Run the following command in the sample directory.
+
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  bash run.sh
+  ```
 
 Run the following commands in this sample directory. This sample supports NPU run mode only.
 

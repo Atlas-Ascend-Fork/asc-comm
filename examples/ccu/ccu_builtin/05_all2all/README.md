@@ -24,6 +24,7 @@ AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，
 ├── CMakeLists.txt    // 编译工程文件
 ├── README.md         // 中文样例说明
 ├── README_en.md      // 英文样例说明
+├── run.sh            // 一键构建运行脚本
 └── main.asc          // Host侧流程、CCU资源准备和AICore通信Client实现
 ```
 
@@ -83,6 +84,15 @@ ccResCtx
 10. 销毁HCCL通信域、Stream和Device侧内存。`ccResCtx`由通信域管理，不需要单独释放。
 
 ## 编译运行
+
+- 一键执行脚本
+
+  在本样例目录下执行如下命令。
+
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  bash run.sh
+  ```
 
 在本样例目录下执行以下命令。本样例仅支持NPU运行模式。
 
