@@ -29,9 +29,6 @@ typedef enum {
 } ccu_condition_type;
 
 // CCU 统一状态码：对外唯一错误类型，值与命名与 hcomm 侧 CcuResult 完全一致。
-// C++ 使用 scoped enum，枚举名不再泄漏到外层作用域，避免与 hcomm 的非限定枚举冲突；
-// C 侧保留非限定枚举，供 ccu_runtime.h 等 C API 使用。
-#ifdef __cplusplus
 typedef enum class ccu_result : int32_t {
     CCU_SUCCESS = 0,
     CCU_E_PARA = 1,
@@ -47,23 +44,6 @@ typedef enum class ccu_result : int32_t {
     CCU_E_DRV_END = 4224,
     CCU_E_RESERVED = 9216
 } ccu_result;
-#else
-typedef enum {
-    CCU_SUCCESS = 0,
-    CCU_E_PARA = 1,
-    CCU_E_PTR = 2,
-    CCU_E_INTERNAL = 4,
-    CCU_E_NOT_SUPPORT = 5,
-    CCU_E_NOT_FOUND = 6,
-    CCU_E_UNAVAIL = 7,
-    CCU_E_RUNTIME = 15,
-    CCU_E_DRV_START = 4096,
-    CCU_E_DRV_INIT_FAILED = 4097,
-    CCU_E_DRV_BUSY = 4098,
-    CCU_E_DRV_END = 4224,
-    CCU_E_RESERVED = 9216
-} ccu_result;
-#endif
 
 typedef uint64_t ccu_loop;
 typedef uint64_t ccu_loop_group;

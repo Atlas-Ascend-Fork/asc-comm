@@ -15,3 +15,7 @@ CCU数据面接口按调用位置分为以下两类：
 
 - [Device](./device/README.md)：数据面接口。
 - [Host](./host/README.md)：控制面接口。
+
+## 数据类型定义
+
+CCU接口使用的数据类型定义参见[数据类型定义](./datatype_definition/README.md)。

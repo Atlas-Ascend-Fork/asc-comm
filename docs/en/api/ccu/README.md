@@ -20,3 +20,4 @@ CCU data-plane APIs are classified by function as follows:
 - [Data Movement](./data_movement/README.md)
 - [Synchronization](./synchronization/README.md)
 - [Flow Control](./execution_control/README.md)
+- [Data Type Definition](./datatype_definition/README.md)

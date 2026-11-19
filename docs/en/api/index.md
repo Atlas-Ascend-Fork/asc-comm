@@ -137,3 +137,6 @@
     - [loop_group](./ccu/execution_control/loop_group.md)
     - [func](./ccu/execution_control/func.md)
     - [call_func](./ccu/execution_control/call_func.md)
+  - [Data Type Definition](./ccu/datatype_definition/_dump_node.md)
+    - [Introduction](./ccu/datatype_definition/README.md)
+    - [ccu_result](./ccu/datatype_definition/ccu_result.md)

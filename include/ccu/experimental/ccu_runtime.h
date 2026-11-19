@@ -13,8 +13,6 @@
 
 #include <stdint.h>
 
-#include "ccu/ccu_api/ccu_types.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,27 +52,20 @@ typedef struct HcomCcuSchd {
 /* Opaque HComm instance handle, passed unchanged as the second chevron slot. */
 typedef uint64_t ccu_instance_t;
 
-/* 状态码与主接口统一为 ccu_result（ccu/ccu_api/ccu_types.h）；
- * CCU_STATUS_* 仅作为旧名兼容宏保留。 */
-typedef ccu_result ccu_status_t;
-
-#ifdef __cplusplus
-#define CCU_STATUS_SUCCESS ccu_result::CCU_SUCCESS
-#define CCU_STATUS_INVALID_ARGUMENT ccu_result::CCU_E_PARA
-#else
-#define CCU_STATUS_SUCCESS CCU_SUCCESS
-#define CCU_STATUS_INVALID_ARGUMENT CCU_E_PARA
-#endif
-#define CCU_STATUS_VERSION_MISMATCH ((ccu_status_t)5000)
-#define CCU_STATUS_INVALID_OBJECT ((ccu_status_t)3)
-#define CCU_STATUS_KERNEL_NOT_FOUND ((ccu_status_t)5001)
-#define CCU_STATUS_SCHEMA_MISMATCH ((ccu_status_t)5002)
-#define CCU_STATUS_RESOURCE_EXHAUSTED ((ccu_status_t)5003)
-#define CCU_STATUS_RUNTIME_ERROR ((ccu_status_t)5004)
-#define CCU_STATUS_TIMEOUT_RECOVERED ((ccu_status_t)5005)
-#define CCU_STATUS_RECOVERY_FAILED ((ccu_status_t)5006)
-#define CCU_STATUS_BUSY ((ccu_status_t)5007)
-#define CCU_STATUS_CONTEXT_POISONED ((ccu_status_t)5008)
+typedef enum ccu_status_t {
+    CCU_STATUS_SUCCESS = 0,
+    CCU_STATUS_INVALID_ARGUMENT = 1,
+    CCU_STATUS_VERSION_MISMATCH = 2,
+    CCU_STATUS_INVALID_OBJECT = 3,
+    CCU_STATUS_KERNEL_NOT_FOUND = 4,
+    CCU_STATUS_SCHEMA_MISMATCH = 5,
+    CCU_STATUS_RESOURCE_EXHAUSTED = 6,
+    CCU_STATUS_RUNTIME_ERROR = 7,
+    CCU_STATUS_TIMEOUT_RECOVERED = 8,
+    CCU_STATUS_RECOVERY_FAILED = 9,
+    CCU_STATUS_BUSY = 10,
+    CCU_STATUS_CONTEXT_POISONED = 11
+} ccu_status_t;
 
 typedef struct ccu_buffer_view_t {
     uint64_t address;

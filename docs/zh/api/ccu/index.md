@@ -51,3 +51,6 @@
 - [Host侧接口](./host/_dump_node.md)
   - [简介](./host/README.md)
   - [asccomm_ccu_get_launch_hash_tag](./host/asccomm_ccu_get_launch_hash_tag.md)
+- [数据类型定义](./datatype_definition/_dump_node.md)
+  - [简介](./datatype_definition/README.md)
+  - [ccu_result](./datatype_definition/ccu_result.md)

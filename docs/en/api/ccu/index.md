@@ -45,3 +45,6 @@
   - [loop_group](./execution_control/loop_group.md)
   - [func](./execution_control/func.md)
   - [call_func](./execution_control/call_func.md)
+- [Data Type Definition](./datatype_definition/_dump_node.md)
+  - [Introduction](./datatype_definition/README.md)
+  - [ccu_result](./datatype_definition/ccu_result.md)
