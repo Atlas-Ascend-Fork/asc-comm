@@ -35,7 +35,7 @@ struct PrintRingHeader {
 };
 static_assert(sizeof(PrintRingHeader) == 24, "CCU print wire header must stay 24 bytes");
 
-bool ValidateFormat(const char* fmt, size_t argc);
+bool ValidateFormat(const char* fmt, size_t argc, std::string* reason = nullptr);
 bool Format(const char* fmt, const uint64_t* argv, size_t argc, std::string& output);
 
 } // namespace detail

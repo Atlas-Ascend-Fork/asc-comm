@@ -25,9 +25,9 @@
 
 使用该接口需要包含头文件`ccu/asc_ccu.h`。
 
-打印CCU kernel执行到调用位置时的`ccu::variable`值，用于调试。日志包含`[CCU_PRINT]`前缀、文件名、行号和格式化后的变量值。
+打印CCU kernel执行到调用位置时的`ccu::variable`值，用于调试。输出包含`[CCU_PRINTF]`前缀、文件名、行号和格式化后的变量值。
 
-打印正文使用与`HCCL_RUN_INFO`相同的INFO级别运行日志通道输出，遵循HCCL运行日志配置，可在运行日志文件中查看。
+打印正文输出到stdout，同时使用CCU模块的INFO级别调试日志通道输出。
 
 ## 函数原型
 
@@ -41,7 +41,7 @@ CCU_PRINTF(fmt, args...)
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| fmt | 输入 | 有效的、以`\0`结尾的Host格式字符串，构建时保存。不支持`nullptr`。 |
+| fmt | 输入 | Host格式字符串，构建时保存。不支持`nullptr`。 |
 | args | 输入 | 零个或多个`asc::ccu::variable`，按设备运行时值输出。不支持Host整数、字符串、指针或浮点数。 |
 
 | 格式符 | 含义 |
@@ -66,13 +66,14 @@ CCU_PRINTF(fmt, args...)
 | 其他`ccu_result` | 构建内部`load`、`store`或条件控制指令失败，向调用方透传错误。 |
 | 编译期错误 | 可变参数中包含非`ccu::variable`类型，触发静态类型检查。 |
 
-格式不合法时，不分配打印缓冲区、不生成打印指令，返回`ccu_result::CCU_E_PARA`，并输出ERROR级别运行日志（`DLOG_ERROR`）：
+格式不合法时，不分配打印缓冲区、不生成打印指令，返回`ccu_result::CCU_E_PARA`。包含调用文件、行号和具体原因的诊断同时输出到stdout和CCU模块的ERROR级别调试日志：
 
 ```text
-[CCU_PRINT] invalid format or argument count
+[CCU_PRINTF] [ERROR] example.cpp:42: invalid argument: unsupported format specifier '%q' at offset 6
+[CCU_PRINTF] [ERROR] example.cpp:43: invalid argument: format expects 2 arguments, but got 1
 ```
 
-Host处理记录时若检测到非法格式，输出WARNING日志，并停止本轮读取该打印点的记录。
+Host处理记录时若检测到非法格式，输出ERROR日志，并停止本轮读取该打印点的记录。
 
 | 非法输入 | 示例 |
 | --- | --- |
@@ -81,8 +82,6 @@ Host处理记录时若检测到非法格式，输出WARNING日志，并停止本
 | 不支持的格式符或长度修饰符 | `%d`、`%s`、`%f`、`%q`、`%llu` |
 | 宽度、精度、标志或位置参数 | `%08x`、`%.2u`、`%+u`、`% u`、`%#x`、`%*u`、`%1$u` |
 | 格式符与参数数量不匹配 | `CCU_PRINTF("%u")`，或向`""`、`"%%"`传入变量 |
-
-资源分配等其他注册失败不生成打印指令，返回`ccu_result::CCU_E_PARA`。
 
 ## 约束说明
 
@@ -98,9 +97,11 @@ Host处理记录时若检测到非法格式，输出WARNING日志，并停止本
 
 ## 使用说明
 
-### 日志落盘
+### 标准输出与日志落盘
 
-CCU_PRINTF正文沿用HCCL_RUN_INFO的INFO级运行日志通道，可在Host侧运行日志中查找`[CCU_PRINT]`。日志落盘路径通过[ASCEND_PROCESS_LOG_PATH](https://gitcode.com/cann/runtime/blob/master/docs/zh/env_vars/ASCEND_PROCESS_LOG_PATH.md)配置；日志分类、级别及相关配置参见[设置日志级别](https://gitcode.com/cann/runtime/blob/master/docs/zh/log_ref/setting_log_levels.md)。
+Host消费打印记录后，将包含`[CCU_PRINTF]`前缀、调用文件和行号的正文直接写入stdout，同时使用CCU模块的INFO级调试日志通道输出。stdout保留格式字符串中的换行，不自动追加换行，每批记录输出后刷新。
+
+stdout输出不依赖日志组件的打屏开关。日志落盘路径通过[ASCEND_PROCESS_LOG_PATH](https://gitcode.com/cann/runtime/blob/master/docs/zh/env_vars/ASCEND_PROCESS_LOG_PATH.md)配置；日志分类、级别及相关配置参见[设置日志级别](https://gitcode.com/cann/runtime/blob/master/docs/zh/log_ref/setting_log_levels.md)。
 
 ### 调用示例
 
@@ -127,7 +128,7 @@ ccu_result BuildPrintBody()
 }
 ```
 
-当Host传入17和25时，运行日志中的打印正文为：
+当Host传入17和25时，调试日志中的打印正文为：
 
 ```text
 a=17 b=25 sum=42 hex=2a percent=%

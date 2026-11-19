@@ -13,10 +13,12 @@
 
 #include <acl/acl_rt.h>
 #include <base/dlog_pub.h>
+#include <base/log_types.h>
 #include <algorithm>
 #include <map>
 #include <chrono>
 #include <condition_variable>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include <mutex>
@@ -28,12 +30,14 @@ namespace ccu {
 namespace dfx {
 namespace {
 
-// Use the existing module but preserve run-log classification: printf records
-// must not accidentally become debug-only HCCL_INFO through compatibility macros.
 void Log(int level, const char* message)
 {
+    if (level == DLOG_ERROR) {
+        (void)std::printf("[CCU_PRINTF] [ERROR] %s\n", message);
+        (void)std::fflush(stdout);
+    }
     if (DlogRecord != nullptr) {
-        DlogRecord(HCCL | RUN_LOG_MASK, level, "[CCU_PRINT] %s", message);
+        DlogRecord(CCU, level, "[CCU_PRINTF] %s%s", level == DLOG_ERROR ? "[ERROR] " : "", message);
     }
 }
 
@@ -42,9 +46,8 @@ bool Check(aclError error, const char* operation)
     if (error == ACL_SUCCESS) {
         return true;
     }
-    if (DlogRecord != nullptr) {
-        DlogRecord(HCCL | RUN_LOG_MASK, DLOG_WARN, "[CCU_PRINT] %s failed, aclError[%d]", operation, error);
-    }
+    const std::string message = std::string(operation) + " failed, aclError[" + std::to_string(error) + "]";
+    Log(DLOG_ERROR, message.c_str());
     return false;
 }
 
@@ -52,10 +55,16 @@ bool Check(aclError error, const char* operation)
 
 namespace detail {
 
-bool ValidateFormat(const char* fmt, size_t argc)
+bool ValidateFormat(const char* fmt, size_t argc, std::string* reason)
 {
-    if (fmt == nullptr) {
+    const auto invalid = [reason](const std::string& message) {
+        if (reason != nullptr) {
+            *reason = message;
+        }
         return false;
+    };
+    if (fmt == nullptr) {
+        return invalid("format string is null");
     }
     size_t count = 0;
     for (const char* p = fmt; *p != '\0'; ++p) {
@@ -67,11 +76,20 @@ bool ValidateFormat(const char* fmt, size_t argc)
             continue;
         }
         if (*p != 'u' && *p != 'x' && *p != 'p' && *p != 'v') {
-            return false;
+            const auto offset = std::to_string(p - fmt - 1);
+            if (*p == '\0') {
+                return invalid("incomplete format specifier at offset " + offset);
+            }
+            return invalid(std::string("unsupported format specifier '%") + *p + "' at offset " + offset);
         }
         ++count;
     }
-    return count == argc;
+    if (count != argc) {
+        return invalid(
+            "format expects " + std::to_string(count) + (count == 1 ? " argument, but got " : " arguments, but got ") +
+            std::to_string(argc));
+    }
+    return true;
 }
 
 bool Format(const char* fmt, const uint64_t* argv, size_t argc, std::string& output)
@@ -139,7 +157,7 @@ struct CcuPrintStream::Impl {
                     (void)Check(aclrtFree(ring), "aclrtFree ring");
                 }
             } else {
-                Log(DLOG_WARN, "context unavailable during release; device allocations were not freed");
+                Log(DLOG_ERROR, "context unavailable during release; device allocations were not freed");
             }
             if (previous != nullptr) {
                 (void)aclrtSetCurrentContext(previous);
@@ -172,7 +190,7 @@ struct CcuPrintStream::Impl {
         const uint64_t tail = header.tail;
         if (head >= entry.handle.ringBytes || tail >= entry.handle.ringBytes || head % entry.handle.recordBytes != 0 ||
             tail % entry.handle.recordBytes != 0) {
-            Log(DLOG_WARN, "invalid print ring cursor");
+            Log(DLOG_ERROR, "invalid print ring cursor");
             return;
         }
         if (header.dropped != entry.lastDropped) {
@@ -195,7 +213,7 @@ struct CcuPrintStream::Impl {
             }
             std::string output = entry.file + ":" + std::to_string(entry.line) + " ";
             if (!detail::Format(entry.format.c_str(), entry.snapshot.data() + 1, entry.argc, output)) {
-                Log(DLOG_WARN, "invalid print record format");
+                Log(DLOG_ERROR, "invalid print record format");
                 break;
             }
             pending.push_back({entry.snapshot[0], std::move(output)});
@@ -211,14 +229,14 @@ struct CcuPrintStream::Impl {
         }
     }
 
-    bool ConsumeAll()
+    bool ConsumeAll(std::unique_lock<std::mutex>& lock)
     {
         // The lock serializes registration, Flush and the reader. Sorting only
         // orders this scan's records, not late records from a different scan.
         // Counters are per context; no ordering is claimed between devices.
         aclrtContext previous = nullptr;
         (void)aclrtGetCurrentContext(&previous);
-        bool active = false;
+        std::vector<Pending> output;
         for (const auto& context : sequences) {
             std::vector<Pending> pending;
             for (const auto& entry : entries) {
@@ -228,21 +246,30 @@ struct CcuPrintStream::Impl {
                 try {
                     Consume(*entry, pending);
                 } catch (...) {
-                    Log(DLOG_WARN, "Host print consumer failed; record may be retried");
+                    Log(DLOG_ERROR, "Host print consumer failed; record may be retried");
                 }
             }
             std::stable_sort(pending.begin(), pending.end(), [](const Pending& a, const Pending& b) {
                 return a.sequence < b.sequence;
             });
-            for (const auto& record : pending) {
-                Log(DLOG_INFO, record.text.c_str());
+            for (auto& record : pending) {
+                output.push_back(std::move(record));
             }
-            active |= !pending.empty();
         }
         if (previous != nullptr) {
             (void)aclrtSetCurrentContext(previous);
         }
-        return active;
+        // Output owns its strings and no longer accesses entries or device state.
+        lock.unlock();
+        for (const auto& record : output) {
+            (void)std::printf("[CCU_PRINTF] %s", record.text.c_str());
+            Log(DLOG_INFO, record.text.c_str());
+        }
+        if (!output.empty()) {
+            (void)std::fflush(stdout);
+        }
+        lock.lock();
+        return !output.empty();
     }
 
     Entry* GetSequence(aclrtContext context)
@@ -279,12 +306,12 @@ struct CcuPrintStream::Impl {
         consumer = std::thread([this] {
             std::unique_lock<std::mutex> lock(mutex);
             while (running) {
-                const bool active = ConsumeAll();
+                const bool active = ConsumeAll(lock);
                 // Poll at 100 us while draining, 1 ms when idle. This is a polling
                 // budget, not a promise about DMA or log delivery latency.
                 wakeup.wait_for(lock, std::chrono::microseconds(active ? 100 : 1000), [this] { return !running; });
             }
-            ConsumeAll();
+            ConsumeAll(lock);
         });
         running = true; // Worker must acquire mutex before reading this flag.
     }
@@ -301,8 +328,14 @@ CcuPrintStream::~CcuPrintStream() { Release(); }
 
 detail::PrintInfoHandle* CcuPrintStream::AllocPrintInfo(const char* file, int line, const char* fmt, size_t argc)
 {
-    if (file == nullptr || !detail::ValidateFormat(fmt, argc)) {
-        Log(DLOG_ERROR, "invalid format or argument count");
+    std::string reason;
+    if (file == nullptr || !detail::ValidateFormat(fmt, argc, &reason)) {
+        if (file == nullptr) {
+            reason = "source filename is null";
+        }
+        const std::string message = std::string(file == nullptr ? "<unknown>" : file) + ":" + std::to_string(line) +
+                                    ": invalid argument: " + reason;
+        Log(DLOG_ERROR, message.c_str());
         return nullptr;
     }
     if (argc == std::numeric_limits<size_t>::max()) {
@@ -311,7 +344,7 @@ detail::PrintInfoHandle* CcuPrintStream::AllocPrintInfo(const char* file, int li
     const size_t words = argc + 1; // Sequence word, then the runtime arguments.
     if (words > (std::numeric_limits<size_t>::max() - sizeof(detail::PrintRingHeader)) / sizeof(uint64_t) /
                     detail::PRINT_RING_DEPTH) {
-        Log(DLOG_WARN, "print allocation size overflow");
+        Log(DLOG_ERROR, "print allocation size overflow");
         return nullptr;
     }
     try {
@@ -355,15 +388,15 @@ detail::PrintInfoHandle* CcuPrintStream::AllocPrintInfo(const char* file, int li
         impl_->StartLocked();
         return &impl_->entries.back()->handle;
     } catch (...) {
-        Log(DLOG_WARN, "print registration failed; print disabled");
+        Log(DLOG_ERROR, "print registration failed; print disabled");
         return nullptr;
     }
 }
 
 void CcuPrintStream::Flush()
 {
-    std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->ConsumeAll();
+    std::unique_lock<std::mutex> lock(impl_->mutex);
+    impl_->ConsumeAll(lock);
 }
 
 void CcuPrintStream::Stop()

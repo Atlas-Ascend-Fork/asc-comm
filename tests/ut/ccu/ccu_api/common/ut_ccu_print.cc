@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <future>
 #include <limits>
 #include <map>
 #include <mutex>
@@ -53,6 +54,7 @@ bool failCondition = false;
 bool failStore = false;
 bool failArithmeticInCondition = false;
 bool failMalloc = false;
+bool failMemcpy = false;
 bool failGetContext = false;
 thread_local aclrtContext currentContext = reinterpret_cast<void*>(1);
 std::mutex runtimeMutex;
@@ -272,7 +274,7 @@ aclError aclrtMemset(void* ptr, size_t capacity, int32_t value, size_t count)
 aclError aclrtMemcpy(void* dst, size_t capacity, const void* src, size_t bytes, aclrtMemcpyKind kind)
 {
     std::lock_guard<std::mutex> lock(runtimeMutex);
-    if (bytes > capacity || !HasContext(kind == ACL_MEMCPY_DEVICE_TO_HOST ? src : dst, bytes)) {
+    if (failMemcpy || bytes > capacity || !HasContext(kind == ACL_MEMCPY_DEVICE_TO_HOST ? src : dst, bytes)) {
         return 1;
     }
     std::memcpy(dst, src, bytes);
@@ -280,7 +282,7 @@ aclError aclrtMemcpy(void* dst, size_t capacity, const void* src, size_t bytes, 
 }
 void DlogRecord(int32_t module, int32_t level, const char* format, ...)
 {
-    EXPECT_NE(module & RUN_LOG_MASK, 0);
+    EXPECT_EQ(module, 5); // CCU debug module, with no run/security classification bits.
     char buffer[2048];
     va_list args;
     va_start(args, format);
@@ -303,7 +305,7 @@ protected:
         xn.clear();
         nextHandle = 1;
         variableComparison = GetParam();
-        failCondition = failStore = failMalloc = failGetContext = false;
+        failCondition = failStore = failMalloc = failMemcpy = failGetContext = false;
         failArithmeticInCondition = false;
         currentContext = reinterpret_cast<void*>(1);
         wrongContext = 0;
@@ -353,6 +355,102 @@ TEST_P(CcuPrintTest, BuildsBeforeExecutingAndPrintsRuntimeValue)
     EXPECT_NE(logs.back().find("value=12345"), std::string::npos);
     stream->Flush();
     EXPECT_EQ(RecordCount(), 1U);
+}
+
+TEST_P(CcuPrintTest, PrintsToStdoutAndDebugLogWithoutAddingNewlines)
+{
+    auto* handle = Allocate("first=%u\nsecond=%%", 1);
+    ASSERT_NE(handle, nullptr);
+    ccu::variable value;
+    ASSERT_EQ(dfx::EmitPrintf(handle, value), ccu_result::CCU_SUCCESS);
+    xn[value.handle] = 42;
+    Execute();
+    testing::internal::CaptureStdout();
+    stream->Flush();
+    const std::string output = testing::internal::GetCapturedStdout();
+    EXPECT_EQ(output, "[CCU_PRINTF] sample.cc:42 first=42\nsecond=%");
+    ASSERT_EQ(logs.size(), 1U);
+    EXPECT_EQ(logs.front(), output);
+    EXPECT_EQ(logLevels.front(), DLOG_INFO);
+}
+
+TEST_P(CcuPrintTest, InvalidArgumentsReportCallsiteAndReason)
+{
+    testing::internal::CaptureStdout();
+    const struct {
+        const char* format;
+        size_t argc;
+        const char* reason;
+    } cases[] = {
+        {nullptr, 0, "format string is null"},
+        {"abc%", 0, "incomplete format specifier at offset 3"},
+        {"a=%q", 1, "unsupported format specifier '%q' at offset 2"},
+        {"%u", 0, "format expects 1 argument, but got 0"},
+        {"%%", 1, "format expects 0 arguments, but got 1"},
+    };
+    for (const auto& test : cases) {
+        EXPECT_EQ(Allocate(test.format, test.argc), nullptr);
+        ASSERT_FALSE(logs.empty());
+        EXPECT_EQ(logs.back(), std::string("[CCU_PRINTF] [ERROR] sample.cc:42: invalid argument: ") + test.reason);
+        EXPECT_EQ(logLevels.back(), DLOG_ERROR);
+    }
+    const int line = __LINE__ + 1;
+    EXPECT_EQ(CCU_PRINTF("%"), ccu_result::CCU_E_PARA);
+    EXPECT_NE(
+        logs.back().find(std::string(__FILE__) + ":" + std::to_string(line) + ": invalid argument:"),
+        std::string::npos);
+    EXPECT_TRUE(program.empty());
+    const std::string output = testing::internal::GetCapturedStdout();
+    std::string expected;
+    for (const auto& message : logs) {
+        expected += message + "\n";
+    }
+    EXPECT_EQ(output, expected);
+}
+
+TEST_P(CcuPrintTest, CopyFailureReportsError)
+{
+    ASSERT_NE(Allocate("%u", 1), nullptr);
+    failMemcpy = true;
+    stream->Flush();
+    failMemcpy = false;
+    ASSERT_FALSE(logLevels.empty());
+    EXPECT_EQ(logLevels.back(), DLOG_ERROR);
+    EXPECT_NE(logs.back().find("aclrtMemcpy header failed"), std::string::npos);
+}
+
+TEST_P(CcuPrintTest, BlockedStdoutDoesNotHoldRegistrationMutex)
+{
+    auto* handle = Allocate("%u", 1);
+    ASSERT_NE(handle, nullptr);
+    ccu::variable value;
+    ASSERT_EQ(dfx::EmitPrintf(handle, value), ccu_result::CCU_SUCCESS);
+    xn[value.handle] = 42;
+    Execute();
+    flockfile(stdout);
+    auto flushing = std::async(std::launch::async, [this] { stream->Flush(); });
+    // Wait until the record has been consumed; stdout remains locked by this thread.
+    uint64_t base = 0;
+    std::memcpy(&base, reinterpret_cast<void*>(handle->addressCell), sizeof(base));
+    bool consumed = false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!consumed && std::chrono::steady_clock::now() < deadline) {
+        {
+            std::lock_guard<std::mutex> lock(runtimeMutex);
+            auto* header = reinterpret_cast<dfx::detail::PrintRingHeader*>(base);
+            consumed = header->head != 0;
+        }
+        std::this_thread::yield();
+    }
+    auto registering =
+        std::async(std::launch::async, [this] { return stream->AllocPrintInfo("sample.cc", 43, "registered", 0); });
+    const bool registered = registering.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+    funlockfile(stdout);
+    EXPECT_TRUE(consumed);
+    EXPECT_TRUE(registered);
+    EXPECT_NE(registering.get(), nullptr);
+    flushing.get();
+    stream->Stop();
 }
 
 TEST_P(CcuPrintTest, UsesOnlyImmediateComparisons)
@@ -450,9 +548,12 @@ TEST_P(CcuPrintTest, RegistrationFailuresReturnErrors)
     failMalloc = true;
     EXPECT_EQ(dfx::RegisterAndEmit("sample.cc", 42, "%u", value), ccu_result::CCU_E_PARA);
     EXPECT_EQ(Allocate("%u", 1), nullptr);
+    ASSERT_FALSE(logLevels.empty());
+    EXPECT_EQ(logLevels.back(), DLOG_ERROR);
     failMalloc = false;
     failGetContext = true;
     EXPECT_EQ(Allocate("%u", 1), nullptr);
+    EXPECT_EQ(logLevels.back(), DLOG_ERROR);
     failGetContext = false;
     EXPECT_EQ(stream->AllocPrintInfo("sample.cc", 42, "", std::numeric_limits<size_t>::max()), nullptr);
     EXPECT_EQ(dfx::EmitPrintf(nullptr, value), ccu_result::CCU_E_PARA);
@@ -492,6 +593,7 @@ TEST_P(CcuPrintTest, InvalidCursorIsRejectedWithoutReadingOutsideRing)
     stream->Flush();
     EXPECT_EQ(RecordCount(), 0U);
     EXPECT_NE(logs.back().find("invalid print ring cursor"), std::string::npos);
+    EXPECT_EQ(logLevels.back(), DLOG_ERROR);
 }
 
 TEST_P(CcuPrintTest, PointerFormatIsCopiedAndMacroDoesNotReturnFromCaller)
