@@ -10,11 +10,11 @@
 
 /*!
  * \file ain_impl_def.h
- * \brief Ain implementation definition
+ * \brief ain implementation definition
  */
 
 #if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message("This is an internal Ain header file and must not be used directly. " \
+#pragma message("This is an internal ain header file and must not be used directly. " \
                 "Please use public interface headers.")
 #define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
 #define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_IMPL_DEF_H__
@@ -26,19 +26,19 @@
 #include "hcomm/hcomm.h"
 #include "hcomm/hcomm_team_entity_defs.h"
 
-namespace AscendC {
+namespace asc {
 
-static constexpr struct UrmaWqeEntry SIGNAL_WQE_CONFIG = {
+static constexpr asc::wqe_entry SIGNAL_WQE_CONFIG = {
     .odr = 6,
     .fence = 1,
     .se = 0,
     .cqe = 0,
-    .inlineEn = 0,
+    .inline_en = 0,
 };
 
-constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
+constexpr CommProtocol mask_to_comm_protocol(unsigned comm_engine_mask)
 {
-    switch (commEngineMask) {
+    switch (comm_engine_mask) {
         case AIN_MASK_DEFAULT:
             return COMM_PROTOCOL_UB_CTP;
         default:
@@ -46,37 +46,37 @@ constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
     }
 }
 
-template <unsigned CommEngineMask>
-class Ain;
+template <unsigned comm_engine_mask>
+class ain;
 
-template <unsigned CommEngineMask>
-class AinBarrierSessionImpl {
+template <unsigned comm_engine_mask>
+class ain_barrier_session_impl {
 public:
-    static constexpr CommProtocol commProtocol = MaskToCommProtocol(CommEngineMask);
-    template <bool EnableTimeout, typename DescriptorUbuf>
-    AIN_DEVICE int32_t SyncImpl(AinMemoryOrder order, uint64_t timeoutCycles, const DescriptorUbuf& ubuf);
+    static constexpr CommProtocol comm_protocol = mask_to_comm_protocol(comm_engine_mask);
+    template <bool enable_timeout, typename descriptor_ubuf>
+    AIN_DEVICE int32_t sync_impl(ain_memory_order order, uint64_t timeout_cycles, const descriptor_ubuf& ubuf);
 
 private:
-    template <typename DescriptorUbuf>
-    AIN_DEVICE void Signal(HcommTeamHandle team, uint32_t peer, const DescriptorUbuf& ubuf);
+    template <typename descriptor_ubuf>
+    AIN_DEVICE void signal(HcommTeamHandle team, uint32_t peer, const descriptor_ubuf& ubuf);
 
-    AIN_DEVICE uint64_t ReadSignal(
-        HcommTeamHandle team, uint32_t signalId, uint32_t bits = 64,
-        AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
+    AIN_DEVICE uint64_t read_signal(
+        HcommTeamHandle team, uint32_t signal_id, uint32_t bits = 64,
+        ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const;
 
-    AIN_DEVICE void WaitSignal(
-        HcommTeamHandle team, uint32_t signalId, uint64_t least, uint32_t bits = 64,
-        AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
+    AIN_DEVICE void wait_signal(
+        HcommTeamHandle team, uint32_t signal_id, uint64_t least, uint32_t bits = 64,
+        ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const;
 
 public:
-    Ain<CommEngineMask>* ain_;
-    HcommTeamHandle team_;
-    uint32_t index_;
-    size_t signalBaseId_;
-    HcommImpl<commProtocol> hcomm_;
+    ain<comm_engine_mask>* ain;
+    HcommTeamHandle team;
+    uint32_t index;
+    size_t signal_base_id;
+    asc::asccomm_impl<comm_protocol> comm;
 };
 
-} // namespace AscendC
+} // namespace asc
 
 #endif // IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
 

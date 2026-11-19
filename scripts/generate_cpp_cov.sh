@@ -47,7 +47,7 @@ lcov -c -d "${BUILD_DIR}" -o "${COV_FILE}" ${EXTRA_ARGS}
 lcov -r "${COV_FILE}" \
     "${CANN_PATH}/*" \
     "/home/jenkins/opensource/*" \
-    "${BUILD_DIR}/ut-hcomm/_deps/*" \
+    "${BUILD_DIR}/ut-asccomm/_deps/*" \
     "${ROOT_DIR}/build_out/*" \
     "${ROOT_DIR}/output/*" \
     "${ROOT_DIR}/tests/*" \

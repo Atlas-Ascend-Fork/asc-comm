@@ -69,6 +69,8 @@ set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCENDC_DIR}/include
     ${ASCENDC_DIR}/include/basic_api
     ${ASCENDC_DIR}/impl/basic_api
+    ${ASCENDC_DIR}/impl/c_api
+    ${ASCENDC_DIR}/include/c_api
 )
 set(ASCCOMM_TIKICPU_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib)
 set(ASCCOMM_TIKICPU_INCLUDE_DIR ${ASCCOMM_TIKICPU_DIR}/include)
@@ -154,6 +156,7 @@ set(ASCCOMM_UT_STAGE_STAMP "${ASCCOMM_UT_STAGE_ROOT}/.header_layout.stamp")
 
 file(GLOB_RECURSE ASCCOMM_UT_LAYOUT_INPUTS CONFIGURE_DEPENDS
     "${ASCCOMM_ROOT}/include/aicore/*"
+    "${ASCCOMM_ROOT}/src/aicore/legacy/*"
     "${ASCCOMM_ROOT}/src/aicore/*"
 )
 
@@ -164,8 +167,11 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory "${ASCCOMM_UT_STAGE_DETAIL_DIR}"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/include/aicore/hcomm"
+        "${ASCCOMM_ROOT}/src/aicore/legacy/hcomm"
         "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/legacy/jetty"
+        "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/jetty"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${ASCCOMM_ROOT}/include/aicore/ain"
         "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/ain"
@@ -173,11 +179,14 @@ add_custom_command(
         "${ASCCOMM_ROOT}/include/aicore/jetty"
         "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/jetty"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm"
-        "${ASCCOMM_UT_STAGE_DETAIL_DIR}/hcomm"
+        "${ASCCOMM_ROOT}/include/aicore/asccomm"
+        "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/asccomm"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm"
-        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/hcomm"
+        "${ASCCOMM_ROOT}/src/aicore/asccomm"
+        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/asccomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/legacy/hcomm/impl"
+        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/asccomm/impl"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${ASCCOMM_ROOT}/src/aicore/ain"
         "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/ain"
@@ -356,6 +365,7 @@ function(asccomm_add_product_definitions target_name product_type)
     )
 endfunction()
 
+add_subdirectory(aicore/asccomm)
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
 add_subdirectory(aicpu/asccomm aicpu_asccomm)

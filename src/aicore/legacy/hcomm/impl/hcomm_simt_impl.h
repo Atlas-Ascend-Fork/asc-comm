@@ -1,0 +1,258 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file hcomm_simt_impl.h
+ * \brief Hcomm legacy SIMT interface adapters (deprecated)
+ *
+ * Defines the legacy Hcomm SIMT interface names (Init, WriteNbi, ReadNbi and so on) declared by
+ * the public hcomm/hcomm_simt.h header. Each legacy interface forwards to the same underlying
+ * AsccommImpl asccomm_* implementation member used by the new asccomm_* interfaces (see
+ * asccomm_simt_impl.h).
+ */
+
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
+#endif
+
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_H
+
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+#include "platform_v310/asccomm_simt_urma.h"
+#endif
+
+namespace AscendC::simt {
+
+template <CommProtocol commProtocol>
+__simt_callee__ inline Hcomm<commProtocol>::Hcomm()
+{}
+
+template <CommProtocol commProtocol>
+__simt_callee__ inline Hcomm<commProtocol>::~Hcomm()
+{}
+
+template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+{
+    return impl_.asccomm_init(buff, len);
+}
+
+template <CommProtocol commProtocol>
+__simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.asccomm_make_batch_handle(channel, buff, buffLen);
+}
+
+template <CommProtocol commProtocol>
+template <typename Group>
+__simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.asccomm_make_batch_handle(channel, buff, buffLen, group);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return impl_.template asccomm_write_nbi<commit, config>(channel, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return impl_.template asccomm_write_nbi<config>(batchHandle, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+{
+    return impl_.template asccomm_write_nbi<config>(batchHandle, dst, src, len, group);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value)
+{
+    return impl_.template asccomm_write_value_nbi<T, commit, config>(channel, dst, value);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value)
+{
+    return impl_.template asccomm_write_value_nbi<T, config>(batchHandle, dst, value);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group)
+{
+    return impl_.template asccomm_write_value_nbi<T, config>(batchHandle, dst, value, group);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return impl_.template asccomm_read_nbi<commit, config>(channel, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return impl_.template asccomm_read_nbi<config>(batchHandle, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+{
+    return impl_.template asccomm_read_nbi<config>(batchHandle, dst, src, len, group);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+    uint64_t notifyVal)
+{
+    return impl_.template asccomm_write_with_notify_nbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+    uint64_t notifyVal)
+{
+    return impl_.template asccomm_write_with_notify_nbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+    uint64_t notifyVal, const Group& group)
+{
+    return impl_.template asccomm_write_with_notify_nbi<config>(
+        batchHandle, dst, src, len, notifyAddr, notifyVal, group);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
+    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+{
+    return impl_.template asccomm_atomic_faa_nbi<T, commit, config>(channel, dst, fetchAddr, addVal);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+{
+    return impl_.template asccomm_atomic_faa_nbi<T, config>(batchHandle, dst, fetchAddr, addVal);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group)
+{
+    return impl_.template asccomm_atomic_faa_nbi<T, config>(batchHandle, dst, fetchAddr, addVal, group);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
+    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+{
+    return impl_.template asccomm_atomic_cas_nbi<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+{
+    return impl_.template asccomm_atomic_cas_nbi<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+    const Group& group)
+{
+    return impl_.template asccomm_atomic_cas_nbi<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal, group);
+}
+
+template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::BatchCommit(UbcCtpBatchHandle& batchHandle)
+{
+    return impl_.asccomm_batch_commit(batchHandle);
+}
+
+template <CommProtocol commProtocol>
+template <typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group)
+{
+    return impl_.asccomm_batch_commit(batchHandle, group);
+}
+
+template <CommProtocol commProtocol>
+template <auto pipe>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
+{
+    return impl_.template asccomm_drain<pipe>(channel);
+}
+
+template <CommProtocol commProtocol>
+template <auto pipe>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::Drain(UbcCtpBatchHandle& batchHandle)
+{
+    return impl_.template asccomm_drain<pipe>(batchHandle);
+}
+
+__simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
+{
+    return asc::simt::asccomm_simt_local_buffer_addr(channel, bufferIdx);
+}
+
+__simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
+{
+    return asc::simt::asccomm_simt_remote_buffer_addr(channel, bufferIdx);
+}
+
+} // namespace AscendC::simt
+
+#endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
+#endif

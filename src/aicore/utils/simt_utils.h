@@ -20,14 +20,14 @@
 #include <simt_api/cooperative_groups.h>
 
 #ifdef __CCE__
-namespace AscendC::simt {
+namespace asc::simt {
 
-template <uint32_t kNumCycles = 300>
+template <uint32_t num_cycles = 300>
 __simt_callee__ __forceinline__ void nop()
 {
-    static_assert(kNumCycles % 15 == 0, "SIMT nop cycles must be a multiple of 15");
+    static_assert(num_cycles % 15 == 0, "SIMT nop cycles must be a multiple of 15");
 #pragma unroll
-    for (int i = 0; i < kNumCycles / 15; ++i)
+    for (int i = 0; i < num_cycles / 15; ++i)
         asm volatile("NOP wait:0b0000000 stall:15" ::);
 }
 
@@ -36,12 +36,12 @@ __simt_callee__ __forceinline__ int exchange(const int& value, const int& lane_i
     return asc_shfl(value, lane_idx);
 }
 
-template <int kMaxValue>
+template <int max_value>
 __simt_callee__ __forceinline__ bool deduplicate(const int& value, const int& lane_idx)
 {
     auto peers = 0xffffffffu;
 #pragma unroll
-    for (int i = 0; (1 << i) <= kMaxValue; ++i) {
+    for (int i = 0; (1 << i) <= max_value; ++i) {
         const auto current_bit = (static_cast<unsigned>(value) >> i) & 1u;
         const auto ones = asc_ballot(current_bit);
         peers &= ones ^ (current_bit - 1u);
@@ -65,43 +65,56 @@ __simt_callee__ __forceinline__ int warp_exclusive_sum(const int& value, const i
     return warp_inclusive_sum(value, lane_idx) - value;
 }
 
-struct HcommCoopThread {
+} // namespace asc::simt
+
+namespace asc::simt {
+
+struct asccomm_coop_thread {
     __simt_callee__ __forceinline__ void sync() const {}
     __simt_callee__ __forceinline__ int size() const { return 1; }
     __simt_callee__ __forceinline__ int thread_rank() const { return 0; }
 };
-struct HcommCoopWarp {
-    cooperative_groups::thread_block_tile<32, cooperative_groups::thread_block> group_;
-    __simt_callee__ __forceinline__ HcommCoopWarp()
-        : group_(cooperative_groups::tiled_partition<32>(cooperative_groups::this_thread_block()))
+struct asccomm_coop_warp {
+    cooperative_groups::thread_block_tile<32, cooperative_groups::thread_block> group;
+    __simt_callee__ __forceinline__ asccomm_coop_warp()
+        : group(cooperative_groups::tiled_partition<32>(cooperative_groups::this_thread_block()))
     {}
-    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
+    __simt_callee__ __forceinline__ void sync() const { group.sync(); }
     __simt_callee__ __forceinline__ int size() const { return 32; }
-    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
+    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group.thread_rank()); }
 };
-struct HcommCoopGroup {
-    cooperative_groups::thread_block group_;
-    __simt_callee__ __forceinline__ HcommCoopGroup() : group_(cooperative_groups::this_thread_block()) {}
-    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
-    __simt_callee__ __forceinline__ int size() const { return static_cast<int>(group_.size()); }
-    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
+struct asccomm_coop_group {
+    cooperative_groups::thread_block group;
+    __simt_callee__ __forceinline__ asccomm_coop_group() : group(cooperative_groups::this_thread_block()) {}
+    __simt_callee__ __forceinline__ void sync() const { group.sync(); }
+    __simt_callee__ __forceinline__ int size() const { return static_cast<int>(group.size()); }
+    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group.thread_rank()); }
 };
-template <typename Coop>
-struct HcommCoopTraits {
-    static constexpr bool kWarpCapable = false;
-    static constexpr bool kIsWarp = false;
-};
-template <>
-struct HcommCoopTraits<HcommCoopWarp> {
-    static constexpr bool kWarpCapable = true;
-    static constexpr bool kIsWarp = true;
+template <typename coop_group>
+struct asccomm_coop_traits {
+    static constexpr bool warp_capable = false;
+    static constexpr bool is_warp = false;
 };
 template <>
-struct HcommCoopTraits<HcommCoopGroup> {
-    static constexpr bool kWarpCapable = true;
-    static constexpr bool kIsWarp = false;
+struct asccomm_coop_traits<asccomm_coop_warp> {
+    static constexpr bool warp_capable = true;
+    static constexpr bool is_warp = true;
+};
+template <>
+struct asccomm_coop_traits<asccomm_coop_group> {
+    static constexpr bool warp_capable = true;
+    static constexpr bool is_warp = false;
 };
 
+} // namespace asc::simt
+
+// Legacy cooperative-group type spellings for AscendC::simt users.
+namespace AscendC::simt {
+using HcommCoopThread = asc::simt::asccomm_coop_thread;
+using HcommCoopWarp = asc::simt::asccomm_coop_warp;
+using HcommCoopGroup = asc::simt::asccomm_coop_group;
+template <typename coop_group>
+using HcommCoopTraits = asc::simt::asccomm_coop_traits<coop_group>;
 } // namespace AscendC::simt
 #endif
 

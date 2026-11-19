@@ -10,11 +10,11 @@
 
 /*!
  * \file ain_impl.h
- * \brief Ain implementation
+ * \brief ain implementation
  */
 
 #if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message("This is an internal Ain header file and must not be used directly. " \
+#pragma message("This is an internal ain header file and must not be used directly. " \
                 "Please use public interface headers.")
 #define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
 #define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_IMPL_H__
@@ -25,364 +25,369 @@
 
 #include "ain_impl_def.h"
 
-namespace AscendC {
+namespace asc {
 
-AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
+AIN_DEVICE HcommMemHandle get_peer_pointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
 {
-    auto hcommWindow = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    size_t peerOffset = peer * hcommWindow->lsaWin.stride + offset;
+    auto hcomm_window = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
+    size_t peer_offset = peer * hcomm_window->lsaWin.stride + offset;
     HcommMemHandle ptr =
-        reinterpret_cast<HcommMemHandle>(reinterpret_cast<uintptr_t>(hcommWindow->lsaWin.baseVa) + peerOffset);
+        reinterpret_cast<HcommMemHandle>(reinterpret_cast<uintptr_t>(hcomm_window->lsaWin.baseVa) + peer_offset);
     return ptr;
 }
 
-AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const uint32_t peer, const uint32_t index)
+AIN_DEVICE ChannelHandle get_channel_handle(const __gm__ HcommTeam* team, const uint32_t peer, const uint32_t index)
 {
-    const auto channelCntAccumulatePerMember = team->channelCntAccumulatePerMember;
-    const auto channelIndexBase = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(
-        reinterpret_cast<uintptr_t>(channelCntAccumulatePerMember) + peer * sizeof(uint32_t)));
-    uint64_t channelIndex = index + channelIndexBase;
-    ChannelHandle channel = team->channelsBaseAddr + channelIndex * sizeof(ChannelEntity);
+    const auto channel_cnt_accumulate_per_member = team->channelCntAccumulatePerMember;
+    const auto channel_index_base = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(
+        reinterpret_cast<uintptr_t>(channel_cnt_accumulate_per_member) + peer * sizeof(uint32_t)));
+    uint64_t channel_index = index + channel_index_base;
+    ChannelHandle channel = team->channelsBaseAddr + channel_index * sizeof(ChannelEntity);
     return channel;
 }
 
 AIN_DEVICE GM_ADDR
-GetCommMemPtr(const __gm__ HcommTeam* team, const HcclCommSymWindow window, uint32_t memberId, uint64_t offset)
+get_comm_mem_ptr(const __gm__ HcommTeam* team, const HcclCommSymWindow window, uint32_t member_id, uint64_t offset)
 {
-    auto hcommWin = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    auto remoteMem = reinterpret_cast<uint64_t*>(hcommWin->netWin.baseRemoteMemAddr);
-    auto worldTeamAccumulateId = hcommWin->netWin.worldTeamAccumulateId;
-    uint64_t remoteMemId = team->worldTeamIds[memberId] + worldTeamAccumulateId[team->netLayer];
-    uint64_t memHandle = remoteMem[remoteMemId] + offset;
-    return reinterpret_cast<GM_ADDR>(memHandle);
+    auto hcomm_win = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
+    auto remote_mem = reinterpret_cast<uint64_t*>(hcomm_win->netWin.baseRemoteMemAddr);
+    auto world_team_accumulate_id = hcomm_win->netWin.worldTeamAccumulateId;
+    uint64_t remote_mem_id = team->worldTeamIds[member_id] + world_team_accumulate_id[team->netLayer];
+    uint64_t mem_handle = remote_mem[remote_mem_id] + offset;
+    return reinterpret_cast<GM_ADDR>(mem_handle);
 }
 
-// ===================== Ain =====================
+// ===================== ain =====================
 
-template <unsigned CommEngineMask>
-AIN_DEVICE Ain<CommEngineMask>::Ain(uint32_t contextIndex) : contextIndex_(contextIndex)
+template <unsigned comm_engine_mask>
+AIN_DEVICE ain<comm_engine_mask>::ain(uint32_t context_index) : context_index(context_index)
 {}
 
-template <unsigned CommEngineMask>
-AIN_DEVICE Ain<CommEngineMask>::~Ain()
+template <unsigned comm_engine_mask>
+AIN_DEVICE ain<comm_engine_mask>::~ain()
 {}
 
-template <unsigned CommEngineMask>
-AIN_DEVICE void Ain<CommEngineMask>::Flush(HcommTeamHandle team)
+template <unsigned comm_engine_mask>
+AIN_DEVICE void ain<comm_engine_mask>::flush(HcommTeamHandle team)
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    uint32_t rankSize = hcommTeam->memberNum;
-    uint32_t myRank = hcommTeam->selfMemberId;
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    uint32_t rank_size = hcomm_team->memberNum;
+    uint32_t my_rank = hcomm_team->selfMemberId;
 
-    for (uint32_t i = 0; i < rankSize; i++) {
-        if (i == myRank) {
+    for (uint32_t i = 0; i < rank_size; i++) {
+        if (i == my_rank) {
             continue;
         }
-        ChannelHandle channel = GetChannelHandle(hcommTeam, i, contextIndex_);
-        hcomm_.Drain(channel);
+        ChannelHandle channel = get_channel_handle(hcomm_team, i, context_index);
+        comm.asccomm_drain(channel);
     }
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE void Ain<CommEngineMask>::FlushAsync(HcommTeamHandle team, uint32_t peer, ChannelHandle* outChannelHandle)
+template <unsigned comm_engine_mask>
+AIN_DEVICE void ain<comm_engine_mask>::flush_async(
+    HcommTeamHandle team, uint32_t peer, ChannelHandle* out_channel_handle)
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    *outChannelHandle = GetChannelHandle(hcommTeam, peer, contextIndex_);
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    *out_channel_handle = get_channel_handle(hcomm_team, peer, context_index);
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE void Ain<CommEngineMask>::Wait(ChannelHandle& channelHandle)
+template <unsigned comm_engine_mask>
+AIN_DEVICE void ain<comm_engine_mask>::wait(ChannelHandle& channel_handle)
 {
-    hcomm_.Drain(channelHandle);
+    comm.asccomm_drain(channel_handle);
 }
 
-template <unsigned CommEngineMask>
-template <typename RemoteAction, typename DescriptorUbuf, AinCommitFlags CommitFlags, auto const& Config>
-AIN_DEVICE void Ain<CommEngineMask>::Put(
-    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
-    uint64_t srcOffset, uint64_t bytes, RemoteAction remoteAction, const DescriptorUbuf& ubuf)
-{
-    static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "put requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
-
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-
-    auto remoteAddr = GetCommMemPtr(hcommTeam, dstWin, peer, dstOffset);
-    auto localAddr = GetCommMemPtr(hcommTeam, srcWin, hcommTeam->selfMemberId, srcOffset);
-
-    ChannelHandle channel = GetChannelHandle(hcommTeam, peer, contextIndex_);
-
-    if constexpr (CommitFlags == AIN_COMMIT_DELAYED) {
-        hcomm_.template WriteNbi<false, PIPE_S, PIPE_MTE3, Config>(channel, remoteAddr, localAddr, bytes);
-    } else {
-        hcomm_.template WriteNbi<true, PIPE_S, PIPE_MTE3, Config>(channel, remoteAddr, localAddr, bytes);
-    }
-
-    if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(
-            team, peer, remoteAction, ubuf);
-    }
-}
-
-template <unsigned CommEngineMask>
-template <typename T, typename RemoteAction, typename DescriptorUbuf, AinCommitFlags CommitFlags, auto const& Config>
-AIN_DEVICE void Ain<CommEngineMask>::PutValue(
-    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
-    RemoteAction remoteAction, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <typename remote_action, typename descriptor_ubuf, ain_commit_flags commit_flags, auto const& config>
+AIN_DEVICE void ain<comm_engine_mask>::put(
+    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dst_win, uint64_t dst_offset, HcclCommSymWindow src_win,
+    uint64_t src_offset, uint64_t bytes, remote_action action, const descriptor_ubuf& ubuf)
 {
     static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "putValue requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+        !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
+        "put requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
+    comm.asccomm_init(ubuf.addr, ubuf.bytes);
 
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
-    auto remoteAddr = GetCommMemPtr(hcommTeam, dstWin, peer, dstOffset);
+    auto remote_addr = get_comm_mem_ptr(hcomm_team, dst_win, peer, dst_offset);
+    auto local_addr = get_comm_mem_ptr(hcomm_team, src_win, hcomm_team->selfMemberId, src_offset);
 
-    ChannelHandle channel = GetChannelHandle(hcommTeam, peer, contextIndex_);
+    ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
-    if constexpr (CommitFlags == AIN_COMMIT_DELAYED) {
-        hcomm_.template WriteValueNbi<T, false, PIPE_S, PIPE_MTE3, Config>(channel, remoteAddr, value);
+    if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
+        comm.template asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
     } else {
-        hcomm_.template WriteValueNbi<T, true, PIPE_S, PIPE_MTE3, Config>(channel, remoteAddr, value);
+        comm.template asccomm_write_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
     }
 
-    if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(
-            team, peer, remoteAction, ubuf);
+    if constexpr (
+        IsSameType<remote_action, ain_signal_inc>::value || IsSameType<remote_action, ain_signal_add>::value) {
+        this->template signal<remote_action, descriptor_ubuf, commit_flags, SIGNAL_WQE_CONFIG>(
+            team, peer, action, ubuf);
     }
 }
 
-template <unsigned CommEngineMask>
-template <typename DescriptorUbuf, AinCommitFlags CommitFlags, auto const& Config>
-AIN_DEVICE void Ain<CommEngineMask>::Get(
-    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
-    uint64_t srcOffset, uint64_t bytes, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <
+    typename T, typename remote_action, typename descriptor_ubuf, ain_commit_flags commit_flags, auto const& config>
+AIN_DEVICE void ain<comm_engine_mask>::put_value(
+    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dst_win, uint64_t dst_offset, T value, remote_action action,
+    const descriptor_ubuf& ubuf)
 {
     static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "get requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+        !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
+        "putValue requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
+    comm.asccomm_init(ubuf.addr, ubuf.bytes);
 
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
-    auto localAddr = GetCommMemPtr(hcommTeam, dstWin, hcommTeam->selfMemberId, dstOffset);
-    auto remoteAddr = GetCommMemPtr(hcommTeam, srcWin, peer, srcOffset);
+    auto remote_addr = get_comm_mem_ptr(hcomm_team, dst_win, peer, dst_offset);
 
-    ChannelHandle channel = GetChannelHandle(hcommTeam, peer, contextIndex_);
+    ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
-    if constexpr (CommitFlags == AIN_COMMIT_DELAYED) {
-        hcomm_.template ReadNbi<false, PIPE_S, PIPE_MTE3, Config>(channel, localAddr, remoteAddr, bytes);
+    if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
+        comm.template asccomm_write_value_nbi<T, false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
     } else {
-        hcomm_.template ReadNbi<true, PIPE_S, PIPE_MTE3, Config>(channel, localAddr, remoteAddr, bytes);
+        comm.template asccomm_write_value_nbi<T, true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
+    }
+
+    if constexpr (
+        IsSameType<remote_action, ain_signal_inc>::value || IsSameType<remote_action, ain_signal_add>::value) {
+        this->template signal<remote_action, descriptor_ubuf, commit_flags, SIGNAL_WQE_CONFIG>(
+            team, peer, action, ubuf);
+    }
+}
+
+template <unsigned comm_engine_mask>
+template <typename descriptor_ubuf, ain_commit_flags commit_flags, auto const& config>
+AIN_DEVICE void ain<comm_engine_mask>::get(
+    HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dst_win, uint64_t dst_offset, HcclCommSymWindow src_win,
+    uint64_t src_offset, uint64_t bytes, const descriptor_ubuf& ubuf)
+{
+    static_assert(
+        !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
+        "get requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
+    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+
+    auto local_addr = get_comm_mem_ptr(hcomm_team, dst_win, hcomm_team->selfMemberId, dst_offset);
+    auto remote_addr = get_comm_mem_ptr(hcomm_team, src_win, peer, src_offset);
+
+    ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
+
+    if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
+        comm.template asccomm_read_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
+    } else {
+        comm.template asccomm_read_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
     }
 }
 
 template <typename T>
-AIN_DEVICE uint64_t GetSignalOpArg(T action)
+AIN_DEVICE uint64_t get_signal_op_arg(T action)
 {
-    if constexpr (IsSameType<T, AinSignalInc>::value) {
+    if constexpr (IsSameType<T, ain_signal_inc>::value) {
         return 1;
     } else {
         return action.value;
     }
 }
 
-template <unsigned CommEngineMask>
-template <typename RemoteAction, typename DescriptorUbuf, AinCommitFlags CommitFlags, auto const& Config>
-AIN_DEVICE void Ain<CommEngineMask>::Signal(
-    HcommTeamHandle team, uint32_t peer, RemoteAction action, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <typename remote_action, typename descriptor_ubuf, ain_commit_flags commit_flags, auto const& config>
+AIN_DEVICE void ain<comm_engine_mask>::signal(
+    HcommTeamHandle team, uint32_t peer, remote_action action, const descriptor_ubuf& ubuf)
 {
     static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "signal requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+        !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
+        "signal requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
+    comm.asccomm_init(ubuf.addr, ubuf.bytes);
 
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    ChannelHandle channel = GetChannelHandle(hcommTeam, peer, contextIndex_);
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
-    uint64_t contextBaseId = hcommTeam->memberNum * contextIndex_;
+    uint64_t context_base_id = hcomm_team->memberNum * context_index;
 
-    uint64_t signalOpArg = GetSignalOpArg(action);
+    uint64_t signal_op_arg = get_signal_op_arg(action);
 
-    auto remoteAddr = GetCommMemPtr(hcommTeam, action.signalWindow, peer, action.signalOffset);
+    auto remote_addr = get_comm_mem_ptr(hcomm_team, action.signal_window, peer, action.signal_offset);
 
-    // amoAddr: the address to store the fetched old value required by AtomicFAA.
-    // reuse the slot corresponding to the selfMemberId (which is idle) in barrier region of shadow memory as amoAddr.
-    auto localBase = hcommTeam->syncMem.shadowMem.addr;
-    uint64_t amoOffset = (contextBaseId + hcommTeam->selfMemberId) * sizeof(uint64_t);
-    auto amoAddr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(localBase) + amoOffset);
+    // amo_addr: the address to store the fetched old value required by AtomicFAA.
+    // reuse the slot corresponding to the selfMemberId (which is idle) in barrier region of shadow memory as amo_addr.
+    auto local_base = hcomm_team->syncMem.shadowMem.addr;
+    uint64_t amo_offset = (context_base_id + hcomm_team->selfMemberId) * sizeof(uint64_t);
+    auto amo_addr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(local_base) + amo_offset);
 
-    if constexpr (CommitFlags == AIN_COMMIT_DELAYED) {
-        hcomm_.template AtomicFAA<uint64_t, false, PIPE_S, PIPE_MTE3, Config>(
-            channel, remoteAddr, amoAddr, signalOpArg);
+    if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
+        comm.template asccomm_atomic_faa_nbi<uint64_t, false, PIPE_S, PIPE_MTE3, config>(
+            channel, remote_addr, amo_addr, signal_op_arg);
     } else {
-        hcomm_.template AtomicFAA<uint64_t, true, PIPE_S, PIPE_MTE3, Config>(channel, remoteAddr, amoAddr, signalOpArg);
+        comm.template asccomm_atomic_faa_nbi<uint64_t, true, PIPE_S, PIPE_MTE3, config>(
+            channel, remote_addr, amo_addr, signal_op_arg);
     }
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE uint64_t Ain<CommEngineMask>::ReadSignal(
-    HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint32_t bits,
-    AinMemoryOrder order) const
+template <unsigned comm_engine_mask>
+AIN_DEVICE uint64_t ain<comm_engine_mask>::read_signal(
+    HcommTeamHandle team, HcclCommSymWindow signal_window, size_t signal_offset, uint32_t bits,
+    ain_memory_order order) const
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    __gm__ uint64_t* signalAddr = reinterpret_cast<__gm__ uint64_t*>(
-        GetCommMemPtr(hcommTeam, signalWindow, hcommTeam->selfMemberId, signalOffset));
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    __gm__ uint64_t* signal_addr = reinterpret_cast<__gm__ uint64_t*>(
+        get_comm_mem_ptr(hcomm_team, signal_window, hcomm_team->selfMemberId, signal_offset));
     uint64_t mask = bits >= 64U ? UINT64_MAX : ((1ULL << bits) - 1ULL);
-    return mask & ld_dev(signalAddr, 0);
+    return mask & ld_dev(signal_addr, 0);
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE void Ain<CommEngineMask>::WaitSignal(
-    HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint64_t least, uint32_t bits,
-    AinMemoryOrder order) const
+template <unsigned comm_engine_mask>
+AIN_DEVICE void ain<comm_engine_mask>::wait_signal(
+    HcommTeamHandle team, HcclCommSymWindow signal_window, size_t signal_offset, uint64_t least, uint32_t bits,
+    ain_memory_order order) const
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    __gm__ uint64_t* signalAddr = reinterpret_cast<__gm__ uint64_t*>(
-        GetCommMemPtr(hcommTeam, signalWindow, hcommTeam->selfMemberId, signalOffset));
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    __gm__ uint64_t* signal_addr = reinterpret_cast<__gm__ uint64_t*>(
+        get_comm_mem_ptr(hcomm_team, signal_window, hcomm_team->selfMemberId, signal_offset));
     uint64_t mask = bits >= 64U ? UINT64_MAX : ((1ULL << bits) - 1ULL);
     while (true) {
-        if (least <= (ld_dev(signalAddr, 0) & mask)) {
+        if (least <= (ld_dev(signal_addr, 0) & mask)) {
             break;
         }
     }
 }
 
-// ===================== AinBarrierSession =====================
+// ===================== ain_barrier_session =====================
 
-template <unsigned CommEngineMask>
-AIN_DEVICE AinBarrierSession<CommEngineMask>::AinBarrierSession(
-    Ain<CommEngineMask>* ain, HcommTeamHandle team, uint32_t index)
+template <unsigned comm_engine_mask>
+AIN_DEVICE ain_barrier_session<comm_engine_mask>::ain_barrier_session(
+    ain<comm_engine_mask>* ain, HcommTeamHandle team, uint32_t index)
 {
-    barrierImpl_.ain_ = ain;
-    barrierImpl_.team_ = team;
-    barrierImpl_.index_ = index;
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    barrierImpl_.signalBaseId_ = index * hcommTeam->memberNum;
+    barrier_impl.ain = ain;
+    barrier_impl.team = team;
+    barrier_impl.index = index;
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    barrier_impl.signal_base_id = index * hcomm_team->memberNum;
 }
 
-template <unsigned CommEngineMask>
-template <typename DescriptorUbuf>
-AIN_DEVICE void AinBarrierSession<CommEngineMask>::Sync(AinMemoryOrder order, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <typename descriptor_ubuf>
+AIN_DEVICE void ain_barrier_session<comm_engine_mask>::sync(ain_memory_order order, const descriptor_ubuf& ubuf)
 {
-    barrierImpl_.template SyncImpl<false>(order, 0, ubuf);
+    barrier_impl.template sync_impl<false>(order, 0, ubuf);
 }
 
-template <unsigned CommEngineMask>
-template <typename DescriptorUbuf>
-AIN_DEVICE int32_t
-AinBarrierSession<CommEngineMask>::Sync(AinMemoryOrder order, uint64_t timeoutCycles, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <typename descriptor_ubuf>
+AIN_DEVICE int32_t ain_barrier_session<comm_engine_mask>::sync(
+    ain_memory_order order, uint64_t timeout_cycles, const descriptor_ubuf& ubuf)
 {
-    return barrierImpl_.template SyncImpl<true>(order, timeoutCycles, ubuf);
+    return barrier_impl.template sync_impl<true>(order, timeout_cycles, ubuf);
 }
 
-template <unsigned CommEngineMask>
-template <bool EnableTimeout, typename DescriptorUbuf>
-AIN_DEVICE int32_t AinBarrierSessionImpl<CommEngineMask>::SyncImpl(
-    AinMemoryOrder order, uint64_t timeoutCycles, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <bool enable_timeout, typename descriptor_ubuf>
+AIN_DEVICE int32_t ain_barrier_session_impl<comm_engine_mask>::sync_impl(
+    ain_memory_order order, uint64_t timeout_cycles, const descriptor_ubuf& ubuf)
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(this->team_));
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(this->team));
 
     // Phase 1: signal all peers first.
-    for (int32_t i = 0; i + 1 < hcommTeam->memberNum; ++i) {
-        int peer = 1 + hcommTeam->selfMemberId + i;
-        if (hcommTeam->memberNum <= peer) {
-            peer -= hcommTeam->memberNum;
+    for (int32_t i = 0; i + 1 < hcomm_team->memberNum; ++i) {
+        int peer = 1 + hcomm_team->selfMemberId + i;
+        if (hcomm_team->memberNum <= peer) {
+            peer -= hcomm_team->memberNum;
         }
-        this->Signal(this->team_, peer, ubuf);
+        this->signal(this->team, peer, ubuf);
     }
 
     // Phase 2: wait for all peer signals.
-    for (int32_t i = 0; i + 1 < hcommTeam->memberNum; ++i) {
-        int peer = 1 + hcommTeam->selfMemberId + i;
-        if (hcommTeam->memberNum <= peer) {
-            peer -= hcommTeam->memberNum;
+    for (int32_t i = 0; i + 1 < hcomm_team->memberNum; ++i) {
+        int peer = 1 + hcomm_team->selfMemberId + i;
+        if (hcomm_team->memberNum <= peer) {
+            peer -= hcomm_team->memberNum;
         }
 
-        size_t signalOffset = (this->signalBaseId_ + peer) * sizeof(uint64_t);
-        auto signalShadow = hcommTeam->syncMem.shadowMem.addr;
-        __gm__ uint64_t* shadowPtr =
-            reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signalShadow) + signalOffset);
-        uint64_t waitVal = ++(*shadowPtr);
+        size_t signal_offset = (this->signal_base_id + peer) * sizeof(uint64_t);
+        auto signal_shadow = hcomm_team->syncMem.shadowMem.addr;
+        __gm__ uint64_t* shadow_ptr =
+            reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signal_shadow) + signal_offset);
+        uint64_t wait_val = ++(*shadow_ptr);
 
-        if constexpr (EnableTimeout) {
+        if constexpr (enable_timeout) {
             uint64_t retry = 0;
             while (true) {
-                uint64_t got = this->ReadSignal(this->team_, peer, 64);
-                if (got >= waitVal) {
+                uint64_t got = this->read_signal(this->team, peer, 64);
+                if (got >= wait_val) {
                     break;
                 }
-                if (retry++ >= timeoutCycles) {
+                if (retry++ >= timeout_cycles) {
                     return -1;
                 }
             }
         } else {
-            this->WaitSignal(this->team_, peer, waitVal, 64);
+            this->wait_signal(this->team, peer, wait_val, 64);
         }
     }
 
     return 0;
 }
 
-template <unsigned CommEngineMask>
-template <typename DescriptorUbuf>
-AIN_DEVICE void AinBarrierSessionImpl<CommEngineMask>::Signal(
-    HcommTeamHandle team, uint32_t peer, const DescriptorUbuf& ubuf)
+template <unsigned comm_engine_mask>
+template <typename descriptor_ubuf>
+AIN_DEVICE void ain_barrier_session_impl<comm_engine_mask>::signal(
+    HcommTeamHandle team, uint32_t peer, const descriptor_ubuf& ubuf)
 {
     static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "signal requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+        !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
+        "signal requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
+    comm.asccomm_init(ubuf.addr, ubuf.bytes);
 
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    ChannelHandle channel = GetChannelHandle(hcommTeam, peer, index_);
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    ChannelHandle channel = get_channel_handle(hcomm_team, peer, index);
 
-    uint64_t signalOffset = (this->signalBaseId_ + hcommTeam->selfMemberId) * sizeof(uint64_t);
-    auto signalBase = hcommTeam->syncMem.remoteMems[peer].addr;
-    auto remoteAddr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(signalBase) + signalOffset);
+    uint64_t signal_offset = (this->signal_base_id + hcomm_team->selfMemberId) * sizeof(uint64_t);
+    auto signal_base = hcomm_team->syncMem.remoteMems[peer].addr;
+    auto remote_addr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(signal_base) + signal_offset);
 
-    // amoAddr: the address to store the fetched old value required by AtomicFAA.
-    // reuse the slot corresponding to the selfMemberId (which is idle) in barrier region of shadow memory as amoAddr.
-    auto localBase = hcommTeam->syncMem.shadowMem.addr;
-    auto amoAddr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(localBase) + signalOffset);
+    // amo_addr: the address to store the fetched old value required by AtomicFAA.
+    // reuse the slot corresponding to the selfMemberId (which is idle) in barrier region of shadow memory as amo_addr.
+    auto local_base = hcomm_team->syncMem.shadowMem.addr;
+    auto amo_addr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(local_base) + signal_offset);
 
-    hcomm_.template AtomicFAA<>(channel, remoteAddr, amoAddr, (uint64_t)1);
+    comm.template asccomm_atomic_faa_nbi<>(channel, remote_addr, amo_addr, (uint64_t)1);
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE uint64_t AinBarrierSessionImpl<CommEngineMask>::ReadSignal(
-    HcommTeamHandle team, uint32_t signalId, uint32_t bits, AinMemoryOrder order) const
+template <unsigned comm_engine_mask>
+AIN_DEVICE uint64_t ain_barrier_session_impl<comm_engine_mask>::read_signal(
+    HcommTeamHandle team, uint32_t signal_id, uint32_t bits, ain_memory_order order) const
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    uint64_t signalOffset = (signalBaseId_ + signalId) * sizeof(uint64_t);
-    auto signalBase = hcommTeam->syncMem.remoteMems[hcommTeam->selfMemberId].addr;
-    __gm__ uint64_t* signalAddr =
-        reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signalBase) + signalOffset);
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    uint64_t signal_offset = (signal_base_id + signal_id) * sizeof(uint64_t);
+    auto signal_base = hcomm_team->syncMem.remoteMems[hcomm_team->selfMemberId].addr;
+    __gm__ uint64_t* signal_addr =
+        reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signal_base) + signal_offset);
     uint64_t mask = bits >= 64U ? UINT64_MAX : ((1ULL << bits) - 1ULL);
-    return mask & ld_dev(signalAddr, 0);
+    return mask & ld_dev(signal_addr, 0);
 }
 
-template <unsigned CommEngineMask>
-AIN_DEVICE void AinBarrierSessionImpl<CommEngineMask>::WaitSignal(
-    HcommTeamHandle team, uint32_t signalId, uint64_t least, uint32_t bits, AinMemoryOrder order) const
+template <unsigned comm_engine_mask>
+AIN_DEVICE void ain_barrier_session_impl<comm_engine_mask>::wait_signal(
+    HcommTeamHandle team, uint32_t signal_id, uint64_t least, uint32_t bits, ain_memory_order order) const
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
-    uint64_t signalOffset = (signalBaseId_ + signalId) * sizeof(uint64_t);
-    auto signalBase = hcommTeam->syncMem.remoteMems[hcommTeam->selfMemberId].addr;
-    __gm__ uint64_t* signalAddr =
-        reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signalBase) + signalOffset);
+    auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    uint64_t signal_offset = (signal_base_id + signal_id) * sizeof(uint64_t);
+    auto signal_base = hcomm_team->syncMem.remoteMems[hcomm_team->selfMemberId].addr;
+    __gm__ uint64_t* signal_addr =
+        reinterpret_cast<__gm__ uint64_t*>(reinterpret_cast<uintptr_t>(signal_base) + signal_offset);
     uint64_t mask = bits >= 64U ? UINT64_MAX : ((1ULL << bits) - 1ULL);
     while (true) {
-        if (least <= (ld_dev(signalAddr, 0) & mask)) {
+        if (least <= (ld_dev(signal_addr, 0) & mask)) {
             break;
         }
     }
 }
 
-} // namespace AscendC
+} // namespace asc
 
 #endif // IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_H
 

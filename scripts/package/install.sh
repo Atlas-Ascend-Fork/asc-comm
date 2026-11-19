@@ -595,8 +595,7 @@ is_allowed_link()
     local link_target=$2
 
     case "${path}:${link_target}" in
-        asc/include/comm_api/aicore/hcomm:../../adv_api/hcomm|\
-        asc/impl/comm_api/aicore/hcomm:../../adv_api/detail/hcomm)
+        asc/include/comm_api/aicore/hcomm:../../adv_api/hcomm)
             ;;
         *)
             return 1
@@ -620,9 +619,19 @@ validate_link_manifest()
             fail "unsafe link entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link manifest must contain all managed links: ${manifest}"
+    [[ ${count} -eq 1 ]] || fail "link manifest must contain all managed links: ${manifest}"
     [[ $(cut -f1 "${manifest}" | sort -u | wc -l) -eq ${count} ]] || \
         fail "duplicate path in ${manifest}"
+}
+
+# Upgrades from package versions that shipped real hcomm headers under
+# asc/include/adv_api/hcomm replace that payload with the compatibility symlink.
+remove_legacy_hcomm_payload()
+{
+    local target=$1
+    if [[ -d "${target}" && -f "${target}/hcomm.h" ]]; then
+        rm -rf -- "${target}"
+    fi
 }
 
 validate_link_destinations()
@@ -641,7 +650,9 @@ validate_link_destinations()
             [[ "${actual_target}" == "${link_target}" ]] || \
                 fail "Hcomm link has an unexpected target: ${target} -> ${actual_target}"
         elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
+            remove_legacy_hcomm_payload "${target}"
+            [[ ! -e "${target}" ]] || \
+                fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
         fi
     done < "${manifest}"
 }
@@ -676,9 +687,11 @@ record_link_baseline()
             [[ "$(readlink -- "${target}")" == "${link_target}" ]] || \
                 fail "Hcomm link has an unexpected target: ${target}"
             printf 'present\t%s\t%s\n' "${path}" "${link_target}" >> "${output}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
         else
+            remove_legacy_hcomm_payload "${target}"
+            if [[ -e "${target}" ]]; then
+                fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
+            fi
             printf 'absent\t%s\t%s\n' "${path}" "${link_target}" >> "${output}"
         fi
     done < "${link_manifest}"
@@ -703,7 +716,7 @@ validate_link_baseline()
             fail "unsafe link baseline entry in ${manifest}: ${path}"
         count=$((count + 1))
     done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link baseline must contain all managed links: ${manifest}"
+    [[ ${count} -eq 1 ]] || fail "link baseline must contain all managed links: ${manifest}"
 }
 
 restore_link_baseline()
@@ -720,7 +733,9 @@ restore_link_baseline()
         if [[ -L "${target}" ]]; then
             rm -f -- "${target}"
         elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
+            remove_legacy_hcomm_payload "${target}"
+            [[ ! -e "${target}" ]] || \
+                fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
         fi
         if [[ "${status}" == "present" ]]; then
             mkdir -p "$(dirname -- "${target}")"
@@ -742,9 +757,11 @@ install_managed_links()
         if [[ -L "${target}" ]]; then
             [[ "$(readlink -- "${target}")" == "${link_target}" ]] || \
                 fail "Hcomm link has an unexpected target: ${target}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
         else
+            remove_legacy_hcomm_payload "${target}"
+            if [[ -e "${target}" ]]; then
+                fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
+            fi
             mkdir -p "$(dirname -- "${target}")"
             ln -s "${link_target}" "${target}"
         fi

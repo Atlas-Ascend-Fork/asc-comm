@@ -112,10 +112,10 @@ protected:
         uint32_t cqDepth = cqCtx_.contextInfo.roceCq.cqDepth;
         auto& cqe = cqEntries_[cqIndex & (cqDepth - 1U)];
         cqe = {};
-        cqe.ownerIdQpn = sqCtx_.contextInfo.roceSq.qpn |
-                         (static_cast<uint32_t>((cqIndex & cqDepth) != 0U) << ROCE_1825_CQE_OWNER_SHIFT);
-        cqe.opSrWqebb = static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE) << ROCE_1825_CQE_OPCODE_SHIFT;
-        cqe.opSrWqebb |= wqebbIndex & ROCE_SQ_INDEX_MASK;
+        cqe.owner_id_qpn = sqCtx_.contextInfo.roceSq.qpn |
+                           (static_cast<uint32_t>((cqIndex & cqDepth) != 0U) << asc::ROCE_1825_CQE_OWNER_SHIFT);
+        cqe.op_sr_wqebb = static_cast<uint32_t>(asc::asccomm_roce_op_type::WRITE) << asc::ROCE_1825_CQE_OPCODE_SHIFT;
+        cqe.op_sr_wqebb |= wqebbIndex & asc::ROCE_SQ_INDEX_MASK;
     }
 
     void SetErrorCqe(uint32_t cqIndex)
@@ -123,9 +123,9 @@ protected:
         uint32_t cqDepth = cqCtx_.contextInfo.roceCq.cqDepth;
         auto& cqe = cqEntries_[cqIndex & (cqDepth - 1U)];
         cqe = {};
-        cqe.ownerIdQpn = sqCtx_.contextInfo.roceSq.qpn |
-                         (static_cast<uint32_t>((cqIndex & cqDepth) != 0U) << ROCE_1825_CQE_OWNER_SHIFT);
-        cqe.opSrWqebb = static_cast<uint32_t>(ROCE_1825_CQE_OPTYPE_ERROR) << ROCE_1825_CQE_OPCODE_SHIFT;
+        cqe.owner_id_qpn = sqCtx_.contextInfo.roceSq.qpn |
+                           (static_cast<uint32_t>((cqIndex & cqDepth) != 0U) << asc::ROCE_1825_CQE_OWNER_SHIFT);
+        cqe.op_sr_wqebb = static_cast<uint32_t>(asc::ROCE_1825_CQE_OPTYPE_ERROR) << asc::ROCE_1825_CQE_OPCODE_SHIFT;
         cqe.syndrome = 0x12U;
     }
 
@@ -402,7 +402,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
         HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 15U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 
     ASSERT_EQ(
         hcomm.WriteNbi<kRoceNoCqeCfg>(
@@ -410,7 +410,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
         HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 16U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchHandleAccepts32ByteAlignedBuffer)
@@ -420,8 +420,8 @@ TEST_F(HcommRoCETestSuite, BatchHandleAccepts32ByteAlignedBuffer)
     auto batchHandle = hcomm.MakeBatchHandle(
         channelHandle, tempTensor_[32], 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     EXPECT_NE(batchHandle.channelHandle, 0U);
-    EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.buffer.buffer_capacity, 2U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchCommitPollsCqWhenSqIsNearFull)
@@ -445,8 +445,8 @@ TEST_F(HcommRoCETestSuite, BatchCommitPollsCqWhenSqIsNearFull)
     EXPECT_EQ(channel_.cqHead, 12U);
     EXPECT_EQ(channel_.cqTail, 12U);
     EXPECT_EQ(channel_.sqTail, 0U);
-    EXPECT_EQ(batchHandle.cursor.cqTail, 12U);
-    EXPECT_EQ(batchHandle.cursor.sqTail, 0U);
+    EXPECT_EQ(batchHandle.cursor.cq_tail, 12U);
+    EXPECT_EQ(batchHandle.cursor.sq_tail, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchCommitChecksSingleSgeSqCapacity)
@@ -464,7 +464,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksSingleSgeSqCapacity)
         HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 16U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchCommitPollsPriorCqeWhenNearFull)
@@ -511,7 +511,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksMultiSgeSqCapacity)
     ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 16U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchHandleKeepsDebugTrapSemanticsForMisalignedBuffer)
@@ -523,8 +523,8 @@ TEST_F(HcommRoCETestSuite, BatchHandleKeepsDebugTrapSemanticsForMisalignedBuffer
     // This UT target compiles out ASCENDC_DEBUG, so HCOMM_DEBUG_TRAP_IF does not stop
     // execution and MakeBatchHandle keeps initializing the handle. Debug builds trap.
     EXPECT_NE(batchHandle.channelHandle, 0U);
-    EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.buffer.buffer_capacity, 2U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchCommitPollsCqThresholdWithoutInit)
@@ -545,8 +545,8 @@ TEST_F(HcommRoCETestSuite, BatchCommitPollsCqThresholdWithoutInit)
         std::memcpy(&expectedWqe, batchHandle.buffer.buffer.GetPhyAddr(), sizeof(expectedWqe));
         SetCqe(i, i);
         ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
-        EXPECT_EQ(std::memcmp(sqVa_ + i * HCOMM_ROCE_WQEBB_SIZE, &expectedWqe, sizeof(expectedWqe)), 0);
-        EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+        EXPECT_EQ(std::memcmp(sqVa_ + i * asc::ASCCOMM_ROCE_WQEBB_SIZE, &expectedWqe, sizeof(expectedWqe)), 0);
+        EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 0U);
         if (i + 1U == pollCount) {
             // This is the first commit at which the CQ polling threshold is
             // reached; all currently published CQEs are consumed.
@@ -558,7 +558,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitPollsCqThresholdWithoutInit)
     EXPECT_EQ(hcomm.Drain(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.cqTail, pollCount + 1U);
     EXPECT_EQ(channel_.sqTail, pollCount + 1U);
-    EXPECT_EQ(batchHandle.cursor.sqTail, channel_.sqTail);
+    EXPECT_EQ(batchHandle.cursor.sq_tail, channel_.sqTail);
 }
 
 TEST_F(HcommRoCETestSuite, BatchPostSendUsesWqebbStride)
@@ -579,8 +579,8 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUsesWqebbStride)
 
     auto* firstWqe = reinterpret_cast<RoceWqeEntry*>(batchHandle.buffer.buffer.GetPhyAddr());
     auto* secondWqe = firstWqe + 1;
-    EXPECT_EQ(secondWqe->task.dataLen, firstWqe->task.dataLen);
-    EXPECT_NE(secondWqe->data.vaLocal, firstWqe->data.vaLocal);
+    EXPECT_EQ(secondWqe->task.data_len, firstWqe->task.data_len);
+    EXPECT_NE(secondWqe->data.va_local, firstWqe->data.va_local);
 }
 
 TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
@@ -605,19 +605,19 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
         HCOMM_SUCCESS);
 
     RoceWqeEntry expected[2]{};
-    hcomm.impl_.FillCtrlSeg<ROCE_DEFAULT_CFG>(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
-    hcomm.impl_.FillTaskSeg<ROCE_DEFAULT_CFG, HCOMM_ROCE_OP_TYPE::WRITE>(
-        &expected[0], reinterpret_cast<GM_ADDR>(0x200), 10, batchHandle.mrKey.rKey, batchHandle.mrKey.lKey);
-    hcomm.impl_.FillDataSeg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mrKey.lKey);
+    hcomm.impl_.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    hcomm.impl_.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
+        &expected[0], reinterpret_cast<GM_ADDR>(0x200), 10, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
+    hcomm.impl_.fill_data_seg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mr_key.l_key);
 
-    hcomm.impl_.FillCtrlSeg<kRoceNoCqeCfg>(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
-    hcomm.impl_.FillTaskSeg<kRoceNoCqeCfg, HCOMM_ROCE_OP_TYPE::READ>(
-        &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, batchHandle.mrKey.rKey, batchHandle.mrKey.lKey);
-    hcomm.impl_.FillDataSeg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mrKey.lKey);
+    hcomm.impl_.fill_ctrl_seg<kRoceNoCqeCfg>(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    hcomm.impl_.fill_task_seg<kRoceNoCqeCfg, asc::asccomm_roce_op_type::READ>(
+        &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
+    hcomm.impl_.fill_data_seg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mr_key.l_key);
 
     auto* actualWords = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
     auto* expectedWords = reinterpret_cast<uint64_t*>(expected);
-    for (uint32_t i = 0; i < 2 * HCOMM_ROCE_WQEBB_U64_NUM; ++i) {
+    for (uint32_t i = 0; i < 2 * asc::ASCCOMM_ROCE_WQEBB_U64_NUM; ++i) {
         EXPECT_EQ(actualWords[i], expectedWords[i]) << "word=" << i;
     }
 }
@@ -639,13 +639,13 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
 
     auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
     RoceWqeEntry expected{};
-    hcomm.impl_.FillCtrlSeg<ROCE_DEFAULT_CFG>(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
-    expected.ctrl.wfBdsl &=
-        ~HtoNS(static_cast<uint16_t>(0xffU << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
-    expected.ctrl.wfBdsl |=
-        HtoNS(static_cast<uint16_t>(2U << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
-    hcomm.impl_.FillTaskSeg<ROCE_DEFAULT_CFG, HCOMM_ROCE_OP_TYPE::WRITE>(
-        &expected, reinterpret_cast<GM_ADDR>(0x200), 21, batchHandle.mrKey.rKey, batchHandle.mrKey.lKey);
+    hcomm.impl_.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    expected.ctrl.wf_bdsl &= ~asc::hto_ns(
+        static_cast<uint16_t>(0xffU << (asc::ROCE_1825_WQE_DATA_SEG_SHIFT - asc::ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    expected.ctrl.wf_bdsl |= asc::hto_ns(
+        static_cast<uint16_t>(2U << (asc::ROCE_1825_WQE_DATA_SEG_SHIFT - asc::ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    hcomm.impl_.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
+        &expected, reinterpret_cast<GM_ADDR>(0x200), 21, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
     auto* expectedWords = reinterpret_cast<uint64_t*>(&expected);
     for (uint32_t i = 0; i < 6; ++i) {
         EXPECT_EQ(words[i], expectedWords[i]) << "public word=" << i;
@@ -654,13 +654,13 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
     constexpr uint32_t sgeWordNum = sizeof(RoceWqeDataSeg) / sizeof(uint64_t);
     for (uint32_t i = 0; i < 2; ++i) {
         const uint64_t* sge = words + 6 + i * sgeWordNum;
-        EXPECT_EQ(sge[0], HtoNLL(reinterpret_cast<uint64_t>(descs[i].addr))) << "SGE address=" << i;
-        EXPECT_EQ(sge[1] & 0xffffffffU, HtoNL(descs[i].len)) << "SGE length=" << i;
+        EXPECT_EQ(sge[0], asc::hto_nll(reinterpret_cast<uint64_t>(descs[i].addr))) << "SGE address=" << i;
+        EXPECT_EQ(sge[1] & 0xffffffffU, asc::hto_nl(descs[i].len)) << "SGE length=" << i;
         const uint64_t lastSgeBit = i == 1U ? 0x80U : 0U;
         EXPECT_EQ((sge[1] >> 32U) & 0x80U, lastSgeBit) << "SGE last marker=" << i;
     }
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
-    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cq_head, 1U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchPostSendMaintainsWqebbCursor)
@@ -689,12 +689,12 @@ TEST_F(HcommRoCETestSuite, BatchPostSendMaintainsWqebbCursor)
     const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
     constexpr uint32_t firstWqeWqebb = 1;
     constexpr uint32_t multiWqeWqebb = 2;
-    constexpr uint64_t ownerMask = 1ULL << ROCE_1825_WQE_OWNER_SHIFT;
+    constexpr uint64_t ownerMask = 1ULL << asc::ROCE_1825_WQE_OWNER_SHIFT;
     EXPECT_EQ(words[0] & ownerMask, 0U) << "owner before SQ wrap";
-    EXPECT_EQ(words[(firstWqeWqebb + multiWqeWqebb) * HCOMM_ROCE_WQEBB_U64_NUM] & ownerMask, 0U)
+    EXPECT_EQ(words[(firstWqeWqebb + multiWqeWqebb) * asc::ASCCOMM_ROCE_WQEBB_U64_NUM] & ownerMask, 0U)
         << "owner after SQ wrap";
-    EXPECT_EQ(batchHandle.cursor.sqHead, 14U);
-    EXPECT_EQ(batchHandle.cursor.preSqCnt, 3U);
+    EXPECT_EQ(batchHandle.cursor.sq_head, 14U);
+    EXPECT_EQ(batchHandle.cursor.pre_sq_cnt, 3U);
 }
 
 TEST_F(HcommRoCETestSuite, BatchCommitPreservesWqebbCounter)
@@ -720,7 +720,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitPreservesWqebbCounter)
         hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         HCOMM_SUCCESS);
     const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
-    EXPECT_EQ(batchHandle.cursor.sqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.sq_head, 2U);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 3U);
     SetCqe(1, 2);
@@ -744,7 +744,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitWritesNextWqebbOwnerMarker)
         HCOMM_SUCCESS);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
 
-    EXPECT_EQ(sqVa_[HCOMM_ROCE_WQEBB_SIZE], 0xffU);
+    EXPECT_EQ(sqVa_[asc::ASCCOMM_ROCE_WQEBB_SIZE], 0xffU);
     EXPECT_EQ(channel_.sqHead, 1U);
 }
 
@@ -760,6 +760,6 @@ TEST_F(HcommRoCETestSuite, MakeWqeWritesNextWqebbOwnerMarker)
         channelHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10);
     ASSERT_EQ(ret, HCOMM_SUCCESS);
 
-    EXPECT_EQ(sqVa_[HCOMM_ROCE_WQEBB_SIZE], 0xffU);
+    EXPECT_EQ(sqVa_[asc::ASCCOMM_ROCE_WQEBB_SIZE], 0xffU);
     EXPECT_EQ(channel_.sqHead, 1U);
 }

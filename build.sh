@@ -212,7 +212,7 @@ main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+    local ut_build_dir="${BUILD_DIR}/ut-asccomm"
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \

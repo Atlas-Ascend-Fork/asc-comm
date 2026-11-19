@@ -9,7 +9,7 @@ asc-comm development patch package
   --force                         Override installed-file consistency checks
 
 Hcomm headers are installed under asc/include/adv_api/hcomm/ and
-asc/impl/adv_api/detail/hcomm/. Ain headers are installed under
+asc/impl/comm_api/aicore/asccomm/. Ain headers are installed under
 asc/include/comm_api/aicore/ain/ and asc/impl/comm_api/aicore/ain/. Other
 headers preserve their paths under asc/include/comm_api/ or
 asc/impl/comm_api/. AICPU data-plane files are installed under

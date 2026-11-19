@@ -13,7 +13,13 @@
 #include <vector>
 #define private public
 #include "kernel_operator.h"
-#include "hcomm/hcomm_common.h"
+#if __has_include("asccomm/asccomm_common.h")
+// Preferred: new-package layouts stage asccomm/ next to hcomm/.
+#include "asccomm/asccomm_common.h"
+#else
+// Compatibility: older package layouts only provide the hcomm/ public common header. Both
+// headers define the same types and share the same include guard.
+#endif
 #include "ain/ain.h"
 
 using namespace AscendC;
@@ -30,465 +36,524 @@ constexpr uint32_t MAX_CONTEXTS = 2;
 constexpr uint32_t MAX_TEAM_MEMBERS = 4;
 constexpr uint64_t REMOTE_PEER_BASE = 0x3000;
 constexpr uint64_t REMOTE_PEER_SIZE = 0x1000;
-constexpr uint32_t DESCRIPTOR_SIZE = AscendC::HCOMM_URMA_TMP_BUF_SIZE + 32;
+constexpr uint32_t DESCRIPTOR_SIZE = asc::ASCCOMM_URMA_TMP_BUF_SIZE + 32;
 constexpr uint32_t AIN_SIGNAL_COUNT = 16;
 constexpr uint32_t AIN_SIGNAL_POOL_SIZE = AIN_SIGNAL_COUNT * 2;
 constexpr uint64_t LSA_STRIDE = 0x100;
 
-class UrmaChannelResource {
+class urma_channel_resource {
 public:
-    UrmaChannelResource() : sqBuffer_(URMA_SQ_DEPTH * URMA_WQE_SIZE, 0), cqBuffer_(URMA_SQ_DEPTH * URMA_CQE_SIZE, 0)
+    urma_channel_resource() : sq_buffer(URMA_SQ_DEPTH * URMA_WQE_SIZE, 0), cq_buffer(URMA_SQ_DEPTH * URMA_CQE_SIZE, 0)
     {
-        channel_.engine = AscendC::COMM_ENGINE_AIV;
-        channel_.protocol = AscendC::COMM_PROTOCOL_UB_MEM;
-        channel_.sqNum = 1;
-        channel_.cqNum = 1;
-        channel_.remoteBufferNum = URMA_BUFFER_NUM;
-        channel_.localBufferNum = URMA_BUFFER_NUM;
-        channel_.sqContextAddr = &sqCtx_;
-        channel_.cqContextAddr = &cqCtx_;
-        channel_.remoteBufferAddr = remoteBuffers_.data();
-        channel_.localBufferAddr = localBuffers_.data();
+        channel.engine = asc::COMM_ENGINE_AIV;
+        channel.protocol = asc::COMM_PROTOCOL_UB_MEM;
+        channel.sqNum = 1;
+        channel.cqNum = 1;
+        channel.remoteBufferNum = URMA_BUFFER_NUM;
+        channel.localBufferNum = URMA_BUFFER_NUM;
+        channel.sqContextAddr = &sq_ctx;
+        channel.cqContextAddr = &cq_ctx;
+        channel.remoteBufferAddr = remote_buffers.data();
+        channel.localBufferAddr = local_buffers.data();
 
-        sqCtx_.type = AscendC::SQ_CONTEXT_TYPE_UB_JFS;
-        sqCtx_.contextInfo.ubJfs.sqVa = reinterpret_cast<uint64_t>(sqBuffer_.data());
-        sqCtx_.contextInfo.ubJfs.headAddr = reinterpret_cast<uint64_t>(&sqHead_);
-        sqCtx_.contextInfo.ubJfs.tailAddr = reinterpret_cast<uint64_t>(&sqTail_);
-        sqCtx_.contextInfo.ubJfs.dbVa = reinterpret_cast<uint64_t>(&sqDoorbell_);
-        sqCtx_.contextInfo.ubJfs.jfsID = 1;
-        sqCtx_.contextInfo.ubJfs.wqeSize = URMA_WQE_SIZE;
-        sqCtx_.contextInfo.ubJfs.sqDepth = URMA_SQ_DEPTH;
-        sqCtx_.contextInfo.ubJfs.tpID = 1;
+        sq_ctx.type = asc::SQ_CONTEXT_TYPE_UB_JFS;
+        sq_ctx.contextInfo.ubJfs.sqVa = reinterpret_cast<uint64_t>(sq_buffer.data());
+        sq_ctx.contextInfo.ubJfs.headAddr = reinterpret_cast<uint64_t>(&sq_head);
+        sq_ctx.contextInfo.ubJfs.tailAddr = reinterpret_cast<uint64_t>(&sq_tail);
+        sq_ctx.contextInfo.ubJfs.dbVa = reinterpret_cast<uint64_t>(&sq_doorbell);
+        sq_ctx.contextInfo.ubJfs.jfsID = 1;
+        sq_ctx.contextInfo.ubJfs.wqeSize = URMA_WQE_SIZE;
+        sq_ctx.contextInfo.ubJfs.sqDepth = URMA_SQ_DEPTH;
+        sq_ctx.contextInfo.ubJfs.tpID = 1;
 
-        cqCtx_.type = AscendC::CQ_CONTEXT_TYPE_UB_JFC;
-        cqCtx_.contextInfo.ubJfc.scqVa = reinterpret_cast<uint64_t>(cqBuffer_.data());
-        cqCtx_.contextInfo.ubJfc.headAddr = reinterpret_cast<uint64_t>(&cqHead_);
-        cqCtx_.contextInfo.ubJfc.tailAddr = reinterpret_cast<uint64_t>(&cqTail_);
-        cqCtx_.contextInfo.ubJfc.dbVa = reinterpret_cast<uint64_t>(&cqDoorbell_);
-        cqCtx_.contextInfo.ubJfc.jfcID = 1;
-        cqCtx_.contextInfo.ubJfc.cqeSize = URMA_CQE_SIZE;
-        cqCtx_.contextInfo.ubJfc.cqDepth = URMA_SQ_DEPTH;
+        cq_ctx.type = asc::CQ_CONTEXT_TYPE_UB_JFC;
+        cq_ctx.contextInfo.ubJfc.scqVa = reinterpret_cast<uint64_t>(cq_buffer.data());
+        cq_ctx.contextInfo.ubJfc.headAddr = reinterpret_cast<uint64_t>(&cq_head);
+        cq_ctx.contextInfo.ubJfc.tailAddr = reinterpret_cast<uint64_t>(&cq_tail);
+        cq_ctx.contextInfo.ubJfc.dbVa = reinterpret_cast<uint64_t>(&cq_doorbell);
+        cq_ctx.contextInfo.ubJfc.jfcID = 1;
+        cq_ctx.contextInfo.ubJfc.cqeSize = URMA_CQE_SIZE;
+        cq_ctx.contextInfo.ubJfc.cqDepth = URMA_SQ_DEPTH;
 
-        InitBuffer(remoteBuffers_[0], 0x1000, 0x1000, 0x123456, 0x654321);
-        InitBuffer(remoteBuffers_[1], REMOTE_PEER_BASE, REMOTE_PEER_SIZE, 0x223456, 0x754321);
-        InitBuffer(localBuffers_[0], 0x2000, 0x1000, 0x111111, 0x222222);
-        InitBuffer(localBuffers_[1], 0x5000, 0x1000, 0x333333, 0x444444);
+        InitBuffer(remote_buffers[0], 0x1000, 0x1000, 0x123456, 0x654321);
+        InitBuffer(remote_buffers[1], REMOTE_PEER_BASE, REMOTE_PEER_SIZE, 0x223456, 0x754321);
+        InitBuffer(local_buffers[0], 0x2000, 0x1000, 0x111111, 0x222222);
+        InitBuffer(local_buffers[1], 0x5000, 0x1000, 0x333333, 0x444444);
     }
 
-    AscendC::ChannelHandle GetHandle() { return reinterpret_cast<AscendC::ChannelHandle>(&channel_); }
+    asc::ChannelHandle get_handle() { return reinterpret_cast<asc::ChannelHandle>(&channel); }
 
-    const AscendC::ChannelEntity& GetChannelEntity() const { return channel_; }
+    const asc::ChannelEntity& get_channel_entity() const { return channel; }
 
-    void SetActiveEntity(AscendC::ChannelEntity* active) { active_ = active; }
+    void set_active_entity(asc::ChannelEntity* active) { this->active = active; }
 
-    uint32_t GetSqHead() const { return static_cast<uint32_t>(active_->sqHead); }
+    uint32_t get_sq_head() const { return static_cast<uint32_t>(active->sqHead); }
 
-    uint32_t GetSqDoorbell() const { return sqDoorbell_; }
+    uint32_t get_sq_doorbell() const { return sq_doorbell; }
 
-    uint32_t GetSqTail() const { return active_->cqTail; }
+    uint32_t get_sq_tail() const { return active->cqTail; }
 
-    void SetRemoteBuffer(uint32_t idx, uint64_t addr, uint64_t size)
+    const uint8_t* get_sq_wqe(uint32_t index) const { return sq_buffer.data() + index * URMA_WQE_SIZE; }
+
+    void set_remote_buffer(uint32_t idx, uint64_t addr, uint64_t size)
     {
-        if (idx < remoteBuffers_.size()) {
-            remoteBuffers_[idx].bufferInfo.rma.addr = addr;
-            remoteBuffers_[idx].bufferInfo.rma.size = size;
+        if (idx < remote_buffers.size()) {
+            remote_buffers[idx].bufferInfo.rma.addr = addr;
+            remote_buffers[idx].bufferInfo.rma.size = size;
         }
     }
 
 private:
-    void InitBuffer(
-        AscendC::RegedBufferEntity& buffer, uint64_t addr, uint64_t size, uint32_t tokenId, uint32_t tokenValue)
+    void InitBuffer(asc::RegedBufferEntity& buffer, uint64_t addr, uint64_t size, uint32_t tokenId, uint32_t tokenValue)
     {
-        buffer.type = AscendC::REGED_BUFFER_RMA;
+        buffer.type = asc::REGED_BUFFER_RMA;
         buffer.bufferInfo.rma.addr = addr;
         buffer.bufferInfo.rma.size = size;
-        buffer.bufferInfo.rma.protectionInfo.type = AscendC::PROTECTION_TYPE_UB;
+        buffer.bufferInfo.rma.protectionInfo.type = asc::PROTECTION_TYPE_UB;
         buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId = tokenId;
         buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue = tokenValue;
     }
 
 private:
-    AscendC::ChannelEntity channel_ = {};
-    AscendC::ChannelEntity* active_ = &channel_;
-    AscendC::SqContext sqCtx_ = {};
-    AscendC::CqContext cqCtx_ = {};
-    std::array<AscendC::RegedBufferEntity, URMA_BUFFER_NUM> remoteBuffers_ = {};
-    std::array<AscendC::RegedBufferEntity, URMA_BUFFER_NUM> localBuffers_ = {};
-    std::vector<uint8_t> sqBuffer_;
-    std::vector<uint8_t> cqBuffer_;
-    uint64_t sqHead_ = 0;
-    uint32_t sqTail_ = 0;
-    uint32_t cqHead_ = 0;
-    uint32_t cqTail_ = 0;
-    uint32_t sqDoorbell_ = 0;
-    uint32_t cqDoorbell_ = 0;
+    asc::ChannelEntity channel = {};
+    asc::ChannelEntity* active = &channel;
+    asc::SqContext sq_ctx = {};
+    asc::CqContext cq_ctx = {};
+    std::array<asc::RegedBufferEntity, URMA_BUFFER_NUM> remote_buffers = {};
+    std::array<asc::RegedBufferEntity, URMA_BUFFER_NUM> local_buffers = {};
+    std::vector<uint8_t> sq_buffer;
+    std::vector<uint8_t> cq_buffer;
+    uint64_t sq_head = 0;
+    uint32_t sq_tail = 0;
+    uint32_t cq_head = 0;
+    uint32_t cq_tail = 0;
+    uint32_t sq_doorbell = 0;
+    uint32_t cq_doorbell = 0;
 };
 
-class AinTeamResource {
+class ain_team_resource {
 public:
-    explicit AinTeamResource(UrmaChannelResource& channel)
+    explicit ain_team_resource(urma_channel_resource& channel)
     {
-        team_.engine = ::COMM_ENGINE_AIV;
-        team_.memberNum = AIN_RANK_SIZE;
-        team_.selfMemberId = 0;
-        team_.netLayer = 0;
-        channelEntities_[PEER * MAX_CONTEXTS + 0] = channel.GetChannelEntity();
-        channel.SetActiveEntity(&channelEntities_[PEER * MAX_CONTEXTS + 0]);
-        team_.channelsBaseAddr = reinterpret_cast<uint64_t>(channelEntities_.data());
-        team_.channelCntAccumulatePerMember = channelCntAccumulatePerMember_.data();
+        team.engine = COMM_ENGINE_AIV;
+        team.memberNum = AIN_RANK_SIZE;
+        team.selfMemberId = 0;
+        team.netLayer = 0;
+        channel_entities[PEER * MAX_CONTEXTS + 0] = channel.get_channel_entity();
+        channel.set_active_entity(&channel_entities[PEER * MAX_CONTEXTS + 0]);
+        team.channelsBaseAddr = reinterpret_cast<uint64_t>(channel_entities.data());
+        team.channelCntAccumulatePerMember = channel_cnt_accumulate_per_member.data();
         for (uint32_t i = 0; i < MAX_TEAM_MEMBERS; ++i) {
-            channelCntAccumulatePerMember_[i] = i * MAX_CONTEXTS;
+            channel_cnt_accumulate_per_member[i] = i * MAX_CONTEXTS;
         }
-        team_.worldTeamIds = worldTeamIds_.data();
-        worldTeamIds_[0] = 0;
-        worldTeamIds_[1] = MAX_TEAM_MEMBERS - 1;
-        team_.syncMem.remoteMems = remoteMems_.data();
-        team_.syncMem.remoteMemsNum = AIN_RANK_SIZE;
-        team_.syncMem.shadowMem.type = COMM_MEM_TYPE_DEVICE;
-        team_.syncMem.shadowMem.addr = shadowPool_.data();
-        team_.syncMem.shadowMem.size = shadowPool_.size() * sizeof(uint64_t);
-        team_.syncMem.syncMemReq.signalCount = AIN_SIGNAL_COUNT;
-        team_.syncMem.syncMemSize = shadowPool_.size() * sizeof(uint64_t);
+        team.worldTeamIds = world_team_ids.data();
+        world_team_ids[0] = 0;
+        world_team_ids[1] = MAX_TEAM_MEMBERS - 1;
+        team.syncMem.remoteMems = remote_mems.data();
+        team.syncMem.remoteMemsNum = AIN_RANK_SIZE;
+        team.syncMem.shadowMem.type = COMM_MEM_TYPE_DEVICE;
+        team.syncMem.shadowMem.addr = shadow_pool.data();
+        team.syncMem.shadowMem.size = shadow_pool.size() * sizeof(uint64_t);
+        team.syncMem.syncMemReq.signalCount = AIN_SIGNAL_COUNT;
+        team.syncMem.syncMemSize = shadow_pool.size() * sizeof(uint64_t);
 
-        remoteMems_[0].type = COMM_MEM_TYPE_DEVICE;
-        remoteMems_[0].addr = signalPool_.data();
-        remoteMems_[0].size = signalPool_.size() * sizeof(uint64_t);
-        remoteMems_[1].type = COMM_MEM_TYPE_DEVICE;
-        remoteMems_[1].addr = reinterpret_cast<void*>(REMOTE_PEER_BASE);
-        remoteMems_[1].size = REMOTE_PEER_SIZE;
+        remote_mems[0].type = COMM_MEM_TYPE_DEVICE;
+        remote_mems[0].addr = signal_pool.data();
+        remote_mems[0].size = signal_pool.size() * sizeof(uint64_t);
+        remote_mems[1].type = COMM_MEM_TYPE_DEVICE;
+        remote_mems[1].addr = reinterpret_cast<void*>(REMOTE_PEER_BASE);
+        remote_mems[1].size = REMOTE_PEER_SIZE;
 
-        baseRemoteMemAddrs_[0] = reinterpret_cast<uint64_t>(signalPool_.data());
+        base_remote_mem_addrs[0] = reinterpret_cast<uint64_t>(signal_pool.data());
         for (uint32_t i = 1; i < MAX_TEAM_MEMBERS; ++i) {
-            baseRemoteMemAddrs_[i] = REMOTE_PEER_BASE;
+            base_remote_mem_addrs[i] = REMOTE_PEER_BASE;
         }
-        win_.netWin.baseRemoteMemAddr = reinterpret_cast<uint64_t>(baseRemoteMemAddrs_.data());
-        win_.netWin.windowSize = REMOTE_PEER_SIZE;
-        win_.netWin.worldTeamAccumulateId = worldTeamAccumulateId_.data();
-        win_.netWin.netLayerNum = 1;
-        worldTeamAccumulateId_[0] = 0;
+        win.netWin.baseRemoteMemAddr = reinterpret_cast<uint64_t>(base_remote_mem_addrs.data());
+        win.netWin.windowSize = REMOTE_PEER_SIZE;
+        win.netWin.worldTeamAccumulateId = world_team_accumulate_id.data();
+        win.netWin.netLayerNum = 1;
+        world_team_accumulate_id[0] = 0;
 
-        win_.lsaWin.baseVa = reinterpret_cast<uint64_t>(lsaBase_.data());
-        win_.lsaWin.stride = LSA_STRIDE;
-        win_.lsaWin.userSize = lsaBase_.size();
+        win.lsaWin.baseVa = reinterpret_cast<uint64_t>(lsa_base.data());
+        win.lsaWin.stride = LSA_STRIDE;
+        win.lsaWin.userSize = lsa_base.size();
 
-        channel.SetRemoteBuffer(
-            0, reinterpret_cast<uint64_t>(signalPool_.data()), signalPool_.size() * sizeof(uint64_t));
+        // Second window for Get: its remote table entry 0 resolves to the dedicated
+        // receive buffer, so a dst/src swap in the Get path lands on different
+        // addresses and fails the WQE address assertions below.
+        recv_remote_mem_addrs[0] = reinterpret_cast<uint64_t>(recv_base.data());
+        for (uint32_t i = 1; i < MAX_TEAM_MEMBERS; ++i) {
+            recv_remote_mem_addrs[i] = REMOTE_PEER_BASE;
+        }
+        recv_win.netWin.baseRemoteMemAddr = reinterpret_cast<uint64_t>(recv_remote_mem_addrs.data());
+        recv_win.netWin.windowSize = REMOTE_PEER_SIZE;
+        recv_win.netWin.worldTeamAccumulateId = world_team_accumulate_id.data();
+        recv_win.netWin.netLayerNum = 1;
+        recv_win.lsaWin.baseVa = reinterpret_cast<uint64_t>(recv_base.data());
+        recv_win.lsaWin.stride = LSA_STRIDE;
+        recv_win.lsaWin.userSize = recv_base.size();
+
+        channel.set_remote_buffer(
+            0, reinterpret_cast<uint64_t>(signal_pool.data()), signal_pool.size() * sizeof(uint64_t));
     }
 
-    AscendC::HcommTeamHandle GetTeam() { return reinterpret_cast<AscendC::HcommTeamHandle>(&team_); }
+    AscendC::HcommTeamHandle get_team() { return reinterpret_cast<AscendC::HcommTeamHandle>(&team); }
 
-    AscendC::HcclCommSymWindow GetWin() { return reinterpret_cast<AscendC::HcclCommSymWindow>(&win_); }
+    AscendC::HcclCommSymWindow get_win() { return reinterpret_cast<AscendC::HcclCommSymWindow>(&win); }
 
-    uint64_t* GetSignalPool() { return signalPool_.data(); }
+    AscendC::HcclCommSymWindow get_recv_win() { return reinterpret_cast<AscendC::HcclCommSymWindow>(&recv_win); }
 
-    uint64_t* GetShadowPool() { return shadowPool_.data(); }
+    uint64_t get_recv_local_base() const { return reinterpret_cast<uint64_t>(recv_base.data()); }
 
-    uint64_t GetLsaBaseVa() const { return reinterpret_cast<uint64_t>(lsaBase_.data()); }
+    uint64_t* get_signal_pool() { return signal_pool.data(); }
 
-    uint64_t GetLsaStride() const { return win_.lsaWin.stride; }
+    uint64_t* get_shadow_pool() { return shadow_pool.data(); }
 
-    uint32_t GetWorldTeamId(uint32_t memberId) const { return worldTeamIds_[memberId]; }
+    uint64_t get_lsa_base_va() const { return reinterpret_cast<uint64_t>(lsa_base.data()); }
+
+    uint64_t get_lsa_stride() const { return win.lsaWin.stride; }
+
+    uint32_t get_world_team_id(uint32_t member_id) const { return world_team_ids[member_id]; }
 
 private:
-    HcommTeam team_ = {};
-    HcommWindow win_ = {};
-    std::array<uint32_t, MAX_TEAM_MEMBERS> channelCntAccumulatePerMember_ = {};
-    std::array<uint32_t, AIN_RANK_SIZE> worldTeamIds_ = {};
-    std::array<uint64_t, MAX_TEAM_MEMBERS> baseRemoteMemAddrs_ = {};
-    std::array<uint32_t, 1> worldTeamAccumulateId_ = {};
-    std::array<uint8_t, 0x1000> lsaBase_ = {};
-    std::array<AscendC::ChannelEntity, MAX_TEAM_MEMBERS * MAX_CONTEXTS> channelEntities_ = {};
-    std::array<CommMem, AIN_RANK_SIZE> remoteMems_ = {};
-    std::array<uint64_t, AIN_SIGNAL_POOL_SIZE> signalPool_ = {};
-    std::array<uint64_t, AIN_SIGNAL_POOL_SIZE> shadowPool_ = {};
+    HcommTeam team = {};
+    HcommWindow win = {};
+    HcommWindow recv_win = {};
+    std::array<uint64_t, MAX_TEAM_MEMBERS> recv_remote_mem_addrs = {};
+    std::vector<uint64_t> recv_base = std::vector<uint64_t>(0x10, 0);
+    std::array<uint32_t, MAX_TEAM_MEMBERS> channel_cnt_accumulate_per_member = {};
+    std::array<uint32_t, AIN_RANK_SIZE> world_team_ids = {};
+    std::array<uint64_t, MAX_TEAM_MEMBERS> base_remote_mem_addrs = {};
+    std::array<uint32_t, 1> world_team_accumulate_id = {};
+    std::array<uint8_t, 0x1000> lsa_base = {};
+    std::array<asc::ChannelEntity, MAX_TEAM_MEMBERS * MAX_CONTEXTS> channel_entities = {};
+    std::array<CommMem, AIN_RANK_SIZE> remote_mems = {};
+    std::array<uint64_t, AIN_SIGNAL_POOL_SIZE> signal_pool = {};
+    std::array<uint64_t, AIN_SIGNAL_POOL_SIZE> shadow_pool = {};
 };
 
 } // namespace
 
-class AinUrmaTestSuite : public testing::Test {
+class ain_urma_test_suite : public testing::Test {
 protected:
     void SetUp() override
     {
-        blockIdxBak_ = block_idx;
-        pipe_.InitBuffer(descriptorBuf_, DESCRIPTOR_SIZE);
-        descriptor_ = descriptorBuf_.Get<uint8_t>();
-        descriptorUbuf_.addr = reinterpret_cast<__ubuf__ uint8_t*>(descriptor_.GetPhyAddr());
-        descriptorUbuf_.bytes = DESCRIPTOR_SIZE;
-        descriptorUbuf_.eventId = 0;
+        block_idx_bak = block_idx;
+        descriptor_ubuf.addr = reinterpret_cast<__ubuf__ uint8_t*>(descriptor_buffer);
+        descriptor_ubuf.bytes = DESCRIPTOR_SIZE;
+        descriptor_ubuf.event_id = 0;
     }
 
-    void TearDown() override { block_idx = blockIdxBak_; }
+    void TearDown() override { block_idx = block_idx_bak; }
 
-    AscendC::AinDescriptorUbuf GetDescriptor() const { return descriptorUbuf_; }
+    asc::ain_descriptor_ubuf get_descriptor() const { return descriptor_ubuf; }
 
 private:
-    AscendC::TPipe pipe_;
-    AscendC::TBuf<AscendC::TPosition::VECOUT> descriptorBuf_;
-    AscendC::LocalTensor<uint8_t> descriptor_;
-    AscendC::AinDescriptorUbuf descriptorUbuf_ = {};
-    int64_t blockIdxBak_ = 0;
+    alignas(32) uint8_t descriptor_buffer[DESCRIPTOR_SIZE] = {};
+    asc::ain_descriptor_ubuf descriptor_ubuf = {};
+    int64_t block_idx_bak = 0;
 };
 
-TEST_F(AinUrmaTestSuite, PutImmediateCommitsWrite)
+TEST_F(ain_urma_test_suite, PUT_IMMEDIATE_COMMITS_WRITE)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
     ain.Put(
-        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x20, ainResource.GetWin(), 0x40, 8,
-        AscendC::AinRemoteNone{}, GetDescriptor());
+        ain_resource.get_team(), PEER, ain_resource.get_win(), 0x20, ain_resource.get_win(), 0x40, 8,
+        AscendC::ain_remote_none{}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 1U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 1U);
+    EXPECT_EQ(channel.get_sq_head(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 1U);
 }
 
-TEST_F(AinUrmaTestSuite, GetImmediateCommitsRead)
+TEST_F(ain_urma_test_suite, GET_IMMEDIATE_COMMITS_READ)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Get(ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x40, ainResource.GetWin(), 0x20, 8, GetDescriptor());
+    // dst is the local receive window, src is the peer window: swapping either the
+    // windows or the offsets resolves different addresses and fails the WQE checks.
+    ain.Get(
+        ain_resource.get_team(), PEER, ain_resource.get_recv_win(), 0x40, ain_resource.get_win(), 0x20, 8,
+        get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 1U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 1U);
+    EXPECT_EQ(channel.get_sq_head(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 1U);
+
+    const auto* wqe = reinterpret_cast<const uint64_t*>(channel.get_sq_wqe(0));
+    const uint64_t expected_local = ain_resource.get_recv_local_base() + 0x40;
+    const uint64_t expected_remote = REMOTE_PEER_BASE + 0x20;
+    int32_t local_word = -1;
+    int32_t remote_word = -1;
+    for (uint32_t word = 0; word < URMA_WQE_SIZE / sizeof(uint64_t); ++word) {
+        if (wqe[word] == expected_local) {
+            local_word = static_cast<int32_t>(word);
+        }
+        if (wqe[word] == expected_remote) {
+            remote_word = static_cast<int32_t>(word);
+        }
+    }
+    EXPECT_NE(local_word, -1);
+    EXPECT_NE(remote_word, -1);
+    EXPECT_NE(local_word, remote_word);
 }
 
-TEST_F(AinUrmaTestSuite, DelayedPutFlushCommitsAndDrains)
+TEST_F(ain_urma_test_suite, DELAYED_PUT_FLUSH_COMMITS_AND_DRAINS)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Put<AscendC::AinRemoteNone, AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x20, ainResource.GetWin(), 0x40, 8,
-        AscendC::AinRemoteNone{}, GetDescriptor());
+    ain.Put<AscendC::ain_remote_none, AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, ain_resource.get_win(), 0x20, ain_resource.get_win(), 0x40, 8,
+        AscendC::ain_remote_none{}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 1U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_head(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
 
-    ain.Flush(ainResource.GetTeam());
+    ain.Flush(ain_resource.get_team());
 
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
-    EXPECT_EQ(channel.GetSqTail(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_tail(), 1U);
 }
 
-TEST_F(AinUrmaTestSuite, DelayedGetFlushCommitsAndDrains)
+TEST_F(ain_urma_test_suite, DELAYED_GET_FLUSH_COMMITS_AND_DRAINS)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Get<AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x40, ainResource.GetWin(), 0x20, 8, GetDescriptor());
+    ain.Get<AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, ain_resource.get_recv_win(), 0x40, ain_resource.get_win(), 0x20, 8,
+        get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 1U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_head(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
 
-    ain.Flush(ainResource.GetTeam());
+    ain.Flush(ain_resource.get_team());
 
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
-    EXPECT_EQ(channel.GetSqTail(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_tail(), 1U);
+
+    const auto* wqe = reinterpret_cast<const uint64_t*>(channel.get_sq_wqe(0));
+    const uint64_t expected_local = ain_resource.get_recv_local_base() + 0x40;
+    const uint64_t expected_remote = REMOTE_PEER_BASE + 0x20;
+    int32_t local_word = -1;
+    int32_t remote_word = -1;
+    for (uint32_t word = 0; word < URMA_WQE_SIZE / sizeof(uint64_t); ++word) {
+        if (wqe[word] == expected_local) {
+            local_word = static_cast<int32_t>(word);
+        }
+        if (wqe[word] == expected_remote) {
+            remote_word = static_cast<int32_t>(word);
+        }
+    }
+    EXPECT_NE(local_word, -1);
+    EXPECT_NE(remote_word, -1);
+    EXPECT_NE(local_word, remote_word);
 }
 
-TEST_F(AinUrmaTestSuite, DelayedOperationsFlushPeerChannel)
+TEST_F(ain_urma_test_suite, DELAYED_OPERATIONS_FLUSH_PEER_CHANNEL)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Put<AscendC::AinRemoteNone, AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x20, ainResource.GetWin(), 0x40, 8,
-        AscendC::AinRemoteNone{}, GetDescriptor());
-    ain.Get<AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x60, ainResource.GetWin(), 0x80, 8, GetDescriptor());
+    ain.Put<AscendC::ain_remote_none, AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, ain_resource.get_win(), 0x20, ain_resource.get_win(), 0x40, 8,
+        AscendC::ain_remote_none{}, get_descriptor());
+    ain.Get<AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, ain_resource.get_win(), 0x60, ain_resource.get_win(), 0x80, 8, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
 
-    ain.Flush(ainResource.GetTeam());
+    ain.Flush(ain_resource.get_team());
 
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
-    EXPECT_EQ(channel.GetSqTail(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_tail(), 2U);
 }
 
-TEST_F(AinUrmaTestSuite, ReadSignalReturnsValueFromPool)
+TEST_F(ain_urma_test_suite, READ_SIGNAL_RETURNS_VALUE_FROM_POOL)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ainResource.GetSignalPool()[0] = 42;
-    ainResource.GetSignalPool()[1] = 100;
+    ain_resource.get_signal_pool()[0] = 42;
+    ain_resource.get_signal_pool()[1] = 100;
 
-    EXPECT_EQ(ain.ReadSignal(ainResource.GetTeam(), ainResource.GetWin(), 0, 64), 42U);
-    EXPECT_EQ(ain.ReadSignal(ainResource.GetTeam(), ainResource.GetWin(), sizeof(uint64_t), 64), 100U);
+    EXPECT_EQ(ain.read_signal(ain_resource.get_team(), ain_resource.get_win(), 0, 64), 42U);
+    EXPECT_EQ(ain.read_signal(ain_resource.get_team(), ain_resource.get_win(), sizeof(uint64_t), 64), 100U);
 }
 
-TEST_F(AinUrmaTestSuite, ReadSignalWithBitsMasksValue)
+TEST_F(ain_urma_test_suite, READ_SIGNAL_WITH_BITS_MASKS_VALUE)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ainResource.GetSignalPool()[0] = 0xFF;
+    ain_resource.get_signal_pool()[0] = 0xFF;
 
-    EXPECT_EQ(ain.ReadSignal(ainResource.GetTeam(), ainResource.GetWin(), 0, 8), 0xFFU);
-    EXPECT_EQ(ain.ReadSignal(ainResource.GetTeam(), ainResource.GetWin(), 0, 4), 0xFU);
-    EXPECT_EQ(ain.ReadSignal(ainResource.GetTeam(), ainResource.GetWin(), 0, 32), 0xFFU);
+    EXPECT_EQ(ain.read_signal(ain_resource.get_team(), ain_resource.get_win(), 0, 8), 0xFFU);
+    EXPECT_EQ(ain.read_signal(ain_resource.get_team(), ain_resource.get_win(), 0, 4), 0xFU);
+    EXPECT_EQ(ain.read_signal(ain_resource.get_team(), ain_resource.get_win(), 0, 32), 0xFFU);
 }
 
-TEST_F(AinUrmaTestSuite, SignalImmediateCommitsAtomicFAA)
+TEST_F(ain_urma_test_suite, SIGNAL_IMMEDIATE_COMMITS_ATOMIC_FAA)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Signal(ainResource.GetTeam(), PEER, AscendC::AinSignalInc{ainResource.GetWin(), 0}, GetDescriptor());
+    ain.Signal(ain_resource.get_team(), PEER, AscendC::ain_signal_inc{ain_resource.get_win(), 0}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 2U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 2U);
 }
 
-TEST_F(AinUrmaTestSuite, SignalWithSetValueCommitsAtomicFAA)
+TEST_F(ain_urma_test_suite, SIGNAL_WITH_SET_VALUE_COMMITS_ATOMIC_FAA)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Signal(ainResource.GetTeam(), PEER, AscendC::AinSignalAdd{ainResource.GetWin(), 0, 100}, GetDescriptor());
+    ain.Signal(
+        ain_resource.get_team(), PEER, AscendC::ain_signal_add{ain_resource.get_win(), 0, 100}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 2U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 2U);
 }
 
-TEST_F(AinUrmaTestSuite, SignalDelayedDoesNotRingDoorbell)
+TEST_F(ain_urma_test_suite, SIGNAL_DELAYED_DOES_NOT_RING_DOORBELL)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Signal<AscendC::AinSignalInc, AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, AscendC::AinSignalInc{ainResource.GetWin(), 0}, GetDescriptor());
+    ain.Signal<AscendC::ain_signal_inc, AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, AscendC::ain_signal_inc{ain_resource.get_win(), 0}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
 }
 
-TEST_F(AinUrmaTestSuite, SignalFlushCommitsAndDrains)
+TEST_F(ain_urma_test_suite, SIGNAL_FLUSH_COMMITS_AND_DRAINS)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ain.Signal<AscendC::AinSignalInc, AscendC::AinDescriptorUbuf, AscendC::AIN_COMMIT_DELAYED>(
-        ainResource.GetTeam(), PEER, AscendC::AinSignalInc{ainResource.GetWin(), 0}, GetDescriptor());
+    ain.Signal<AscendC::ain_signal_inc, AscendC::ain_descriptor_ubuf, AscendC::AIN_COMMIT_DELAYED>(
+        ain_resource.get_team(), PEER, AscendC::ain_signal_inc{ain_resource.get_win(), 0}, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
 
-    ain.Flush(ainResource.GetTeam());
+    ain.Flush(ain_resource.get_team());
 
-    EXPECT_EQ(channel.GetSqDoorbell(), 0U);
-    EXPECT_EQ(channel.GetSqTail(), 1U);
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
+    EXPECT_EQ(channel.get_sq_tail(), 1U);
 }
 
-TEST_F(AinUrmaTestSuite, WaitSignalSucceedsWhenValueUpdated)
+TEST_F(ain_urma_test_suite, WAIT_SIGNAL_SUCCEEDS_WHEN_VALUE_UPDATED)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    constexpr uint64_t targetValue = 10ULL;
-    ainResource.GetSignalPool()[5] = 9ULL;
+    constexpr uint64_t target_value = 10ULL;
+    ain_resource.get_signal_pool()[5] = 9ULL;
 
-    ainResource.GetSignalPool()[5]++;
+    ain_resource.get_signal_pool()[5]++;
 
-    ain.WaitSignal(ainResource.GetTeam(), ainResource.GetWin(), 5 * sizeof(uint64_t), targetValue, 64);
+    ain.wait_signal(ain_resource.get_team(), ain_resource.get_win(), 5 * sizeof(uint64_t), target_value, 64);
 
-    EXPECT_EQ(ainResource.GetSignalPool()[5], targetValue);
+    EXPECT_EQ(ain_resource.get_signal_pool()[5], target_value);
 }
 
-TEST_F(AinUrmaTestSuite, WaitSignalWithMaskBitsWhenValueUpdated)
+TEST_F(ain_urma_test_suite, WAIT_SIGNAL_WITH_MASK_BITS_WHEN_VALUE_UPDATED)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    constexpr uint64_t testValue = 0x12345678ULL;
-    ainResource.GetSignalPool()[6] = 0x12345677ULL;
+    constexpr uint64_t test_value = 0x12345678ULL;
+    ain_resource.get_signal_pool()[6] = 0x12345677ULL;
 
-    ainResource.GetSignalPool()[6]++;
+    ain_resource.get_signal_pool()[6]++;
 
-    ain.WaitSignal(ainResource.GetTeam(), ainResource.GetWin(), 6 * sizeof(uint64_t), testValue, 32);
+    ain.wait_signal(ain_resource.get_team(), ain_resource.get_win(), 6 * sizeof(uint64_t), test_value, 32);
 
-    EXPECT_EQ(ainResource.GetSignalPool()[6] & 0xFFFFFFFFULL, testValue);
+    EXPECT_EQ(ain_resource.get_signal_pool()[6] & 0xFFFFFFFFULL, test_value);
 }
 
-TEST_F(AinUrmaTestSuite, BarrierSessionSyncSignalsPeersAndWaits)
+TEST_F(ain_urma_test_suite, BARRIER_SESSION_SYNC_SIGNALS_PEERS_AND_WAITS)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ainResource.GetShadowPool()[0] = 0;
-    ainResource.GetSignalPool()[PEER] = 1;
+    ain_resource.get_shadow_pool()[0] = 0;
+    ain_resource.get_signal_pool()[PEER] = 1;
 
-    AscendC::AinBarrierSession<> barrierSession(&ain, ainResource.GetTeam(), 0);
-    barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, GetDescriptor());
+    AscendC::ain_barrier_session<> barrier_session(&ain, ain_resource.get_team(), 0);
+    barrier_session.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, get_descriptor());
 
-    EXPECT_EQ(channel.GetSqHead(), 2U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
 }
 
-TEST_F(AinUrmaTestSuite, BarrierSessionSyncWithTimeout)
+TEST_F(ain_urma_test_suite, BARRIER_SESSION_SYNC_WITH_TIMEOUT)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ainResource.GetShadowPool()[0] = 0;
-    ainResource.GetSignalPool()[PEER] = 1;
+    ain_resource.get_shadow_pool()[0] = 0;
+    ain_resource.get_signal_pool()[PEER] = 1;
 
-    AscendC::AinBarrierSession<> barrierSession(&ain, ainResource.GetTeam(), 0);
-    int32_t result = barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 1000000ULL, GetDescriptor());
+    AscendC::ain_barrier_session<> barrier_session(&ain, ain_resource.get_team(), 0);
+    int32_t result = barrier_session.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 1000000ULL, get_descriptor());
 
     EXPECT_EQ(result, 0);
-    EXPECT_EQ(channel.GetSqHead(), 2U);
+    EXPECT_EQ(channel.get_sq_head(), 2U);
 }
 
-TEST_F(AinUrmaTestSuite, BarrierSessionSyncTimeoutExpired)
+TEST_F(ain_urma_test_suite, BARRIER_SESSION_SYNC_TIMEOUT_EXPIRED)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
     AscendC::Ain<> ain(0);
 
-    ainResource.GetShadowPool()[0] = 0;
-    ainResource.GetSignalPool()[PEER] = 0;
+    ain_resource.get_shadow_pool()[0] = 0;
+    ain_resource.get_signal_pool()[PEER] = 0;
 
-    AscendC::AinBarrierSession<> barrierSession(&ain, ainResource.GetTeam(), 0);
-    int32_t result = barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 1ULL, GetDescriptor());
+    AscendC::ain_barrier_session<> barrier_session(&ain, ain_resource.get_team(), 0);
+    int32_t result = barrier_session.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 1ULL, get_descriptor());
 
     EXPECT_EQ(result, -1);
 }
 
-TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsPeerAddressFromWorldTeamId)
+TEST_F(ain_urma_test_suite, GET_PEER_POINTER_RETURNS_PEER_ADDRESS_FROM_WORLD_TEAM_ID)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
 
-    AscendC::HcommMemHandle ptr = GetPeerPointer(PEER, ainResource.GetWin(), 0x40);
+    AscendC::HcommMemHandle ptr = get_peer_pointer(PEER, ain_resource.get_win(), 0x40);
 
-    uint64_t expected = ainResource.GetLsaBaseVa() + PEER * ainResource.GetLsaStride() + 0x40;
+    uint64_t expected = ain_resource.get_lsa_base_va() + PEER * ain_resource.get_lsa_stride() + 0x40;
     EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), expected);
 }
 
-TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsSelfAddressWithoutStride)
+TEST_F(ain_urma_test_suite, GET_PEER_POINTER_RETURNS_SELF_ADDRESS_WITHOUT_STRIDE)
 {
-    UrmaChannelResource channel;
-    AinTeamResource ainResource(channel);
+    urma_channel_resource channel;
+    ain_team_resource ain_resource(channel);
 
-    AscendC::HcommMemHandle ptr = GetPeerPointer(0, ainResource.GetWin(), 0x80);
+    AscendC::HcommMemHandle ptr = get_peer_pointer(0, ain_resource.get_win(), 0x80);
 
-    EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), ainResource.GetLsaBaseVa() + 0x80);
+    EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), ain_resource.get_lsa_base_va() + 0x80);
 }

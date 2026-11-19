@@ -19,12 +19,13 @@ set(HCOMM_UT_INCLUDE_DIRS
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
 
-add_library(asccomm_ut_hcomm_mock SHARED hcomm_channel_mock.cpp)
-target_include_directories(asccomm_ut_hcomm_mock PRIVATE
+add_library(asccomm_ut_hcomm_legacy_mock SHARED hcomm_channel_mock.cpp)
+target_include_directories(asccomm_ut_hcomm_legacy_mock PRIVATE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
-set_target_properties(asccomm_ut_hcomm_mock PROPERTIES
+set_target_properties(asccomm_ut_hcomm_legacy_mock PROPERTIES
     OUTPUT_NAME hcomm
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mock_hcomm"
 )
@@ -58,8 +59,8 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         ${ASCEND_CANN_PACKAGE_PATH}/tools/simulator/${tikicpu_product_dir}/lib
     )
     if(target_name MATCHES "ascend910B1_AIC")
-        list(PREPEND runtime_dirs "$<TARGET_FILE_DIR:asccomm_ut_hcomm_mock>")
-        add_dependencies(${target_name} asccomm_ut_hcomm_mock)
+        list(PREPEND runtime_dirs "$<TARGET_FILE_DIR:asccomm_ut_hcomm_legacy_mock>")
+        add_dependencies(${target_name} asccomm_ut_hcomm_legacy_mock)
     endif()
     target_link_directories(${target_name} PRIVATE
         ${runtime_dirs}
@@ -76,6 +77,7 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         cpudebug_cceprint
         cpudebug_npuchk
         error_manager
+        unified_dlog
         mmpa
         c_sec
         -Wl,--as-needed

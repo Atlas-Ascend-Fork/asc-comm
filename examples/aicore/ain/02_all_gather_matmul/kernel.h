@@ -71,6 +71,7 @@ __aicore__ inline void GatherRound(
     }
 }
 
+constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 // AIV 侧通信流水：Fused=true 时与 AIC 交换 ready/free；独立通信 kernel 不执行配对通知。
 template <bool Fused, bool Trace = false>
 __aicore__ inline void Gather(
@@ -79,10 +80,9 @@ __aicore__ inline void Gather(
     // 每个 AIV 独占一块 UB，供 AIN 构造通信描述符；实际矩阵数据位于对称 GM window。
     AscendC::TPipe pipe;
     AscendC::TBuf<AscendC::TPosition::VECOUT> buffer;
-    pipe.InitBuffer(buffer, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
+    pipe.InitBuffer(buffer, HCOMM_URMA_TMP_BUF_SIZE);
     auto local = buffer.Get<uint8_t>();
-    AscendC::AinDescriptorUbuf ub{
-        reinterpret_cast<__ubuf__ uint8_t*>(local.GetPhyAddr()), AscendC::HCOMM_URMA_TMP_BUF_SIZE, 0};
+    AscendC::AinDescriptorUbuf ub{reinterpret_cast<__ubuf__ uint8_t*>(local.GetPhyAddr()), HCOMM_URMA_TMP_BUF_SIZE, 0};
     AscendC::Ain<> ain(0);
     for (uint32_t round = 0; round < t.rounds; ++round) {
         if constexpr (Fused) {

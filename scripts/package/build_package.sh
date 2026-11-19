@@ -295,7 +295,6 @@ write_link_manifest()
 {
     cat > "${STAGING_DIR}/links.tsv" <<EOF
 asc/include/comm_api/aicore/hcomm	../../adv_api/hcomm
-asc/impl/comm_api/aicore/hcomm	../../adv_api/detail/hcomm
 EOF
 }
 
@@ -362,16 +361,26 @@ build_package()
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
-    # Match the Hcomm layout installed by asc-devkit's asc-comm integration.
+    # Match the Hcomm layout installed by asc-devkit's asc-comm integration:
+    # legacy hcomm public headers stay real under asc/include/adv_api/hcomm (unchanged path);
+    # asc/include/comm_api/aicore/hcomm is a compatibility symlink to them (unchanged target).
     copy_headers \
-        "${PROJECT_ROOT}/include/aicore/hcomm" \
+        "${PROJECT_ROOT}/src/aicore/legacy/hcomm" \
         "${STAGING_DIR}/payload/asc/include/adv_api/hcomm" \
-        550
+        550 \
+        impl \
+        host
     [[ -f "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/hcomm_host.h" ]] || \
         fail "shared Jetty Host API was not staged: hcomm_host.h"
+    # Legacy Hcomm adapters are staged inside the asccomm impl payload; the legacy and asccomm
+    # public headers resolve them (and the engine) through comm_api relative include paths.
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm" \
-        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
+        "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl" \
+        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore/asccomm/impl" \
+        550
+    copy_headers \
+        "${PROJECT_ROOT}/src/aicore/legacy/jetty" \
+        "${STAGING_DIR}/payload/asc/include/comm_api/aicore/jetty" \
         550
     copy_headers \
         "${PROJECT_ROOT}/include" \
@@ -382,7 +391,7 @@ build_package()
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
         550 \
-        aicore/hcomm
+        aicore/legacy
     # CCU shared libraries are installed under the top-level lib64 only, so
     # they override the in-tree copies shipped by the CANN toolkit.
     install -D -m 550 "${CCU_LIBRARY}" \
