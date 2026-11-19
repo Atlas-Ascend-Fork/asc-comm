@@ -39,7 +39,7 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(ThreadHandle 
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
-| localNotifyIdx | 输入 | 本地Notify索引。当前实现要求`localNotifyIdx < localNotifyNum - 1`，并使用本地Notify数组中`localNotifyIdx + 1`对应的Notify；第0项为内部保留项。 |
+| localNotifyIdx | 输入 | 本地Notify索引。取值范围为`[0, notifyNum)`，其中`notifyNum`为Channel资源中的本地Notify数量。 |
 
 ## 返回值说明
 
@@ -55,7 +55,7 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(ThreadHandle 
 
 ## 约束说明
 
-- `localNotifyIdx`必须满足`localNotifyIdx < localNotifyNum - 1`，其中`localNotifyNum`为Channel资源中的本地Notify数量；第0项为内部保留项，实际使用`localNotifyIdx + 1`对应的Notify。
+- `localNotifyIdx`必须小于`notifyNum`，其中`notifyNum`为Channel资源中的本地Notify数量。
 - 默认超时时间通过[asccomm_set_notify_wait_timeout](../other_operations/asccomm_set_notify_wait_timeout.md)在当前AICPU执行线程中设置；未设置时当前实现为1836秒。
 - 默认超时时间为0表示永久等待，大于0表示具体等待秒数。
 - 通知等待任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。

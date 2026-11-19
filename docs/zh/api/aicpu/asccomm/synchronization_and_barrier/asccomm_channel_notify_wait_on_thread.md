@@ -39,7 +39,7 @@ int32_t asccomm_channel_notify_wait_on_thread(ThreadHandle thread, ChannelHandle
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
 | channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/asccomm/asccomm_primitives.h"`后即可使用。 |
-| localNotifyIdx | 输入 | 本地Notify索引。当前实现要求`localNotifyIdx < localNotifyNum - 1`，并使用本地Notify数组中`localNotifyIdx + 1`对应的Notify；第0项为内部保留项。 |
+| localNotifyIdx | 输入 | 本地Notify索引。取值范围为`[0, notifyNum)`，其中`notifyNum`为Channel资源中的本地Notify数量。 |
 | timeOut | 输入 | 等待超时时间，单位：秒。0表示永久等待，大于0表示指定超时时间。 |
 
 ## 返回值说明
@@ -56,7 +56,7 @@ int32_t asccomm_channel_notify_wait_on_thread(ThreadHandle thread, ChannelHandle
 
 ## 约束说明
 
-- `localNotifyIdx`必须满足`localNotifyIdx < localNotifyNum - 1`，其中`localNotifyNum`为Channel资源中的本地Notify数量；第0项为内部保留项，实际使用`localNotifyIdx + 1`对应的Notify。
+- `localNotifyIdx`必须小于`notifyNum`，其中`notifyNum`为Channel资源中的本地Notify数量。
 - 该接口需与[asccomm_channel_notify_record_on_thread](asccomm_channel_notify_record_on_thread.md)配合使用。
 - 通知等待任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
 - `timeOut`仅作用于Notify等待任务本身。本接口提交等待任务后立即返回，Notify等待超时不通过返回值反馈。
