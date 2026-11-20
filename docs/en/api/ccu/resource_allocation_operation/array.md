@@ -88,8 +88,8 @@ Currently, only the following three specialized types are supported:
     | `array<event> evts(acq_handle, count);` | Binds the first `count` event units reserved on the host side and does not request new event units. |
 
     The type of the `acq_handle` parameter in the constructor must correspond to `T`:
-    - `array<variable>` uses the reservation handle returned by `asccomm_ccu_variable_alloc`;
-    - `array<event>` uses the reservation handle returned by `asccomm_ccu_event_alloc`.
+    - `array<variable>` uses the reservation handle returned by `asccomm_ccu_variable_reserved`;
+    - `array<event>` uses the reservation handle returned by `asccomm_ccu_event_reserved`.
 
     During construction, the resources with sequence numbers `0` to `count - 1` in the reserved segment are bound in order. Element `arr[i]` corresponds to the `i`-th resource in the reserved segment, in one-to-one correspondence with the `index` in `asccomm_ccu_variable_get_addr` and `asccomm_ccu_event_get_addr`.
 
@@ -134,7 +134,7 @@ Usage of binding resources reserved on the host side:
 ```cpp
 using namespace asc::ccu;
 
-// After the host reserves resources through asccomm_ccu_variable_alloc/asccomm_ccu_event_alloc,
+// After the host reserves resources through asccomm_ccu_variable_reserved/asccomm_ccu_event_reserved,
 // put the reserved handles and counts into kernelArg and pass them to the kernel.
 struct my_kernel_arg {
     ccu_variable_handle acq_handle;

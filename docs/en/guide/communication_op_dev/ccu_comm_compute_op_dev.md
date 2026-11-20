@@ -84,14 +84,14 @@ The subsequent content of this chapter is organized according to this process, a
     // Allocate MAPPED_VARIABLE_NUM shared variables: store the communication input (computeBuf) and output (recvBuf) addresses respectively.
     CcuMappedAddrs mappedAddrs{};
     ccu_variable_handle varHandle{};
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_alloc(insHandle, ccuDieId, MAPPED_VARIABLE_NUM, &varHandle)));
+    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_reserved(insHandle, ccuDieId, MAPPED_VARIABLE_NUM, &varHandle)));
     for (uint32_t i = 0; i < MAPPED_VARIABLE_NUM; i++) {
         HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_get_addr(varHandle, i, &mappedAddrs.startVa[i])));
     }
 
     // Allocate EVENT_NUM events: event[0] notifies CCU to start communication, and event[1] notifies AIV of communication completion.
     ccu_event_handle eventHandle{};
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_alloc(insHandle, ccuDieId, EVENT_NUM, &eventHandle)));
+    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_reserved(insHandle, ccuDieId, EVENT_NUM, &eventHandle)));
     for (uint32_t i = 0; i < EVENT_NUM; i++) {
         HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_get_addr(eventHandle, i, &mappedAddrs.eventVa[i])));
     }
@@ -275,6 +275,6 @@ The post-synchronization process is consistent with that of communication-only o
 
 - Before running, you must set `HCCL_OP_EXPANSION_MODE=CCU_SCHED`.
 - Compute and communication must be synchronized through `aclrtSynchronizeStream` for `streamAiv` and `streamCcu` respectively. The dependency between them is guaranteed only by events. Avoid forcing serialization through inter-stream synchronization.
-- Shared variables and events are allocated from the CCU instance resource pool through `asccomm_ccu_variable_alloc` and `asccomm_ccu_event_alloc`. The number must not exceed the corresponding resource quota within the instance.
+- Shared variables and events are allocated from the CCU instance resource pool through `asccomm_ccu_variable_reserved` and `asccomm_ccu_event_reserved`. The number must not exceed the corresponding resource quota within the instance.
 - A CCU cannot use the network device of another IO die across dies. The channels used in the kernel must belong to the same die.
 - The sample uses all NPU devices visible in the environment. The number of devices must not exceed `CCU_MAX_RANK_SIZE`.

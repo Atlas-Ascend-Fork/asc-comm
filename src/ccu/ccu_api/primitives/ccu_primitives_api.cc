@@ -18,6 +18,14 @@
 namespace asc {
 namespace ccu {
 
+namespace {
+
+// array 允许 size()==0（显式 0 长度构造或 move 之后），此时 elems_ 为空且 operator[] 不做边界检查，
+// 直接取 v_arr[0] 会空指针解引用；空数组时 num 非 0 必然满足 num > size()，故用下式即可覆盖两种情况。
+bool check_var_array(const array<variable>& v_arr, uint32_t num) { return num != 0 && num <= v_arr.size(); }
+
+} // namespace
+
 // ==================== 资源创建 ====================
 
 template <>
@@ -64,6 +72,9 @@ ccu_result load_arg(variable v, uint32_t arg_id) { return ::asc::ccu_load_arg(v.
 
 ccu_result load(uint64_t addr, array<variable>& v_arr, uint32_t num)
 {
+    if (!check_var_array(v_arr, num)) {
+        return ccu_result::CCU_E_PARA;
+    }
     return ::asc::ccu_load_var(addr, v_arr[0].handle, num);
 }
 
@@ -71,6 +82,9 @@ ccu_result load(uint64_t addr, variable v) { return ::asc::ccu_load_var(addr, v.
 
 ccu_result load(variable addr_var, array<variable>& v_arr, uint32_t num)
 {
+    if (!check_var_array(v_arr, num)) {
+        return ccu_result::CCU_E_PARA;
+    }
     return ::asc::ccu_load_var_from_var_addr(addr_var.handle, v_arr[0].handle, num);
 }
 
@@ -81,6 +95,9 @@ ccu_result load(variable addr_var, variable v)
 
 ccu_result store(uint64_t addr, array<variable>& v_arr, uint32_t num)
 {
+    if (!check_var_array(v_arr, num)) {
+        return ccu_result::CCU_E_PARA;
+    }
     return ::asc::ccu_store_var(addr, v_arr[0].handle, num);
 }
 
@@ -88,6 +105,9 @@ ccu_result store(uint64_t addr, variable v) { return ::asc::ccu_store_var(addr, 
 
 ccu_result store(variable addr_var, array<variable>& v_arr, uint32_t num)
 {
+    if (!check_var_array(v_arr, num)) {
+        return ccu_result::CCU_E_PARA;
+    }
     return ::asc::ccu_store_var_to_var_addr(addr_var.handle, v_arr[0].handle, num);
 }
 

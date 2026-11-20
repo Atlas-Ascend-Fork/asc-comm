@@ -88,8 +88,8 @@ public:
     | `array<event> evts(acq_handle, count);` | 绑定Host侧预约的前`count`个event单元，不申请新的event单元。 |
 
     构造函数中的`acq_handle`参数类型须与`T`对应：
-    - `array<variable>`用`asccomm_ccu_variable_alloc`返回的预约句柄；
-    - `array<event>`用`asccomm_ccu_event_alloc`返回的预约句柄。
+    - `array<variable>`用`asccomm_ccu_variable_reserved`返回的预约句柄；
+    - `array<event>`用`asccomm_ccu_event_reserved`返回的预约句柄。
 
     构造时依次绑定预约段内序号`0`到`count - 1`的资源，元素`arr[i]`对应预约段内的第`i`个资源，与`asccomm_ccu_variable_get_addr`、`asccomm_ccu_event_get_addr`中的`index`一一对应。
 
@@ -138,7 +138,7 @@ ccu_result my_kernel(ccu_kernel_arg arg) {
 ```cpp
 using namespace asc::ccu;
 
-// Host侧通过asccomm_ccu_variable_alloc/asccomm_ccu_event_alloc预约资源后，
+// Host侧通过asccomm_ccu_variable_reserved/asccomm_ccu_event_reserved预约资源后，
 // 把预约句柄和个数放进kernelArg传入kernel
 struct my_kernel_arg {
     ccu_variable_handle acq_handle;

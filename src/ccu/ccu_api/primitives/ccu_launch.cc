@@ -325,7 +325,8 @@ static ccu_result ccu_alloc_var_event_res(
     return ccu_result::CCU_SUCCESS;
 }
 
-ccu_result asccomm_ccu_variable_alloc(void* ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
+ccu_result asccomm_ccu_variable_reserved(
+    void* ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
 {
     CCU_CHK_PTR_NULL_ASC(ins_handle);
     HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);
@@ -336,7 +337,7 @@ ccu_result asccomm_ccu_variable_alloc(void* ins_handle, uint8_t die_id, uint32_t
     return ccu_result::CCU_SUCCESS;
 }
 
-ccu_result asccomm_ccu_event_alloc(void* ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
+ccu_result asccomm_ccu_event_reserved(void* ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
 {
     CCU_CHK_PTR_NULL_ASC(ins_handle);
     HcommCcuInstanceEntity instanceHandle = *static_cast<HcommCcuInstanceEntity*>(ins_handle);

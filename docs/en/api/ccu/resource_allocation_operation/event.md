@@ -66,8 +66,8 @@ public:
 
     | Parameter | Input/Output | Description |
     | --- | --- | --- |
-    | acq_handle | Input | Reservation handle, that is, the handle returned after the host side calls `asccomm_ccu_event_alloc` to reserve a segment of physical event slots from the instance resource pool in advance, and passes it to the kernel through `kernelArg`. |
-    | index | Input | Index of the event slot to bind within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of event slots reserved by `asccomm_ccu_event_alloc` on the host side). If the value is out of this range, a `ccu_result::CCU_E_PARA` exception is thrown. |
+    | acq_handle | Input | Reservation handle, that is, the handle returned after the host side calls `asccomm_ccu_event_reserved` to reserve a segment of physical event slots from the instance resource pool in advance, and passes it to the kernel through `kernelArg`. |
+    | index | Input | Index of the event slot to bind within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of event slots reserved by `asccomm_ccu_event_reserved` on the host side). If the value is out of this range, a `ccu_result::CCU_E_PARA` exception is thrown. |
 
     Constructing multiple `event` objects with the same reservation handle and the same `index` makes them share the same physical event slot.
 

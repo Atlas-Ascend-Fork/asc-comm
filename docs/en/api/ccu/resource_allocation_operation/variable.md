@@ -78,8 +78,8 @@ public:
 
     | Parameter | Input/Output | Description |
     | --- | --- | --- |
-    | var_handle | Input | Reserved handle, which is returned after the host side calls `asccomm_ccu_variable_alloc` to pre-allocate a segment of physical scalar registers from the instance resource pool, and is passed into the kernel through `kernelArg`. |
-    | index | Input | Sequence number of the scalar register to be bound within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of scalar registers reserved by `asccomm_ccu_variable_alloc` on the host side). If the value is out of range, a `ccu_result::CCU_E_PARA` exception is thrown. |
+    | var_handle | Input | Reserved handle, which is returned after the host side calls `asccomm_ccu_variable_reserved` to pre-allocate a segment of physical scalar registers from the instance resource pool, and is passed into the kernel through `kernelArg`. |
+    | index | Input | Sequence number of the scalar register to be bound within the reserved segment. The default value is `0`, and the value range is `[0, num-1]` (`num` is the number of scalar registers reserved by `asccomm_ccu_variable_reserved` on the host side). If the value is out of range, a `ccu_result::CCU_E_PARA` exception is thrown. |
 
     Constructing multiple `variable` objects with the same reserved handle and the same `index` makes them share the same physical scalar register.
 

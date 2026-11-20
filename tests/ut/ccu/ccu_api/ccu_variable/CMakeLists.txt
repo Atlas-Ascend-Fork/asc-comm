@@ -17,8 +17,10 @@
 set(src_to_test_list
     main.cc
     ut_ccu_variable_test.cc
+    ut_ccu_primitives_api_test.cc
     ccu_variable_ut_stub.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/primitives/ccu_primitives_impl.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/primitives/ccu_primitives_api.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/primitives/ccu_type_api.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/primitives/ccu_detail_api.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/logical/ccu_rep_and.cc

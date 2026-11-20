@@ -82,14 +82,14 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     // 申请MAPPED_VARIABLE_NUM个共享变量：分别存放通信输入(computeBuf)、输出(recvBuf)地址
     CcuMappedAddrs mappedAddrs{};
     ccu_variable_handle varHandle{};
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_alloc(insHandle, ccuDieId, MAPPED_VARIABLE_NUM, &varHandle)));
+    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_reserved(insHandle, ccuDieId, MAPPED_VARIABLE_NUM, &varHandle)));
     for (uint32_t i = 0; i < MAPPED_VARIABLE_NUM; i++) {
         HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_variable_get_addr(varHandle, i, &mappedAddrs.startVa[i])));
     }
 
     // 申请EVENT_NUM个事件：event[0]通知CCU开始通信，event[1]通知AIV通信完成
     ccu_event_handle eventHandle{};
-    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_alloc(insHandle, ccuDieId, EVENT_NUM, &eventHandle)));
+    HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_reserved(insHandle, ccuDieId, EVENT_NUM, &eventHandle)));
     for (uint32_t i = 0; i < EVENT_NUM; i++) {
         HCCLCHECK(ConvertCcuToHccl(asccomm_ccu_event_get_addr(eventHandle, i, &mappedAddrs.eventVa[i])));
     }
@@ -273,6 +273,6 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 - 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
 - 计算与通信需分别通过`aclrtSynchronizeStream`同步`streamAiv`与`streamCcu`，二者之间的依赖仅由事件保证，应避免通过Stream间同步强制串行。
-- 共享变量与事件由`asccomm_ccu_variable_alloc`、`asccomm_ccu_event_alloc`从CCU实例资源池分配，数量不得超过实例内相应资源份额。
+- 共享变量与事件由`asccomm_ccu_variable_reserved`、`asccomm_ccu_event_reserved`从CCU实例资源池分配，数量不得超过实例内相应资源份额。
 - 一个CCU不能跨Die使用另一个IO Die的网络设备，Kernel内所用Channel须属同一Die。
 - 样例会使用环境中可见的全部NPU设备，设备数量不能超过`CCU_MAX_RANK_SIZE`。

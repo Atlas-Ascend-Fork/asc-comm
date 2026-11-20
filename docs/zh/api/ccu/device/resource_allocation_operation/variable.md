@@ -76,8 +76,8 @@ public:
 
     | 参数名 | 输入/输出 | 描述 |
     | --- | --- | --- |
-    | var_handle | 输入 | 预约句柄，即Host侧调用`asccomm_ccu_variable_alloc`预先从实例资源池划出一段物理标量寄存器后返回的句柄，通过`kernelArg`传入kernel。 |
-    | index | 输入 | 要绑定的标量寄存器在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_variable_alloc`预约的标量寄存器数量），超出该范围抛出`ccu_result::CCU_E_PARA`异常。 |
+    | var_handle | 输入 | 预约句柄，即Host侧调用`asccomm_ccu_variable_reserved`预先从实例资源池划出一段物理标量寄存器后返回的句柄，通过`kernelArg`传入kernel。 |
+    | index | 输入 | 要绑定的标量寄存器在预约段内的序号，默认值为`0`，取值范围为`[0, num-1]`（`num`为Host侧`asccomm_ccu_variable_reserved`预约的标量寄存器数量），超出该范围抛出`ccu_result::CCU_E_PARA`异常。 |
 
     多次用同一预约句柄和同一`index`构造，得到的多个`variable`对象共享同一个物理标量寄存器。
 

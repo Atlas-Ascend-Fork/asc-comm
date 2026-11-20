@@ -27,7 +27,7 @@ extern "C" {
  * @param_[out] var_handle Reservation handle; set to zero on failure.
  * @return ccu_result::CCU_SUCCESS on success; otherwise a ccu_result error code.
  */
-extern ccu_result asccomm_ccu_variable_alloc(
+extern ccu_result asccomm_ccu_variable_reserved(
     void* ins_handle, uint8_t die_id, uint32_t num_, ccu_variable_handle* var_handle);
 
 /**
@@ -38,12 +38,12 @@ extern ccu_result asccomm_ccu_variable_alloc(
  * @param_[out] event_handle Reservation handle; set to zero on failure.
  * @return ccu_result::CCU_SUCCESS on success; otherwise a ccu_result error code.
  */
-extern ccu_result asccomm_ccu_event_alloc(
+extern ccu_result asccomm_ccu_event_reserved(
     void* ins_handle, uint8_t die_id, uint32_t num_, ccu_event_handle* event_handle);
 
 /**
  * @brief Query the process-accessible address of a reserved variable resource.
- * @param_[in] var_handle Handle returned by asccomm_ccu_variable_alloc.
+ * @param_[in] var_handle Handle returned by asccomm_ccu_variable_reserved.
  * @param_[in] index Index within the reserved range.
  * @param_[out] va Process-accessible virtual address.
  * @return ccu_result::CCU_SUCCESS on success; otherwise a ccu_result error code.
@@ -52,7 +52,7 @@ extern ccu_result asccomm_ccu_variable_get_addr(ccu_variable_handle var_handle, 
 
 /**
  * @brief Query the process-accessible address of a reserved event resource.
- * @param_[in] event_handle Handle returned by asccomm_ccu_event_alloc.
+ * @param_[in] event_handle Handle returned by asccomm_ccu_event_reserved.
  * @param_[in] index Index within the reserved range.
  * @param_[out] va Process-accessible virtual address.
  * @return ccu_result::CCU_SUCCESS on success; otherwise a ccu_result error code.
