@@ -148,5 +148,12 @@
   - [数据类型定义](./ccu/datatype_definition/_dump_node.md)
     - [简介](./ccu/datatype_definition/README.md)
     - [ccu_result](./ccu/datatype_definition/ccu_result.md)
+    - [ccu_variable_handle](./ccu/datatype_definition/ccu_variable_handle.md)
+    - [ccu_event_handle](./ccu/datatype_definition/ccu_event_handle.md)
+    - [ccu_address_handle](./ccu/datatype_definition/ccu_address_handle.md)
+    - [ccu_buffer_handle](./ccu/datatype_definition/ccu_buffer_handle.md)
+    - [ccu_local_addr_handle](./ccu/datatype_definition/ccu_local_addr_handle.md)
+    - [ccu_remote_addr_handle](./ccu/datatype_definition/ccu_remote_addr_handle.md)
+    - [ccu_kernel_arg](./ccu/datatype_definition/ccu_kernel_arg.md)
 
 - [预留接口](./reserve.md)
