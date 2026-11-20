@@ -146,7 +146,8 @@ typedef struct HcclCommConfigDef {
     uint32_t hcclDeterministic;
     char hcclCommName[COMM_NAME_MAX_LENGTH];
     char hcclUdi[UDI_MAX_LENGTH];
-    uint32_t hcclOpExpansionMode; // 0:默认值 1:host 2:aicpu 3:aiv 4:CCU_MS 5:CCU_SCHED 6:AIV_ONLY
+    // HcclCommConfig配置值，与HcclOpExpansionMode查询枚举的取值空间不同。
+    uint32_t hcclOpExpansionMode; // 0:默认值 1:host 2:aicpu 3:aiv 4:AIV_ONLY 5:CCU_MS 6:CCU_SCHED
     uint32_t hcclRdmaTrafficClass;
     uint32_t hcclRdmaServiceLevel;
     uint32_t hcclWorldRankID;
