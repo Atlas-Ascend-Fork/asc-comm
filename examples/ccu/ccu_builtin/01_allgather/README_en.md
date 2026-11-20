@@ -85,11 +85,12 @@ Perform the following steps in the sample root directory to build and run the sa
 
 - Set Environment Variables
 
-  Configure the development environment according to how the CANN development kit is installed. The sample sets
+  Configure the development environment according to how the CANN development kit is installed, and enable CCU scheduling mode. The sample sets
   `CCU_SCHED` through `Mc2SetCcCommEngine`.
 
   ```bash
   source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
   ```
 
   > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is `/usr/local/Ascend`.
@@ -139,6 +140,7 @@ Perform the following steps in the sample root directory to build and run the sa
 
 - `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
+- Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
   `all_gather_kernel`; both must use the same resource context.
 - The AICore communication request must be submitted after the CCU Server is started. `Hccl::AllGather` is not a host-side direct AllGather operation.

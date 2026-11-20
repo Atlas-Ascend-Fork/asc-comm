@@ -15,6 +15,6 @@
 
 - 样例支持Ascend 950PR&950DT系列产品，具体CANN版本要求以各子样例README为准。
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- 直调样例运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`，以子样例README为准。
+- builtin和直调样例运行前都必须显式设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`，以子样例README为准。
 
 各样例的编译命令、执行结果和注意事项参见对应目录下的README。

@@ -99,6 +99,7 @@ Run the following commands in this sample directory. This sample supports NPU ru
 
 ```bash
 source ${install_path}/cann/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
@@ -122,6 +123,7 @@ rankId: 1, expected: 3, validation: PASS
 
 - `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
+- Set `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before running the sample.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
   `reduce_scatter_kernel`; both must use the same resource context.
 - The sample uses `dav-3510` by default and applies only to Ascend 950PR&950DT products.

@@ -19,6 +19,7 @@ This directory provides CCU samples based on MC2 builtin interfaces. The host pr
 
 - The samples support Ascend 950PR&950DT products with CANN 9.2.0 or later.
 - At least two NPUs are required to run the samples. Single-NPU environments only support compilation verification.
+- `HCCL_OP_EXPANSION_MODE=CCU_SCHED` must be set explicitly before execution.
 - Each sample uses all visible NPU devices, and the device count must not exceed `CCU_MAX_RANK_SIZE`.
 
 See the README in each sample directory for build commands, expected results, and notes.

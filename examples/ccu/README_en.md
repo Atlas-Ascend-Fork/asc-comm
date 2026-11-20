@@ -15,6 +15,6 @@ This directory provides CCU communication and dataplane samples, covering builti
 
 - The samples support Ascend 950PR&950DT products. See each sample README for the exact CANN version requirement.
 - At least two NPUs are required to run the samples. Single-NPU environments only support compilation verification.
-- Direct samples require `HCCL_OP_EXPANSION_MODE=CCU_SCHED` before execution. Follow each sample README.
+- Both builtin and direct samples require `HCCL_OP_EXPANSION_MODE=CCU_SCHED` to be set explicitly before execution. Follow each sample README.
 
 See the README in each sample directory for build commands, expected results, and notes.

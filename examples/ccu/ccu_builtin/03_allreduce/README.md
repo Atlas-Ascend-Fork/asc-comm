@@ -90,10 +90,11 @@ ccResCtx
 
 - 配置环境变量
 
-  请根据当前环境上CANN开发套件包的安装方式配置开发环境。
+  请根据当前环境上CANN开发套件包的安装方式配置开发环境，并开启CCU调度模式。
 
   ```bash
   source ${install_path}/cann/set_env.sh
+  export HCCL_OP_EXPANSION_MODE=CCU_SCHED
   ```
 
   > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
@@ -144,6 +145,7 @@ ccResCtx
 
 - `CheckOpResSufficient`仅做资源预检查，不会占用通信资源；该接口仅支持`CCU_SCHED`场景，其他场景直接返回`HCCL_SUCCESS`。
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `all_reduce_kernel`，二者必须使用同一个资源上下文。
 - AICore通信任务需要在CCU Server启动后提交，`Hccl::AllReduce`不是Host侧直接执行的AllReduce。

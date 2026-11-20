@@ -96,6 +96,7 @@ ccResCtx
 
 ```bash
 source ${install_path}/cann/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
@@ -111,6 +112,7 @@ make -j
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- 运行前必须设置`HCCL_OP_EXPANSION_MODE=CCU_SCHED`。
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `all_to_all_v_kernel`，二者必须使用同一个资源上下文。
 - 当前样例默认使用`dav-3510`架构，仅适用于Ascend 950PR&950DT系列产品。
