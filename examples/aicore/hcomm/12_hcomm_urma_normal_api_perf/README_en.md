@@ -83,18 +83,16 @@ All cases share one **2GB** registered buffer, split by absolute offsets:
 | Offset | Size | Region |
 | --- | --- | --- |
 | 0 | 256MB | source: local send source / peer `ReadNbi` read source |
-| 256MB | 512MB | write: peer `WriteNbi` landing region (advances `dst + i*len` per round) |
-| 768MB | 512MB | read: local `ReadNbi` landing region (advances per round) |
-| 1280MB | 512MB | notify: peer `WriteWithNotifyNbi` landing region (advances per round) |
+| 256MB | 512MB | write: peer `WriteNbi` landing region (one `len` window reused per round) |
+| 768MB | 512MB | read: local `ReadNbi` landing region (one `len` window reused per round) |
+| 1280MB | 512MB | notify: peer `WriteWithNotifyNbi` landing region (one `len` window reused per round) |
 | 1792MB | 8B | flag: single notify flag slot (fixed address) |
 
 Notes:
 
-- **Fixed source, advancing destination**: the Write/Notify source stays in the local source
-  region; the destination advances per round to avoid self-overwrite; the Read source stays in
-  the peer source region and its local landing region advances.
-- **Rounds cap**: each case requires `rounds * len <= 512MB` (landing-region capacity); the
-  host validates every case up front and aborts on violation.
+- **Fixed address windows**: the Write/Notify source stays in the local source region; all
+  rounds reuse the same `len` window pair. Rounds only repeats the transfer and does not
+  participate in memory-capacity validation.
 - Initial values: the source region is filled with `100 + myRank` (int32 pattern); landing
   regions and the flag slot are zeroed.
 
@@ -122,7 +120,7 @@ refill and copies landing regions back in chunks for comparison. Per case (alway
 memory), only the selected APIs are validated:
 
 - the source region still equals `100 + myRank` (untouched);
-- the actually written `rounds*len` span of the write / read / notify regions equals
+- the actually written `len` window of the write / read / notify regions equals
   `100 + peerRank`;
 - the notify flag slot equals `300` (fixed value): the single slot is written concurrently by
   `rounds` requests; WQE in-order completion constrains completion reporting only, not the
@@ -183,7 +181,7 @@ Follow these steps in the example directory. NPU mode only.
   | `<tcp://ip:port>` | none | Control-channel address that rank 0 listens on, used for root-info exchange and Host barriers; use distinct ports for parallel instances |
   | `--ranks` | `2` | Number of rank processes to fork (>= 2); extra ranks are idle under `p2p`, all active under `ring` |
   | `--perf_type` | `p2p` | Communication topology: `p2p` (ranks 0/1 symmetric) or `ring` (unidirectional ring, e.g. 4 ranks: 0→1→2→3→0) |
-  | `--exponent-range` | `3 17` | Data-size exponent range (size = 2^exp, inclusive, e.g. 3 17 = 8B..128KB) |
+  | `--exponent-range` | `3 17` | Data-size exponent range (size = 2^exp, inclusive; supported 3..28, default 8B..128KB) |
   | `--exponent` | none | Single exponent (equivalent to `--exponent-range exp exp`) |
   | `--api` | `all` | APIs to measure: `all`, or a comma-separated subset of `write`/`read`/`notify` |
   | `--metric` | `all` | `all`, or a comma-separated subset of `lat`/`bw` |
@@ -213,8 +211,8 @@ Follow these steps in the example directory. NPU mode only.
 ## Notes
 
 - At least 2 NPUs are required; single-card environments support compile-only validation.
-- Landing-region capacity is 512MB per case: parameter combinations with `rounds * len` beyond
-  that abort at startup (reduce `--rounds` or narrow `--exponent-range`).
+- Exponents support `3..28` (8B..256MB); `--rounds` only needs to be a positive integer and
+  has no static cap.
 - Under the latency metric no Drain happens inside the timed window, so `rounds` requests must
   all reside in the SQ; SQ-overflow shows up as a post-window Post return code
   (`WriteWithNotifyNbi` occupies 2 WQEBBs, the others 1).

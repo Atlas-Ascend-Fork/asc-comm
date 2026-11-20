@@ -82,20 +82,20 @@ public:
             context_->result = KERNEL_INVALID_ARGS;
             return;
         }
-        const CaseLayout layout = CaseLayoutOf(len, batchCap);
+        const CaseLayout layout = CaseLayoutOf(len);
         if (layout.totalBytes > BUFFER_BYTES) {
             context_->result = KERNEL_BUFFER_OVERFLOW;
             return;
         }
 
-        // batch 暂存缓冲大小（每条 WQEBB 占用取三操作里最大的 notify），并校验 UB 预算
+        // batch 暂存缓冲大小（每条 WQEBB 占用取三操作里最大的 notify），并校验 UB 预算。
         const uint32_t maxWqebbPerOp = (apiMask & API_NOTIFY) ? NOTIFY_WQEBB : 1U;
-        const uint32_t batchBufBytes = batchCap * maxWqebbPerOp * WQEBB_BYTES;
+        const uint64_t batchBufBytes = static_cast<uint64_t>(batchCap) * maxWqebbPerOp * WQEBB_BYTES;
         if (batchBufBytes > BATCH_UB_BUDGET_BYTES) {
             context_->result = KERNEL_UB_OVERFLOW;
             return;
         }
-        pipe_->InitBuffer(batchBuffer_, batchBufBytes);
+        pipe_->InitBuffer(batchBuffer_, static_cast<uint32_t>(batchBufBytes));
         batchTensor_ = batchBuffer_.Get<uint8_t>();
 
         // --api all 时一次 launch 依次测三操作（OP_* 先换算成 apiMask 位再查掩码）
@@ -149,72 +149,76 @@ private:
         }
     }
 
-    // warmup：固定 WARMUP_ROUNDS(=1) 个完整批轮次（B 条 → BatchCommit → Drain）
+    // warmup：固定 WARMUP_ROUNDS(=50) 个完整批轮次（B 条 → BatchCommit → Drain）
     template <int op>
     __aicore__ inline bool Warmup(
         AscendC::UbcBatchHandle& batchHandle, uint32_t lastBatchIndex, uint32_t msgLen, GM_ADDR localFixed,
-        GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep, uint64_t remoteStep)
+        GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
-        for (uint32_t i = 0; i < lastBatchIndex; ++i) {
-            const int32_t ret = PostBatch<op, false>(
-                batchHandle, msgLen, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+        for (uint32_t round = 0; round < WARMUP_ROUNDS; ++round) {
+            for (uint32_t i = 0; i < lastBatchIndex; ++i) {
+                const int32_t ret = PostBatch<op, false>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
+                if (ret != AscendC::HCOMM_SUCCESS) {
+                    context_->result = KERNEL_WARMUP_FAILED;
+                    context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
+                    return false;
+                }
+            }
+            int32_t ret = PostBatch<op, true>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
+            if (ret != AscendC::HCOMM_SUCCESS) {
+                context_->result = KERNEL_WARMUP_FAILED;
+                context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
+                return false;
+            }
+            ret = hcomm_.BatchCommit(batchHandle);
+            if (ret != AscendC::HCOMM_SUCCESS) {
+                context_->result = KERNEL_WARMUP_FAILED;
+                context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
+                return false;
+            }
+            ret = hcomm_.Drain(batchHandle);
+            context_->drainRet = static_cast<uint32_t>(ret);
             if (ret != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_WARMUP_FAILED;
                 context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
                 return false;
             }
         }
-        int32_t ret = PostBatch<op, true>(
-            batchHandle, msgLen, localFixed + lastBatchIndex * localStep, remoteAddr + lastBatchIndex * remoteStep,
-            flagSlot);
-        if (ret != AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_WARMUP_FAILED;
-            context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
-            return false;
-        }
-        ret = hcomm_.BatchCommit(batchHandle);
-        if (ret != AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_WARMUP_FAILED;
-            context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
-            return false;
-        }
-        ret = hcomm_.Drain(batchHandle);
-        context_->drainRet = static_cast<uint32_t>(ret);
-        if (ret != AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_WARMUP_FAILED;
-            context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
-            return false;
-        }
         return true;
     }
 
-    // 时延档：逐轮分段计时，Drain 在段外，BatchCommit 依 COMMIT_IN_WINDOW
-    // 计入或挪到段外（模板参数，热循环内零分支）
+    // 时延档：逐轮分段计时，Drain 在段外。COMMIT_IN_WINDOW=true 时 Post 与
+    // BatchCommit 同窗；false 时 Post 窗先停表，BatchCommit 再单独开窗计时。
     template <int op, bool COMMIT_IN_WINDOW>
     __aicore__ inline bool RunLatency(
         AscendC::UbcBatchHandle& batchHandle, uint32_t rounds, uint32_t lastBatchIndex, uint32_t msgLen,
-        GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep, uint64_t remoteStep)
+        GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
         uint64_t elapsed = 0;
+        uint64_t commitElapsed = 0;
         int32_t retPost = AscendC::HCOMM_SUCCESS;
         int32_t retCommit = AscendC::HCOMM_SUCCESS;
         for (uint32_t r = 0; r < rounds; ++r) {
             AscendC::PipeBarrier<PIPE_ALL>();
             uint64_t t0 = AscendC::GetSystemCycle();
             for (uint32_t i = 0; i < lastBatchIndex; ++i) {
-                retPost = PostBatch<op, false>(
-                    batchHandle, msgLen, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+                retPost = PostBatch<op, false>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
             }
-            retPost = PostBatch<op, true>(
-                batchHandle, msgLen, localFixed + lastBatchIndex * localStep, remoteAddr + lastBatchIndex * remoteStep,
-                flagSlot);
+            retPost = PostBatch<op, true>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
             if constexpr (COMMIT_IN_WINDOW) {
                 retCommit = hcomm_.BatchCommit(batchHandle);
             }
             AscendC::PipeBarrier<PIPE_ALL>();
             uint64_t t1 = AscendC::GetSystemCycle();
             elapsed += t1 - t0;
-            // 计时段结束（以下出窗）
+            if constexpr (!COMMIT_IN_WINDOW) {
+                AscendC::PipeBarrier<PIPE_ALL>();
+                uint64_t c0 = AscendC::GetSystemCycle();
+                retCommit = hcomm_.BatchCommit(batchHandle);
+                AscendC::PipeBarrier<PIPE_ALL>();
+                uint64_t c1 = AscendC::GetSystemCycle();
+                commitElapsed += c1 - c0;
+            }
             if (retPost != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_LAT_POST_FAILED;
                 context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(retPost);
@@ -225,17 +229,8 @@ private:
                 context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(retCommit);
                 return false;
             }
-            // 段外收尾：commit=false 时补发 BatchCommit，再 Drain 清空 SQ 进下一轮
-            int32_t ret = AscendC::HCOMM_SUCCESS;
-            if constexpr (!COMMIT_IN_WINDOW) {
-                ret = hcomm_.BatchCommit(batchHandle);
-                if (ret != AscendC::HCOMM_SUCCESS) {
-                    context_->result = KERNEL_LAT_COMMIT_FAILED;
-                    context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
-                    return false;
-                }
-            }
-            ret = hcomm_.Drain(batchHandle);
+            // 段外清空 SQ，保证下一轮从空批次开始。
+            int32_t ret = hcomm_.Drain(batchHandle);
             context_->drainRet = static_cast<uint32_t>(ret);
             if (ret != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_LAT_DRAIN_FAILED;
@@ -244,33 +239,33 @@ private:
             }
         }
         context_->timing[op][LAT_CYCLES_INDEX] = elapsed;
+        if constexpr (!COMMIT_IN_WINDOW) {
+            context_->timing[op][COMMIT_CYCLES_INDEX] = commitElapsed;
+        }
         return true;
     }
 
-    // 带宽档：单窗口包住全部轮次 + 每批 BatchCommit + 末尾 Drain，端到端
+    // 带宽档：单窗口包住全部轮次的 Post、BatchCommit 和 Drain；返回码出窗后判断。
     template <int op>
     __aicore__ inline bool RunBandwidth(
         AscendC::UbcBatchHandle& batchHandle, uint32_t rounds, uint32_t lastBatchIndex, uint32_t msgLen,
-        GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep, uint64_t remoteStep)
+        GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
         int32_t retPost = AscendC::HCOMM_SUCCESS;
         int32_t retCommit = AscendC::HCOMM_SUCCESS;
+        int32_t ret = AscendC::HCOMM_SUCCESS;
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t0 = AscendC::GetSystemCycle();
         for (uint32_t r = 0; r < rounds; ++r) {
             for (uint32_t i = 0; i < lastBatchIndex; ++i) {
-                retPost = PostBatch<op, false>(
-                    batchHandle, msgLen, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+                retPost = PostBatch<op, false>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
             }
-            retPost = PostBatch<op, true>(
-                batchHandle, msgLen, localFixed + lastBatchIndex * localStep, remoteAddr + lastBatchIndex * remoteStep,
-                flagSlot);
+            retPost = PostBatch<op, true>(batchHandle, msgLen, localFixed, remoteAddr, flagSlot);
             retCommit = hcomm_.BatchCommit(batchHandle);
+            ret = hcomm_.Drain(batchHandle);
         }
-        int32_t ret = hcomm_.Drain(batchHandle);
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t1 = AscendC::GetSystemCycle();
-        // 计时段结束（以下出窗）
         if (retPost != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_BW_POST_FAILED;
             context_->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(retPost);
@@ -290,8 +285,7 @@ private:
         return true;
     }
 
-    // 单个操作的全流程：算地址 → MakeBatchHandle → warmup → 时延档 → 带宽档。
-    // write/notify 落点在 send 对端；read 落点按批内 index 推进，源固定在 recv 对端。
+    // 单个操作的全流程：MakeBatchHandle → warmup → 时延档 → 带宽档。
     template <int op>
     __aicore__ inline bool RunOp(
         const CaseLayout& layout, uint32_t rounds, uint32_t batchCap, uint32_t batchBufBytes, uint64_t msgBytes)
@@ -302,8 +296,6 @@ private:
         GM_ADDR localFixed = isRead ? (localBase_ + layout.readBase) : localBase_;
         GM_ADDR remoteFixed =
             isRead ? recvRemoteBase_ : (remoteBase_ + ((op == OP_WRITE) ? layout.writeBase : layout.notifyBase));
-        const uint64_t localStep = isRead ? msgLen : 0;
-        const uint64_t remoteStep = isRead ? 0 : msgLen;
         // notify flag 单槽，地址窗外算好；write/read 实例中折叠为常量 0
         GM_ADDR flagSlot = 0;
         if constexpr (op == OP_NOTIFY) {
@@ -319,27 +311,22 @@ private:
             return false;
         }
 
-        if (!Warmup<op>(
-                batchHandle, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot, localStep, remoteStep)) {
+        if (!Warmup<op>(batchHandle, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot)) {
             return false;
         }
         if ((context_->metricMask & METRIC_LAT) != 0U) {
-            // commitInWindow 读一次选进模板参数，热循环内零分支
-            const bool latOk = context_->commitInWindow != 0U ?
+            // commitMode 读一次选进模板参数，热循环内零分支
+            const bool latOk = context_->commitMode == COMMIT_MODE_COMBINE ?
                                    RunLatency<op, true>(
-                                       batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot,
-                                       localStep, remoteStep) :
+                                       batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot) :
                                    RunLatency<op, false>(
-                                       batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot,
-                                       localStep, remoteStep);
+                                       batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot);
             if (!latOk) {
                 return false;
             }
         }
         if ((context_->metricMask & METRIC_BW) != 0U) {
-            if (!RunBandwidth<op>(
-                    batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot, localStep,
-                    remoteStep)) {
+            if (!RunBandwidth<op>(batchHandle, rounds, lastBatchIndex, msgLen, localFixed, remoteFixed, flagSlot)) {
                 return false;
             }
         }

@@ -5,7 +5,7 @@
 This example measures the send performance of three point-to-point operations over the URMA
 path (AIV-Kernel direct drive) using the batch APIs (`MakeBatchHandle` + `BatchCommit`):
 `WriteNbi`, `ReadNbi` and `WriteWithNotifyNbi`, covering the latency and bandwidth metrics and
-both BatchCommit placement strategies (inside or outside the latency window).
+both BatchCommit timing strategies (combined or split timing).
 
 The two ranks send and receive symmetrically: both sides issue communication to the peer and
 validate their local landing regions. This is intentional — concurrent bidirectional traffic
@@ -55,13 +55,13 @@ Three operations x two metrics x two publishing strategies:
 
 | `metric` | Description |
 | --- | --- |
-| `lat` | Latency: per-round segmented timing; the timed window contains only the issues (plus BatchCommit when `commit=true`), no Drain — pure submit-path latency; BatchCommit and Drain stay outside the window (one out-of-window Drain between batches, so the SQ restarts from scratch each round) |
-| `bw` | Bandwidth: one window covers all rounds of issues + per-batch `BatchCommit` + one trailing Drain — end-to-end bandwidth |
+| `lat` | Latency: per-round segmented timing; the timed window contains only the issues (plus BatchCommit when `commit=combine`), no Drain — pure submit-path latency; under `split`, BatchCommit stays outside the Post window, and one out-of-window Drain between batches lets the SQ restart from scratch each round |
+| `bw` | Bandwidth: one window covers all rounds; each round runs Post + `BatchCommit` + Drain — end-to-end bandwidth with SQ usage independent of rounds |
 
 | `commit` | Description |
 | --- | --- |
-| `true` | BatchCommit is **counted in** the latency window (default) |
-| `false` | BatchCommit moves after each round's stop-watch — **excluded from** the latency window |
+| `combine` | Post and BatchCommit share one latency window (default) |
+| `split` | The Post window stops first; BatchCommit is timed in its own window and emits an extra `commit-lat` row |
 
 The bandwidth metric does not distinguish the two: BatchCommit is always inside the bandwidth
 window.
@@ -69,15 +69,13 @@ window.
 ### Loop Model
 
 - **rounds (default 1)** = outer batch-round repetition count;
-- **batchCap (default 1024)** = requests per batch, which **determines the address window size**;
-- every batch round writes the **same address window**: addresses depend only on the in-batch
-  index `0..batchCap-1` (`dst + i*len` / `src + i*len`; the notify flag is a fixed single slot
-  that does not advance with the index), rounds do not advance addresses;
-- the host validates only **one batch window** — every round writes the same data (the source
-  window pattern is constant).
+- **batchCap (default 1024)** is only the number of requests aggregated by one BatchCommit;
+- it does not determine the address window. In-batch requests and rounds reuse one `len`
+  window; the notify flag remains one fixed slot; the host validates only **one `len` window**
+  — every round writes the same data.
 
-Data correctness: each request lands at a different offset by in-batch index, and the host
-validates the whole batch window — performance and function in one pass.
+Data correctness: all requests reuse the same landing window, which the host validates —
+performance and function in one pass.
 
 CQE strategy: **the last request of each batch uses cqe=1** (Drain polls the accumulated CQE
 count and SQ recycling depends on it); the rest use cqe=0 — no intermediate CQEs interfere.
@@ -91,35 +89,36 @@ columns from full-precision cycles:
 - `SingleCoreTime/us = AvgCycles / 1000` (Ascend950 counter at 1 GHz)
 - `Bandwidth/GB/s = DataSize / SingleCoreTime / 1000`
 
+Latency and bandwidth rows use the formulas above, with one request as one sample. When
+`commit=split`, an extra `commit-lat` row is emitted: its sample is one `BatchCommit` call, so
+`AvgCycles = Cycles / Rounds`. That row describes only the submission call, does not derive
+bandwidth, and always reports 0. The Post/BatchCommit/Drain control flow is identical under
+combine and split; only the timing-window boundary changes.
+
 ### Memory Layout
 
-One **1GB** registered buffer is partitioned per case `(len, batchCap)`; every region is one
-batch window:
+One **2GB** registered buffer is partitioned per case by `len`; every region is one `len` window:
 
 | Offset | Region |
 | --- | --- |
-| 0 | source: local send source / peer `ReadNbi` read source (advances by in-batch index) |
-| batchCap x len | write: peer `WriteNbi` landing region (request i writes `base + i*len`) |
-| 2 x batchCap x len | read: local `ReadNbi` landing region |
-| 3 x batchCap x len | notify: peer `WriteWithNotifyNbi` landing region |
-| 4 x batchCap x len (8B aligned) | flag: single notify flag slot (fixed address, 8B only) |
+| 0 | source: local send source / peer `ReadNbi` read source |
+| len | write: peer `WriteNbi` landing region |
+| 2 x len | read: local `ReadNbi` landing region |
+| 3 x len | notify: peer `WriteWithNotifyNbi` landing region |
+| 4 x len (8B aligned) | flag: single notify flag slot (fixed address, 8B only) |
 
 Notes:
 
-- **One batch window**: write/notify sources and destinations advance by in-batch index; the
-  read landing region advances by index while its source stays at the first entry of the peer
-  source window (repeatedly reading the same value). Rounds do not change addresses — every
-  round writes the same data and the host validates one window. The notify flag is a fixed
-  single slot with fixed value `300`.
+- **One len window**: in-batch requests and rounds reuse the same source/destination windows.
+  The notify flag is a fixed single slot with fixed value `300`.
 - **Batch capacity caps** (violations abort instead of clamping — the window size is
   determined by batchCap, and clamping would desynchronize the host validation window):
-  - VECOUT UB: batch staging buffer `batchCap x WQEBBs-per-request x 64B <= 192KB` budget,
+  - VECOUT UB: batch staging buffer `batchCap x WQEBBs-per-request x 64B < 256KiB`,
     validated at kernel runtime (`WriteWithNotifyNbi` takes 2 WQEBBs, the others 1);
-  - SQ: under the latency metric one out-of-window Drain between batches lets the SQ restart
-    per batch, so it must hold one batch: `batchCap x WQEBBs-per-request < sqDepth`; the
-    default 1024 stays under half of the default sqDepth ring (4096), and violations surface
-    as post-window Post/BatchCommit return codes;
-  - Registered memory: `4 x batchCap x len + 8 <= 1GB`, validated at kernel runtime.
+  - SQ: bandwidth drains immediately after each round and latency drains out of window between
+    batches, so the SQ only needs one batch. The default sqDepth is 8192 entries x 4 WQEBBs
+    = 32768 WQEBBs; the stricter UB cap (at most 4096 WQEBBs) already satisfies it;
+  - Registered memory: `4 x len + 8 <= 2GB`, validated at kernel runtime.
 - Initial values: the source region is filled with `100 + myRank` (int32 pattern); landing
   regions and the flag slot are zeroed.
 
@@ -128,11 +127,11 @@ Notes:
 ```
 for batch in {min, min*2, ..., max}:        # --batch-range, default only 1024
   for len in {2^minExp, ..., 2^maxExp}:     # --exponent-range, default 8B..128KB
-    refill initial values (fill one batch window of source + zero landing regions)
+    refill initial values (fill one len window of source + zero landing regions)
     barrier                          # release only after both ranks have refilled
     launch this case's kernel -> sync
     barrier                          # wait until the peer has drained too
-    validate this case's data (one batch window)
+    validate this case's data (one len window)
     joint end-of-case decision -> both ranks stop if either failed
                                   # later cases would overwrite the scene, and a
                                   # one-sided stop would deadlock the peer
@@ -143,9 +142,9 @@ publishing strategy are all runtime parameters).
 
 ### Host-Side Validation
 
-Per case (always reading local memory, one batch window), only the selected APIs are validated:
+Per case (always reading local memory, one len window), only the selected APIs are validated:
 
-- the whole `batchCap x len` write / read / notify regions equal `100 + peerRank`;
+- the whole `len` write / read / notify regions equal `100 + peerRank`;
 - the notify flag slot equals `300` (fixed value): the single slot is written concurrently by a
   batch of requests; WQE in-order completion constrains completion reporting only, not the
   landing order of remote flag writes (measured: with batch=1024 the value left in the slot is
@@ -205,13 +204,13 @@ Follow these steps in the example directory. NPU mode only.
   | `<tcp://ip:port>` | none | Control-channel address that rank 0 listens on, used for root-info exchange and Host barriers; use distinct ports for parallel instances |
   | `--ranks` | `2` | Number of rank processes to fork (>= 2); extra ranks are idle under `p2p`, all active under `ring` |
   | `--perf_type` | `p2p` | Communication topology: `p2p` (ranks 0/1 symmetric) or `ring` (unidirectional ring, e.g. 4 ranks: 0→1→2→3→0) |
-  | `--exponent-range` | `3 17` | Data-size exponent range (size = 2^exp, inclusive, e.g. 3 17 = 8B..128KB) |
+  | `--exponent-range` | `3 17` | Data-size exponent range (size = 2^exp, inclusive; supported 3..28, default 8B..128KB) |
   | `--exponent` | none | Single exponent (equivalent to `--exponent-range exp exp`) |
   | `--api` | `all` | Operations to measure: `all`, or a comma-separated subset of `write`/`read`/`notify` |
   | `--metric` | `all` | `all`, or a comma-separated subset of `lat`/`bw` |
-  | `--commit` | `true` | Both modes fire BatchCommit per batch; the difference is only whether it counts into the latency window; bandwidth does not distinguish |
-  | `--rounds` | `1` | Batch-round repetitions (warmup is fixed at 1 full batch round, not configurable) |
-  | `--batch-range` | `1024 1024` | Requests per batch (x2 steps, inclusive; determines the address window size) |
+  | `--commit` | `combine` | `combine` times Post+BatchCommit in one window; `split` times them separately and emits an extra `commit-lat` row; bandwidth does not distinguish |
+  | `--rounds` | `1` | Batch-round repetitions (warmup is fixed at 50 full batch rounds, not configurable) |
+  | `--batch-range` | `1024 1024` | Requests per batch (x2 steps, inclusive; aggregation count only, not address-window size) |
   | `--batch` | none | Single batch size (equivalent to `--batch-range N N`; capped by kernel runtime checks) |
 
 - Build options
@@ -224,25 +223,24 @@ Follow these steps in the example directory. NPU mode only.
 - Expected output
 
   ```text
-  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=true | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
   [rank 0] case=batch1024_4096B validation: PASS (checked 4096KB per region)
   RESULT | Example=urma_batch_api_perf | Status=PASS
   ```
 
-  One `PERF_DATA` line per operation x metric combination; after all cases finish, rank 0 writes
-  the summary to `perf_data.csv` (in the working directory, including a `topology` column
-  recording the run's topology). A `PASS` `RESULT` line with all case validations `PASS` means
-  the example ran successfully.
+  One `PERF_DATA` line per operation x metric combination; with `commit=split` and latency
+  selected, each operation emits one extra `commit-lat` line. After all cases finish, rank 0
+  writes the summary to `perf_data.csv` (in the working directory, including a `topology`
+  column recording the run's topology). A `PASS` `RESULT` line with all case validations
+  `PASS` means the example ran successfully.
 
 ## Notes
 
 - At least 2 NPUs are required; single-card environments support compile-only validation.
 - Batch-capacity constraints: the VECOUT UB budget and the registered-memory window are
-  validated at kernel runtime; SQ-depth violations surface as post-window Post/BatchCommit
-  return codes. All violations abort without clamping — the window size is determined by
-  batchCap, and clamping would desynchronize the host validation window.
-- Default batch 1024: `WriteWithNotifyNbi` takes 2 WQEBBs per request, and 1024x2=2048 stays
-  under half of the default sqDepth ring (4096).
-- Device memory requirement: 1GB registered memory per rank (worst case batch=1024 x len=128KB
-  is a ~512MB landing region).
+  validated at kernel runtime. All violations abort without clamping.
+- Default batch 1024: `WriteWithNotifyNbi` takes 2 WQEBBs per request, so staging is 128KiB,
+  below the 256KiB UB budget and far below the 32768-WQEBB SQ capacity.
+- Device memory requirement: 2GB registered memory per rank, supporting `len=256MB`.
 - Building depends on the CANN ASC CMake capability and links against the CANN `hcomm` library.

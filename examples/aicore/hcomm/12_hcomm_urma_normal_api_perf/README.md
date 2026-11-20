@@ -77,17 +77,15 @@ cycles 重算均值与派生列：
 | 偏移 | 大小 | 区域 |
 | --- | --- | --- |
 | 0 | 256MB | source：本卡发送源 / 对端 `ReadNbi` 的读源 |
-| 256MB | 512MB | write：对端 `WriteNbi` 的落点（随轮次推进 `dst + i*len`） |
-| 768MB | 512MB | read：本卡 `ReadNbi` 读回的落点（随轮次推进） |
-| 1280MB | 512MB | notify：对端 `WriteWithNotifyNbi` 的落点（随轮次推进） |
+| 256MB | 512MB | write：对端 `WriteNbi` 的落点（每轮复用同一个 `len` 窗口） |
+| 768MB | 512MB | read：本卡 `ReadNbi` 读回的落点（每轮复用同一个 `len` 窗口） |
+| 1280MB | 512MB | notify：对端 `WriteWithNotifyNbi` 的落点（每轮复用同一个 `len` 窗口） |
 | 1792MB | 8B | flag：notify flag **单槽**（固定地址） |
 
 要点：
 
-- **源固定、落点推进**：Write/Notify 的 src 固定在本卡 source 区；目的按轮次推进，
-  避免自覆盖干扰测量；Read 的 src 在对端 source 区、落回本卡 read 区推进。
-- **轮数上限**：每档要求 `rounds * len ≤ 512MB`（落点区容量），host 侧逐档校验，
-  超限直接报错退出。
+- **固定地址窗口**：Write/Notify 的 src 固定在本卡 source 区；所有轮次复用同一对
+  `len` 窗口，rounds 只增加重复次数，不参与内存容量校验。
 - 初值：source 区填 `100 + myRank`（int32 pattern），落点区 + flag 区清 0。
 
 ### 逐档串行执行：launch → 校验 → 重填 → 下一档
@@ -111,7 +109,7 @@ for len in {2^minExp, ..., 2^maxExp}:   # 数据量 = 2^exp，逐档指数 +1，
 source，校验时用它分片把落点区拷回来比。每档校验（一律读本地），只校验本次选中的接口：
 
 - source 区仍 == `100 + myRank`（没被写坏）；
-- write / read / notify 三区**实际写到的 `rounds*len` 区间**全部 == `100 + peerRank`；
+- write / read / notify 三区**实际写到的 `len` 窗口**全部 == `100 + peerRank`；
 - notify flag 单槽 == `300`（固定值）：单槽被 rounds 个请求并发写，WQE in-order
   completion 只约束完成上报、不保证远端 flag 写的落地顺序，逐条值不可校验；固定值与
   完成顺序无关，校验 == 常量即确认 notify 路径通（全体漏发时槽是初值 0，可检出）。
@@ -168,7 +166,7 @@ source，校验时用它分片把落点区拷回来比。每档校验（一律�
   | `<tcp://ip:port>` | 无默认 | rank 0监听的控制通道地址，用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
   | `--ranks` | `2` | 拉起的rank进程数（≥2）；`p2p` 下大于2时其余rank空闲，`ring` 下全员参与 |
   | `--perf_type` | `p2p` | 通信拓扑：`p2p`（rank 0/1 对称收发）或 `ring`（单向环，每卡发下一卡、拉上一卡，如 4 卡即 0→1→2→3→0） |
-  | `--exponent-range` | `3 17` | 数据量幂数范围（数据量 = 2^exp，含两端，如 3 17 = 8B..128KB） |
+  | `--exponent-range` | `3 17` | 数据量幂数范围（数据量 = 2^exp，含两端；支持 3~28，默认 3 17 即 8B~128KB） |
   | `--exponent` | 无 | 单个幂数（等价 `--exponent-range exp exp`，只跑一档） |
   | `--api` | `all` | 测哪些接口：`all`或`write`/`read`/`notify`逗号分隔 |
   | `--metric` | `all` | 时延/带宽口径：`all`或`lat`/`bw`逗号分隔 |
@@ -197,8 +195,7 @@ source，校验时用它分片把落点区拷回来比。每档校验（一律�
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- 每档落点区容量 512MB：`rounds * len` 超过该值的参数组合会在启动时报错退出
-  （减小 `--rounds` 或收窄 `--exponent-range`）。
+- 幂数支持 `3~28`，即 8B~256MB；`rounds` 只要求为正整数，不设静态上限。
 - 时延口径计时段内不 Drain，`rounds` 个任务须一次性驻留 SQ；SQ 深度超限时靠
   Post 返回码在出计时窗后报错（`WriteWithNotifyNbi` 占 2 WQEBB、其余占 1）。
 - 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

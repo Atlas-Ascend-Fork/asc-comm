@@ -4,7 +4,7 @@
 
 本样例测量 URMA 路径（AIV Kernel 直驱）批量接口（`MakeBatchHandle` + `BatchCommit`）下
 `WriteNbi` / `ReadNbi` / `WriteWithNotifyNbi` 三种操作的发送性能，覆盖时延与带宽两个
-口径，以及 BatchCommit 是否计入时延计时段的两种提交方式。
+口径，以及 BatchCommit 合并计时 / 拆分计时两种提交计时方式。
 
 两个 rank 对称收发：双方都向对端发起通信，各自校验本地落点。这是有意为之——两方
 并发会互相争抢链路和 SQ 资源，测出的数值是"双流并发"口径；与单发送方口径（如
@@ -40,7 +40,7 @@
 
 ### 功能说明
 
-三种操作 × 两种口径 × 两种提交方式：
+三种操作 × 两种口径 × 两种提交计时方式：
 
 | `api` | 说明 |
 | --- | --- |
@@ -50,26 +50,24 @@
 
 | `metric` | 说明 |
 | --- | --- |
-| `lat` | 时延：逐轮分段计时，计时段内只有发起（`commit=true` 时含 BatchCommit）、不含 Drain——纯提交路径时延；BatchCommit 与 Drain 都在段外（每批之间窗外 Drain 一次，SQ 每轮从头起跑） |
-| `bw` | 带宽：单窗口包住全部轮次的发起 + 每批 `BatchCommit` + 末尾一次 Drain——端到端带宽 |
+| `lat` | 时延：逐轮分段计时，计时段内只有发起（`commit=combine` 时含 BatchCommit）、不含 Drain——纯提交路径时延；`split` 时 Post 窗内不含 BatchCommit，每批之间窗外 Drain 一次，SQ 每轮从头起跑 |
+| `bw` | 带宽：单窗口包住全部轮次，每轮 Post + `BatchCommit` + Drain——端到端带宽，SQ 占用不随轮数累积 |
 
 | `commit` | 说明 |
 | --- | --- |
-| `true` | BatchCommit **计入**时延计时段（默认） |
-| `false` | BatchCommit 挪到每轮停表之后发——**不计入**时延计时段 |
+| `combine` | Post 与 BatchCommit 放在同一个时延窗口内（默认） |
+| `split` | Post 窗口先停表；BatchCommit 挪到窗外单独打点，额外输出 `commit-lat` 行 |
 
 带宽口径不区分提交方式：BatchCommit 本身始终包含在带宽计时段内。
 
 ### 循环模型
 
 - **rounds（默认 1）** = 外层「批轮次」重复次数；
-- **batchCap（默认 1024）** = 每批请求条数，**决定地址窗口大小**；
-- 每一轮 batch 写的都是**同一扇地址窗口**：地址只由批内 index `0~batchCap-1` 决定
-  （`dst + i*len` / `src + i*len`；notify 的 flag 是固定单槽，不随 index 推进），轮次
-  不推进地址；
-- host 精度校验只查**一个批窗口**——每轮写的数据相同（源窗口 pattern 恒定）。
+- **batchCap（默认 1024）**只表示每批请求条数，不决定地址窗口；
+- 批内与轮间都复用同一个 `len` 地址窗口（notify flag 仍是固定单槽）；
+- host 精度校验只查**一个 `len` 窗口**——每轮写的数据相同（源窗口 pattern 恒定）。
 
-数据正确性：每条请求按批内 index 落不同偏移，host 校验整个批窗口——性能与功能一次覆盖。
+数据正确性：所有请求复用同一个落点窗口，host 校验该窗口——性能与功能一次覆盖。
 
 CQE 策略：**每批的最后一条请求用 cqe=1**（Drain 按累计 CQE 数轮询、SQ 回收都依赖它），
 其余 cqe=0——中间不产生 CQE 干扰。
@@ -81,31 +79,34 @@ CQE 策略：**每批的最后一条请求用 cqe=1**（Drain 按累计 CQE 数�
 - `SingleCoreTime/us = AvgCycles / 1000`（Ascend950 系统计数器 1GHz）
 - `Bandwidth/GB/s = DataSize / SingleCoreTime / 1000`
 
+时延与带宽行均按上面公式计算，一个样本是一条请求。`commit=split` 时额外输出
+`commit-lat` 行：一个样本是一次 `BatchCommit` 调用，因此
+`AvgCycles = Cycles / Rounds`；该口径只描述提交调用本身，不派生带宽，固定输出 0。
+Post、BatchCommit 与 Drain 的控制流在 combine/split 下相同，区别只是计时窗口边界。
+
 ### 内存布局
 
-单块 **1GB** 注册内存按一档 `(len, batchCap)` 划分，各区大小都是一个批窗口：
+单块 **2GB** 注册内存按一档 `len` 划分，各区大小都是一个 `len` 窗口：
 
 | 偏移 | 区域 |
 | --- | --- |
-| 0 | source：本卡发送源 / 对端 `ReadNbi` 的读源（批内按 i 推进） |
-| batchCap×len | write：对端 `WriteNbi` 的落点（第 i 条写 `base + i*len`） |
-| 2×batchCap×len | read：本卡 `ReadNbi` 读回的落点 |
-| 3×batchCap×len | notify：对端 `WriteWithNotifyNbi` 的落点 |
-| 4×batchCap×len（8B 对齐后） | flag：notify flag **单槽**（固定地址，仅 8B） |
+| 0 | source：本卡发送源 / 对端 `ReadNbi` 的读源 |
+| len | write：对端 `WriteNbi` 的落点 |
+| 2×len | read：本卡 `ReadNbi` 读回的落点 |
+| 3×len | notify：对端 `WriteWithNotifyNbi` 的落点 |
+| 4×len（8B 对齐后） | flag：notify flag **单槽**（固定地址，仅 8B） |
 
 要点：
 
-- **同一扇批窗口**：write/notify 的源与落点都按批内 index 推进；read 的落点按 index
-  推进、源固定在对端 source 窗口首条（同值反复读）。轮次（rounds）不改变地址——每轮
-  写同样的数据，host 只校验一个窗口。notify 的 flag 固定单槽 + 固定值 `300`。
+- **同一个 len 窗口**：批内与轮间均复用同一对源/落点；notify 的 flag 固定单槽 + 固定值 `300`。
 - **批容量上限**（超限报错退出、不钳制——窗口大小由 batchCap 决定，钳小会导致 host
   校验窗口与实际不符）：
-  - VECOUT UB：batch 暂存缓冲 `batchCap × 每条WQEBB × 64B ≤ 192KB` 预算，kernel 侧
+  - VECOUT UB：batch 暂存缓冲 `batchCap × 每条WQEBB × 64B < 256KiB`，kernel 侧
     运行期校验（`WriteWithNotifyNbi` 占 2 WQEBB、其余占 1）；
-  - SQ：时延档每批之间窗外 Drain，SQ 每批从头起跑，须容纳一批
-    `batchCap × 每条WQEBB < sqDepth`；默认档 1024 不超过默认 sqDepth(4096) 环的一半，
-    超限时靠 Post/BatchCommit 返回码在出计时窗后报错；
-  - 注册内存：`4 × batchCap × len + 8 ≤ 1GB`，kernel 侧运行期校验。
+  - SQ：带宽档每轮 BatchCommit 后立即 Drain，时延档每批之间窗外 Drain，因此 SQ 只需
+    容纳一批；默认 sqDepth 为 8192 entry、每 entry 4 WQEBB，共 32768 WQEBB。UB 限制
+    更严格（最多 4096 WQEBB），已隐式满足 SQ 约束；
+  - 注册内存：`4 × len + 8 ≤ 2GB`，kernel 侧运行期校验。
 - 初值：source 区填 `100 + myRank`（int32 pattern），落点区 + flag 区清 0。
 
 ### 逐档串行执行：launch → 校验 → 重填 → 下一档
@@ -113,11 +114,11 @@ CQE 策略：**每批的最后一条请求用 cqe=1**（Drain 按累计 CQE 数�
 ```
 for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 一档
   for len in {2^minExp, ..., 2^maxExp}:     # --exponent-range，默认 8B..128KB
-    重铺初值（source 区一个批窗口填 pattern + 落点区清 0）
+    重铺初值（source 区一个 len 窗口填 pattern + 落点区清 0）
     barrier                          # 两卡都铺完再放行
     launch 本档核函数 → sync
     barrier                          # 等对端也收尾完
-    校验本档数据（一个批窗口）
+    校验本档数据（一个 len 窗口）
     档末两卡合并判定 → 任一卡失败则双卡都停止    # 后续档会重铺内存覆盖现场，
                                                  # 且单方停止会让对端卡死在同步点
 ```
@@ -126,9 +127,9 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
 
 ### Host 侧校验
 
-每档校验（一律读本地，只查一个批窗口），只校验本次选中的接口：
+每档校验（一律读本地，只查一个 len 窗口），只校验本次选中的接口：
 
-- write / read / notify 三区整个批窗口 `batchCap×len` 全部 == `100 + peerRank`；
+- write / read / notify 三区整个 `len` 窗口全部 == `100 + peerRank`；
 - notify flag 单槽 == `300`（固定值）：单槽被一批请求并发写，WQE in-order completion
   只约束完成上报、不保证远端 flag 写的落地顺序（实测 batch=1024 时槽里留的值不确定），
   逐条值不可校验；固定值与完成顺序无关，校验 == 常量即确认 notify 路径通。
@@ -185,13 +186,13 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
   | `<tcp://ip:port>` | 无默认 | rank 0监听的控制通道地址，用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
   | `--ranks` | `2` | 拉起的rank进程数（≥2）；`p2p` 下大于2时其余rank空闲，`ring` 下全员参与 |
   | `--perf_type` | `p2p` | 通信拓扑：`p2p`（rank 0/1 对称收发）或 `ring`（单向环，每卡发下一卡、拉上一卡，如 4 卡即 0→1→2→3→0） |
-  | `--exponent-range` | `3 17` | 数据量幂数范围（数据量 = 2^exp，含两端，如 3 17 = 8B..128KB） |
+  | `--exponent-range` | `3 17` | 数据量幂数范围（数据量 = 2^exp，含两端；支持 3~28，默认 3 17 即 8B~128KB） |
   | `--exponent` | 无 | 单个幂数（等价 `--exponent-range exp exp`，只跑一档） |
   | `--api` | `all` | 测哪些操作：`all`或`write`/`read`/`notify`逗号分隔 |
   | `--metric` | `all` | 时延/带宽口径：`all`或`lat`/`bw`逗号分隔 |
-  | `--commit` | `true` | 两种模式 BatchCommit 触发时机相同（每批末尾一次），区别是算不算进时延计时段；带宽不区分 |
-  | `--rounds` | `1` | 批轮次重复次数（warmup 固定 1 个完整批轮次，不对外开放） |
-  | `--batch-range` | `1024 1024` | 每批请求条数范围（min 起每档 ×2 至 max，含两端；决定地址窗口大小） |
+  | `--commit` | `combine` | `combine`=Post+BatchCommit 同窗计时；`split`=Post 与 BatchCommit 分窗计时并额外输出 `commit-lat` 行；带宽不区分 |
+  | `--rounds` | `1` | 批轮次重复次数（warmup 固定 50 个完整批轮次，不对外开放） |
+  | `--batch-range` | `1024 1024` | 每批请求条数范围（min 起每档 ×2 至 max，含两端；只表示聚合提交条数，不决定地址窗口） |
   | `--batch` | 无 | 单个批大小（等价 `--batch-range N N`；上限由 kernel 运行期校验） |
 
 - 编译选项说明
@@ -204,22 +205,21 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
 - 执行结果
 
   ```text
-  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=true | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=WriteNbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
   [rank 0] case=batch1024_4096B validation: PASS (checked 4096KB per region)
   RESULT | Example=urma_batch_api_perf | Status=PASS
   ```
 
-  每个「操作 × 口径」组合打一行 `PERF_DATA`；全部档位跑完后 rank 0 把结果汇总写
-  `perf_data.csv`（运行目录下，含 `topology` 列记录本次拓扑）。
+  每个「操作 × 口径」组合打一行 `PERF_DATA`；`commit=split` 且选中时延时，每个
+  操作再额外打一行 `commit-lat`。全部档位跑完后 rank 0 把结果汇总写 `perf_data.csv`
+  （运行目录下，含 `topology` 列记录本次拓扑）。
   `RESULT`行为`PASS`且各档校验均`PASS`表示样例执行成功。
 
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- 批容量约束：VECOUT UB 预算与注册内存窗口在 kernel 侧运行期校验，SQ 深度超限靠
-  Post/BatchCommit 返回码在出计时窗后报错；超限均报错退出、不钳制——窗口大小由
-  batchCap 决定，钳小会导致 host 校验窗口与实际不符。
-- 默认档 1024：`WriteWithNotifyNbi` 每条占 2 WQEBB，1024×2=2048 不超过默认
-  sqDepth(4096) 环的一半。
-- 设备内存需求：每卡 1GB 注册内存（最坏一档 batch=1024 × len=128KB ≈ 512MB 落点区）。
+- 批容量约束：VECOUT UB 预算与注册内存窗口在 kernel 侧运行期校验；超限均报错退出、不钳制。
+- 默认档 1024：`WriteWithNotifyNbi` 每条占 2 WQEBB，暂存 128KiB，小于 256KiB UB 预算，也远小于默认 SQ 容量 32768 WQEBB。
+- 设备内存需求：每卡 2GB 注册内存，支持 `len=256MB`（布局约 1GB+8B）。
 - 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

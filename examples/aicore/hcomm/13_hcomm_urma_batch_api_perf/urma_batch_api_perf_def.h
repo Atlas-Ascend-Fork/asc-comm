@@ -23,10 +23,9 @@
 
 namespace UrmaBatchApiPerfExample {
 
-// ---------------- 注册对称内存（1GB，各档共用，每档重铺初值） ----------------
-// 按 (len, batchCap) 划分（公式见 CaseLayoutOf），每轮写的都是同一扇批窗口，
-// host 校验也只查一个批窗口。
-constexpr uint64_t BUFFER_BYTES = 1ULL << 30;
+// ---------------- 注册对称内存（2GB，各档共用，每档重铺初值） ----------------
+// source/write/read/notify 各占一个 len 窗口；batch 表示每次 BatchCommit 聚合的请求数。
+constexpr uint64_t BUFFER_BYTES = 2ULL << 30;
 
 // ---------------- 接口选择（apiMask 位）与计时槽 ----------------
 constexpr uint32_t API_WRITE = 1U << 0;  // WriteNbi
@@ -44,13 +43,19 @@ constexpr uint32_t METRIC_LAT = 1U << 0; // 时延：计时段内不 Drain
 constexpr uint32_t METRIC_BW = 1U << 1;  // 带宽：计时段内含 Drain（端到端）
 constexpr uint32_t METRIC_ALL = METRIC_LAT | METRIC_BW;
 
+// ---------------- BatchCommit 计时方式 ----------------
+// combine：Post 与 BatchCommit 放在同一个时延窗口；
+// split：Post 与 BatchCommit 分别计时，并输出 commit-lat 结果行。
+constexpr uint32_t COMMIT_MODE_COMBINE = 0U;
+constexpr uint32_t COMMIT_MODE_SPLIT = 1U;
+
 // ---------------- 运行期维度默认值（命令行可覆盖） ----------------
 constexpr uint32_t DEFAULT_ROUNDS = 1U; // 批轮次重复次数
 constexpr uint64_t DEFAULT_MIN_EXP = 3; // 数据量 = 2^exp，默认 3 17 即 8B~128KB
 constexpr uint64_t DEFAULT_MAX_EXP = 17;
-constexpr uint32_t DEFAULT_MIN_BATCH = 1024U; // 每批条数（决定地址窗口大小）
+constexpr uint32_t DEFAULT_MIN_BATCH = 1024U; // 每批聚合提交条数
 constexpr uint32_t DEFAULT_MAX_BATCH = 1024U;
-constexpr uint32_t WARMUP_ROUNDS = 1U; // warmup 固定 1 个完整批轮次
+constexpr uint32_t WARMUP_ROUNDS = 50U; // warmup 固定 50 个完整批轮次，稳定缓存与队列状态
 
 // ---------------- 数据 pattern ----------------
 constexpr int32_t SRC_PATTERN_BASE = 100; // source 区填 100+rank（int32）
@@ -63,12 +68,12 @@ static_assert(
     "Host and Kernel communication protocols must match");
 
 // 每条请求的 WQEBB 占用：WriteWithNotifyNbi 占 2、其余占 1（每 WQEBB 64B）。
-// batch WQE 暂存缓冲住在 VECOUT UB，按 192KB 预算校验（Ascend950 VECOUT UB 256KB）。
+// batch WQE 暂存缓冲住在 VECOUT UB，按 256KiB 总预算校验。
 constexpr uint32_t NOTIFY_WQEBB = 2U;
 constexpr uint32_t WQEBB_BYTES = 64U;
-constexpr uint32_t BATCH_UB_BUDGET_BYTES = 192U * 1024U;
+constexpr uint32_t BATCH_UB_BUDGET_BYTES = 256U * 1024U;
 
-// 一档 (len, batchCap) 的注册内存布局，host 与 kernel 按同一公式计算。
+// 一档 len 的注册内存布局，host 与 kernel 按同一公式计算。
 struct CaseLayout {
     uint64_t writeBase;
     uint64_t readBase;
@@ -78,14 +83,13 @@ struct CaseLayout {
 };
 
 // ASC 统一语言下 host / kernel 共用函数须双限定（单 __aicore__ 则 host 侧调不到）。
-__host__ __aicore__ inline CaseLayout CaseLayoutOf(uint64_t len, uint32_t batchCap)
+__host__ __aicore__ inline CaseLayout CaseLayoutOf(uint64_t len)
 {
-    const uint64_t window = static_cast<uint64_t>(batchCap) * len;
     CaseLayout layout{};
-    layout.writeBase = window;
-    layout.readBase = layout.writeBase + window;
-    layout.notifyBase = layout.readBase + window;
-    layout.flagsBase = (layout.notifyBase + window + 7ULL) & ~7ULL; // flag 槽 8B 对齐
+    layout.writeBase = len;
+    layout.readBase = layout.writeBase + len;
+    layout.notifyBase = layout.readBase + len;
+    layout.flagsBase = (layout.notifyBase + len + 7ULL) & ~7ULL; // flag 槽 8B 对齐
     layout.totalBytes = layout.flagsBase + FLAG_STRIDE;
     return layout;
 }
@@ -93,7 +97,8 @@ __host__ __aicore__ inline CaseLayout CaseLayoutOf(uint64_t len, uint32_t batchC
 constexpr uint32_t WARMUP_METRIC_INDEX = 0U; // timing[apiIdx][0]：失败码（无计时值）
 constexpr uint32_t LAT_CYCLES_INDEX = 1U;    // timing[apiIdx][1]：时延档 cycles（各轮之和）
 constexpr uint32_t BW_CYCLES_INDEX = 2U;     // timing[apiIdx][2]：带宽档 cycles
-constexpr uint32_t TIMING_WORDS = 3U;
+constexpr uint32_t COMMIT_CYCLES_INDEX = 3U; // timing[apiIdx][3]：split 时 BatchCommit cycles（各轮之和）
+constexpr uint32_t TIMING_WORDS = 4U;
 
 // kernel 只上报原始 cycles，均值与派生列由 host 侧计算。
 // 拓扑（--perf_type p2p|ring）在 kernel 侧是 send / recv 两对入参，p2p 与 ring-2P 下相等。
@@ -107,11 +112,12 @@ struct KernelContext {
     uint32_t rounds;
     uint32_t batchCap;
     uint32_t apiMask;
-    uint32_t commitInWindow; // 1=BatchCommit 计入时延计时段 / 0=停表后再发
+    uint32_t commitMode; // COMMIT_MODE_COMBINE / COMMIT_MODE_SPLIT
     uint32_t metricMask;
-    uint64_t timing[API_IDX_COUNT][TIMING_WORDS]; // [apiIdx][0]=失败码 [1]=lat cycles [2]=bw cycles
-    uint32_t drainRet;                            // 最后一次 Drain 返回码（0=成功）
-    uint32_t result;                              // KernelResult
+    // [apiIdx][0]=失败码 [1]=lat cycles [2]=bw cycles [3]=split 时 BatchCommit cycles
+    uint64_t timing[API_IDX_COUNT][TIMING_WORDS];
+    uint32_t drainRet; // 最后一次 Drain 返回码（0=成功）
+    uint32_t result;   // KernelResult
 };
 
 enum KernelResult : uint32_t {
@@ -119,7 +125,7 @@ enum KernelResult : uint32_t {
     KERNEL_INVALID_ARGS,
     KERNEL_HCOMM_INIT_FAILED,
     KERNEL_UB_OVERFLOW,     // batch 暂存缓冲超 VECOUT UB 预算（kernel 运行期校验）
-    KERNEL_BUFFER_OVERFLOW, // (len, batchCap) 窗口超出注册内存（kernel 运行期校验）
+    KERNEL_BUFFER_OVERFLOW, // len 数据窗口超出注册内存（kernel 运行期校验）
     KERNEL_MAKE_HANDLE_FAILED,
     KERNEL_WARMUP_FAILED,
     KERNEL_LAT_POST_FAILED,
@@ -140,11 +146,11 @@ inline const char* KernelResultName(KernelResult result)
         case KERNEL_HCOMM_INIT_FAILED:
             return "Hcomm Init failed";
         case KERNEL_UB_OVERFLOW:
-            // 预算 = batchCap × 每条WQEBB × 64B ≤ 192KB（notify 占 2 WQEBB，其余 1），缩小 --batch
+            // 预算 = batchCap × 每条WQEBB × 64B ≤ 256KiB（notify 占 2 WQEBB，其余 1），缩小 --batch
             return "batch exceeds VECOUT UB budget (reduce --batch)";
         case KERNEL_BUFFER_OVERFLOW:
-            // 窗口 = 4 × batchCap × len + 8 ≤ 1GB 注册内存，缩小 --batch 或 --exponent-range
-            return "batch window exceeds registered buffer (reduce --batch or --exponent-range)";
+            // 窗口 = 4 × len + 8 ≤ 2GB 注册内存，缩小 --exponent-range
+            return "data window exceeds registered buffer (reduce --exponent-range)";
         case KERNEL_MAKE_HANDLE_FAILED:
             return "MakeBatchHandle failed";
         case KERNEL_WARMUP_FAILED:

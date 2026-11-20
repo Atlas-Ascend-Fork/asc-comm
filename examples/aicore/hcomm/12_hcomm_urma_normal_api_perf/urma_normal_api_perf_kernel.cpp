@@ -132,16 +132,13 @@ private:
         }
     }
 
-    // warmup：固定 commit=true 逐条提交（不受 commit=false 的 sqDepth 约束），
-    // 跑完 Drain 清干净。
+    // warmup：commit=true 逐条提交，结束后 Drain 清空通道。
     template <int mode>
     __aicore__ inline bool Warmup(
-        uint32_t warmups, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep,
-        uint64_t remoteStep)
+        uint32_t warmups, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
         for (uint32_t i = 0; i < warmups; ++i) {
-            const int32_t ret =
-                Post<true, mode>(len, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+            const int32_t ret = Post<true, mode>(len, localFixed, remoteAddr, flagSlot);
             if (ret != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_WARMUP_FAILED;
                 context_->timing[mode][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
@@ -161,18 +158,16 @@ private:
     // 时延档：计时段内只发起，Commit（final 方式）与 Drain 都在段外
     template <bool COMMIT, int mode>
     __aicore__ inline bool RunLatency(
-        uint32_t rounds, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep,
-        uint64_t remoteStep)
+        uint32_t rounds, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
         int32_t retPost = AscendC::HCOMM_SUCCESS;
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t0 = AscendC::GetSystemCycle();
         for (uint32_t i = 0; i < rounds; ++i) {
-            retPost = Post<COMMIT, mode>(len, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+            retPost = Post<COMMIT, mode>(len, localFixed, remoteAddr, flagSlot);
         }
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t1 = AscendC::GetSystemCycle();
-        // 计时段结束（以下出窗）
         if (retPost != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_LAT_POST_FAILED;
             context_->timing[mode][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(retPost);
@@ -201,15 +196,14 @@ private:
     // 带宽档：计时段内含收尾（Commit + Drain），端到端
     template <bool COMMIT, int mode>
     __aicore__ inline bool RunBandwidth(
-        uint32_t rounds, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot, uint64_t localStep,
-        uint64_t remoteStep)
+        uint32_t rounds, uint64_t len, GM_ADDR localFixed, GM_ADDR remoteAddr, GM_ADDR flagSlot)
     {
         int32_t retPost = AscendC::HCOMM_SUCCESS;
         int32_t retCommit = AscendC::HCOMM_SUCCESS;
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t0 = AscendC::GetSystemCycle();
         for (uint32_t i = 0; i < rounds; ++i) {
-            retPost = Post<COMMIT, mode>(len, localFixed + i * localStep, remoteAddr + i * remoteStep, flagSlot);
+            retPost = Post<COMMIT, mode>(len, localFixed, remoteAddr, flagSlot);
         }
         if constexpr (!COMMIT) {
             retCommit = hcomm_.Commit(mode == MODE_READ ? recvChannel_ : channel_);
@@ -217,7 +211,6 @@ private:
         const int32_t ret = hcomm_.Drain(mode == MODE_READ ? recvChannel_ : channel_);
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t1 = AscendC::GetSystemCycle();
-        // 计时段结束（以下出窗）
         if (retPost != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_BW_POST_FAILED;
             context_->timing[mode][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(retPost);
@@ -238,7 +231,7 @@ private:
     }
 
     // 一个接口的完整测试：算地址 → warmup → 时延档 → 带宽档。
-    // write/notify 落点在 send 对端；read 落点随轮次推进，源固定在 recv 对端。
+    // write/notify 落点在 send 对端；read 落回本卡 read 区，源固定在 recv 对端。
     template <bool COMMIT, int mode>
     __aicore__ inline bool RunApi(uint32_t rounds, uint32_t metricMask, uint64_t len)
     {
@@ -246,8 +239,6 @@ private:
         GM_ADDR localFixed = isRead ? (localBase_ + READ_BASE) : localBase_;
         GM_ADDR remoteFixed =
             isRead ? recvRemoteBase_ : (remoteBase_ + ((mode == MODE_WRITE) ? WRITE_BASE : NOTIFY_BASE));
-        const uint64_t localStep = isRead ? len : 0;
-        const uint64_t remoteStep = isRead ? 0 : len;
         // notify flag 单槽；write/read 实例中折叠为常量 0
         GM_ADDR flagSlot = 0;
         if constexpr (mode == MODE_NOTIFY) {
@@ -255,16 +246,16 @@ private:
         }
 
         const uint32_t warmups = rounds < WARMUPS ? rounds : WARMUPS;
-        if (!Warmup<mode>(warmups, len, localFixed, remoteFixed, flagSlot, localStep, remoteStep)) {
+        if (!Warmup<mode>(warmups, len, localFixed, remoteFixed, flagSlot)) {
             return false;
         }
         if ((metricMask & METRIC_LAT) != 0U) {
-            if (!RunLatency<COMMIT, mode>(rounds, len, localFixed, remoteFixed, flagSlot, localStep, remoteStep)) {
+            if (!RunLatency<COMMIT, mode>(rounds, len, localFixed, remoteFixed, flagSlot)) {
                 return false;
             }
         }
         if ((metricMask & METRIC_BW) != 0U) {
-            if (!RunBandwidth<COMMIT, mode>(rounds, len, localFixed, remoteFixed, flagSlot, localStep, remoteStep)) {
+            if (!RunBandwidth<COMMIT, mode>(rounds, len, localFixed, remoteFixed, flagSlot)) {
                 return false;
             }
         }

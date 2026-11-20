@@ -36,9 +36,8 @@ namespace examples {
 
 // ---------------- 结果行（数值列 + 有限枚举字符串列） ----------------
 
-// 一行 PERF_DATA / csv 结果；派生列（均值 / 单核耗时 / 带宽）由 host 侧浮点计算。
-// api / commit / topology / drain 是有限枚举，存 const char*（指向各样例自己的
-// 静态串或公共枚举名）。
+// 一行 PERF_DATA / csv 结果；派生列由 host 侧浮点计算。
+// api / commit / topology / metric 是有限枚举，存 const char*。
 struct PerfRow {
     uint32_t rank;
     const char* api;      // "WriteNbi" / "ReadNbi" / "WriteWithNotifyNbi"
@@ -46,7 +45,7 @@ struct PerfRow {
     uint32_t batch;       // BatchSize（无批维度的样例恒填 1，csv 照写）
     const char* commit;   // 提交方式名（各样例自己的 "inline"/"final" 等）
     const char* topology; // 拓扑名："p2p" / "ring"（公共 perf_topology.h）
-    const char* drain;    // "lat" / "bw"
+    const char* drain;    // "lat" / "bw" / "commit-lat"
     uint32_t samples;     // 计时轮数（rounds）
     uint64_t cycles;      // 计时段原始 cycles
     double avgCycles;
@@ -56,15 +55,14 @@ struct PerfRow {
 
 // ---------------- 线上格式（跨 rank 传输的定长编码） ----------------
 
-// Allgather 是等长载荷协议：行集打包成「头 + 定容量行」。容量由两卡一致的档位表
-// × 接口/口径掩码推出（命令行相同 → 表相同），无需协商；commit 列两卡恒同
-// （来自同一份命令行 opt），不编码、rank 0 收侧重导；api / drain 是有限枚举，
-// 编成小整数。各 rank 由同一二进制 fork、ABI 相同，可直接按结构体内存布局传输。
+// Allgather 使用等长载荷：行集打包为「头 + 定容量行」。commit 两端相同，
+// 不编码；api / metric 编为小整数，rank 0 收侧还原枚举名。
 constexpr uint32_t PERF_WIRE_API_WRITE = 0U;
 constexpr uint32_t PERF_WIRE_API_READ = 1U;
 constexpr uint32_t PERF_WIRE_API_NOTIFY = 2U;
 constexpr uint32_t PERF_WIRE_DRAIN_LAT = 0U;
 constexpr uint32_t PERF_WIRE_DRAIN_BW = 1U;
+constexpr uint32_t PERF_WIRE_DRAIN_COMMIT_LAT = 2U;
 
 struct PerfRowWire {
     uint64_t len;    // DataSize/B
@@ -108,10 +106,16 @@ inline const char* PerfApiWireToName(uint32_t code)
 
 inline uint32_t PerfDrainNameToWire(const char* name)
 {
-    return std::strcmp(name, "lat") == 0 ? PERF_WIRE_DRAIN_LAT : PERF_WIRE_DRAIN_BW;
+    if (std::strcmp(name, "lat") == 0) {
+        return PERF_WIRE_DRAIN_LAT;
+    }
+    return std::strcmp(name, "commit-lat") == 0 ? PERF_WIRE_DRAIN_COMMIT_LAT : PERF_WIRE_DRAIN_BW;
 }
 
-inline const char* PerfDrainWireToName(uint32_t code) { return code == PERF_WIRE_DRAIN_LAT ? "lat" : "bw"; }
+inline const char* PerfDrainWireToName(uint32_t code)
+{
+    return code == PERF_WIRE_DRAIN_LAT ? "lat" : (code == PERF_WIRE_DRAIN_COMMIT_LAT ? "commit-lat" : "bw");
+}
 
 // ---------------- 造行常量（与 12/13 号样例 def.h 同值同义） ----------------
 
@@ -120,13 +124,14 @@ inline const char* PerfDrainWireToName(uint32_t code) { return code == PERF_WIRE
 // 单个样例），自带一套带 PERF_ROW_ 前缀的定义——与 PERF_WIRE_* 同一防撞思路：
 // 前缀不与任何样例常量重名（含 11 号的 PERF_API_*），样例侧把 examples 名字
 // 空间整体 using 进来也安全。调用方直接传样例命令行里的掩码值即可。
-constexpr uint32_t PERF_ROW_API_WRITE = 1U << 0;   // WriteNbi
-constexpr uint32_t PERF_ROW_API_READ = 1U << 1;    // ReadNbi
-constexpr uint32_t PERF_ROW_API_NOTIFY = 1U << 2;  // WriteWithNotifyNbi
-constexpr uint32_t PERF_ROW_METRIC_LAT = 1U << 0;  // 时延口径
-constexpr uint32_t PERF_ROW_METRIC_BW = 1U << 1;   // 带宽口径
-constexpr uint32_t PERF_ROW_LAT_CYCLES_INDEX = 1U; // timing[] 时延档 cycles 下标
-constexpr uint32_t PERF_ROW_BW_CYCLES_INDEX = 2U;  // timing[] 带宽档 cycles 下标
+constexpr uint32_t PERF_ROW_API_WRITE = 1U << 0;      // WriteNbi
+constexpr uint32_t PERF_ROW_API_READ = 1U << 1;       // ReadNbi
+constexpr uint32_t PERF_ROW_API_NOTIFY = 1U << 2;     // WriteWithNotifyNbi
+constexpr uint32_t PERF_ROW_METRIC_LAT = 1U << 0;     // 时延口径
+constexpr uint32_t PERF_ROW_METRIC_BW = 1U << 1;      // 带宽口径
+constexpr uint32_t PERF_ROW_LAT_CYCLES_INDEX = 1U;    // timing[] 时延档 cycles 下标
+constexpr uint32_t PERF_ROW_BW_CYCLES_INDEX = 2U;     // timing[] 带宽档 cycles 下标
+constexpr uint32_t PERF_ROW_COMMIT_CYCLES_INDEX = 3U; // timing[] split 时 BatchCommit cycles 下标
 // 计数器换算：Ascend950 1GHz，1000 cycles = 1us（换 SOC 需同步改样例侧 def.h）
 constexpr uint64_t PERF_ROW_CYCLES_PER_US = 1000ULL;
 
@@ -138,8 +143,7 @@ inline const char* PerfApiBitName(uint32_t apiBit)
 
 // ---------------- PERF_DATA 行与 csv 落盘 ----------------
 
-// 一行 PERF_DATA：口径 lat=提交时延（不含 Drain）/ bw=端到端带宽（含 Drain）。
-// 数值含义由调用方保证（avgCycles 等），本函数只管格式。
+// 输出一行 PERF_DATA；数值列由调用方保证，本函数只负责格式。
 // 小数位：AvgCycles / Bandwidth 4 位，SingleCoreTime 6 位。
 inline void PrintPerfRow(const PerfRow& row)
 {
@@ -151,18 +155,13 @@ inline void PrintPerfRow(const PerfRow& row)
               << " | Bandwidth/GB/s=" << std::setprecision(4) << row.bandwidthGbs << std::endl;
 }
 
-// 从 kernel timing 据实造行并打印：每个「操作 × 口径」组合一行（metricMask 选中
-// 的口径各一行），压入 rows。apiMask / metricMask 直接用样例命令行里的掩码值，
-// 位定义同上面的 PERF_ROW_* 常量（两样例 def.h 同值同义）。
-// rounds：Rounds 列显示值（12 号 = 计时轮数，13 号 = 批轮次）；
-// batch：BatchSize 列（无批维度的样例传 1 占位）。样本数 = rounds × batch
-// （12 号 batch=1 时即 rounds），一个样本 = 一条请求，作 avgCycles 的分母。
-// commitName / topologyName：提交方式与拓扑名（同 GatherPerfRowsToRoot 的
-// 重导参数，两卡恒同）。
-// kernel 失败时调用方不进本函数（timing 无效）。
+// 从 kernel timing 生成结果行：metricMask 每个选中口径一行，样本数为 rounds × batch；
+// commitLatency=true 时额外生成 BatchCommit 行，样本数为 rounds 且不派生带宽。
+template <size_t TimingWords>
 inline void CollectPerfRows(
-    const uint64_t (&timing)[3], uint32_t rank, uint32_t apiMask, uint32_t metricMask, uint32_t rounds, uint64_t len,
-    uint32_t batch, const char* commitName, const char* topologyName, std::vector<PerfRow>& rows)
+    const uint64_t (&timing)[TimingWords], uint32_t rank, uint32_t apiMask, uint32_t metricMask, uint32_t rounds,
+    uint64_t len, uint32_t batch, const char* commitName, const char* topologyName, std::vector<PerfRow>& rows,
+    bool commitLatency = false)
 {
     for (uint32_t apiBit = PERF_ROW_API_WRITE; apiBit <= PERF_ROW_API_NOTIFY; apiBit <<= 1) {
         if ((apiMask & apiBit) == 0U) {
@@ -202,6 +201,25 @@ inline void CollectPerfRows(
             PrintPerfRow(row);
             rows.push_back(row);
         }
+        if constexpr (TimingWords > PERF_ROW_COMMIT_CYCLES_INDEX) {
+            if (commitLatency && (metricMask & PERF_ROW_METRIC_LAT) != 0U) {
+                PerfRow row{};
+                row.rank = rank;
+                row.api = PerfApiBitName(apiBit);
+                row.len = len;
+                row.batch = batch;
+                row.commit = commitName;
+                row.topology = topologyName;
+                row.drain = "commit-lat";
+                row.samples = rounds;
+                row.cycles = timing[PERF_ROW_COMMIT_CYCLES_INDEX];
+                row.avgCycles = static_cast<double>(row.cycles) / static_cast<double>(rounds);
+                row.singleCoreUs = row.avgCycles / PERF_ROW_CYCLES_PER_US;
+                row.bandwidthGbs = 0.0;
+                PrintPerfRow(row);
+                rows.push_back(row);
+            }
+        }
     }
 }
 
@@ -236,13 +254,9 @@ inline uint32_t Popcount32(uint32_t v)
     return n;
 }
 
-// 各 rank 终局交换结果行：rank 0 把其他 rank 的有效行追加到自己 rows 尾部（本
-// rank 块在前），随后由调用方落盘一份全 rank 的 csv。集合操作，各 rank 都必须
-// 无条件到达本调用——正常跑完与受控失败（全体同步停）都会到；环境错误提前
-// 退出的一侧不在，对端 Allgather 超时（60s）返回 false，调用方退回只写自己的行。
-// capacity：行容量上界，两卡按同一命令行推出（如 档数 × 选中接口数 × 选中口径数）。
-// commitName / topologyName：两卡恒同（同一命令行），rank 0 收侧重导（传入本样例
-// 的名字，不占线上字节）。
+// 终局 Allgather 交换结果行；rank 0 追加其他 rank 的有效行并落盘全量 csv。
+// capacity 是各 rank 按同一命令行推出的容量上界；commitName / topologyName
+// 不编码，由 rank 0 收侧还原。Allgather 超时返回 false，调用方可回退只写本排行。
 inline bool GatherPerfRowsToRoot(
     RankSyncContext& sync, uint32_t rank, uint32_t nranks, size_t capacity, const char* commitName,
     const char* topologyName, std::vector<PerfRow>& rows)
