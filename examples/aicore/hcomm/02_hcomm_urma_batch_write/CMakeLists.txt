@@ -43,6 +43,7 @@ target_link_directories(hcomm_batch_write PRIVATE
 target_link_libraries(hcomm_batch_write PRIVATE
     hcomm
     hccl
+    dl
 )
 
 target_compile_options(hcomm_batch_write PRIVATE
