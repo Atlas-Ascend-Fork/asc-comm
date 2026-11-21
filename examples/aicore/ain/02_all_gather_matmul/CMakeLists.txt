@@ -50,6 +50,22 @@ target_link_directories(ain_all_gather_matmul PRIVATE "${CANN_ROOT}/lib64" "${CA
 target_link_libraries(ain_all_gather_matmul PRIVATE hcomm hccl ascendcl ascendc_runtime runtime platform tiling_api dl m)
 target_compile_options(ain_all_gather_matmul PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
-    $<$<COMPILE_LANGUAGE:ASC>:-iquote${OPS_TENSOR_ROOT}/include/tensor_api/include>
-    $<$<COMPILE_LANGUAGE:ASC>:-iquote${OPS_TENSOR_ROOT}/include/tensor_api>
     $<$<COMPILE_LANGUAGE:ASC>:-include${OPS_TENSOR_ROOT}/examples/common/cce_pipe_stub.h>)
+
+# 新版 CANN 在 asc/impl/c_api/reg_base_impl 下自带 c_api 实现头，ops-tensor 的
+# tensor_api 子模块又 vendored 了一份同类实现，include guard 不同无法自动去重。
+# 这里在 configure 阶段按文件是否存在决定是否预定义 vendored guard；旧版 CANN
+# 没有这些头时保持原路径不变。
+set(CANN_C_API_IMPL_ROOT "${CANN_ROOT}/asc/impl/c_api")
+if(EXISTS "${CANN_C_API_IMPL_ROOT}/reg_base_impl/utils_impl.h")
+    message(STATUS "AIN AGMM: CANN c_api impl headers found under ${CANN_C_API_IMPL_ROOT}, skipping vendored copies")
+    target_compile_options(ain_all_gather_matmul PRIVATE
+        $<$<COMPILE_LANGUAGE:ASC>:-DIMPL_C_API_C_API_INSTR_IMPL_UTILS_C_API_IMPL_UTILS_C_API_IMPL_H>
+        $<$<COMPILE_LANGUAGE:ASC>:-DIMPL_C_API_INSTR_IMPL_NPU_ARCH_3510_UTILS_IMPL_UTILS_C_API_IMPL_H>)
+else()
+    message(STATUS "AIN AGMM: CANN c_api impl headers not found under ${CANN_C_API_IMPL_ROOT}, using vendored copies")
+endif()
+if(EXISTS "${CANN_C_API_IMPL_ROOT}/reg_base_impl/npu_arch_3510/vector_compute_composite_intf_impl.h")
+    target_compile_options(ain_all_gather_matmul PRIVATE
+        $<$<COMPILE_LANGUAGE:ASC>:-DIMPL_C_API_INSTR_IMPL_NPU_ARCH_3510_VECTOR_COMPUTE_IMPL_H>)
+endif()

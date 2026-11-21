@@ -3,8 +3,8 @@
 ## 概述
 
 本样例展示如何在Ascend C AIV Kernel中通过`ain/ain.h`接口使用AIN基础通信能力。样例采用多rank
-对称执行方式：每个rank向下一个rank执行`Put`，并对上一个rank执行`Get`，最后通过
-`AinBarrierSession`完成同步。
+对称执行方式：每个rank向下一个rank执行`put`，并对上一个rank执行`get`，最后通过
+`ain_barrier_session`完成同步。
 
 Host侧负责内存申请、初始化HCCL通信域、创建HCCL Team、注册对称window并创建AIV通信channel；
 Kernel侧只通过AIN接口提交数据面通信任务。
@@ -31,11 +31,11 @@ basic_ring
 
 `nranks`个rank组成环形拓扑，当前rank `r`执行两次单边通信：
 
-- `Put`：将本rank标识写入下一个rank（`(r + 1) % nranks`）的`recvWindow[rankId]`
-- `Get`：从上一个rank（`(r - 1 + nranks) % nranks`）的`sendWindow[0]`读取数据到本rank的
-  `recvWindow[rankNum + rankId]`
+- `put`：将本rank标识写入下一个rank（`(r + 1) % nranks`）的`recv_window[rank_id]`
+- `get`：从上一个rank（`(r - 1 + nranks) % nranks`）的`send_window[0]`读取数据到本rank的
+  `recv_window[rank_num + rank_id]`
 
-通信完成后每个rank回读`recvBuf`并校验`Put`和`Get`的结果。
+通信完成后每个rank回读`recv_buf`并校验`put`和`get`的结果。
 
 ### 样例规格
 
@@ -54,10 +54,10 @@ basic_ring
 2. 每个rank初始化ACL运行环境，通过`HcclTeamCreateDescInit`配置team描述（包括`barrierCount`、
    `rankIds`、通信引擎`COMM_ENGINE_AIV`、协议`COMM_PROTOCOL_UB_CTP`和`channelCnt`），
    调用`HcclTeamCreate`创建team并自动建立AIV + UB_CTP通信channel。
-3. 分别将`sendBuf`和`recvBuf`通过`HcclCommSymWinRegister`注册为对称window。
-4. 下发`team`、`sendWin`、`recvWin`到Kernel。
-5. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
-   等待通信任务完成，最后通过`AinBarrierSession::Sync`完成rank间同步。
+3. 分别将`send_buf`和`recv_buf`通过`HcclCommSymWinRegister`注册为对称window。
+4. 下发`team`、`send_win`、`recv_win`到Kernel。
+5. Kernel侧构造`asc::ain`对象并初始化asccomm UB临时工作区，执行`put`和`get`后调用`flush`
+   等待通信任务完成，最后通过`ain_barrier_session::sync`完成rank间同步。
 
 ## 编译运行
 
@@ -101,11 +101,11 @@ basic_ring
 
 - 执行结果
 
-  每个rank会回读`recvBuf`并打印`Put`和`Get`结果，例如：
+  每个rank会回读`recv_buf`并打印`put`和`get`结果，例如：
 
   ```text
-  [rank 0] basic_ring | PUT recvBuf[1]=1, GET recvBuf[2]=1 | PASS
-  [rank 1] basic_ring | PUT recvBuf[0]=0, GET recvBuf[3]=0 | PASS
+  [rank 0] basic_ring | PUT recv_buf[1]=1, GET recv_buf[2]=1 | PASS
+  [rank 1] basic_ring | PUT recv_buf[0]=0, GET recv_buf[3]=0 | PASS
   RESULT | Example=basic_ring | Status=PASS
   ```
 

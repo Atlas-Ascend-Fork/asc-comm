@@ -40,91 +40,91 @@
 
 namespace examples {
 
-// ArgsOf：函数类型F -> 参数tuple类型（FunctionTrait惯用法）。
-// 用法：std::vector<ArgsOf<decltype(fn)>> ts{{1, false}, {2, true}};
+// args_of：函数类型F -> 参数tuple类型（FunctionTrait惯用法）。
+// 用法：std::vector<args_of<decltype(fn)>> ts{{1, false}, {2, true}};
 template <class F>
-struct FunctionTrait;
+struct function_trait;
 
 template <class R, class... Args>
-struct FunctionTrait<R(Args...)> {
+struct function_trait<R(Args...)> {
     using type = std::tuple<Args...>;
 };
 
 template <class F>
-using ArgsOf = typename FunctionTrait<F>::type;
+using args_of = typename function_trait<F>::type;
 
 // 进程组配置。
-struct ProcessGroupOptions {
+struct process_group_options {
     // 整组超时秒数；0表示不限时（默认）。非零时，超时后先向所有子进程发SIGTERM，宽限期后
-    // 仍存活的收到SIGKILL，WaitAll最终返回false。
-    uint32_t timeoutSeconds = 0;
-    // SIGTERM（超时、TerminateAll或Ctrl+C触发的终止）后等待子进程自行退出的宽限秒数。
-    uint32_t graceSeconds = 5;
+    // 仍存活的收到SIGKILL，wait_all最终返回false。
+    uint32_t timeout_seconds = 0;
+    // SIGTERM（超时、terminate_all或Ctrl+C触发的终止）后等待子进程自行退出的宽限秒数。
+    uint32_t grace_seconds = 5;
 };
 
-// 一个ProcessGroup持有一次运行拉起的全部子进程。
+// 一个process_group持有一次运行拉起的全部子进程。
 //
 // 用法：
-//   examples::ProcessGroup group;
-//   if (!group.Launch(count, entryFn, std::move(perRankArgs))) { return 1; }
-//   bool pass = group.WaitAll();
+//   examples::process_group group;
+//   if (!group.launch(count, entry_fn, std::move(per_rank_args))) { return 1; }
+//   bool pass = group.wait_all();
 //
-// 同一进程同时只能有一个活跃的ProcessGroup（SIGINT/SIGTERM处理器的路由需要），
+// 同一进程同时只能有一个活跃的process_group（SIGINT/SIGTERM处理器的路由需要），
 // 样例场景是main里一个组用到底，不受影响。
-class ProcessGroup {
+class process_group {
 public:
-    explicit ProcessGroup(ProcessGroupOptions options = {}) : options_(options) {}
+    explicit process_group(process_group_options options = {}) : launch_options(options) {}
 
-    ProcessGroup(const ProcessGroup&) = delete;
-    ProcessGroup& operator=(const ProcessGroup&) = delete;
-    ProcessGroup(ProcessGroup&&) = delete;
-    ProcessGroup& operator=(ProcessGroup&&) = delete;
+    process_group(const process_group&) = delete;
+    process_group& operator=(const process_group&) = delete;
+    process_group(process_group&&) = delete;
+    process_group& operator=(process_group&&) = delete;
 
-    ~ProcessGroup()
+    ~process_group()
     {
-        // 兜底：调用方忘记WaitAll/TerminateAll时也不留孤儿进程。
-        TerminateAll();
-        if (activeGroup_ == this) {
-            activeGroup_ = nullptr;
+        // 兜底：调用方忘记wait_all/terminate_all时也不留孤儿进程。
+        terminate_all();
+        if (active_group == this) {
+            active_group = nullptr;
         }
     }
 
-    // 拉起count个子进程。第rank个子进程执行 int code = std::apply(entry, perRankArgs[rank])
+    // 拉起count个子进程。第rank个子进程执行 int code = std::apply(entry, per_rank_args[rank])
     // 后以code退出。entry的签名没有任何约定，rank及其在每个rank上的差异由调用方
-    // 组织进perRankArgs的各个tuple。
+    // 组织进per_rank_args的各个tuple。
     //
-    // 返回false表示拉起失败（fork失败或perRankArgs.size() != count），此时已拉起的
+    // 返回false表示拉起失败（fork失败或per_rank_args.size() != count），此时已拉起的
     // 子进程已被回收，直接返回错误即可。
     template <typename Entry, typename... Args>
-    bool Launch(uint32_t count, Entry&& entry, std::vector<std::tuple<Args...>>&& perRankArgs)
+    bool launch(uint32_t count, Entry&& entry, std::vector<std::tuple<Args...>>&& per_rank_args)
     {
-        if (perRankArgs.size() != static_cast<size_t>(count)) {
+        if (per_rank_args.size() != static_cast<size_t>(count)) {
             return false;
         }
-        if (activeGroup_ != nullptr) {
+        if (active_group != nullptr) {
             return false;
         }
-        InstallSignalHandlers();
+        install_signal_handlers();
 
-        pids_.assign(count, -1);
-        exitCodes_.assign(count, 0);
+        child_pids.assign(count, -1);
+        rank_exit_codes.assign(count, 0);
         for (uint32_t rank = 0; rank < count; ++rank) {
             pid_t pid = fork();
             if (pid < 0) {
-                std::fprintf(stderr, "[ProcessGroup] fork rank %u failed: %s\n", rank, std::strerror(errno));
+                std::fprintf(stderr, "[process_group] fork rank %u failed: %s\n", rank, std::strerror(errno));
                 // 回收已拉起的子进程，不留孤儿：0秒宽限直接升级到SIGKILL。
-                ReapAll(std::chrono::seconds(0));
+                reap_all(std::chrono::seconds(0));
                 return false;
             }
             if (pid == 0) {
                 // 子进程：恢复默认信号处理，执行调用方入口后直接退出。
                 // _exit不走父进程栈上对象的析构——ACL/HCCL句柄不能被二次析构。
-                RestoreSignalHandlers();
+                restore_signal_handlers();
                 int code = 0;
                 try {
-                    code = std::apply(std::forward<Entry>(entry), std::move(perRankArgs[rank]));
+                    code = std::apply(std::forward<Entry>(entry), std::move(per_rank_args[rank]));
                 } catch (const std::exception& err) {
-                    std::fprintf(stderr, "[ProcessGroup] rank %u threw: %s\n", rank, err.what());
+                    std::fprintf(stderr, "[process_group] rank %u threw: %s\n", rank, err.what());
                     code = 0xFF;
                 } catch (...) {
                     code = 0xFF;
@@ -132,138 +132,140 @@ public:
                 std::fflush(nullptr);
                 _exit(code);
             }
-            pids_[rank] = pid;
+            child_pids[rank] = pid;
         }
-        activeGroup_ = this;
+        active_group = this;
         return true;
     }
 
     // 等待全部子进程退出。任一子进程失败不会提前放弃回收其余子进程——半途退出
     // 会留下阻塞在通信域或host barrier上的孤儿进程。
     // 返回true当且仅当所有子进程都正常退出且退出码为0。
-    bool WaitAll()
+    bool wait_all()
     {
-        if (pids_.empty()) {
+        if (child_pids.empty()) {
             return true;
         }
-        const auto deadline = options_.timeoutSeconds == 0U ?
-                                  std::chrono::steady_clock::time_point::max() :
-                                  std::chrono::steady_clock::now() + std::chrono::seconds(options_.timeoutSeconds);
-        const bool allPassed = WaitAndReap(deadline);
-        return allPassed && !interrupted_;
+        const auto deadline =
+            launch_options.timeout_seconds == 0U ?
+                std::chrono::steady_clock::time_point::max() :
+                std::chrono::steady_clock::now() + std::chrono::seconds(launch_options.timeout_seconds);
+        const bool all_passed = wait_and_reap(deadline);
+        return all_passed && !interrupted_flag;
     }
 
     // 终止全部子进程并回收。SIGINT/SIGTERM到达父进程时自动触发，也可手动调用；
     // 对已退出的进程无副作用，可重复调用。
-    void TerminateAll()
+    void terminate_all()
     {
-        if (pids_.empty()) {
+        if (child_pids.empty()) {
             return;
         }
-        SignalAll(SIGTERM);
-        ReapAll(std::chrono::seconds(options_.graceSeconds));
+        signal_all(SIGTERM);
+        reap_all(std::chrono::seconds(launch_options.grace_seconds));
     }
 
     // 各rank的最终状态：正常退出为退出码（0-255），被信号杀死为负值（如-9），
-    // 超时被杀同样表现为负值。WaitAll/TerminateAll完成后有效，未启动的rank为0。
-    const std::vector<int>& ExitCodes() const { return exitCodes_; }
+    // 超时被杀同样表现为负值。wait_all/terminate_all完成后有效，未启动的rank为0。
+    const std::vector<int>& exit_codes() const { return rank_exit_codes; }
 
     // Ctrl+C/SIGTERM是否介入过本次运行，用于把"被中断"和"测试失败"区分开。
-    bool Interrupted() const { return interrupted_; }
+    bool interrupted() const { return interrupted_flag; }
 
 private:
-    static constexpr std::chrono::milliseconds kPollInterval{50};
+    static constexpr std::chrono::milliseconds POLL_INTERVAL{50};
 
-    // 每个rank的等待策略，见CollectOne：
-    enum class WaitMode {
-        blocking,     // 无限期阻塞等一个子进程
-        nonBlocking,  // 只收割已退出的
-        withDeadline, // 阻塞但每kPollInterval醒来检查deadline/信号
+    // 每个rank的等待策略，见collect_one：
+    enum class wait_mode {
+        BLOCKING,      // 无限期阻塞等一个子进程
+        NON_BLOCKING,  // 只收割已退出的
+        WITH_DEADLINE, // 阻塞但每POLL_INTERVAL醒来检查deadline/信号
     };
 
     // 等待并收割全部子进程。返回true当且仅当全部正常退出且退出码为0。
-    // deadline为time_point::max()时表示不限时（WaitMode::blocking路径）。
-    bool WaitAndReap(std::chrono::steady_clock::time_point deadline)
+    // deadline为time_point::max()时表示不限时（wait_mode::BLOCKING路径）。
+    bool wait_and_reap(std::chrono::steady_clock::time_point deadline)
     {
-        const bool hasDeadline = deadline != std::chrono::steady_clock::time_point::max();
-        bool allPassed = true;
+        const bool has_deadline = deadline != std::chrono::steady_clock::time_point::max();
+        bool all_passed = true;
         // 每圈循环收割当前已退出的子进程；未到deadline且还有子进程未退就继续等。
-        while (HasRunningChild()) {
-            if (signalFlag_ != 0) {
-                interrupted_ = true;
-                TerminateAll();
+        while (has_running_child()) {
+            if (signal_flag != 0) {
+                interrupted_flag = true;
+                terminate_all();
                 return false;
             }
-            if (hasDeadline && std::chrono::steady_clock::now() >= deadline) {
+            if (has_deadline && std::chrono::steady_clock::now() >= deadline) {
                 std::fprintf(
-                    stderr, "[ProcessGroup] timeout after %u s, terminating all ranks\n", options_.timeoutSeconds);
-                TerminateAll();
+                    stderr, "[process_group] timeout after %u s, terminating all ranks\n",
+                    launch_options.timeout_seconds);
+                terminate_all();
                 return false;
             }
-            const bool roundPassed = CollectOne(hasDeadline ? WaitMode::withDeadline : WaitMode::blocking);
-            if (!roundPassed) {
-                allPassed = false;
+            const bool round_passed = collect_one(has_deadline ? wait_mode::WITH_DEADLINE : wait_mode::BLOCKING);
+            if (!round_passed) {
+                all_passed = false;
             }
         }
-        // 终止路径（TerminateAll -> ReapAll）已写过exitCodes_，这里不再覆盖。
-        return allPassed;
+        // 终止路径（terminate_all -> reap_all）已写过rank_exit_codes，这里不再覆盖。
+        return all_passed;
     }
 
     // 收割一批已退出的子进程。返回true当且仅当本轮收割到的子进程都正常退出且退出码为0；
     // 没有子进程退出时返回true（不改变结论）。
-    bool CollectOne(WaitMode mode)
+    bool collect_one(wait_mode mode)
     {
-        bool roundPassed = true;
+        bool round_passed = true;
         while (true) {
             int status = 0;
-            const int options = mode == WaitMode::nonBlocking ? WNOHANG : 0;
+            const int options = mode == wait_mode::NON_BLOCKING ? WNOHANG : 0;
             const pid_t pid = waitpid(-1, &status, options);
             if (pid < 0) {
                 if (errno == EINTR) {
-                    // 被信号打断：回到外层循环重新检查signalFlag_与deadline。
+                    // 被信号打断：回到外层循环重新检查signal_flag与deadline。
                     return true;
                 }
                 // ECHILD：没有可等待的子进程，正常收尾。
-                return roundPassed;
+                return round_passed;
             }
             if (pid == 0) {
                 // WNOHANG下没有已退出的子进程。
-                return roundPassed;
+                return round_passed;
             }
-            if (!RecordExit(pid, status)) {
-                roundPassed = false;
+            if (!record_exit(pid, status)) {
+                round_passed = false;
             }
-            if (mode == WaitMode::nonBlocking) {
+            if (mode == wait_mode::NON_BLOCKING) {
                 continue; // 宽限期轮询路径：继续收割其余已退出的。
             }
-            if (mode == WaitMode::withDeadline) {
+            if (mode == wait_mode::WITH_DEADLINE) {
                 continue; // 超时路径：waitpid不带WNOHANG最多阻塞一个子进程退出，继续。
             }
-            // blocking路径同样继续，直到waitpid返回<=0。
+            // BLOCKING路径同样继续，直到waitpid返回<=0。
         }
     }
 
-    // 把一个已退出子进程的状态记入exitCodes_。返回false表示该子进程异常
+    // 把一个已退出子进程的状态记入rank_exit_codes。返回false表示该子进程异常
     // （非正常退出或退出码非0）。
-    bool RecordExit(pid_t pid, int status)
+    bool record_exit(pid_t pid, int status)
     {
-        for (size_t i = 0; i < pids_.size(); ++i) {
-            if (pids_[i] == pid) {
-                pids_[i] = -1;
+        for (size_t i = 0; i < child_pids.size(); ++i) {
+            if (child_pids[i] == pid) {
+                child_pids[i] = -1;
                 if (WIFEXITED(status)) {
-                    exitCodes_[i] = WEXITSTATUS(status);
+                    rank_exit_codes[i] = WEXITSTATUS(status);
                     return WEXITSTATUS(status) == 0;
                 }
-                exitCodes_[i] = WIFSIGNALED(status) ? -WTERMSIG(status) : -1;
+                rank_exit_codes[i] = WIFSIGNALED(status) ? -WTERMSIG(status) : -1;
                 return false;
             }
         }
         return true; // 不是本组的子进程（不应发生），忽略。
     }
 
-    bool HasRunningChild() const
+    bool has_running_child() const
     {
-        for (pid_t pid : pids_) {
+        for (pid_t pid : child_pids) {
             if (pid > 0) {
                 return true;
             }
@@ -271,9 +273,9 @@ private:
         return false;
     }
 
-    void SignalAll(int sig)
+    void signal_all(int sig)
     {
-        for (pid_t pid : pids_) {
+        for (pid_t pid : child_pids) {
             if (pid > 0) {
                 kill(pid, sig);
             }
@@ -281,71 +283,71 @@ private:
     }
 
     // 向所有子进程发SIGTERM，等待grace时间后仍存活的收到SIGKILL，然后收割全部。
-    // grace为killImmediately（0秒）时直接升级到SIGKILL，用于Launch失败的清理。
-    void ReapAll(std::chrono::seconds grace)
+    // grace为grace为0秒（0秒）时直接升级到SIGKILL，用于Launch失败的清理。
+    void reap_all(std::chrono::seconds grace)
     {
-        if (!HasRunningChild()) {
+        if (!has_running_child()) {
             return;
         }
-        SignalAll(SIGTERM);
+        signal_all(SIGTERM);
         const auto deadline = std::chrono::steady_clock::now() + grace;
-        while (HasRunningChild() && std::chrono::steady_clock::now() < deadline) {
-            CollectOne(WaitMode::nonBlocking);
-            if (HasRunningChild()) {
-                // 轮询间隔为5ms（kPollInterval的1/10），避免短宽限期下错过窗口。
-                std::this_thread::sleep_for(kPollInterval / 10U);
+        while (has_running_child() && std::chrono::steady_clock::now() < deadline) {
+            collect_one(wait_mode::NON_BLOCKING);
+            if (has_running_child()) {
+                // 轮询间隔为5ms（POLL_INTERVAL的1/10），避免短宽限期下错过窗口。
+                std::this_thread::sleep_for(POLL_INTERVAL / 10U);
             }
         }
-        if (HasRunningChild()) {
-            SignalAll(SIGKILL);
+        if (has_running_child()) {
+            signal_all(SIGKILL);
         }
-        while (HasRunningChild()) {
-            CollectOne(WaitMode::blocking);
+        while (has_running_child()) {
+            collect_one(wait_mode::BLOCKING);
         }
     }
 
-    void InstallSignalHandlers()
+    void install_signal_handlers()
     {
         struct sigaction action {};
-        action.sa_handler = &ProcessGroup::OnSignal;
+        action.sa_handler = &process_group::on_signal;
         sigemptyset(&action.sa_mask);
         // SA_RESTART使被信号中断的系统调用自动重启，避免waitpid等阻塞调用返回EINTR。
         action.sa_flags = SA_RESTART;
-        sigaction(SIGINT, &action, &previousInt_);
-        sigaction(SIGTERM, &action, &previousTerm_);
+        sigaction(SIGINT, &action, &previous_int);
+        sigaction(SIGTERM, &action, &previous_term);
     }
 
-    void RestoreSignalHandlers()
+    void restore_signal_handlers()
     {
-        sigaction(SIGINT, &previousInt_, nullptr);
-        sigaction(SIGTERM, &previousTerm_, nullptr);
+        sigaction(SIGINT, &previous_int, nullptr);
+        sigaction(SIGTERM, &previous_term, nullptr);
     }
 
     // 信号处理器只做async-signal-safe的事：写标志 + 向子进程补发SIGTERM。
     // 交互式Ctrl+C时内核会把SIGINT发给整个前台进程组，子进程已各自收到；
     // 这里补发覆盖非交互场景（kill只打父进程）。
-    static void OnSignal(int sig)
+    static void on_signal(int sig)
     {
-        if (activeGroup_ != nullptr) {
-            activeGroup_->signalFlag_ = sig;
-            activeGroup_->SignalAll(sig);
+        if (active_group != nullptr) {
+            active_group->signal_flag = sig;
+            active_group->signal_all(sig);
         }
     }
 
-    ProcessGroupOptions options_;
-    std::vector<pid_t> pids_;
-    std::vector<int> exitCodes_;
-    volatile sig_atomic_t signalFlag_ = 0;
-    bool interrupted_ = false;
-    struct sigaction previousInt_ {};
-    struct sigaction previousTerm_ {};
+    process_group_options launch_options;
+    std::vector<pid_t> child_pids;
+    std::vector<int> rank_exit_codes;
+    volatile sig_atomic_t signal_flag = 0;
+    bool interrupted_flag = false;
+    struct sigaction previous_int {};
+    struct sigaction previous_term {};
 
-    static ProcessGroup* activeGroup_;
+    static process_group* active_group;
 };
 
 // 静态成员定义。header-only下放于命名空间作用域，每个包含本头文件的翻译单元
 // 各持有一份（样例均为单可执行文件单翻译单元使用，不构成问题）。
-inline ProcessGroup* ProcessGroup::activeGroup_ = nullptr;
+inline process_group* process_group::active_group = nullptr;
 
 } // namespace examples
 

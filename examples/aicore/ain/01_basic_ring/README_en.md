@@ -3,8 +3,8 @@
 ## Overview
 
 This sample demonstrates how to use the basic AIN communication capabilities through the `ain/ain.h` interface in an Ascend C AIV Kernel. The sample runs in a symmetric multi-rank
-manner: each rank issues `Put` to the next rank, issues `Get` from the previous rank, and finally synchronizes through
-`AinBarrierSession`.
+manner: each rank issues `put` to the next rank, issues `get` from the previous rank, and finally synchronizes through
+`ain_barrier_session`.
 
 The Host side allocates memory, initializes the HCCL communicator, creates the HCCL Team, registers symmetric windows, and creates AIV communication channels;
 the Kernel side only submits data-plane communication tasks through the AIN interface.
@@ -31,11 +31,11 @@ basic_ring
 
 `nranks` ranks form a ring topology. The current rank `r` performs two one-sided communication operations:
 
-- `Put`: writes its own rank id to `recvWindow[rankId]` on the next rank (`(r + 1) % nranks`)
-- `Get`: reads data from `sendWindow[0]` on the previous rank (`(r - 1 + nranks) % nranks`) into the local
-  `recvWindow[rankNum + rankId]`
+- `put`: writes its own rank id to `recv_window[rank_id]` on the next rank (`(r + 1) % nranks`)
+- `get`: reads data from `send_window[0]` on the previous rank (`(r - 1 + nranks) % nranks`) into the local
+  `recv_window[rank_num + rank_id]`
 
-After the communication completes, each rank reads back `recvBuf` and validates the `Put` and `Get` results.
+After the communication completes, each rank reads back `recv_buf` and validates the `put` and `get` results.
 
 ### Sample Specifications
 
@@ -54,10 +54,10 @@ After the communication completes, each rank reads back `recvBuf` and validates 
 2. Each rank initializes the ACL runtime environment, configures the team descriptor through `HcclTeamCreateDescInit` (including `barrierCount`,
    `rankIds`, the `COMM_ENGINE_AIV` communication engine, the `COMM_PROTOCOL_UB_CTP` protocol, and `channelCnt`),
    and calls `HcclTeamCreate` to create the team, which automatically establishes the AIV + UB_CTP communication channels.
-3. Registers `sendBuf` and `recvBuf` as symmetric windows through `HcclCommSymWinRegister`.
-4. Passes `team`, `sendWin`, and `recvWin` to the Kernel.
-5. The Kernel side constructs an `AscendC::Ain` object and initializes the Hcomm UB temporary workspace, performs `Put` and `Get`, then calls `Flush`
-   to wait for the communication tasks to complete, and finally synchronizes the ranks through `AinBarrierSession::Sync`.
+3. Registers `send_buf` and `recv_buf` as symmetric windows through `HcclCommSymWinRegister`.
+4. Passes `team`, `send_win`, and `recv_win` to the Kernel.
+5. The Kernel side constructs an `asc::ain` object and initializes the asccomm UB temporary workspace, performs `put` and `get`, then calls `flush`
+   to wait for the communication tasks to complete, and finally synchronizes the ranks through `ain_barrier_session::sync`.
 
 ## Compilation and Execution
 
@@ -101,11 +101,11 @@ Perform the following steps in the root directory of this sample to compile and 
 
 - Expected output
 
-  Each rank reads back `recvBuf` and prints the `Put` and `Get` results, for example:
+  Each rank reads back `recv_buf` and prints the `put` and `get` results, for example:
 
   ```text
-  [rank 0] basic_ring | PUT recvBuf[1]=1, GET recvBuf[2]=1 | PASS
-  [rank 1] basic_ring | PUT recvBuf[0]=0, GET recvBuf[3]=0 | PASS
+  [rank 0] basic_ring | PUT recv_buf[1]=1, GET recv_buf[2]=1 | PASS
+  [rank 1] basic_ring | PUT recv_buf[0]=0, GET recv_buf[3]=0 | PASS
   RESULT | Example=basic_ring | Status=PASS
   ```
 

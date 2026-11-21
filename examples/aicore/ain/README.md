@@ -2,13 +2,13 @@
 
 简体中文 | [English](./README_en.md)
 
-本目录提供Ain单边通信样例。Ain面向算子Kernel侧，通过`AscendC::Ain`模板基于对称窗口发起`Put`/`Get`/`Signal`等单边操作。
+本目录提供ain单边通信样例。ain面向算子Kernel侧，通过`asc::ain`模板基于对称窗口发起`put`/`get`/`signal`等单边操作。
 
 ## 样例列表
 
 | 样例 | 说明 |
 | --- | --- |
-| [01_basic_ring](./01_basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`Put`/`Get`进行点对点单边通信，并通过`AinBarrierSession`完成同步与结果校验。 |
+| [01_basic_ring](./01_basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`put`/`get`进行点对点单边通信，并通过`ain_barrier_session`完成同步与结果校验。 |
 | [02_all_gather_matmul](./02_all_gather_matmul/README.md) | 使用AIN Get和Blaze BlockMmad实现AllGatherMatmul，提供通信计算融合、串行对照和结果校验。 |
 
 ## 使用说明

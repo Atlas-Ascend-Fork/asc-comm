@@ -79,4 +79,60 @@
         }                                                                                      \
     } while (0)
 
+// 各检查宏的带提示变体：失败时在错误码后追加调用方提供的hint，说明可能原因与
+// 排查动作。hint写在调用点（最了解失败上下文处），不翻译具体错误码——错误码
+// 语义以HCCL/ACL运行时文档为准，此处避免仓内码表漂移。
+
+// 带提示的ACL接口检查。
+#define EXAMPLES_ACLCHECK_HINT(expr, hint)                                                \
+    do {                                                                                  \
+        const aclError _check_ret = (expr);                                               \
+        if (_check_ret != ACL_SUCCESS) {                                                  \
+            std::fprintf(                                                                 \
+                stderr, "%s:%d: acl call failed, ret=%d, hint: %s\n", __FILE__, __LINE__, \
+                static_cast<int32_t>(_check_ret), (hint));                                \
+            return _check_ret;                                                            \
+        }                                                                                 \
+    } while (0)
+
+// 带提示的HCCL接口检查。
+#define EXAMPLES_HCCLCHECK_HINT(expr, hint)                                                \
+    do {                                                                                   \
+        const HcclResult _check_ret = (expr);                                              \
+        if (_check_ret != HCCL_SUCCESS) {                                                  \
+            std::fprintf(                                                                  \
+                stderr, "%s:%d: hccl call failed, ret=%d, hint: %s\n", __FILE__, __LINE__, \
+                static_cast<int32_t>(_check_ret), (hint));                                 \
+            return _check_ret;                                                             \
+        }                                                                                  \
+    } while (0)
+
+// 带提示的HCOMM接口检查。
+#define EXAMPLES_HCOMMCHECK_HINT(expr, hint)                                                \
+    do {                                                                                    \
+        const HcommResult _check_ret = (expr);                                              \
+        if (_check_ret != HCCL_SUCCESS) {                                                   \
+            std::fprintf(                                                                   \
+                stderr, "%s:%d: hcomm call failed, ret=%d, hint: %s\n", __FILE__, __LINE__, \
+                static_cast<int32_t>(_check_ret), (hint));                                  \
+            return _check_ret;                                                              \
+        }                                                                                   \
+    } while (0)
+
+// 带提示的通用期望值检查。
+#define EXAMPLES_CHECK_HINT(call, expect, rank, hint)                                   \
+    do {                                                                                \
+        const auto _check_ret = (call);                                                 \
+        const auto _check_expect = (expect);                                            \
+        if (_check_ret != _check_expect) {                                              \
+            std::fprintf(                                                               \
+                stderr,                                                                 \
+                "[CHECK ERROR][rank=%u] %s failed, ret=%lld, expect=%lld, at %s:%d, "   \
+                "hint: %s\n",                                                           \
+                static_cast<unsigned>(rank), #call, static_cast<long long>(_check_ret), \
+                static_cast<long long>(_check_expect), __FILE__, __LINE__, (hint));     \
+            return EXAMPLES_CHECK_FAILED;                                               \
+        }                                                                               \
+    } while (0)
+
 #endif // ASC_COMM_EXAMPLES_UTILS_CHECK_H

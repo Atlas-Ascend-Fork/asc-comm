@@ -4,7 +4,7 @@
 
 ## 概述
 
-本示例在一个 MIX AIC:AIV=1:1 kernel 中组合 AIN `Get` 和 Blaze `BlockMmad`，演示通信与计算重叠。
+本示例在一个 MIX AIC:AIV=1:1 kernel 中组合 AIN `get` 和 Blaze `BlockMmad`，演示通信与计算重叠。
 Host 使用 HCCL 建域和对称 window/team 资源接口，数据面由 AIV 提交 AIN 通信，AIC 执行矩阵乘。
 
 实现流程参见[代码执行流程说明](ain_blaze_agmm_flow.md)：包含对应函数的程序整体流程图、
@@ -27,7 +27,8 @@ CANN开发套件需要提供AIN、HCCL team/window接口及对应运行库，并
 ├── options.h                  # 命令行参数解析
 ├── reference.h                # 输入生成与参考结果计算
 ├── tests/                     # Host测试及设备回归脚本
-├── ain_blaze_agmm_flow.md      # 函数调用及同步流程说明
+├── ain_blaze_agmm_flow.md     # 函数调用及同步流程说明（中文）
+├── ain_blaze_agmm_flow_en.md  # 函数调用及同步流程说明（英文）
 ├── README.md                  # 中文样例说明
 └── README_en.md               # 英文样例说明
 ```
@@ -45,7 +46,7 @@ C_r[P*M,N] = Concat(A_0, ..., A_(P-1)) @ B_r
 - Ascend 950PR/950DT、`dav-3510`、单机同一互联组内的 2～64 rank（且不超过可用设备数）。
 - FP16/BF16 输入和同类型输出、FP32 累加、ND 连续内存、无转置、无 bias。
 - `M>0`，N/K 为正的 16 元素倍数；M 可以不对齐，支持通信和 Cube tile 尾块。
-- 独立示例接口，不提供 ACLNN 注册、量化、变长 rank 输入或公开的 gatherOut 输出。
+- 独立示例接口，不提供 ACLNN 注册、量化、变长 rank 输入或公开的 gather_out 输出。
 
 **必须按实际互联拓扑选择设备。** 若设备 0～3 和 4～7 分属两个互联组，四卡应选择
 `--devices 0,1,2,3` 或 `--devices 4,5,6,7`，不能使用 `1,2,3,4`。编号是当前 ACL 环境中的
@@ -56,7 +57,7 @@ C_r[P*M,N] = Concat(A_0, ..., A_(P-1)) @ B_r
 1. 为各 rank 的 A 注册发送 window，为 `[P,M,K]` 接收区注册接收 window，创建 AIV/UB_CTP team。
 2. 将远端 peer 分配给 AIV，每个本端 peer channel 只有一个提交者和一个完成等待者。
 3. AIC 先直接计算本地 `A_r @ B_r`；AIV 同时按 M 分块向所有远端发起 Get。
-4. 每轮 AIV 使用 `FlushAsync + Wait` 等待自己的 peer channel，再进行本卡 AIV barrier。
+4. 每轮 AIV 使用 `flush_async + wait` 等待自己的 peer channel，再进行本卡 AIV barrier。
    每个 AIV 通知配对 AIC，本轮远端数据已就绪；AIC 从该轮所有 peer 的 M/N tiles 中分配任务。
 5. 下一轮 Get 与本轮远端计算重叠。两个 ready/free 槽限制预取深度；最后排空所有通知。
 
