@@ -1,0 +1,9 @@
+{
+  "LaunchCustomAllReduceAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "libcustom_allreduce_aicpu_kernel.so",
+      "functionName": "LaunchCustomAllReduceAicpuKernel"
+    }
+  }
+}

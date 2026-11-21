@@ -15,7 +15,7 @@
 
 #include "asccomm_res_defs.h"
 #include "hcomm_res_entity_defs.h"
-#include "../../common/utils/asccomm_result.h"
+#include "asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
 
 namespace Asc {

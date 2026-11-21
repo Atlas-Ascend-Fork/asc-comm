@@ -12,7 +12,7 @@
 #define ASCCOMM_LAUNCH_H
 
 #include "asccomm_primitives.h"
-#include "../../common/utils/asccomm_result.h"
+#include "asccomm_result.h"
 
 #include <string>
 #include <unordered_map>

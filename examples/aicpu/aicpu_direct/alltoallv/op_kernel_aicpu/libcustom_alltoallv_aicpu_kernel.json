@@ -1,0 +1,9 @@
+{
+  "LaunchCustomAlltoAllVAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "libcustom_alltoallv_aicpu_kernel.so",
+      "functionName": "LaunchCustomAlltoAllVAicpuKernel"
+    }
+  }
+}

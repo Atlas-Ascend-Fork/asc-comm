@@ -1,0 +1,9 @@
+{
+  "LaunchCustomReduceScatterAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "libcustom_reduce_scatter_aicpu_kernel.so",
+      "functionName": "LaunchCustomReduceScatterAicpuKernel"
+    }
+  }
+}

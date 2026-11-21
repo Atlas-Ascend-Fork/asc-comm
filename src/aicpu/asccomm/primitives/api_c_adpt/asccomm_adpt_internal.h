@@ -16,7 +16,7 @@
 #include "asccomm_launch.h"
 #include "asccomm_runtime.h"
 #include "asccomm_log.h"
-#include "../../common/utils/asccomm_result.h"
+#include "asccomm_result.h"
 
 namespace asccomm_adpt {
 

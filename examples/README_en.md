@@ -9,6 +9,7 @@ This directory provides usage samples for asc-comm APIs. The README at each dire
 | Directory | Description |
 | --- | --- |
 | [aicore](./aicore/README_en.md) | AICore communication samples, including Hcomm point-to-point communication samples (AIV direct-driven URMA, SIMT URMA, and RoCE paths), Ain one-sided communication samples, and Jetty communication samples. |
+| [aicpu](./aicpu/README_en.md) | AICPU communication samples, covering MC2 builtin integration and custom AICPU communication ops. |
 | [ccu](./ccu/README_en.md) | CCU communication and dataplane samples, covering builtin integration, direct ASC integration, and custom kernels. |
 
 ## Runtime Constraints
