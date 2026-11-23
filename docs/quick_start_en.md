@@ -15,7 +15,7 @@ Select the corresponding environment setup method according to **whether local N
   <tbody>
     <tr>
       <td align="center"><strong>No NPU Device</strong></td>
-      <td align="center" colspan="2"><a href="#cloud-dev-env">Cloud Development Environment</a> + <a href="#cann-install">Manual CANN Package Download & Installation</a></td>
+      <td align="center" colspan="2"><a href="#cann-install">Manual CANN Package Download & Installation</a> (compile verification only)</td>
     </tr>
     <tr>
       <td align="center"><strong>NPU Device Available</strong></td>
@@ -29,21 +29,9 @@ Select the corresponding environment setup method according to **whether local N
 >
 > - For stable development experience, it is recommended to prepare your environment using **containerization technology**.
 > - If you prefer not to use containers, you may set up the environment on a physical machine equipped with NPUs. Refer to [CANN Software Installation Guide - Physical Machine Installation](https://www.hiascend.com/cann/download).
-> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install). The `hcomm_urma_write_read_nbi` sample requires at least two NPUs for runtime execution.
+> - Users who only intend to compile this open-source repository and perform compilation verification of samples do not require local NPUs. You can skip NPU driver and firmware deployment and directly install the CANN package; see [Download and Install CANN Package](#cann-install). Samples require at least two NPUs for runtime execution.
 
-### 1️⃣ Cloud Development Environment<a name="cloud-dev-env"></a>
-
-Users without NPU devices can directly use the **CANNLab Cloud Development Environment**, i.e., a **one-stop development platform**. It provides an online ready-to-run Ascend environment with pre-installed drivers, firmware, software packages, and dependencies, so no manual installation is required.
-
-> [!NOTE]Note
->
-> - The environment is pre-installed with the latest commercial CANN package by default. Match your source code with the software when downloading. For more information about the one-stop development platform, see [CANNLab Guide](https://gitcode.com/org/cann/cannlab/docs).
-> - To download a specific CANN package version, see [Download and Install CANN Package](#cann-install).
-
-1. Navigate to the open-source repository and click the `CANNLab` button. If you have not registered or authenticated, follow the on-page prompts to complete registration and authentication.
-2. Create an environment and configure the specifications following the page prompts. After the cloud development environment starts, click `Connect` to enter the one-stop development platform.
-
-### 2️⃣ Official CANN Docker Image<a name="cann-docker-image"></a>
+### Official CANN Docker Image<a name="cann-docker-image"></a>
 
 Users with physical NPU hardware can develop with the official CANN Docker image.
 
@@ -94,7 +82,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
     | `--ipc=host` | Share IPC namespace with host; required for NPU inter-process communication (shared memory, semaphores) | - |
     | `--net=host` | Use host network stack to avoid communication latency from container forwarding | - |
     | `--privileged` | Grant full device access permissions required for NPU driver operation | - |
-    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two devices of the Ascend 950PR&950DT products shall be mapped to run the `hcomm_urma_write_read_nbi` sample. |
+    | `--device /dev/davinci<N>` | Map specified NPU device into the container; repeat the argument to attach multiple NPUs | Adjust device index according to `npu-smi info`. At least two devices of the Ascend 950PR&950DT products shall be mapped to run the samples. |
     | `--device /dev/davinci_manager` | Mount NPU device management interface | - |
     | `--device /dev/devmm_svm` | Mount device memory management interface | - |
     | `--device /dev/hisi_hdc` | Mount host-device communication interface | - |
@@ -110,7 +98,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
 
 ### 📥 Download and Install CANN Package<a name="cann-install"></a>
 
-CANN packages include the CANN toolkit package and CANN ops package.
+This repository requires the CANN toolkit package for compilation and sample verification.
 
 #### Download CANN Packages
 
@@ -124,35 +112,24 @@ CANN packages include the CANN toolkit package and CANN ops package.
 
 #### Install CANN Packages
 
-1. Install CANN toolkit package (Mandatory)
+1. Install CANN toolkit package
 
     ```bash
     chmod +x Ascend-cann-toolkit_${cann_version}_linux-$(uname -m).run
     ./Ascend-cann-toolkit_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
     ```
 
-2. Install CANN ops package (Optional)
-
-    ```bash
-    chmod +x Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run
-    ./Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
-    ```
-
-    > [!IMPORTANT]
-    > Installation Note
-    > The [AIV direct-driven URMA Hcomm sample](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
-
 | Parameter | Description |
 | :--- | :-------------------------------- |
 | `${cann_version}` | CANN package version string. |
-| `${soc_name}` | NPU model name, e.g. `910b`. |
-| `${install_path}` | Installation directory. Toolkit and ops packages must share the same path. Default: `/usr/local/Ascend` for root users, `$HOME/Ascend` for non-root users. |
+| `${install_path}` | Installation directory. Default: `/usr/local/Ascend` for root users, `$HOME/Ascend` for non-root users. |
 
 ## ✅ Environment Verification<a name="cann-verify"></a>
 
 > [!NOTE]
 > Precondition
-> The cloud development environment and official CANN Docker images come with pre-installed CANN packages; you may directly execute the verification commands.
+>
+> Official CANN Docker images come with pre-installed CANN packages; you may directly execute the verification commands.
 
 Verify environment and driver health:
 
@@ -166,7 +143,7 @@ Verify environment and driver health:
 - **Check CANN package installation**:
 
     ```bash
-    # View CANN Toolkit version info (default installation path)
+    # View CANN toolkit version info (default installation path)
     cat /usr/local/Ascend/cann/$(uname -m)-linux/ascend_toolkit_install.info
     ```
 
@@ -174,7 +151,8 @@ Verify environment and driver health:
 
 > [!NOTE]
 > Precondition
-> Cloud development environments and official CANN Docker images configure environment variables automatically; skip this section.
+>
+> Official CANN Docker images configure environment variables automatically; skip this section.
 
 Select the corresponding command to load environment variables:
 
@@ -200,104 +178,97 @@ cd asc-comm
 
 > [!NOTE]
 > Precondition
+>
 > If you use **containerization technology**, required dependencies are pre-installed inside the container and this step can be skipped.
 
 Prerequisites for source compilation and UT validation:
 
-- python >= 3.7.0
+- python >= 3.9.0
 - gcc/g++ with C++17 support
 - cmake >= 3.16.0
 
 ### ⚡ Build Source Code<a name="compile-install"></a>
 
-Enter repository root and execute:
+1. Build
 
-```bash
-bash build.sh
-```
+   This repository supports one-click compilation.
+
+   Option 1: Enter the repository root and execute:
+
+   ```bash
+   bash build.sh --pkg
+   ```
+
+   Option 2: You can also use the offline download feature. Download the [cann-cmake source package](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/cmake/cmake-master-025.tar.gz) to a custom directory PATH_TO_DOWNLOAD, then run the following command in the repository root:
+
+   ```bash
+   bash build.sh --pkg --cann_3rd_lib_path={PATH_TO_DOWNLOAD}  #PATH_TO_DOWNLOAD is the custom download directory
+   ```
+
+   After the build completes, a `cann-asc-comm_${asccomm_version}_linux-$(uname -m).run` package is generated in the `build_out` directory. `${asccomm_version}` is the asc-comm version, read from `version.cmake` in the repository root.
+
+   > [!NOTE]Note
+   > Running `bash build.sh` without `--pkg` only verifies the run package build; it neither generates the package nor installs it into the CANN directory.
+
+2. Install
+
+   Run the following commands in the repository root to install the package to the CANN installation path `${install_path}` (default: `/usr/local/Ascend` for root users, `$HOME/Ascend` for non-root users):
+
+   ```bash
+   cd build_out
+   # Install to the default path
+   ./cann-asc-comm_${asccomm_version}_linux-$(uname -m).run --full
+   # Install to a custom path
+   # ./cann-asc-comm_${asccomm_version}_linux-$(uname -m).run --full --install-path=${install_path}
+   ```
+
+   > [!NOTE]Note
+   > This run package is a local development verification package. Installation updates the managed headers, libraries, and links in the target CANN installation with the packaged versions, backs up the originals before overwriting, and can be reverted by running `--uninstall` on the same path. The installing user must own the CANN root directory; be careful when the CANN installation is shared or owned by root. See [Compilation and Testing](en/compilation/build_and_test.md).
 
 ### 🧪 Unit Test Verification<a name="ut-verify"></a>
 
 #### Dependency Preparation
 
-UTs depend on googletest. If system GTest is unavailable, point `CANN_3RD_LIB_PATH` to the CANN third-party directory.
+UTs depend on third-party software such as googletest and mockcpp: googletest uses the system-installed version first and falls back to the `third_party` directory in the repository root; mockcpp and boost are taken from `third_party`. Use `--cann_3rd_lib_path` to specify a custom third-party directory.
 
 #### Run UTs
 
-Option 1: Build Hcomm UTs from repository root
+Option 1: Build and run asc-comm UTs from the repository root:
 
 ```bash
 bash build.sh -t
 ```
 
-Specify the CANN third-party directory when needed:
+Option 2: You can also use the offline download feature. Download the [third-party source packages](#open-source-third-party-dependencies) and the cann-cmake source package to a custom directory PATH_TO_DOWNLOAD, then run the following command in the repository root:
 
 ```bash
-bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
+bash build.sh -t --cann_3rd_lib_path={PATH_TO_DOWNLOAD}  #PATH_TO_DOWNLOAD is the custom download directory
 ```
-
-Option 2: Direct CMake invocation with offline GTest path
-
-```bash
-# 1. Load CANN environment variables first (test binaries load libruntime_common.so at runtime; skipping this causes RC=127 failures); replace ${install_path} with your CANN installation path (default /usr/local/Ascend, ${HOME}/Ascend for non-root users)
-source ${install_path}/cann/set_env.sh
-# 2. Use a dedicated build directory; do not reuse the build/ut-hcomm cache produced by Option 1 (build.sh -t)
-cmake -S tests/ut -B build/ut-hcomm-cmake -DCANN_3RD_LIB_PATH=<path-to-third-party>
-cmake --build build/ut-hcomm-cmake
-# 3. CCU and AICPU tests are registered in subdirectories; run CTest in each of them (same as build.sh -t)
-(cd build/ut-hcomm-cmake/ccu_hcomm && ctest --output-on-failure)
-(cd build/ut-hcomm-cmake/aicpu_asccomm && ctest --output-on-failure)
-```
-
-> [!NOTE]Notes
->
-> - CCU and AICPU tests are registered in the `ccu_hcomm` and `aicpu_asccomm` subdirectories of the build directory (matching `build.sh -t` behavior), so `ctest` must be run inside each of them. Running `ctest` from the build root prints `No tests were found!!!` and exits with 0, which can be mistaken for a UT pass; use `ctest -N` first to confirm test registration.
-> - Option 1 (`build.sh -t`) builds to `build/ut-hcomm` by default. Re-running `cmake` directly against that existing cache fails because the cached third-party (e.g. mockcpp) source directory no longer matches (`The source ".../mockcpp/CMakeLists.txt" does not match the source "... used to generate cache"`). Use a dedicated directory (e.g. `build/ut-hcomm-cmake`) for Option 2, or clean the stale cache first.
-> - Direct `cmake` invocation bypasses the `set_env()` check performed by `build.sh`. `source set_env.sh` first; otherwise, in an independent shell `ctest` silently fails for test cases depending on CANN runtime libraries (`error while loading shared libraries: libruntime_common.so`, exit code 127), and `LastTest.log` only shows `Test Failed.` without any cause.
 
 #### Open-Source Third-Party Dependencies
 
 Third-party open-source software used for UT execution:
 
-| Software | Version |
-| :---: | :---: |
-| googletest | 1.14.0 |
+| Software | Version | Download |
+| :---: | :---: | :---: |
+| googletest | 1.14.0 | [googletest-1.14.0.tar.gz](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/googletest/googletest-1.14.0.tar.gz) |
+| boost | 1.87.0 | [boost_1_87_0.tar.gz](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/boost/boost_1_87_0.tar.gz) |
+| mockcpp | 2.7 | [mockcpp-2.7.tar.gz](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/mockcpp/mockcpp-2.7.tar.gz) |
+| mockcpp_patch | 2.7 | [mockcpp-2.7-h5.patch](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/mockcpp/mockcpp-2.7-h5.patch) |
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
 
-[hcomm_urma_write_read_nbi](../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. The sample supports Ascend 950PR&950DT products and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
-
-Navigate to the sample directory and run:
+This repository provides aicore, aicpu, and ccu sample categories under the [examples](../examples) directory. The supported CANN version, device count, and runtime method of each sample are described in its own README.
 
 > [!IMPORTANT]Confirm OS/distribution support via the official compatibility query before compiling
-> Compiling the sample relies on the Ascend C compiler toolchain bundled with CANN. For supported
+> Compiling a sample relies on the Ascend C compiler toolchain bundled with CANN. For supported
 > OS/distributions, follow the OS compatibility statement of the CANN version in use: visit the
 > [Ascend Compatibility Query Assistant](https://www.hiascend.com/hardware/compatibility) and query by your
-> actual product model (Ascend 950PR&950DT products), CPU architecture, CANN version (>= 9.1.0), and
-> deployment form (physical machine, virtual machine, or container) for the matching OS and kernel
-> versions; do not choose an OS based only on generic distribution names. On a Debian 13
-> (glibc 2.41) host, running the following commands with the CANN 9.1.X bundled toolchain has been
-> observed to fail in the system header `bits/floatn.h` with `unsupported machine mode '__TC__'` /
-> `__float128 is not supported on this target` (make Error 2). This observation only indicates that
-> this toolchain/system combination is unsupported; the error is unrelated to the sample code and
-> cannot be bypassed by source changes or macros such as `-U__HAVE_FLOAT128`. Please use the
-> [CANN Docker image](#cann-docker-image) or the CANNLab cloud development environment for
-> compilation verification.
-
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-cd examples/aicore/hcomm/01_hcomm_urma_write_read_nbi
-mkdir -p build
-cd build
-cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-make -j
-./hcomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
-```
-
-Successful execution outputs:
-
-```text
-[rank 0] hcomm_write_read_nbi | sent to rank 1, received from rank 1 | PASS
-[rank 1] hcomm_write_read_nbi | sent to rank 0, received from rank 0 | PASS
-RESULT | Example=hcomm_write_read_nbi | Status=PASS
-```
+> actual product model (Ascend 950PR&950DT products), CPU architecture, CANN version, and deployment form
+> (physical machine, virtual machine, or container) for the matching OS and kernel versions; do not choose
+> an OS based only on generic distribution names. On a Debian 13 (glibc 2.41) host, with the CANN 9.1.X
+> bundled toolchain, compilation has been observed to fail in the system header `bits/floatn.h` with
+> `unsupported machine mode '__TC__'` / `__float128 is not supported on this target` (make Error 2).
+> This observation only indicates that this toolchain/system combination is unsupported; the error is
+> unrelated to the sample code and cannot be bypassed by source changes or macros such as
+> `-U__HAVE_FLOAT128`. Please use the [CANN Docker image](#cann-docker-image) for compilation verification.
