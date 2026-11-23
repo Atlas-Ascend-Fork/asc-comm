@@ -63,7 +63,7 @@ int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 发送请求处理成功。发送任务已生成，是否立即提交由Thread资源的提交策略决定。 |
+| `ASCCOMM_SUCCESS`（0） | 发送请求处理成功。发送任务已生成：批量提交模式下先缓存，由`asccomm_batch_mode_end`统一提交；非批量模式下立即提交。 |
 | `ASCCOMM_E_PTR` | `src`为空、Thread或Channel句柄为0、本端注册Buffer信息缺失，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | Thread或Channel资源、UB通信上下文或内存保护参数不合法，本端发送内存保护不是URMA，Channel中缺失或存在无效的send/recv专用对端接收Jetty目标描述，或`len`超出单次发送长度上限（65536字节）。 |
 | `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的UB类协议。 |

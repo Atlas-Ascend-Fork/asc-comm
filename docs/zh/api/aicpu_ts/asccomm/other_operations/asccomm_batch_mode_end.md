@@ -49,7 +49,7 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
 | `ASCCOMM_E_PTR` | Thread资源、本地任务缓存指针为空，或提交缓存任务时所需地址为空。 |
 | `ASCCOMM_E_PARA` | Thread资源、通信任务提交队列或上下文参数不合法。 |
 | `ASCCOMM_E_TIMEOUT` | 提交缓存任务时，通信队列空间不足且等待超时。 |
-| `ASCCOMM_E_INTERNAL` | 提交缓存任务时发生内部异常。 |
+| `ASCCOMM_E_INTERNAL` | 结束批量提交模式、提交缓存任务或清理已注册Thread时发生内部异常。 |
 
 ## 约束说明
 

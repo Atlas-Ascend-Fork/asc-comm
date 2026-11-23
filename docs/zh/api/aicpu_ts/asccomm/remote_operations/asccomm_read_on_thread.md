@@ -49,7 +49,7 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 读请求处理成功，读任务已提交。 |
+| `ASCCOMM_SUCCESS`（0） | 读请求处理成功，读任务已生成：批量提交模式下先缓存，由`asccomm_batch_mode_end`统一提交；非批量模式下立即提交。 |
 | `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | Thread或Channel资源、通信上下文或内存保护参数不合法。 |
 | `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |

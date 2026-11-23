@@ -32,3 +32,6 @@
   - [asccomm_batch_mode_end](./other_operations/asccomm_batch_mode_end.md)
   - [asccomm_set_notify_wait_timeout](./other_operations/asccomm_set_notify_wait_timeout.md)
   - [asccomm_thread_res_acquire_timeout](./other_operations/asccomm_thread_res_acquire_timeout.md)
+- [Data Type Definition](./datatype_definition/_dump_node.md)
+  - [Introduction](./datatype_definition/README.md)
+  - [asccomm_result](./datatype_definition/asccomm_result.md)

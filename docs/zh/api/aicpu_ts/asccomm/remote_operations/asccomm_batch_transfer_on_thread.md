@@ -91,7 +91,7 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 
 | 返回值 | 说明 |
 | --- | --- |
-| `ASCCOMM_SUCCESS`（0） | 传输任务处理并提交成功。 |
+| `ASCCOMM_SUCCESS`（0） | 传输任务已生成：批量提交模式下先缓存，由`asccomm_batch_mode_end`统一提交；非批量模式下立即提交。 |
 | `ASCCOMM_E_PARA` | 参数或通信资源配置不合法。 |
 | `ASCCOMM_E_PTR` | 句柄、指针或任务地址为空或无效。 |
 | `ASCCOMM_E_NOT_SUPPORT` | Channel使用了当前实现不支持的协议。 |

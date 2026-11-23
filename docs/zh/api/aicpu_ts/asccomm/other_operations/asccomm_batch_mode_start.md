@@ -46,6 +46,7 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
 | 返回值 | 说明 |
 | --- | --- |
 | `ASCCOMM_SUCCESS`（0） | 开启批量提交模式成功。 |
+| `ASCCOMM_E_INTERNAL` | 更新批量提交模式线程本地状态时发生内部异常。 |
 
 ## 约束说明
 
