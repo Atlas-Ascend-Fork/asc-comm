@@ -45,6 +45,7 @@ def main():
             f"golden size mismatch: expected {expected_size}, got {golden.size}"
         )
 
+    golden_bits = golden.view(np.uint32)
     for rank_id in range(args.rank_size):
         output_path = args.output_dir / f"output_rank_{rank_id}.bin"
         output = np.fromfile(output_path, dtype=np.float32)
@@ -53,12 +54,14 @@ def main():
                 f"rank {rank_id} output size mismatch: "
                 f"expected {expected_size}, got {output.size}"
             )
-        mismatch = np.flatnonzero(output != golden)
+        output_bits = output.view(np.uint32)
+        mismatch = np.flatnonzero(output_bits != golden_bits)
         if mismatch.size != 0:
             index = int(mismatch[0])
             raise ValueError(
                 f"rank {rank_id} mismatch at {index}: "
-                f"expected {golden[index]}, got {output[index]}"
+                f"expected {golden[index]} (0x{int(golden_bits[index]):08x}), "
+                f"got {output[index]} (0x{int(output_bits[index]):08x})"
             )
         print(f"rank {rank_id} verify pass")
 
