@@ -10,7 +10,7 @@
 
 // 覆盖 fa84c01（同步 class variable 等接口的功能演进）新增代码：
 // 1. ccu::variable 算术(减/乘/立即数变体)、逻辑(and/or/xor/not)、比较(==/!=/</<=/>/>=) 全部重载运算符；
-// 2. cond_expr 新增字段（rhs_var_ / is_var_compare / 新条件类型 lt/le/gt/ge）；
+// 2. cond_expr 新增字段（rhs_var_handle / is_var_compare / 新条件类型 lt/le/gt/ge）；
 // 3. CCU_IF / CCU_WHILE 控制流宏的变量-变量比较分支（ccu_if_begin_var / ccu_while_begin_var 等）；
 // 4. ccu_primitives_impl.cc 新增 C 接口（sub/mul/imm/逻辑/not/address+imm/_var 控制流）的成功与错误路径。
 #include "ccu_variable_ut_stub.h"
@@ -57,8 +57,8 @@ TEST_F(CcuVariableOperatorTest, CondExpr_CompareWithImmediate_AllConditions)
     asc::ut::clear_calls();
 
     auto cEq = var == uint64_t(100);
-    EXPECT_EQ(cEq.var_, &var);
-    EXPECT_EQ(cEq.rhs_var_, nullptr);
+    EXPECT_EQ(cEq.var_handle, var.handle);
+    EXPECT_EQ(cEq.rhs_var_handle, ccu_variable_handle{0});
     EXPECT_EQ(cEq.imm, 100u);
     EXPECT_EQ(cEq.cond, ccu_condition_eq);
     EXPECT_FALSE(cEq.is_var_compare);
@@ -101,8 +101,8 @@ TEST_F(CcuVariableOperatorTest, CondExpr_CompareWithVariable_AllConditions)
     asc::ut::clear_calls();
 
     auto cEq = lhs == rhs;
-    EXPECT_EQ(cEq.var_, &lhs);
-    EXPECT_EQ(cEq.rhs_var_, &rhs);
+    EXPECT_EQ(cEq.var_handle, lhs.handle);
+    EXPECT_EQ(cEq.rhs_var_handle, rhs.handle);
     EXPECT_EQ(cEq.imm, 0u);
     EXPECT_EQ(cEq.cond, ccu_condition_eq);
     EXPECT_TRUE(cEq.is_var_compare);

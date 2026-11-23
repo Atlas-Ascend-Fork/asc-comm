@@ -34,8 +34,8 @@ template <typename t>
 t get_res_by_channel(ChannelHandle channel, uint32_t index);
 
 struct cond_expr {
-    variable* var_{nullptr};
-    const variable* rhs_var_{nullptr};
+    ccu_variable_handle var_handle{0};
+    ccu_variable_handle rhs_var_handle{0};
     uint64_t imm{0};
     ccu_condition_type cond{ccu_condition_eq};
     bool is_var_compare{false};
@@ -155,29 +155,47 @@ public:
 
     void operator>>=(const variable& other) const;
 
-    cond_expr operator==(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_eq, false}; }
+    cond_expr operator==(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_eq, false}; }
 
-    cond_expr operator!=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_ne, false}; }
+    cond_expr operator!=(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_ne, false}; }
 
-    cond_expr operator<(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_lt, false}; }
+    cond_expr operator<(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_lt, false}; }
 
-    cond_expr operator<=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_le, false}; }
+    cond_expr operator<=(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_le, false}; }
 
-    cond_expr operator>(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_gt, false}; }
+    cond_expr operator>(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_gt, false}; }
 
-    cond_expr operator>=(uint64_t immediate) { return cond_expr{this, nullptr, immediate, ccu_condition_ge, false}; }
+    cond_expr operator>=(uint64_t immediate) const { return cond_expr{handle, 0, immediate, ccu_condition_ge, false}; }
 
-    cond_expr operator==(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_eq, true}; }
+    cond_expr operator==(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_eq, true};
+    }
 
-    cond_expr operator!=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_ne, true}; }
+    cond_expr operator!=(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_ne, true};
+    }
 
-    cond_expr operator<(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_lt, true}; }
+    cond_expr operator<(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_lt, true};
+    }
 
-    cond_expr operator<=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_le, true}; }
+    cond_expr operator<=(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_le, true};
+    }
 
-    cond_expr operator>(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_gt, true}; }
+    cond_expr operator>(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_gt, true};
+    }
 
-    cond_expr operator>=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_ge, true}; }
+    cond_expr operator>=(const variable& other) const
+    {
+        return cond_expr{handle, other.handle, 0, ccu_condition_ge, true};
+    }
 
     ccu_variable_handle handle{0};
 
