@@ -116,7 +116,7 @@ __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const BufDesc* s
 
 ## 调用示例
 
-WriteNbi接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)。
+WriteNbi接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md)。
 
 普通接口：
 

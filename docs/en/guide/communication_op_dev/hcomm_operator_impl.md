@@ -202,7 +202,7 @@ Assemble the peer `channel`, the local buffer address `devBuf`, and the peer buf
 
 ### Destroying Communication Resources
 
-After the communication task is complete, destroy the communication resources (see [`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_mgr_c/HcclCommDestroy.md)). In the sample project, the channel and registered memory are released together with the communicator. For details, see the example [hcomm_urma_write_read_nbi](../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md):
+After the communication task is complete, destroy the communication resources (see [`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/master/docs/en/api_ref/comm_mgr_c/HcclCommDestroy.md)). In the sample project, the channel and registered memory are released together with the communicator. For details, see the example [asccomm_urma_write_read_nbi](../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md):
 
   ```cpp
   // Destroy the communicator (the channel and registered memory are released together with the communicator).
@@ -421,7 +421,7 @@ When multiple tasks need to be submitted to the same channel, assemble the tasks
 
 `remoteAddr` specifies the remote registered memory accessed by the tasks in this batch: under the `COMM_PROTOCOL_UB_CTP` protocol, this parameter does not take effect and the first remote registered buffer is used by default; under the `COMM_PROTOCOL_ROCE` protocol, it must be explicitly passed in (for the multi-SGE scenario, see [Multi-SGE Batch Read/Write](#multi-sge-batch-readwrite)). After `BatchCommit` is submitted successfully, you can reuse the batch handle and workspace to continue adding and submitting the next batch of tasks.
 
-For the complete flow, see the example [hcomm_roce_batch_write_read](../../../../examples/aicore/hcomm/08_hcomm_roce_batch_write_read/README.md) (COMM_PROTOCOL_ROCE protocol).
+For the complete flow, see the example [asccomm_roce_batch_write_read](../../../../examples/aicore/asccomm/08_asccomm_roce_batch_write_read/README.md) (COMM_PROTOCOL_ROCE protocol).
 
 #### Multi-Channel Batch
 
@@ -467,7 +467,7 @@ On the AI Core side, use `GetHandleRef` to select the logical channel (correspon
 
 When switching the logical channel or remote registered memory, call `GetHandleRef` again. Repeated calls on the same multi-channel batch handle return a reference to the same inner **BatchHandle**, and its logical channel and remote registered memory selection are updated with the most recent call.
 
-For the complete flow, see the example [hcomm_urma_batch_write](../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md).
+For the complete flow, see the example [asccomm_urma_batch_write](../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md).
 
 ## Multi-SGE Batch Read/Write
 
@@ -497,7 +497,7 @@ Multi-SGE is supported by the `COMM_PROTOCOL_UB_CTP` and `COMM_PROTOCOL_ROCE` pr
   ret = hcomm.Drain(batchHandle);
   ```
 
-For the complete flow, see the example [hcomm_roce_multi_sge](../../../../examples/aicore/hcomm/09_hcomm_roce_multi_sge/README.md).
+For the complete flow, see the example [asccomm_roce_multi_sge](../../../../examples/aicore/asccomm/09_asccomm_roce_multi_sge/README.md).
 
 ## Sharing a Channel Across Multiple AI Cores
 

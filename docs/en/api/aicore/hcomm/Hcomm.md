@@ -98,7 +98,7 @@ For the host-side handle creation API in multi-channel mode, see [MakeMultiChann
 
 ## Call Example
 
-The following shows an example of calling the Hcomm API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample of the common API, see [01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md). For a complete sample of the batch API, see [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md).
+The following shows an example of calling the Hcomm API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample of the common API, see [01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md). For a complete sample of the batch API, see [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md).
 
 Common API:
 

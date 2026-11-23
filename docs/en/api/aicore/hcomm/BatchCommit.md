@@ -75,7 +75,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 ## Call Example
 
-The following shows an example of calling the **BatchCommit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md).
+The following shows an example of calling the **BatchCommit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md).
 
 ```cpp
 // Data size transferred in a single communication.

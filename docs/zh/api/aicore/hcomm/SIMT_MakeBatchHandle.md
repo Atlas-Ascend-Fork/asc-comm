@@ -79,7 +79,7 @@ __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
 
 ## 调用示例
 
-MakeBatchHandle接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[06_simt_hcomm_urma_batch_perf](../../../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md)。
+MakeBatchHandle接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[06_simt_asccomm_urma_batch_perf](../../../../../examples/aicore/asccomm/06_simt_asccomm_urma_batch_perf/README.md)。
 
 单线程批量接口：
 

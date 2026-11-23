@@ -58,7 +58,7 @@ __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
 ## 调用示例
 
-Init接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[04_simt_hcomm_urma](../../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md)。
+Init接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[04_simt_asccomm_urma](../../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md)。
 
 ```cpp
 AscendC::simt::Hcomm<> hcomm;

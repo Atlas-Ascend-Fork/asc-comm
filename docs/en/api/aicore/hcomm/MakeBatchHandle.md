@@ -82,7 +82,7 @@ Returns the `BatchHandle<T>` corresponding to `channel`. If the multi-channel ha
 
 ## Call Example
 
-The following is an example of calling the **MakeBatchHandle** API. For complete samples, see [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md) and [08_hcomm_roce_batch_write_read](../../../../../examples/aicore/hcomm/08_hcomm_roce_batch_write_read/README.md) (`COMM_PROTOCOL_ROCE` protocol).
+The following is an example of calling the **MakeBatchHandle** API. For complete samples, see [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md) and [08_asccomm_roce_batch_write_read](../../../../../examples/aicore/asccomm/08_asccomm_roce_batch_write_read/README.md) (`COMM_PROTOCOL_ROCE` protocol).
 
 ```cpp
 // Precondition: The following symbols are provided by the calling environment.

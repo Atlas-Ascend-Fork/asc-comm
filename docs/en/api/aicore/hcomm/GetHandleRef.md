@@ -75,7 +75,7 @@ Returns a **BatchHandle** reference used to add batch tasks.
 
 ## Call Example
 
-The following shows an example of calling the **GetHandleRef** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md).
+The following shows an example of calling the **GetHandleRef** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md).
 
 ```cpp
 // Size of data transferred in a single communication.

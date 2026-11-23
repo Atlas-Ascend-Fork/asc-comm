@@ -120,7 +120,7 @@ __aicore__ inline int32_t ReadNbi(T& batchHandle, const BufDesc* dstDescs, uint3
 
 ## Call Example
 
-The following shows an example of calling the **ReadNbi** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md).
+The following shows an example of calling the **ReadNbi** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md).
 
 Common API:
 

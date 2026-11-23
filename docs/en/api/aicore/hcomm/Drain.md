@@ -125,7 +125,7 @@ For other `status` values, `substatus` has no meaning and defaults to `0`.
 
 ## Call Example
 
-The following shows examples of calling the **Drain** API. To focus on the call flow, the examples omit return value checks and error handling. For complete samples, see [01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md) and [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md) (batch).
+The following shows examples of calling the **Drain** API. To focus on the call flow, the examples omit return value checks and error handling. For complete samples, see [01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md) and [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md) (batch).
 
 Common API:
 

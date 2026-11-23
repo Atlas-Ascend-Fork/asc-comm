@@ -123,7 +123,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 
 ## 调用示例
 
-Drain接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)与[02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)（批量）。
+Drain接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md)与[02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md)（批量）。
 
 普通接口：
 

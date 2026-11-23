@@ -93,7 +93,7 @@ The HCCL communicator overload returns `HCCL_SUCCESS` on success and the corresp
 
 ## Call Example
 
-The following is an example of calling the **MakeMultiChannelHandle** API. For a complete example of the HCCL communicator overload, see [02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md).
+The following is an example of calling the **MakeMultiChannelHandle** API. For a complete example of the HCCL communicator overload, see [02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md).
 
 HCCL communicator overload:
 

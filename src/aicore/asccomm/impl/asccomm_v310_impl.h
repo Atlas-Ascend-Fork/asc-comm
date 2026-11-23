@@ -22,7 +22,11 @@
 #ifndef IMPL_COMM_API_AICORE_ASCCOMM_IMPL_ASCCOMM_V310_IMPL_H
 #define IMPL_COMM_API_AICORE_ASCCOMM_IMPL_ASCCOMM_V310_IMPL_H
 
+#if defined(ASCCOMM_ROCE_BACKEND_MLX5)
+#include "platform_v310/asccomm_aiv_roce_mlx5_def.h"
+#else
 #include "platform_v310/asccomm_aiv_roce_def.h"
+#endif
 #include "platform_v310/asccomm_aiv_urma_def.h"
 
 #endif

@@ -29,7 +29,11 @@
 #if __NPU_ARCH__ == 2201
 #include "platform_v220/asccomm_aiv.h"
 #elif __NPU_ARCH__ == 3510 || __NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202
+#if defined(ASCCOMM_ROCE_BACKEND_MLX5)
+#include "platform_v310/asccomm_aiv_roce_mlx5.h"
+#else
 #include "platform_v310/asccomm_aiv_roce.h"
+#endif
 #include "platform_v310/asccomm_aiv_urma.h"
 #endif
 

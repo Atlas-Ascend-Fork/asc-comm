@@ -93,6 +93,10 @@ function(add_asccomm_ut target_name product_type tikicpu_product_dir)
             asccomm_common_test_suite.AIV_WRITE_WITH_NOTIFY_NBI
             asccomm_host_cleanup_test.*
         )
+    elseif(target_name MATCHES "roce_mlx5")
+        set(test_filters
+            AsccommMlx5RoCETestSuite.*
+        )
     elseif(target_name MATCHES "roce")
         set(test_filters
             asccomm_roce_test_suite.*
@@ -164,6 +168,12 @@ foreach(product_type ${PRODUCT_TYPE_LIST})
             ascend950pr_9599_AIV
             Ascend950PR_9599
             test_asccomm_roce_950.cpp
+        )
+        add_asccomm_ut(
+            asccomm_ut_asccomm_ascend950pr_9599_AIV_roce_mlx5
+            ascend950pr_9599_AIV
+            Ascend950PR_9599
+            test_asccomm_roce_mlx5_950.cpp
         )
         add_asccomm_ut(
             asccomm_ut_asccomm_ascend950pr_9599_AIV_urma

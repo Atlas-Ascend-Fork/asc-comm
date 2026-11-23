@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_aiv_roce.h
- * \brief Hcomm AIV implementation for V310
+ * \brief Asccomm AIV implementation for V310
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#pragma message("This is an internal Asccomm header. Please include public Asccomm headers instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_AIV_ROCE_H
 #endif
@@ -473,7 +473,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_drain(Channe
 
 __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_lock(ChannelHandle channel)
 {
-    return hcomm_channel_lock<COMM_PROTOCOL_ROCE>(channel);
+    return asccomm_channel_lock<COMM_PROTOCOL_ROCE>(channel);
 }
 
 __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_unlock(ChannelHandle channel)

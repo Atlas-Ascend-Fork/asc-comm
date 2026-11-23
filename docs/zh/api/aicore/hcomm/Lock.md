@@ -59,7 +59,7 @@ __aicore__ inline int32_t Lock(AscendC::ChannelHandle channel);
 
 ## 调用示例
 
-Lock接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[07_hcomm_roce_normal_write_read](../../../../../examples/aicore/hcomm/07_hcomm_roce_normal_write_read/README.md)。
+Lock接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[07_asccomm_roce_normal_write_read](../../../../../examples/aicore/asccomm/07_asccomm_roce_normal_write_read/README.md)。
 
 ```cpp
 // 单次通信数据传输大小

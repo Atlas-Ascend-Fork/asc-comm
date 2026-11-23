@@ -73,7 +73,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 ## 调用示例
 
-BatchCommit接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)。
+BatchCommit接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md)。
 
 ```cpp
 // 单次通信数据传输大小

@@ -65,7 +65,7 @@ __aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len
 
 ## 调用示例
 
-Init接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)。
+Init接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md)。
 
 ```cpp
 // 单次通信数据传输大小

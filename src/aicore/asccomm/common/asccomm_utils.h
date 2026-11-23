@@ -23,6 +23,7 @@
 #define IMPL_COMM_API_AICORE_ASCCOMM_COMMON_ASCCOMM_UTILS_H
 
 #include "asccomm_inner_def.h"
+#include "asccomm_log.h"
 #include <basic_api/kernel_operator_atomic_intf.h>
 #include <basic_api/kernel_operator_utils_intf.h>
 #include <c_api/sync/sync.h>
@@ -60,7 +61,8 @@ __aicore__ inline int32_t asccomm_find_buffer_idx(
     RegedBufferEntity* buffer_addr, uint32_t buffer_num, GM_ADDR addr, uint64_t len)
 {
     if (buffer_addr == nullptr) {
-        KERNEL_LOG(KERNEL_ERROR, "asccomm_find_buffer_idx failed with null buffer_addr, bufferNum=%u\n", buffer_num);
+        ASCCOMM_KERNEL_LOG(
+            KERNEL_ERROR, "asccomm_find_buffer_idx failed with null buffer_addr, bufferNum=%u\n", buffer_num);
         return ASCCOMM_FAILED;
     }
     uint64_t target_addr = reinterpret_cast<uint64_t>(addr);
@@ -72,14 +74,14 @@ __aicore__ inline int32_t asccomm_find_buffer_idx(
         }
         uint64_t offset = target_addr - base_addr;
         if (offset <= buffer_size && len <= buffer_size - offset) {
-            KERNEL_LOG(
+            ASCCOMM_KERNEL_LOG(
                 KERNEL_INFO, "asccomm_find_buffer_idx hit idx=%u addr=%llu len=%llu base=%llu size=%llu\n", i,
                 static_cast<uint64_t>(target_addr), static_cast<uint64_t>(len), static_cast<uint64_t>(base_addr),
                 static_cast<uint64_t>(buffer_size));
             return static_cast<int32_t>(i);
         }
     }
-    KERNEL_LOG(
+    ASCCOMM_KERNEL_LOG(
         KERNEL_ERROR, "asccomm_find_buffer_idx failed addr=%llu len=%llu bufferNum=%u\n",
         static_cast<uint64_t>(target_addr), static_cast<uint64_t>(len), buffer_num);
     return ASCCOMM_FAILED;
@@ -121,7 +123,7 @@ __aicore__ inline __gm__ uint32_t* asccomm_get_lock_addr(__gm__ ChannelEntity* c
 }
 
 template <CommProtocol protocol>
-__aicore__ inline int32_t hcomm_channel_lock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_channel_lock(ChannelHandle channel)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
         return ASCCOMM_FAILED;

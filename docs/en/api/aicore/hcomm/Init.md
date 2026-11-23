@@ -67,7 +67,7 @@ __aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len
 
 ## Call Example
 
-The following shows an example of calling the **Init** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [01_hcomm_urma_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md).
+The following shows an example of calling the **Init** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [01_asccomm_urma_write_read_nbi](../../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md).
 
 ```cpp
 // Size of data transferred in a single communication.

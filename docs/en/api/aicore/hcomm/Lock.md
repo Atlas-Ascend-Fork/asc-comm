@@ -61,7 +61,7 @@ __aicore__ inline int32_t Lock(AscendC::ChannelHandle channel);
 
 ## Call Example
 
-The following shows how to call the **Lock** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [07_hcomm_roce_normal_write_read](../../../../../examples/aicore/hcomm/07_hcomm_roce_normal_write_read/README.md).
+The following shows how to call the **Lock** API. To focus on the call flow, the example omits return value checks and error handling. For the complete sample, see [07_asccomm_roce_normal_write_read](../../../../../examples/aicore/asccomm/07_asccomm_roce_normal_write_read/README.md).
 
 ```cpp
 // Data size transferred in a single communication.

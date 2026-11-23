@@ -83,7 +83,7 @@ __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const
 
 ## Call Example
 
-The following shows an example of calling the **BatchCommit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [06_simt_hcomm_urma_batch_perf](../../../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md).
+The following shows an example of calling the **BatchCommit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [06_simt_asccomm_urma_batch_perf](../../../../../examples/aicore/asccomm/06_simt_asccomm_urma_batch_perf/README.md).
 
 Single-threaded batch API:
 

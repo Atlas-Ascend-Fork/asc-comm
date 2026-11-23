@@ -91,7 +91,7 @@ HCCL通信域重载成功时返回`HCCL_SUCCESS`，失败时返回对应的HCCL�
 
 ## 调用示例
 
-MakeMultiChannelHandle接口的调用示例如下，HCCL通信域重载完整样例参见[02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)。
+MakeMultiChannelHandle接口的调用示例如下，HCCL通信域重载完整样例参见[02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md)。
 
 HCCL通信域重载：
 

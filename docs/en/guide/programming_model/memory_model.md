@@ -58,7 +58,7 @@ After remote visibility is established, remote access is initiated using the fol
 - The remote address and access length are used to describe the target range in the peer memory.
 - Access credentials are used to indicate that this operation has obtained access authorization for the target memory range.
 
-For the specific communication memory registration, channel creation, and remote memory acquisition process, see the [Hcomm AIV direct-drive URMA sample](../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md).
+For the specific communication memory registration, channel creation, and remote memory acquisition process, see the [Hcomm AIV direct-drive URMA sample](../../../../examples/aicore/asccomm/01_asccomm_urma_write_read_nbi/README.md).
 
 ### Access Credentials
 

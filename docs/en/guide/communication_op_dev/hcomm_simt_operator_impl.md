@@ -42,7 +42,7 @@ Data plane process:
 
 ## Control Plane Resource Preparation
 
-Except for the following two difference steps, the control plane process of the SIMT path is completely consistent with that of the SIMD path. For steps such as initializing the operating environment, creating the communicator, allocating memory and registering communication memory, obtaining the peer link and creating a channel, and destroying communication resources, see [Hcomm-based Communication Operator Development Guide](hcomm_operator_impl.md#control-plane-resource-preparation). For a complete SIMT process example, see [simt_hcomm_urma](../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md).
+Except for the following two difference steps, the control plane process of the SIMT path is completely consistent with that of the SIMD path. For steps such as initializing the operating environment, creating the communicator, allocating memory and registering communication memory, obtaining the peer link and creating a channel, and destroying communication resources, see [Hcomm-based Communication Operator Development Guide](hcomm_operator_impl.md#control-plane-resource-preparation). For a complete SIMT process example, see [simt_asccomm_urma](../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md).
 
 The difference lies in the address passing method: on the kernel side of the SIMT path, buffer addresses are resolved by channel buffer table index. Therefore, the following two steps pass the buffer table index instead of the 64-bit address.
 
@@ -259,7 +259,7 @@ Each lane in the group constructs one request and adds it to the current batch. 
   }
   ```
 
-For the complete process, see the samples [simt_hcomm_urma](../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md) (API functions), [simt_hcomm_urma_perftest](../../../../examples/aicore/hcomm/05_simt_hcomm_urma_perftest/README.md) (sending performance), and [simt_hcomm_urma_batch_perf](../../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md) (batch submission method).
+For the complete process, see the samples [simt_asccomm_urma](../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md) (API functions), [simt_asccomm_urma_perftest](../../../../examples/aicore/asccomm/05_simt_asccomm_urma_perftest/README.md) (sending performance), and [simt_asccomm_urma_batch_perf](../../../../examples/aicore/asccomm/06_simt_asccomm_urma_batch_perf/README.md) (batch submission method).
 
 ## Precautions
 

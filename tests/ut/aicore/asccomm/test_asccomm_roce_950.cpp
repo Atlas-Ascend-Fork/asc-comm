@@ -178,6 +178,17 @@ TEST_F(asccomm_roce_test_suite, INIT_WRITE_WITH_NOTIFY_NBI)
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
 }
 
+TEST_F(asccomm_roce_test_suite, CHECK_CHANNEL_PARAM_REJECTS_SINGLE_ENTRY_SQ)
+{
+    asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
+    auto* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(&channel);
+    sq_ctx.contextInfo.roceSq.depth = 1U;
+    EXPECT_FALSE(asccomm.impl.check_channel_param(channel_entity));
+
+    sq_ctx.contextInfo.roceSq.depth = 16U;
+    EXPECT_TRUE(asccomm.impl.check_channel_param(channel_entity));
+}
+
 TEST_F(asccomm_roce_test_suite, DRAIN_WITHOUT_NEW_CQE_KEEPS_SQ_TAIL)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;

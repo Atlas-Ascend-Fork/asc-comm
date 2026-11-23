@@ -67,7 +67,7 @@ class Hcomm;
 
 ## Call Example
 
-The following shows an example of calling the **Hcomm** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample of the common API, see [04_simt_hcomm_urma](../../../../../examples/aicore/hcomm/04_simt_hcomm_urma/README.md); for a complete sample of batch submission, see [06_simt_hcomm_urma_batch_perf](../../../../../examples/aicore/hcomm/06_simt_hcomm_urma_batch_perf/README.md).
+The following shows an example of calling the **Hcomm** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample of the common API, see [04_simt_asccomm_urma](../../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md); for a complete sample of batch submission, see [06_simt_asccomm_urma_batch_perf](../../../../../examples/aicore/asccomm/06_simt_asccomm_urma_batch_perf/README.md).
 
 Common API:
 

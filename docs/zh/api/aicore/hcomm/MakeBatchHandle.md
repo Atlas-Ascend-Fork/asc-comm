@@ -80,7 +80,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 ## 调用示例
 
-MakeBatchHandle接口的调用示例如下，完整样例参见[02_hcomm_urma_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_urma_batch_write/README.md)与[08_hcomm_roce_batch_write_read](../../../../../examples/aicore/hcomm/08_hcomm_roce_batch_write_read/README.md)（`COMM_PROTOCOL_ROCE`协议）。
+MakeBatchHandle接口的调用示例如下，完整样例参见[02_asccomm_urma_batch_write](../../../../../examples/aicore/asccomm/02_asccomm_urma_batch_write/README.md)与[08_asccomm_roce_batch_write_read](../../../../../examples/aicore/asccomm/08_asccomm_roce_batch_write_read/README.md)（`COMM_PROTOCOL_ROCE`协议）。
 
 ```cpp
 // 前置条件：以下符号由调用环境提供

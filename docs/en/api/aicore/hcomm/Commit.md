@@ -71,7 +71,7 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 
 ## Call Example
 
-The following shows an example of calling the **Commit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [07_hcomm_roce_normal_write_read](../../../../../examples/aicore/hcomm/07_hcomm_roce_normal_write_read/README.md).
+The following shows an example of calling the **Commit** API. To focus on the call flow, the example omits return value checks and error handling. For a complete sample, see [07_asccomm_roce_normal_write_read](../../../../../examples/aicore/asccomm/07_asccomm_roce_normal_write_read/README.md).
 
 ```cpp
 // Size of data transferred in a single communication.
