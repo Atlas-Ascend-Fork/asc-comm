@@ -2,7 +2,7 @@
 
 English | [简体中文](./README.md)
 
-This directory provides usage samples for asc-comm APIs. The README at each directory level introduces the samples of that level.
+This directory provides usage samples for asc-comm APIs. The README at each directory level introduces the samples at that level.
 
 ## Sample List
 

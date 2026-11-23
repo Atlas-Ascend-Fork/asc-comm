@@ -16,7 +16,7 @@
 
 ## 运行约束
 
-- 样例支持Ascend 950PR&950DT系列产品，组网为单机N卡（N>=2）。
+- 样例支持Ascend 950PR&950DT系列产品，组网为单机N卡（N >= 2）。
 - 样例基于控制面预解析POD实体架构，需配套版本的asc-comm与hcomm源码环境；CANN安装包内旧版数据面不兼容时，CMake配置阶段会拦截并提示。
 - 编译前可通过`ASC_COMM_SOURCE_DIR`、`HCOMM_SOURCE_DIR`、`ASCCOMM_DEVICE_LIBRARY`和`HCOMM_DEVICE_LIBRARY`显式指定源码与设备侧库路径。
 - AICPU_TS自定义算子包需关闭驱动验签并加入`ascend_package_load.ini`白名单后才能运行；具体步骤见各算子README。

@@ -1,8 +1,8 @@
-# asc-comm 样例
+# asc-comm样例
 
 简体中文 | [English](./README_en.md)
 
-本目录提供asc-comm API的使用样例。
+本目录提供asc-comm API的使用样例。各目录层级的README介绍该层级的样例。
 
 ## 样例列表
 

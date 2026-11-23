@@ -2,7 +2,7 @@
 
 ## Sample Introduction
 
-This sample shows how to develop a AlltoAll communication op with the HCCL communication programming APIs. It covers:
+This sample shows how to develop an AlltoAll communication op with the HCCL communication programming APIs. It covers:
 
 1. Acquiring communication resources through the HCOMM control plane and implementing the AlltoAll collective with asc-comm POD AICPU dataplane primitives.
 2. Building and deploying the custom op package independently.
@@ -28,22 +28,22 @@ This sample uses the control-plane-parsed POD entity architecture. Prepare match
 
 The custom op build uses the local [cmake](../cmake) modules and [build.sh](../build.sh).
 
-## 1. Environment Preparation
+## Environment Preparation
 
-### 1.1 Requirements
+### Requirements
 
-This sample supports Ascend 950PR&950DT products in a single-host, N-device topology (N>=2).
+This sample supports Ascend 950PR&950DT products in a single-host, N-device topology (N >= 2).
 
 Required tools:
 
 - gcc and g++ 7.3.0 to 13.3.x
 - cmake >= 3.16.0
 
-### 1.2 Install CANN Toolkit
+### Install CANN Toolkit
 
 Install the CANN Toolkit by following the [CANN installation guide](https://www.hiascend.com/document/redirect/CannCommunityInstWizard).
 
-### 1.3 Set Environment Variables
+### Set Environment Variables
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
@@ -58,7 +58,7 @@ mkdir -p $ASCEND_HOME_PATH/share/info/hccl
 echo 'Version=9.2.0' > $ASCEND_HOME_PATH/share/info/hccl/version.info
 ```
 
-## 2. Build the Custom Op Package
+## Build the Custom Op Package
 
 From the `examples/aicpu_ts/aicpu_ts_direct` directory, run:
 
@@ -73,7 +73,7 @@ bash build.sh \
 - `--ops` is the custom op name.
 - `--custom_ops_path` is the custom op project path.
 
-## 3. Install the Custom Op Package
+## Install the Custom Op Package
 
 The run package is generated under `./build_out`:
 
@@ -89,9 +89,9 @@ Installed files include:
 - AICPU kernel package: `$ASCEND_HOME_PATH/opp/vendors/cust/aicpu/kernel/aicpu_custom_alltoall.tar.gz`
 - Install script: `$ASCEND_HOME_PATH/opp/vendors/cust/scripts/install.sh`
 
-## 4. Run the Custom Op
+## Run the Custom Op
 
-### 4.1 Disable AICPU Package Signature Verification
+### Disable AICPU Package Signature Verification
 
 A package built from source has no signature. Use the `npu-smi` tool from Ascend HDK 25.5.T2.B001 or later to disable custom-op verification. Run the following as root on the physical machine:
 
@@ -102,7 +102,7 @@ npu-smi set -t custom-op-secverify-mode -i 0 -d 0
 
 > Disabling driver signature verification introduces security risk. Ensure the custom communication op is trusted and secure.
 
-### 4.2 Add the AICPU Package to the Load Whitelist
+### Add the AICPU Package to the Load Whitelist
 
 Append the following entry to `$ASCEND_HOME_PATH/conf/ascend_package_load.ini`:
 
@@ -114,14 +114,14 @@ package_path:opp/vendors/cust/aicpu/kernel
 load_as_per_soc:false
 ```
 
-### 4.3 Build the Testcase
+### Build the Testcase
 
 ```bash
 cd examples/aicpu_ts/aicpu_ts_direct/alltoall/testcase
 make
 ```
 
-### 4.4 Run the Testcase
+### Run the Testcase
 
 ```bash
 make test
@@ -132,7 +132,7 @@ export LD_LIBRARY_PATH=$ASCEND_HOME_PATH/opp/vendors/cust/lib64:$ASCEND_DEVICE_L
 ./custom_alltoall_aicpu
 ```
 
-### 4.5 Expected Output
+### Expected Output
 
 The sample exchanges fixed-size data blocks between ranks. With two devices, the output is similar to:
 
