@@ -15,10 +15,7 @@
 namespace asc {
 namespace ccu_rep {
 
-loop_call::loop_call(ccu_rep_context* context, const std::string& label) : context_(context), label_(label)
-{
-    // repLoopCall = std::make_shared<CcuRepLoopCall>(label);
-}
+loop_call::loop_call(ccu_rep_context* context, const std::string& label) : context_(context), label_(label) {}
 
 void loop_call::append_to_context()
 {

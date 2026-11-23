@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_array.h
+ * @brief CCU 数组类型 array 的声明。
+ */
+
 #ifndef CCU_ARRAY_H
 #define CCU_ARRAY_H
 

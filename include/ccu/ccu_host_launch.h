@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_host_launch.h
+ * @brief CCU kernel 的 host 侧下发接口（launch、hash tag 等）。
+ */
+
 #ifndef ASC_COMM_CCU_HOST_LAUNCH_H
 #define ASC_COMM_CCU_HOST_LAUNCH_H
 

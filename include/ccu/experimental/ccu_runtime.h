@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_runtime.h
+ * @brief 实验性 CCU runtime 控制接口（schedule 描述、同步与状态码）。
+ */
+
 #ifndef CCU_RUNTIME_H
 #define CCU_RUNTIME_H
 

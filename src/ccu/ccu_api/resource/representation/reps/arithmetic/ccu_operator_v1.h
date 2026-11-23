@@ -34,11 +34,7 @@ public:
     {
         check();
     }
-    void check() const
-    {
-        // asc::ThrowCcuInternal("Invalid Arithmetic Operator");
-        throw std::runtime_error("Invalid Arithmetic Operator");
-    }
+    void check() const { throw std::runtime_error("Invalid Arithmetic Operator"); }
 
     ccu_arithmetic_operator_type type{ccu_arithmetic_operator_type::invalid};
 };
@@ -61,11 +57,7 @@ public:
     {
         check();
     }
-    void check() const
-    {
-        // asc::ThrowCcuInternal("Invalid Relational Operator");
-        throw std::runtime_error("Invalid Relational Operator");
-    }
+    void check() const { throw std::runtime_error("Invalid Relational Operator"); }
 
     ccu_relational_operator_type type{ccu_relational_operator_type::invalid};
 };
@@ -101,11 +93,7 @@ public:
     {
         check();
     }
-    void check() const
-    {
-        // THROW<ccu_result::CCU_E_INTERNAL>("Invalid ShiftT Operator");
-        throw std::runtime_error("Invalid ShiftT Operator");
-    }
+    void check() const { throw std::runtime_error("Invalid ShiftT Operator"); }
 
     ccu_shift_type type{ccu_shift_type::invalid};
 };

@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_remote_addr.h
+ * @brief CCU 远端地址类型 remote_addr 的声明。
+ */
+
 #ifndef CCU_REMOTE_ADDR_H
 #define CCU_REMOTE_ADDR_H
 

@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_utils.h
+ * @brief CCU 对外接口共用的工具与内部 helper 声明。
+ */
+
 #ifndef CCU_UTILS_H
 #define CCU_UTILS_H
 

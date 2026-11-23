@@ -75,8 +75,7 @@ enum class RelocPool : uint8_t {
     NotifyCkeRmt = 5, // getRmtCke(*field) — notify_set SyncCKE.rmtCKEId
     NotifyCkeLoc = 6, // getLocCke(*field) — notify_wait ClearCKE.waitCKEId
     // hcomm loopback channel selector. The encoded field value is interpreted
-    // by the runtime: 0 = self-loop channel, 1 = inter-die loop channel
-    //.
+    // by the runtime: 0 = self-loop channel, 1 = inter-die loop channel.
     LoopChannel = 7,
     ExternalXn = 8,  // provider-owned external Xn binding
     ExternalCke = 9, // provider-owned external CKE binding

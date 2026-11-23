@@ -39,7 +39,7 @@ void ccu_rep_context::set_current_block(std::shared_ptr<ccu_rep::ccu_rep_block> 
 }
 
 /**
- * @details:保存rep信息，后续有arg后配合补全profiling信息
+ * @brief 将需要在 profiling 中回填的 rep 记录到上下文，供生成 profiling 信息时按 arg 填充。
  */
 void ccu_rep_context::collect_profiling_reps(std::shared_ptr<ccu_rep::ccu_rep_base> rep)
 {

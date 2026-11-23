@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_address.h
+ * @brief CCU 地址类型 address 的声明。
+ */
+
 #ifndef CCU_ADDRESS_H
 #define CCU_ADDRESS_H
 

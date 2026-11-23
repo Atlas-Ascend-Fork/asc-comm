@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_buffer.h
+ * @brief CCU buffer 类型 ccu_buffer 的声明。
+ */
+
 #ifndef CCU_BUFFER_H
 #define CCU_BUFFER_H
 

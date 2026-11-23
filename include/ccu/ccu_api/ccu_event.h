@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_event.h
+ * @brief CCU 事件类型 event 的声明。
+ */
+
 #ifndef CCU_EVENT_H
 #define CCU_EVENT_H
 

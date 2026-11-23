@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_primitives.h
+ * @brief CCU 数据面 primitive 聚合头：变量、地址、事件、buffer、数组、函数、循环与控制流宏。
+ */
+
 #ifndef CCU_PRIMITIVES_H
 #define CCU_PRIMITIVES_H
 

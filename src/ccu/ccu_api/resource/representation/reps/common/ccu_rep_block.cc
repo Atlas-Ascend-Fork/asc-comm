@@ -43,7 +43,8 @@ bool ccu_rep_block::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_
     this->instr_id_ = instr_id;
     translated_ = true;
 
-    constexpr uint16_t number_two = 2; // 暂定repBlock中的rep遍历2次，后续优化
+    // rep 翻译时可能向 block 追加新的 rep（如 loop/func block 展开），需再遍历一轮覆盖新增项
+    constexpr uint16_t number_two = 2;
     for (uint16_t i = 0; i < number_two; i++) {
         for (const auto& rep_in_block : get_reps()) {
             if (!rep_in_block->translated()) {

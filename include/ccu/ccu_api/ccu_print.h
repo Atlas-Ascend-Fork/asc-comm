@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_print.h
+ * @brief CCU 设备侧打印接口。
+ */
+
 #ifndef ASCCOMM_CCU_PRINT_H
 #define ASCCOMM_CCU_PRINT_H
 

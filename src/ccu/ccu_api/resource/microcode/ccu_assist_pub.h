@@ -16,7 +16,6 @@
 namespace asc {
 namespace ccu_rep {
 
-// 辅助函数
 uint64_t get_token_info(uint64_t va, uint64_t size);
 
 }; // namespace ccu_rep

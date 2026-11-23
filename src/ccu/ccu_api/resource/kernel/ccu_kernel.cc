@@ -30,12 +30,7 @@
 #include "ccu_api/resource/kernel/ccu_kernel_mgr.h"
 #include "ccu_api/dfx/ccu_profiling.h"
 
-// todo: 引入头文件需要检查
 #include "ccu_api/resource/microcode/ccu_assist_v1.h"
-// 以下头文件引入的类型在本文件中未使用，控制面头已移回 hcomm，后续统一清理
-// #include "hccl_comm_pub.h"
-// #include "hcclCommDfx.h"
-// #include "task_info.h"
 
 #include "ccu_api/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.h"

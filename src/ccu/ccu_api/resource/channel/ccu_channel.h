@@ -21,12 +21,12 @@
 namespace asc {
 
 // CcuChannel：CCU Channel 在 asc-comm 数据面侧的本地值对象。
-// 构造时通过 hcomm 注入的 channelQuery 一次性获取定长实体快照（HcommCcuChannelEntity），
+// 构造时通过 hcomm 注入的 HcommCcuChannelGetEntityCallBack 回调一次性获取定长实体快照（HcommCcuChannelEntity），
 // 之后所有资源访问均基于该本地快照，不再触碰 hcomm 的 Channel 对象。
 // 该对象被设计为不可拷贝的包装语义：operator-> 直接解引用自身（保留迁移前 channel->GetXxx() 的调用形式）。
 class ccu_channel {
 public:
-    // 构造即发起一次 channelQuery 查询并缓存快照，Init 失败时通过 GetResult 查询错误
+    // 构造即发起一次 channel 实体查询并缓存快照，Init 失败时通过 get_result 查询错误
     explicit ccu_channel(ChannelHandle channel);
 
     // 保留迁移前 channel->GetXxx() 的调用形式；当前对象本身已是 asc 本地值对象，不做包装

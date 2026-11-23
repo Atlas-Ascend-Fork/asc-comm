@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_control_flow_macro.h
+ * @brief CCU 控制流宏（if/while 等）及其底层函数声明。
+ */
+
 #ifndef CCU_CONTROL_FLOW_MACRO_H
 #define CCU_CONTROL_FLOW_MACRO_H
 

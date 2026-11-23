@@ -20,7 +20,6 @@
 namespace asc {
 namespace ccu_rep {
 
-// 辅助函数
 uint64_t get_token(uint64_t token_id, uint64_t token_value, uint64_t token_valid);
 
 // 按 token 寄存器位域规则将 (tokenId, tokenValue, tokenValid) 三元组合成单个 64bit token 字段。

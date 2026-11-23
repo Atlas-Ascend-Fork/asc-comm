@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file asc_ccu.h
+ * @brief CCU 算子开发唯一入口头文件：聚合设备侧 DSL 与 host 侧下发接口。
+ */
+
 #ifndef ASC_COMM_CCU_H
 #define ASC_COMM_CCU_H
 

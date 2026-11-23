@@ -26,7 +26,6 @@ public:
         ccu_ins_generater_base* ins_gen_ptr, local_addr dst, local_addr src, variable len, uint16_t data_type,
         uint16_t op_type, completed_event sem, uint16_t mask);
 
-    // 临时验证
     ccu_rep_loc_cpy(
         ccu_ins_generater_base* ins_gen_ptr, local_addr dst, local_addr src, variable len,
         const std::vector<ccu_buf>& bufs, completed_event sem, uint16_t mask);

@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_variable.h
+ * @brief CCU 变量类型 variable 的声明。
+ */
+
 #ifndef CCU_VARIABLE_H
 #define CCU_VARIABLE_H
 

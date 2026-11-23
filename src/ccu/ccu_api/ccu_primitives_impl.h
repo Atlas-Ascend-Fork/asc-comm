@@ -23,7 +23,7 @@
 #include "hccl/hccl_types.h"
 
 // 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asc，
-// 与 hcomm 仓保留 C ABI 的同名接口（pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，
+// 与 hcomm 仓保留 C ABI 的同名接口（hcomm 仓路径 pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，
 // 避免两个 SO 导出相同未修饰 C 符号、链接顺序决定实现选择。
 namespace asc {
 

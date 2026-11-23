@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_func.h
+ * @brief CCU 函数对象 func 及算子调用相关声明。
+ */
+
 #ifndef CCU_FUNC_H
 #define CCU_FUNC_H
 

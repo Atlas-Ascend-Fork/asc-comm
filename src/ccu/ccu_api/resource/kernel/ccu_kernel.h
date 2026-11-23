@@ -31,22 +31,21 @@
 #include "ccu_api/resource/representation/interface/ccu_funccall_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_loopcall_v1.h"
 
-// 类型（HcclResult 等）统一取自 hccl 公共类型定义，避免依赖 hcomm 私有类型头
+// 类型（HcclResult 等）取自本仓 pkg_inc 内的 hcomm/hccl 布局私有头（仓内编译用副本），不依赖外部 hcomm 仓
 #include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 #include "hccl/hccl_types.h"
-// 数据面 C ABI 与 hcomm 保持同名符号，内部实现仍使用 hcomm 的 ccu_result。
+// 数据面 C ABI 与 hcomm 保持同名符号；状态码统一为本仓 ccu_result，取值与 hcomm 的 CcuResult 一致。
 #include "ccu_api/resource/representation/interface/ccu_datatype_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_interface_assist_v1.h"
 
-// 暂时引用方便算法开发
 #include "ccu_api/resource/representation/interface/ccu_repeat_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_condition_v1.h"
 #include "ccu_api/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_loopblock_v1.h"
-#include "ccu_api/resource/representation/interface/ccu_loopcall_v1.h"
 #include "ccu_api/resource/microcode/ccu_assist_pub.h"
 
-#ifndef CCU_PROFILING // 和hccl仓兼容性使用
+// hccl 仓通过 CCU_PROFILING 宏开关 profiling 相关声明，本仓默认开启以保持两边编译一致。
+#ifndef CCU_PROFILING
 #define CCU_PROFILING
 #endif
 #include "ccu/ccu_api/ccu_types.h"

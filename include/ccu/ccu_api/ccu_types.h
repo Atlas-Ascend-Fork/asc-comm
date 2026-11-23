@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_types.h
+ * @brief CCU 对外基础类型、条件枚举与状态码 ccu_result 的定义。
+ */
+
 #ifndef CCU_API_TYPES_H
 #define CCU_API_TYPES_H
 
@@ -55,7 +60,7 @@ typedef struct {
 } ccu_loop_config;
 
 // 带版本头的 loop 配置 POD：header 校验通过后，version + size 决定尾部哪些字段有效；
-// 新字段仅可在尾部追加（reserved 区）以保持 ABI 兼容。布局与 CANN 包 CcuLoopCfg 对齐。
+// 新字段仅可在尾部追加（reserved 区）以保持 ABI 兼容。布局与 CANN 包的 CcuLoopCfg / CcuLoopGroupCfg 对齐。
 #define CCU_CFG_MAGIC_WORD 0xCC0CF000u
 #define CCU_LOOP_CFG_VERSION 1u
 #define CCU_LOOPGROUP_CFG_VERSION 1u

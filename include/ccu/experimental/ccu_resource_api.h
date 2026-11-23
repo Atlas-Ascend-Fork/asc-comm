@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @file ccu_resource_api.h
+ * @brief 实验性 CCU 资源申请与查询接口。
+ */
+
 #ifndef CCU_RESOURCE_API_H
 #define CCU_RESOURCE_API_H
 

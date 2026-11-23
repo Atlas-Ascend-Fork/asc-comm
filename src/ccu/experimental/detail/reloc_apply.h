@@ -47,8 +47,7 @@ struct PhysBases {
 /// rebased against `base` per its pool and kind:
 ///   - AddBase:    *field += physBase[pool]                 (unconditional)
 ///   - AddBaseTok: if (*field) *field += physBase[pool]     (token sentinel 0)
-///   - Physical:   skipped here — channel/notify ids are resolved at launch
-///.
+///   - Physical:   skipped here — channel/notify ids are resolved at launch.
 /// Channel / NotifyCkeRmt / NotifyCkeLoc pools are likewise skipped (they only
 /// appear with Physical). This mirrors the writer's buildKernelRelocs
 /// AddBase/AddBaseTok semantics field-for-field.
