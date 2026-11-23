@@ -273,7 +273,7 @@ static constexpr RegedNotifyType HCOMM_REGED_NOTIFY_RMA_RT = REGED_NOTIFY_RMA_RT
 static constexpr RegedBufferType HCOMM_REGED_BUFFER_RMA = REGED_BUFFER_RMA;
 #endif
 
-// AICPU数据面跨SO资源ABI。ChannelEntity/HcommThreadEntity同时作为hcomm内部实体和
+// AICPU_TS数据面跨SO资源ABI。ChannelEntity/HcommThreadEntity同时作为hcomm内部实体和
 // asc-comm按句柄直取的公开POD契约，必须保持跨仓二进制布局一致。
 #define HCOMM_CHANNEL_ENTITY_VERSION 0U
 #define HCOMM_CHANNEL_ENTITY_MAGIC_WORD 0x0fcf0f5fU

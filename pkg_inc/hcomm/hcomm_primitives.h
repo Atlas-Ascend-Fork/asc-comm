@@ -443,7 +443,7 @@ extern int32_t HcommChannelNotifyWaitOnThread(
 extern int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut);
 
 /**
- * @brief 查找aicpu task cache, 判断tag是否已经缓存
+ * @brief 查找AICPU_TS路径的Task Cache, 判断tag是否已经缓存
  * @param[in] tag 缓存标识符
  * @param[out] isHit 是否cache hit
  * @return int32_t 执行结果状态码
@@ -451,7 +451,7 @@ extern int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotif
 extern HcommResult HcommAicpuTsTaskCacheLookup(const char* tag, bool* isHit);
 
 /**
- * @brief cache miss下, 算子展开前, 通知aicpu task cache开始缓存task
+ * @brief cache miss下, 算子展开前, 通知AICPU_TS路径的Task Cache开始缓存task
  * @param[in] tag 缓存标识符
  * @param[in] addrs 内存基址信息数组
  * @param[in] sizes 内存大小信息数组
@@ -461,7 +461,7 @@ extern HcommResult HcommAicpuTsTaskCacheLookup(const char* tag, bool* isHit);
 extern HcommResult HcommAicpuTsTaskCacheStart(const char* tag, void** addrs, uint64_t* sizes, uint64_t count);
 
 /**
- * @brief cache miss下, 算子展开后, 通知aicpu task cache停止缓存task
+ * @brief cache miss下, 算子展开后, 通知AICPU_TS路径的Task Cache停止缓存task
  * @param[in] tag 缓存标识符
  * @return int32_t 执行结果状态码
  */
@@ -477,7 +477,7 @@ extern HcommResult HcommAicpuTsTaskCacheEnd(const char* tag);
 extern HcommResult HcommAicpuTsTaskCacheExecute(const char* tag, void** addrs, uint64_t* sizes, uint64_t count);
 
 /**
- * @brief 清理aicpu task cache中指定tag对应的cache entry
+ * @brief 清理AICPU_TS路径的Task Cache中指定tag对应的cache entry
  * @param[in] tag 缓存标识符
  * @return int32_t 执行结果状态码
  */
@@ -515,7 +515,7 @@ extern int32_t HcommBatchModeEnd(const char* batchTag);
  * @brief 获取通信域并加锁
  * @param[in] commId 通信域id
  * @return int32_t 执行结果状态码
- * @note 当前仅支持AICPU模式
+ * @note 当前仅支持AICPU_TS模式
  */
 extern int32_t HcommAcquireComm(const char* commId);
 
@@ -523,7 +523,7 @@ extern int32_t HcommAcquireComm(const char* commId);
  * @brief 释放通信域
  * @param[in] commId 通信域id
  * @return int32_t 执行结果状态码
- * @note 当前仅支持AICPU模式
+ * @note 当前仅支持AICPU_TS模式
  */
 extern int32_t HcommReleaseComm(const char* commId);
 
@@ -555,7 +555,7 @@ extern int32_t HcommChannelFence(ChannelHandle channel);
  * @brief 设置通知等待超时时间
  * @param[in] timeOut 通知等待超时时间(秒)
  * @return int32_t 执行结果状态码
- * @note 当前仅支持AICPU模式
+ * @note 当前仅支持AICPU_TS模式
  */
 extern int32_t HcommSetNotifyWaitTimeOut(float timeOut);
 
@@ -563,7 +563,7 @@ extern int32_t HcommSetNotifyWaitTimeOut(float timeOut);
  * @brief 设置线程资源获取超时时间
  * @param[in] timeOut 线程资源获取超时时间(秒)
  * @return int32_t 执行结果状态码
- * @note 当前仅支持AICPU模式
+ * @note 当前仅支持AICPU_TS模式
  */
 extern int32_t HcommThreadResAcquireTimeOut(float timeOut);
 

@@ -42,7 +42,7 @@ install(TARGETS asccomm_aicpu
     LIBRARY DESTINATION "${_ASCCOMM_CANN_ARCH}/devlib/device"
     COMPONENT asccomm)
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicpu/asccomm/"
-    DESTINATION asc/include/comm_api/aicpu/asccomm
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicpu_ts/asccomm/"
+    DESTINATION asc/include/comm_api/aicpu_ts/asccomm
     COMPONENT asccomm
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")

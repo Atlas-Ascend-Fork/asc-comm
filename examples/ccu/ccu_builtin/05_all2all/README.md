@@ -76,7 +76,7 @@ ccResCtx
 4. 调用`CheckOpResSufficient`预检查CCU资源是否充足，返回错误码1043表示CCU资源暂时不足，可以选择非CCU算法；返回其他非0错误码表示参数错误或HCCL内部异常，可以记录错误码并进行故障处理。仅当返回`HCCL_SUCCESS`时才能继续申请CCU资源。
 5. 通过`Mc2AcquireCcResCtx`申请CCU资源上下文`ccResCtx`及其大小。
 6. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
-   `stream`参数为AICPU通路预留，当前CCU通路不使用。
+   `stream`参数为AICPU_TS通路预留，当前CCU通路不使用。
 7. 通过`all_to_all_kernel<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
    `hccl.InitV2(contextGM, nullptr)`，其中`contextGM`就是Host侧获取的`ccResCtx`。
 8. AICore侧调用`Hccl::AlltoAll<true>`提交等长数据交换Client任务，调用`Wait`和`SyncAll`等待完成。

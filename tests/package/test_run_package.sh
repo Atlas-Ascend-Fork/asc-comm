@@ -196,8 +196,12 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_primitives.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_res_defs.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/experimental/asccomm_experimental_primitives.h" ]]
+[[ ! -e "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu/asccomm" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_ccu.so" ]]
-[[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_ccu.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_cpu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
 if [[ -e "${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}" ]]; then

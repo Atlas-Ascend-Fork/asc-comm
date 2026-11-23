@@ -29,7 +29,7 @@ A communication engine is the hardware entity that executes communication algori
 | Communication Engine | Execution Entity | Main Functions |
 | --- | --- | --- |
 | AIV (AI Vector) | Vector Core | Executes the algorithm logic in the communication kernel, as well as operations such as data processing, data movement, and reduction. |
-| AI CPU+TS (Task Scheduler) | AI CPU+TS | Uses the [AI CPU+TS execution mode](./execution_model.md#aicpu_ts-direct-drive-execution-mechanism). STARS is the task scheduler on the device side, responsible for scheduling AI CPU kernels and communication tasks submitted to the task queue. After an AI CPU kernel is scheduled and executed by STARS, it submits communication tasks such as data movement to the task queue, which are then scheduled by STARS to the corresponding executors. |
+| AICPU_TS (Task Scheduler) | AI CPU+TS | Uses the [AICPU_TS execution mode](./execution_model.md#aicpu_ts-direct-drive-execution-mechanism). STARS is the task scheduler on the device side, responsible for scheduling AI CPU kernels and communication tasks submitted to the task queue. After an AI CPU kernel is scheduled and executed by STARS, it submits communication tasks such as data movement to the task queue, which are then scheduled by STARS to the corresponding executors. |
 | CCU (Collective Communication Unit) | Dedicated hardware engine for collective communication | Executes preset communication instructions and uses the internal CCU Buffer to complete operations such as data staging, movement, synchronization, and on-chip reduction. For details about the CCU architecture and internal components, see [CCU Programming](./ccu_programming.md#basic-concepts). |
 
 ### Storage Unit

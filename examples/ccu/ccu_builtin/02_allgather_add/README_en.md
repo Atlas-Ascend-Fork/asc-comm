@@ -77,7 +77,7 @@ ccResCtx
 5. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size from the HCCL communication domain.
 6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the CCU Server.
    CCU kernel resources are prepared during resource acquisition, and the launch stage submits the Server task using the information in `ccResCtx`.
-   The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
+   The `stream` parameter is reserved for the AICPU_TS path and is currently ignored by the CCU path.
 7. Launch the AICore kernel through `vector_add<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
 8. The AICore side calls `Hccl::AllGather<true>` to submit the communication Client request, calls `Wait` and `SyncAll` to wait for completion,

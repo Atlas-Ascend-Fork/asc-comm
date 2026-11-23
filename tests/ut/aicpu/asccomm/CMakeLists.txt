@@ -9,8 +9,8 @@
 # ----------------------------------------------------------------------------------------------------------
 
 set(AICPU_UT_INCLUDE_DIRS
-    ${ASCCOMM_ROOT}/include/aicpu
-    ${ASCCOMM_ROOT}/include/aicpu/asccomm
+    ${ASCCOMM_ROOT}/include/aicpu_ts
+    ${ASCCOMM_ROOT}/include/aicpu_ts/asccomm
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
@@ -98,7 +98,7 @@ add_executable(asccomm_public_header_isolation_check
 )
 target_include_directories(asccomm_public_header_isolation_check PRIVATE
     ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCCOMM_ROOT}/include/aicpu
+    ${ASCCOMM_ROOT}/include/aicpu_ts
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 target_compile_features(asccomm_public_header_isolation_check PRIVATE cxx_std_17)
@@ -113,7 +113,7 @@ add_executable(asccomm_experimental_header_isolation_check
 )
 target_include_directories(asccomm_experimental_header_isolation_check PRIVATE
     ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCCOMM_ROOT}/include/aicpu
+    ${ASCCOMM_ROOT}/include/aicpu_ts
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 target_compile_features(asccomm_experimental_header_isolation_check PRIVATE cxx_std_17)

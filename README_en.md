@@ -131,7 +131,7 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   ├── aicore/ain                # AICore Ain one-sided communication samples
 │   ├── aicore/jetty              # AICore Jetty communication samples
 │   ├── aicore/utils              # Host-side utilities shared by AICore samples
-│   ├── aicpu                     # AICPU MC2 communication samples
+│   ├── aicpu_ts                  # AICPU_TS communication samples
 │   ├── ccu                       # CCU communication and dataplane samples
 │   └── common                    # Common sample code
 ├── include                       # asc-comm API declarations

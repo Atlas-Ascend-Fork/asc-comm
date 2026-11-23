@@ -73,7 +73,7 @@ ccResCtx
    `sole[mesh]`算法配置。
 4. 通过`Mc2AcquireCcResCtx`申请CCU资源上下文`ccResCtx`及其大小。
 5. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
-   `stream`参数为AICPU通路预留，当前CCU通路不使用。
+   `stream`参数为AICPU_TS通路预留，当前CCU通路不使用。
 6. 通过`all_to_all_v_kernel<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
    `hccl.InitV2(contextGM, nullptr)`，其中`contextGM`就是Host侧获取的`ccResCtx`。
 7. AICore侧按rank生成`sendCounts/recvCounts`和`sdispls/rdispls`数组，调用

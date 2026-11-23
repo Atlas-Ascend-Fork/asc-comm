@@ -38,8 +38,8 @@ target_compile_options(asccomm_cpu_ts PRIVATE
     -O3
 )
 target_include_directories(asccomm_cpu_ts PRIVATE
-    ${ASCCOMM_ROOT}/include/cpu
-    ${ASCCOMM_ROOT}/include/aicpu/asccomm
+    ${ASCCOMM_ROOT}/include/cpu_ts
+    ${ASCCOMM_ROOT}/include/aicpu_ts/asccomm
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
 )
 
@@ -72,11 +72,11 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
     install(TARGETS asccomm_cpu_ts
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
         COMPONENT asccomm)
-    install(DIRECTORY ${ASCCOMM_ROOT}/include/cpu/
-        DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu_api/cpu
+    install(DIRECTORY ${ASCCOMM_ROOT}/include/cpu_ts/
+        DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu_api/cpu_ts
         COMPONENT asccomm
         FILES_MATCHING PATTERN "*.h")
 endif()
 
-# Keep an explicit aggregate target, matching the AICPU/CCU CMake integration.
+# Keep an explicit aggregate target, matching the AICPU_TS/CCU CMake integration.
 add_custom_target(asccomm_cpu_compile_check DEPENDS asccomm_cpu_ts)

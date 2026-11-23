@@ -77,7 +77,7 @@ ccResCtx
 5. 通过`Mc2AcquireCcResCtx`基于HCCL通信域申请CCU资源上下文`ccResCtx`及其大小。
 6. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
    CCU kernel资源已在资源申请阶段准备完成，launch阶段使用`ccResCtx`中的信息下发Server任务。
-   `stream`参数为AICPU通路预留，当前CCU通路不使用。
+   `stream`参数为AICPU_TS通路预留，当前CCU通路不使用。
 7. 通过`vector_add<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
    `hccl.InitV2(contextGM, nullptr)`，其中`contextGM`就是Host侧获取的`ccResCtx`。
 8. AICore侧调用`Hccl::AllGather<true>`提交通信Client任务，调用`Wait`和`SyncAll`等待通信完成，

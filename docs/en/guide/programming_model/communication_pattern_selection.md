@@ -21,13 +21,13 @@ The drive mode describes the initiation relationship between the current operato
 
 ## Communication Engine Classification and Selection
 
-After determining how communication is initiated, you also need to answer "who executes the communication", that is, select the hardware entity that actually undertakes the communication task. AI CPU+TS, AIV, and CCU differ in scheduling overhead, compute core occupancy, memory access overhead, and applicable message sizes. Therefore, the selection of the communication engine should match the latency, bandwidth, and resource occupancy objectives. The programming API uses the `CommEngine` enum type to represent the communication engine. The enum values and applicable scenarios of each engine are as follows:
+After determining how communication is initiated, you also need to answer "who executes the communication", that is, select the hardware entity that actually undertakes the communication task. AICPU_TS, AIV, and CCU differ in scheduling overhead, compute core occupancy, memory access overhead, and applicable message sizes. Therefore, the selection of the communication engine should match the latency, bandwidth, and resource occupancy objectives. The programming API uses the `CommEngine` enum type to represent the communication engine. The enum values and applicable scenarios of each engine are as follows:
 
 **Table 2** Applicable scenarios of different communication engines
 
 | Communication Engine | Enum Value | Advantage | Constraint | Application Scenario | Supported Product Model |
 | --- | --- | --- | --- | --- | --- |
-| AI CPU+TS | `COMM_ENGINE_AICPU_TS` | Does not occupy compute cores, offers high communication efficiency, and is suitable for large-data, high-bandwidth scenarios. | Has high static communication overhead and is not suitable for small-data communication scenarios. | High-bandwidth communication scenarios. | Ascend 950PR&950DT products |
+| AICPU_TS | `COMM_ENGINE_AICPU_TS` | Does not occupy compute cores, offers high communication efficiency, and is suitable for large-data, high-bandwidth scenarios. | Has high static communication overhead and is not suitable for small-data communication scenarios. | High-bandwidth communication scenarios. | Ascend 950PR&950DT products |
 | AIV | `COMM_ENGINE_AIV` | Low latency. | Communication occupies Vector compute cores, and multiple Vector compute cores are required to fully utilize the communication bandwidth. Communication operators compete with compute operators for compute core resources, which may cause mutual interference. | Low-latency communication scenarios. | Ascend 950PR&950DT products |
 | CCU | `COMM_ENGINE_CCU` | Reduces memory access bandwidth and compute core usage.<br>High bandwidth and low latency. | Limited by on-chip resources, the number of supported communicators is limited. | High-bandwidth, low-latency communication scenarios. | Ascend 950PR&950DT products |
 

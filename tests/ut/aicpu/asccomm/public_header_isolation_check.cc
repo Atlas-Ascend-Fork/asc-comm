@@ -16,7 +16,7 @@ static_assert(sizeof(ThreadHandle) == sizeof(uint64_t), "ThreadHandle ABI change
 static_assert(sizeof(ChannelHandle) == sizeof(uint64_t), "ChannelHandle ABI changed");
 
 #ifdef HCOMM_RES_ENTITY_DEFS_H
-#error "The public AICPU data-plane header must not expose hcomm resource entity definitions"
+#error "The public AICPU_TS data-plane header must not expose hcomm resource entity definitions"
 #endif
 
 int main() { return 0; }

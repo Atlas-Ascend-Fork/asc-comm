@@ -73,7 +73,7 @@ ccResCtx
    destination data types, and the `sole[mesh]` algorithm configuration.
 4. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
 5. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the CCU Server.
-   The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
+   The `stream` parameter is reserved for the AICPU_TS path and is currently ignored by the CCU path.
 6. Launch the AICore kernel through `all_to_all_v_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
 7. The AICore side builds the `sendCounts/recvCounts` and `sdispls/rdispls` arrays for its rank, calls

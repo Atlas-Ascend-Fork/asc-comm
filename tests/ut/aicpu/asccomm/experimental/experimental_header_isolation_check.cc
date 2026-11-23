@@ -19,7 +19,7 @@ static_assert(sizeof(&asccomm_send_on_thread) > 0, "experimental send API must s
 static_assert(sizeof(&asccomm_send_with_imm_on_thread) > 0, "experimental send-with-imm API must stay declared");
 
 #ifdef HCOMM_RES_ENTITY_DEFS_H
-#error "The experimental AICPU data-plane header must not expose hcomm resource entity definitions"
+#error "The experimental AICPU_TS data-plane header must not expose hcomm resource entity definitions"
 #endif
 
 int main() { return 0; }

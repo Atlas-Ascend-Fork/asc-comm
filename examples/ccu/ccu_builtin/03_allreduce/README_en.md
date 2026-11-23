@@ -76,7 +76,7 @@ ccResCtx
 4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043 means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be selected; any other non-zero code indicates a parameter error or an internal HCCL error, which can be logged for fault handling. CCU resources can be acquired only when the result is `HCCL_SUCCESS`.
 5. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size from the HCCL communication domain.
 6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the CCU Server.
-   The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
+   The `stream` parameter is reserved for the AICPU_TS path and is currently ignored by the CCU path.
 7. Launch the AICore kernel through `all_reduce_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
 8. The AICore side calls `Hccl::AllReduce<true>` to submit the SUM communication Client request, and calls `Wait` and `SyncAll` to wait for completion.
