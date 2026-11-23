@@ -158,6 +158,16 @@ def print_native_report(report_dir, summary, *, stream=None):
         file=output,
     )
     metadata = summary.get("metadata", {})
+    probes = metadata.get("ccu_probes", {})
+    if probes.get("requested"):
+        entries = probes.get("entries", [])
+        complete = sum(entry.get("status") == "complete" for entry in entries)
+        print(
+            "CCU probes: {}/{} entries have all five metrics; incomplete columns show '-'.".format(
+                complete, len(entries)
+            ),
+            file=output,
+        )
     if metadata.get("measurement_mode") == "comm_only":
         print(
             "测量模式：comm_only（延迟Commit）；有效行的展开/kernel列为NA，原始Event包含人为延迟。",
@@ -226,7 +236,7 @@ def print_native_report(report_dir, summary, *, stream=None):
         }:
             print(
                 COLUMN_LABELS["api_kernel_us"]
-                + ": whole custom-op ACL Event in us, maximum of per-rank means; "
+                + ": whole custom-op ACL Event in us, rank 0 iteration mean; "
                 "not pure communication or algorithm time.",
                 file=output,
             )

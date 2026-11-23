@@ -376,6 +376,11 @@ class Sample:
     api_kernel_us: Decimal | None = None
     hccl_loopgroup_us: Decimal | None = None
     api_loopgroup_us: Decimal | None = None
+    api_algorithm_us: Decimal | None = None
+    api_kfc_head_us: Decimal | None = None
+    api_kfc_load_us: Decimal | None = None
+    api_kfc_signal_us: Decimal | None = None
+    api_kfc_tail_us: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -410,6 +415,11 @@ PHASE_FIELDS = (
     "api_kernel_us",
     "hccl_loopgroup_us",
     "api_loopgroup_us",
+    "api_algorithm_us",
+    "api_kfc_head_us",
+    "api_kfc_load_us",
+    "api_kfc_signal_us",
+    "api_kfc_tail_us",
 )
 
 

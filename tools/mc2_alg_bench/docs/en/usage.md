@@ -43,6 +43,7 @@ bash run_alg_bench.sh [launcher arguments] -- [test arguments]
 | Before `--` | `-n`, `-p` | Total ranks and devices per node, both defaulting to 8; a rank is a participating communication process |
 | Before `--` | `--query-only` | List candidates without running benchmarks |
 | Before `--` | `--comm-only` | Enable AICPU delayed-submission diagnostics, disabled by default |
+| Before `--` | `--ccu-probes` | CCU boundary-probe collection, disabled by default; requires SDK support |
 | Before `--` | `--skip-build` | Verify and reuse installed packages and cached binaries; otherwise build normally |
 | Before `--` | `--output-dir` | New result directory, allocated automatically when omitted; existing jobs cannot be overwritten |
 | Before `--` | `--no-profiling` | Disable profiling and analysis, retaining whole-operator timing and output validation |
@@ -131,6 +132,17 @@ bash run_alg_bench.sh -n 2 -p 2 --comm-only -- \
 
 This is equivalent to `--measurement-mode comm_only`; do not specify both. The launcher builds the matching package. Valid expansion and kernel cells show `NA`, while communication and bandwidth values remain available. This mode includes an artificial delay and does not strictly isolate framework overhead. CCU does not support it.
 
+For CCU boundary-probe collection, add `--ccu-probes` before `--`:
+
+```bash
+bash run_alg_bench.sh -n 2 -p 2 --ccu-probes -- \
+  --op allreduce -a ccu_sched -b 32K -e 32K
+```
+
+A matching SDK with KFC (Kernel Function Call) boundary probes is required. The launcher sets collection switches before each rank starts. Five columns report algorithm, queue-head, parameter-load/decision, completion-signal, and queue-tail intervals. The algorithm interval includes synchronization of CCU communication tasks (missions). These metrics do not replace Event, Wait, or bandwidth. Instrumentation affects execution timing; compare instrumented and default runs separately.
+
+Each new metric requires complete coverage across all ranks and measured iterations; otherwise its cell shows `-`, with details in `profile_analysis/profiling_audit.json`. Missing probes do not invalidate existing metrics when the base capture is complete. This option cannot be combined with query-only mode, disabled profiling, or AICPU delayed submission, and does not change the operator package's measurement mode.
+
 To validate device execution and output only, add `--no-profiling` before `--`. This mode reports whole-operator timing and leaves other phase metrics unavailable, so it cannot validate the full performance report.
 
 If native query APIs are unavailable, add `--query-stub basic` after `--`. This simulates query candidates only; subsequent operators still execute on real NPUs. Stub candidates do not establish actual topology support. Rebuild normally when switching query sources.
@@ -138,6 +150,8 @@ If native query APIs are unavailable, add `--query-stub basic` after `--`. This 
 ## Read Performance Results
 
 The terminal prints `Run directory:`, progress, and the performance table. Results default to `build_out/runs/run-UUID/`.
+
+CCU benchmarks also print stage progress as `Benchmark phase:` and exit details as `Benchmark exit:`. Check the `status` exit code and report results to determine success; `phase=finished` means only that the workflow reached its end.
 
 | File | Purpose |
 | --- | --- |
@@ -158,6 +172,7 @@ Time metrics use microseconds. The main metrics are:
 | CCU framework time | Mean whole-operator Event minus Wait for the same iterations; a residual outside Wait, not strictly pure framework cost |
 | CCU kernel time | Rank 0 mean whole-operator Event duration; an Event is a device timing interval, and Write also includes the receive-result copy |
 | CCU LoopGroup time | Sum of device communication instruction event durations, not algorithm-boundary instrumentation; a window with no complete events contributes zero, which does not prove zero communication |
+| Five CCU probe intervals | Unavailable by default; populated after boundary collection with complete markers, excluding each boundary marker's own duration |
 | Communication bandwidth | Computed from the actual test shape's bandwidth bytes and communication time, in GB/s |
 | Kernel start skew p95/max | For each iteration, take the worst node's spread of rank start times, then compute p95 and max across measured iterations; not absolute cross-host clock skew |
 

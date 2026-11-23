@@ -896,6 +896,24 @@ def analyze_run(run_dir, records_path, output_dir, *, msprof=None):
         audit.update(job_id=job_id, run_id=run_id, engine=engine, world_size=ranks)
         audit["inputs"][str(records_path)] = sha256(records_path)
         audit["inputs"][str(owner_path)] = sha256(owner_path)
+        if engine != "aicpu_ts":
+            probe_configuration = owner.get("ccu_probes", {})
+            require(
+                isinstance(probe_configuration, dict), "invalid CCU probe configuration"
+            )
+            probe_requested = probe_configuration.get("requested")
+            require(
+                probe_requested is None or type(probe_requested) is bool,
+                "invalid CCU probe request flag",
+            )
+            audit["ccu_probes"] = {
+                "requested": probe_requested,
+                "source_commit": ccu.markers.SOURCE_COMMIT,
+                "default_gaps": ccu.markers.PROBE_GAPS,
+                "configuration": probe_configuration,
+                "entries": [],
+            }
+            job.setdefault("metadata", {})["ccu_probes"] = audit["ccu_probes"]
         package_provenance(run_dir, owner, job, audit)
         if native and audit["measurement_mode"] == "comm_only":
             require(
@@ -1492,6 +1510,47 @@ def analyze_run(run_dir, records_path, output_dir, *, msprof=None):
                         metrics[target] = accumulator.mean(field)
                 else:
                     metrics["api_loopgroup_us"] = accumulator.mean("api_loopgroup_us")
+                    # Match PR37's benchmark summary: each probe field requires
+                    # every rank/formal sample. Never average a partial subset.
+                    probe_counts = {
+                        field: accumulator.counts.get(field, 0)
+                        for field, _header in ccu.API_PROBE_COLUMNS
+                    }
+                    for field, count in probe_counts.items():
+                        if count == len(values):
+                            metrics[field] = accumulator.mean(field)
+                    missing_probe_ranks = {
+                        field: [
+                            rank
+                            for rank, rank_samples in parsed[key].items()
+                            if any(
+                                getattr(sample, field) is None
+                                for sample in rank_samples
+                            )
+                        ]
+                        for field, _header in ccu.API_PROBE_COLUMNS
+                        if probe_counts[field] != len(values)
+                    }
+                    probe_coverage = {
+                        "entry_id": key[0],
+                        "batch": key[1],
+                        "expected_samples": len(values),
+                        "matched_samples": probe_counts,
+                        "missing_ranks": missing_probe_ranks,
+                        "status": "complete"
+                        if not missing_probe_ranks
+                        else "incomplete",
+                    }
+                    audit["ccu_probes"]["entries"].append(probe_coverage)
+                    if audit["ccu_probes"]["requested"] and missing_probe_ranks:
+                        audit.setdefault("warnings", []).append(
+                            {
+                                "entry_id": key[0],
+                                "batch": key[1],
+                                "warning": "CCU probe coverage incomplete; affected metrics left unavailable",
+                                "missing_ranks": missing_probe_ranks,
+                            }
+                        )
                     try:
                         # The original tool's printed Event/Wait aggregate belongs
                         # to rank zero; report that scope explicitly, not as an

@@ -55,6 +55,8 @@ ENVIRONMENT_KEYS = (
     "ASCEND_CCU_ALGORITHM_PROBES",
     "ASCEND_CCU_PROBE_COUNT",
     "ASCEND_CCU_PROBE_ID_DELTAS",
+    "PROFILING_MODE",
+    "PROFILING_OPTIONS",
 )
 REMOTE_PREPARE = """
 import json, pathlib, sys
@@ -76,6 +78,34 @@ if sys.version_info < (3, 9):
     raise SystemExit('Python >=3.9 is required')
 print(json.dumps({'hostname': socket.gethostname(), 'python': sys.version.split()[0]}))
 """
+
+
+def log_benchmark_phase(args, phase):
+    # Adapt PR37 28513c23's BENCHMARK_PHASE diagnostics to the existing
+    # Python launcher stages; the execution and error-handling paths stay shared.
+    if (
+        args.native_backend
+        and args.native_profile == "ccu"
+        and not args.query_only
+        and not args.dry_run
+    ):
+        args.benchmark_phase = phase
+        print("Benchmark phase: " + phase, flush=True)
+
+
+def log_benchmark_exit(args, status):
+    phase = getattr(args, "benchmark_phase", None)
+    if phase is not None:
+        print(
+            "Benchmark exit: status={} phase={} profile=ccu profiling={} probes={}".format(
+                status,
+                phase,
+                "on" if args.native_profiling else "off",
+                "on" if args.ccu_probes else "off",
+            ),
+            file=sys.stdout if status == 0 else sys.stderr,
+            flush=True,
+        )
 
 
 def atomic_json(path, value):
@@ -196,6 +226,11 @@ def parse_arguments(argv):
         help="AICPU only: delay Commit; expansion/kernel report columns are NA",
     )
     parser.add_argument(
+        "--ccu-probes",
+        action="store_true",
+        help="CCU only: enable SDK KFC boundary probes and five optional profiling metrics",
+    )
+    parser.add_argument(
         "--skip-build",
         action="store_true",
         help="reuse the verified operator package and, in native mode, backend cache",
@@ -281,6 +316,8 @@ def parse_arguments(argv):
     args.native_profiling = (
         args.native_backend and not args.no_profiling and not args.query_only
     )
+    if args.ccu_probes and not args.native_profiling:
+        raise ValueError("--ccu-probes requires a native CCU benchmark with profiling")
     if args.no_profiling and not args.native_backend:
         raise ValueError("--no-profiling requires the bundled native backend")
     if args.no_profiling and args.analyze:
@@ -370,6 +407,15 @@ def configure_native(args, environment, backend_args):
     if engine not in {"aicpu_ts", "ccu_sched", "ccu_ms"}:
         raise ValueError("the bundled backend requires -a aicpu_ts|ccu_sched")
     args.native_profile = "aicpu" if engine == "aicpu_ts" else "ccu"
+    if args.ccu_probes and engine != "ccu_sched":
+        raise ValueError("--ccu-probes requires -a ccu_sched")
+    if args.native_profile == "ccu":
+        # The SDK caches this switch when it first generates KFC instructions.
+        # Send an explicit value to every rank, including the disabled case.
+        environment["PROFILING_MODE"] = "true" if args.ccu_probes else "false"
+        environment["PROFILING_OPTIONS"] = (
+            '{"task_time":"l1"}' if args.ccu_probes else ""
+        )
     operator = backend_option(backend_args, "--op")
     if operator not in {
         "allgather",
@@ -888,6 +934,7 @@ def complete_native_report(args, summary):
         # submissions to profile. Report their original skip/failure evidence.
         preliminary = build_report(read_records(records))[2]
         if preliminary["measured"]:
+            log_benchmark_phase(args, "profiling_analysis")
             print("Analyzing collected profiling...", flush=True)
             try:
                 analysis = analyze_collected(args, summary)
@@ -1200,9 +1247,20 @@ def launch(
         "source_revision": None if args.dry_run else source_revision(),
         "created_utc": datetime.now(timezone.utc).isoformat(),
     }
+    if args.native_profile == "ccu":
+        from profiling.kfc_markers import PROBE_GAPS, SOURCE_COMMIT
+
+        plan["ccu_probes"] = {
+            "requested": args.ccu_probes,
+            "source_commit": SOURCE_COMMIT,
+            "default_gaps": PROBE_GAPS,
+            "profiling_mode": environment["PROFILING_MODE"],
+            "profiling_options": environment["PROFILING_OPTIONS"],
+        }
     if args.dry_run:
         print(json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
+    log_benchmark_phase(args, "environment_setup")
     mpirun = shutil.which(
         args.mpirun, path=environment.get("PATH") if args.native_backend else None
     )
@@ -1216,6 +1274,11 @@ def launch(
     args.output_dir.mkdir(parents=True, exist_ok=False)
     if args.native_backend:
         print("Run directory: " + str(args.output_dir), flush=True)
+        if args.native_profile == "ccu":
+            print(
+                "CCU KFC probes: " + ("enabled" if args.ccu_probes else "disabled"),
+                flush=True,
+            )
     atomic_json(args.output_dir / "run_owner.json", {"run_id": run_id})
     atomic_json(args.output_dir / "launch_manifest.json", plan)
     payload.mkdir()
@@ -1279,6 +1342,7 @@ def launch(
     stage = "transport"
     failure_info = (None, None, None)
     try:
+        log_benchmark_phase(args, stage)
         transport = cluster_factory(
             hosts,
             ssh_user=args.ssh_user,
@@ -1303,6 +1367,7 @@ def launch(
             )
         if args.prepare_aicpu or args.prepare_ccu:
             stage = "package_preparation"
+            log_benchmark_phase(args, stage)
             preparation = {"status": "preparing"}
             preparation = (
                 prepare_ccu(args, hosts, run_id, stack)
@@ -1331,12 +1396,14 @@ def launch(
             plan["payload_files"] = fingerprints
             plan["payload_sha256"] = digest(payload / "payload.json")
         stage = "payload_deployment"
+        log_benchmark_phase(args, stage)
         for index in range(len(hosts)):
             transport.deploy(index, payload, payload)
         plan["node_identities"] = node_identities
         atomic_json(args.output_dir / "launch_manifest.json", plan)
         mpi_started = True
         stage = "mpi"
+        log_benchmark_phase(args, stage)
         if args.native_backend:
             print(
                 "Running MPI topology query..."
@@ -1369,6 +1436,7 @@ def launch(
         failure_info = (type(exc), exc, exc.__traceback__)
         errors.append("launcher interrupted")
     if mpi_started:
+        log_benchmark_phase(args, "collection")
         for index in range(len(hosts)):
             target = args.output_dir / "staging" / ("node_%d" % index) / "ranks"
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -1389,6 +1457,7 @@ def launch(
         )
     finally:
         try:
+            log_benchmark_phase(args, "package_release")
             stack.__exit__(*failure_info)
         except Exception as exc:
             errors.append("package_release: " + str(exc))
@@ -1422,6 +1491,7 @@ def launch(
     atomic_json(args.output_dir / "cluster_summary.json", summary)
     if args.native_backend:
         try:
+            log_benchmark_phase(args, "report_generation")
             summary["report"] = complete_native_report(args, summary)
             passed = passed and summary["report"]["status"] == "PASS"
         except Exception as exc:
@@ -1500,6 +1570,7 @@ def launch(
             file=sys.stderr,
             flush=True,
         )
+    log_benchmark_phase(args, "finished")
     return 0 if passed else 1
 
 
@@ -1508,17 +1579,23 @@ def main(argv=None):
         signum: signal.signal(signum, interrupted)
         for signum in (signal.SIGTERM, signal.SIGINT)
     }
+    args, exit_code = None, 1
     try:
-        return launch(*parse_arguments(sys.argv[1:] if argv is None else argv))
+        parsed = parse_arguments(sys.argv[1:] if argv is None else argv)
+        args = parsed[0]
+        exit_code = launch(*parsed)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print("launch failed: " + str(exc), file=sys.stderr)
-        return 2
+        exit_code = 2
     except LaunchInterrupted as exc:
         print(str(exc), file=sys.stderr)
-        return 1
+        exit_code = 1
     finally:
         for signum, handler in previous.items():
             signal.signal(signum, handler)
+        if args is not None:
+            log_benchmark_exit(args, exit_code)
+    return exit_code
 
 
 if __name__ == "__main__":

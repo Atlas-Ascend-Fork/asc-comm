@@ -12,6 +12,7 @@
 """CCU extraction from hccl_api_test 138ac18b6c496ca3faebab0fa8e8038757ec19a7."""
 
 from __future__ import annotations
+from bisect import bisect_right
 import os
 import re
 import shutil
@@ -21,6 +22,16 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from . import api_core as common
+from . import kfc_markers as markers
+
+# Probe fields and pairing copied from hccl_api_test PR37, commit 9ff8914c.
+API_PROBE_COLUMNS = (
+    ("api_algorithm_us", "api纯算法耗时(us)"),
+    ("api_kfc_head_us", "api KFC head耗时(us)"),
+    ("api_kfc_load_us", "api KFC 参数加载及判定耗时(us)"),
+    ("api_kfc_signal_us", "api KFC 完成信号段耗时(us)"),
+    ("api_kfc_tail_us", "api KFC 队列收尾耗时(us)"),
+)
 
 _common_should_retain = common.should_retain_complete_event
 
@@ -183,6 +194,7 @@ def raw_text(raw: Mapping[str, Any]) -> str:
 def should_retain_ccu_event(raw: Mapping[str, Any]) -> bool:
     text = raw_text(raw)
     name = str(raw.get("name", ""))
+    args = raw.get("args")
     return bool(
         _common_should_retain(raw)
         or CUSTOM_KERNEL_RE.fullmatch(name)
@@ -194,6 +206,11 @@ def should_retain_ccu_event(raw: Mapping[str, Any]) -> bool:
         or CCU_TEXT_RE.search(text)
         or FUSION_TEXT_RE.search(text)
         or LOOPGROUP_RE.fullmatch(name)
+        or (
+            name == "Wait"
+            and isinstance(args, Mapping)
+            and "Notify Instruction ID" in args
+        )
     )
 
 
@@ -320,6 +337,75 @@ def is_hccl_launcher(trace: Any, event: Any, operator: str) -> bool:
     if HOST_API_EVENT_RE.match(event.name):
         return False
     return bool(CCU_LAUNCH_RE.fullmatch(event.name))
+
+
+def probe_times_by_launcher(
+    trace: Any, launchers: Sequence[Any]
+) -> dict[int, dict[str, Decimal]]:
+    waits_by_lane: dict[tuple[Any, ...], list[tuple[int, Decimal, Decimal]]] = {}
+    for event in trace.events:
+        if event.name != "Wait":
+            continue
+        args = event.args
+        instruction = args.get("Notify Instruction ID")
+        stream = args.get("Physic Stream Id", args.get("Stream Id"))
+        task = args.get("Task Id")
+        if (
+            not str(instruction).isdecimal()
+            or stream is None
+            or task is None
+            or str(args.get("Mask", 2)) != "2"
+        ):
+            continue
+        lane = (
+            event.pid,
+            event.tid,
+            stream,
+            task,
+            args.get("Die Id"),
+            args.get("Mission Id"),
+        )
+        waits_by_lane.setdefault(lane, []).append(
+            (int(instruction), event.start, event.end)
+        )
+
+    launcher_starts = [launcher.start for launcher in launchers]
+    matches: dict[int, list[dict[str, Decimal]]] = {}
+    for waits in waits_by_lane.values():
+        groups: dict[int, list[tuple[Decimal, Decimal]]] = {}
+        for kind, start, end in markers.find_probes(waits):
+            groups.setdefault(kind, []).append((start, end))
+        if len(groups.get(0, [])) != 1 or len(groups.get(1, [])) != 1:
+            continue
+        begin, finish = groups[0][0], groups[1][0]
+        index = bisect_right(launcher_starts, begin[0]) - 1
+        if (
+            index < 0
+            or not begin[0]
+            <= begin[1]
+            <= finish[0]
+            <= finish[1]
+            <= launchers[index].end
+        ):
+            continue
+        values = {"api_algorithm_us": finish[0] - begin[1]}
+        # Finalize also loads parameters. Use the preceding load from this turn.
+        load = [mark for mark in groups.get(4, []) if mark[1] <= begin[0]]
+        if load:
+            values["api_kfc_load_us"] = begin[0] - load[-1][1]
+        head_start, head_end = groups.get(2, []), groups.get(3, [])
+        if (
+            len(head_start) == len(head_end) == 1
+            and head_start[0][1] <= head_end[0][0] <= begin[0]
+        ):
+            values["api_kfc_head_us"] = head_end[0][0] - head_start[0][1]
+        signal, tail = groups.get(5, []), groups.get(6, [])
+        if len(signal) == 1 and finish[1] <= signal[0][0]:
+            values["api_kfc_signal_us"] = signal[0][0] - finish[1]
+            if len(tail) == 1 and signal[0][1] <= tail[0][0]:
+                values["api_kfc_tail_us"] = tail[0][0] - signal[0][1]
+        matches.setdefault(index, []).append(values)
+    return {index: values[0] for index, values in matches.items() if len(values) == 1}
 
 
 @dataclass(frozen=True)
@@ -512,6 +598,11 @@ def parse_ccu_profile(
             "ranks are compared on the same device clock",
         )
     if len(launchers) == expected_kernel_count:
+        probe_times = (
+            probe_times_by_launcher(trace, launchers)
+            if profile.path_type == "api"
+            else {}
+        )
         for size_index, data_size in enumerate(sizes[:mapped_size_count]):
             base = size_index * calls_per_size
             kernel_windows[data_size] = (
@@ -519,7 +610,8 @@ def parse_ccu_profile(
                 launchers[base + calls_per_size - 1].end,
             )
             for measured_index in range(measured_calls_per_size):
-                launcher = launchers[base + measured_call_offset + measured_index]
+                launcher_index = base + measured_call_offset + measured_index
+                launcher = launchers[launcher_index]
                 loopgroup_events = loopgroup_events_in_launcher(trace, launcher)
                 loopgroup_us = sum(
                     (event.end - event.start for event in loopgroup_events),
@@ -568,6 +660,7 @@ def parse_ccu_profile(
                         common.Sample(
                             **common_fields,
                             api_loopgroup_us=loopgroup_us,
+                            **probe_times.get(launcher_index, {}),
                         )
                     )
     else:

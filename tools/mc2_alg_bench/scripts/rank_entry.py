@@ -50,6 +50,9 @@ readonly mc2_bench_runtime_hccl=${HCCL_DIR:-$1}
 readonly mc2_bench_runtime_mpi=${MPI_HOME:-${MPI_PATH:-}}
 readonly mc2_bench_runtime_path=${PATH:-}
 readonly mc2_bench_runtime_libraries=${LD_LIBRARY_PATH:-}
+readonly mc2_bench_runtime_profiling_configured=${PROFILING_MODE+x}
+readonly mc2_bench_runtime_profiling_mode=${PROFILING_MODE-}
+readonly mc2_bench_runtime_profiling_options=${PROFILING_OPTIONS-}
 shift 3
 mc2_bench_runtime_argv=("$@")
 readonly -a mc2_bench_runtime_argv
@@ -87,6 +90,10 @@ if [ -n "$mc2_bench_runtime_vendor" ]; then
 fi
 if [ -n "$mc2_bench_runtime_query_directory" ]; then
     export LD_LIBRARY_PATH="$mc2_bench_runtime_query_directory:$LD_LIBRARY_PATH"
+fi
+if [ "$mc2_bench_runtime_profiling_configured" = x ]; then
+    export PROFILING_MODE="$mc2_bench_runtime_profiling_mode"
+    export PROFILING_OPTIONS="$mc2_bench_runtime_profiling_options"
 fi
 exec "${mc2_bench_runtime_argv[@]}"
 """

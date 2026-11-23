@@ -44,6 +44,11 @@ COLUMN_LABELS = {
     "api_kernel_skew_max_us": "api kernel启动偏差max(us)",
     "api_framework_us": "api框架耗时(us)",
     "api_loopgroup_us": "api loopgroup耗时(us)",
+    "api_algorithm_us": "api纯算法耗时(us)",
+    "api_kfc_head_us": "api KFC head耗时(us)",
+    "api_kfc_load_us": "api KFC 参数加载及判定耗时(us)",
+    "api_kfc_signal_us": "api KFC 完成信号段耗时(us)",
+    "api_kfc_tail_us": "api KFC 队列收尾耗时(us)",
 }
 
 AICPU_METRICS = (
@@ -61,6 +66,11 @@ CCU_METRICS = (
     "api_framework_us",
     "api_comm_gbps",
     "api_loopgroup_us",
+    "api_algorithm_us",
+    "api_kfc_head_us",
+    "api_kfc_load_us",
+    "api_kfc_signal_us",
+    "api_kfc_tail_us",
     "api_kernel_skew_p95_us",
     "api_kernel_skew_max_us",
 )

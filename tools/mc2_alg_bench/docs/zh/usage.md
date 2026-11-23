@@ -43,6 +43,7 @@ bash run_alg_bench.sh [启动器参数] -- [测试参数]
 | `--`前 | `-n`、`-p` | 总Rank数、每节点设备数，均默认8；Rank是参与通信的进程 |
 | `--`前 | `--query-only` | 只查询候选，不运行性能测试 |
 | `--`前 | `--comm-only` | AICPU延迟提交诊断模式，默认关闭 |
+| `--`前 | `--ccu-probes` | CCU边界插针采集，默认关闭，需SDK支持 |
 | `--`前 | `--skip-build` | 校验并复用已安装包及编译缓存，默认正常构建 |
 | `--`前 | `--output-dir` | 新结果目录，省略时自动创建，不能覆盖已有作业 |
 | `--`前 | `--no-profiling` | 关闭性能采集解析，仅保留整算子计时和输出校验 |
@@ -131,6 +132,17 @@ bash run_alg_bench.sh -n 2 -p 2 --comm-only -- \
 
 该参数等价于`--measurement-mode comm_only`，不能同时指定。工具自动构建匹配模式的包；有效结果的展开和kernel列显示`NA`，通信和带宽仍有实测值。此模式含人工延迟，不代表严格剥离框架开销；CCU不支持。
 
+CCU边界插针采集，在`--`前加`--ccu-probes`：
+
+```bash
+bash run_alg_bench.sh -n 2 -p 2 --ccu-probes -- \
+  --op allreduce -a ccu_sched -b 32K -e 32K
+```
+
+需要支持KFC（Kernel Function Call，核间调用框架）边界探针的配套SDK。工具在各Rank启动前设置采集开关，新增纯算法、队列头、参数加载及判定、完成信号和队列收尾五列。“纯算法”区间包含mission（CCU通信任务）的同步；这些指标不替换原有Event、Wait和带宽。插针会影响执行时序，与默认关闭的结果分别比较。
+
+每个新增指标覆盖全部Rank和正式轮后才输出均值，否则该列显示`-`，原因见`profile_analysis/profiling_audit.json`。基础采集完整时，缺少探针不会使原有指标失效。该选项不能与仅查询、关闭profiling或AICPU延迟提交模式混用，也不会改变算子包的测量模式。
+
 只验证设备执行和结果正确时，在`--`前加`--no-profiling`。该模式只报告整算子计时，其他阶段列为空，不能用于验收完整性能数据。
 
 查询接口尚不可用时，可在`--`后加`--query-stub basic`。它只模拟查询候选，后续仍执行真实NPU算子；模拟候选不能证明当前拓扑的实际支持能力。切换查询来源后先正常构建。
@@ -138,6 +150,8 @@ bash run_alg_bench.sh -n 2 -p 2 --comm-only -- \
 ## 查看性能结果
 
 终端打印本轮`Run directory:`、执行进度和性能表，默认结果目录为`build_out/runs/run-UUID/`。
+
+CCU性能测试额外打印`Benchmark phase:`阶段进度和`Benchmark exit:`退出信息。是否成功以`status`退出码及报告结果为准，`phase=finished`只表示流程已收尾。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -158,6 +172,7 @@ bash run_alg_bench.sh -n 2 -p 2 --comm-only -- \
 | CCU框架耗时 | 同轮整算子Event减Wait的均值，是Wait外残差，不能严格解释为纯框架成本 |
 | CCU kernel耗时 | Rank 0的整算子Event均值；Event是设备计时区间，Write还包含接收结果复制 |
 | CCU LoopGroup耗时 | 设备通信指令事件持续时间累计，不是算法起止插针时间；窗口内没有完整事件时按0计入，不证明实际通信为0 |
+| CCU五项插针耗时 | 默认留空；开启边界采集且标记完整后统计，均排除边界标记本身的持续时间 |
 | 通信带宽 | 按实际测试形状的带宽字节数及通信耗时计算，单位GB/s |
 | kernel启动偏差p95/max | 先求每轮最差节点内各Rank开始时刻的极差，再求正式轮的p95和最大值；不表示绝对跨机时钟偏差 |
 
