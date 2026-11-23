@@ -297,17 +297,20 @@ __simt_callee__ inline void asccomm_simt_write_atomic_wqe(
     asccomm_simt_assert_wqe_fits<amo_word + 2U, word_cnt>();
 }
 
-// The doorbell window must be written with 128-bit stores. With plain 64-bit stores the NIC has
-// been observed to consume the header and the fetch SGE while losing the atomic operand words
-// behind them.
+// The doorbell window must be written with 128-bit stores, and the leading header words must
+// land last: the NIC can start consuming the window once the header is in place (with plain
+// 64-bit stores it has been observed to consume the header and the fetch SGE while losing the
+// atomic operand words behind them), so the payload goes first, mirroring the header-last
+// publish order of asccomm_simt_ring_batch_dwqe.
 __simt_callee__ inline void asccomm_simt_copy_stage_to_dwqe(__gm__ uint8_t* dst, const asccomm_simt_wqe_stage& stage)
 {
     __gm__ ulonglong2* dst_words = reinterpret_cast<__gm__ ulonglong2*>(dst);
 #pragma unroll
-    for (uint32_t i = 0; i < ASCCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
+    for (uint32_t i = 1; i < ASCCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
         uint32_t word_idx = i * 2U;
         asc_stwt(&dst_words[i], make_ulonglong2(stage.words[word_idx], stage.words[word_idx + 1U]));
     }
+    asc_stwt(&dst_words[0], make_ulonglong2(stage.words[0], stage.words[1U]));
 }
 
 template <uint32_t sge_num>
@@ -407,15 +410,20 @@ __simt_callee__ inline bool asccomm_simt_plan_batch_from_head(
     return context->reservation_status == ASCCOMM_SUCCESS;
 }
 
-// Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence orders the
-// preceding SQ write against the doorbell; the two cache invalidations cover both basic blocks
-// of the window.
+// Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence and
+// invalidation sequence matches asccomm_simt_ring_batch_dwqe: the first fence orders the
+// preceding SQ write against the doorbell, the second one orders the window stores before the
+// two cache invalidations (which cover both basic blocks of the window), and the trailing one
+// keeps the invalidations ahead of whatever this lane issues next. A channel is driven by a
+// single lane, so every step is lane-local.
 __simt_callee__ inline void asccomm_simt_ring_dwqe(__gm__ uint8_t* dwqe_addr, const asccomm_simt_wqe_stage& stage)
 {
     asc_threadfence();
     asccomm_simt_copy_stage_to_dwqe(dwqe_addr, stage);
+    asc_threadfence();
     asc_dcci_single(dwqe_addr);
     asc_dcci_single(dwqe_addr + ASCCOMM_URMA_WQE_BB_SIZE);
+    asc_threadfence();
 }
 
 __simt_callee__ inline void asccomm_simt_ring_batch_dwqe(__gm__ uint8_t* dwqe_addr, const __ubuf__ uint64_t* words)
