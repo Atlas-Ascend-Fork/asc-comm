@@ -198,6 +198,9 @@ stages:
           -
             name: smoke executor
             timeout-minutes: 30
+            env:
+              RUN_URL: ${{ jobs.JOB_x86_compile.outputs.run_url }}
+              MERGE_COMMIT: ${{ atomgit.event.pull_request.merge_commit_sha }}
             run: |
                 set -e
                 # set env
@@ -206,8 +209,11 @@ stages:
                 export pr_id=${{ env.MERGE_ID }}
                 export obs_path=${{env.obs_path}}
                 export obs_smoke_path=${{ env.obs_smoke_path }}
+                export run_url="$RUN_URL"
+                export merge_commit="$MERGE_COMMIT"
                 bash ${{ steps.process_checkout.outputs.path }}/pre_smoke.sh
           - name: upload
+            if: ${{ always() }}
             uses: obs-upload
             with:
               endpoint: "https://obs.cn-north-4.myhuaweicloud.com"

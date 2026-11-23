@@ -25,6 +25,9 @@ on:
         required: false
         type: string
         default: 'xlarge'
+    outputs:
+      run_url:
+        value: ${{jobs.JOB_compile.outputs.primary-url}}
 
 jobs:
   JOB_compile:

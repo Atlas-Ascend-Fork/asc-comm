@@ -19,7 +19,7 @@
 # 结果输出到asc-comm/presmoke_reports/：
 #   case_list.json   样例列表（样例名/路径/场景）
 #   build_log/       每个样例的编译日志和编译状态
-#   log/             每个样例的执行日志与退出码（仅写文件不打屏；退出码为0且匹配"test pass"才判定通过）
+#   log/             每个样例的执行日志与退出码（仅写文件不打屏，匹配"test pass"判定通过；失败时打屏日志尾部）
 #   data/            有scripts目录样例的输入和golden数据（避免写入样例目录）
 #   result.txt       汇总结果
 set -euo pipefail
@@ -64,6 +64,7 @@ CPU并行编译与硬件串行执行重叠，编译完成的样例直接排队�
     COUNT               单rank元素个数，默认256
     PARALLEL_BUILDS     并行编译路数，默认4
     EXEC_TIMEOUT        单样例执行超时（秒），默认600
+    ERROR_LOG_LINES     样例失败时打屏的日志尾部行数，默认50
 EOF
 }
 
@@ -127,9 +128,10 @@ fi
 DEVICES="${DEVICES:-0,1}"
 COUNT="${COUNT:-256}"
 RANK_SIZE="$(awk -F',' '{print NF}' <<<"${DEVICES}")"
-# 并行编译的样例数、单样例执行超时（秒）
+# 并行编译的样例数、单样例执行超时（秒）、失败时打屏日志尾部行数
 PARALLEL_BUILDS="${PARALLEL_BUILDS:-4}"
 EXEC_TIMEOUT="${EXEC_TIMEOUT:-600}"
+ERROR_LOG_LINES="${ERROR_LOG_LINES:-50}"
 
 # 样例提取
 rm -rf "${LOG_DIR}" "${BUILD_LOG_DIR}" "${DATA_DIR}"
@@ -213,6 +215,19 @@ build_one() {
 export -f build_one
 export REPO_ROOT BUILD_LOG_DIR PIPE_FILE
 
+# 样例失败时打屏日志尾部，便于在CI控制台快速定位报错原因
+print_failed_log_tail() {
+    local label="$1"
+    local log_file="$2"
+    if [[ ! -s "${log_file}" ]]; then
+        echo "[presmoke] ${label} failed, log is empty or missing: ${log_file}"
+        return
+    fi
+    echo "[presmoke] ---------------- ${label} failed, error log (last ${ERROR_LOG_LINES} lines of ${log_file}) ----------------"
+    tail -n "${ERROR_LOG_LINES}" "${log_file}"
+    echo "[presmoke] ---------------- end of ${label} error log ----------------"
+}
+
 run_case() {
     local case_name="$1"
     local path="$2"
@@ -229,6 +244,7 @@ run_case() {
     if [[ ! -f "${status_file}" || "$(cat "${status_file}")" != "0" ]]; then
         echo "[presmoke] build failed or missing, skip exec; see build_log/build_${case_name}.txt" | tee -a "${log_file}"
         echo "1" >"${rc_file}"
+        print_failed_log_tail "${case_name} build" "${BUILD_LOG_DIR}/build_${case_name}.txt"
         return 1
     fi
 
@@ -263,6 +279,7 @@ run_case() {
         echo "[presmoke] ${case_name} finished" | tee -a "${log_file}"
     else
         echo "[presmoke] ${case_name} finished with error" | tee -a "${log_file}"
+        print_failed_log_tail "${case_name}" "${log_file}"
     fi
     return "${rc}"
 }
