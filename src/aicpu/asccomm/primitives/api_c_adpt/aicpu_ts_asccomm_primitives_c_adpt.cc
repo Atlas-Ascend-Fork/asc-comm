@@ -27,6 +27,8 @@ using asccomm_adpt::execute_api;
 using asccomm_adpt::get_context;
 using asccomm_adpt::get_thread_entity;
 
+constexpr uint64_t SDMA_SEND_MAX_SIZE = std::numeric_limits<uint32_t>::max();
+
 asccomm_result get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
     CHK_PRT_RET(
@@ -152,7 +154,8 @@ asccomm_result convert_reduce_in(
 }
 
 asccomm_result get_reduce_params(
-    asccomm_data_type dataType, asccomm_reduce_op reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
+    asccomm_data_type dataType, asccomm_reduce_op reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn,
+    uint32_t* typeSizeOut = nullptr)
 {
     Asc::DataType innerDataType = Asc::DataType::INVALID;
     Asc::ReduceOp innerReduceOp = Asc::ReduceOp::INVALID;
@@ -163,6 +166,9 @@ asccomm_result get_reduce_params(
         ASCCOMM_ERROR("[%s] reduce length overflow.", __func__), ASCCOMM_E_PARA);
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerDataType, innerReduceOp);
+    if (typeSizeOut != nullptr) {
+        *typeSizeOut = typeSize;
+    }
     return ASCCOMM_SUCCESS;
 }
 
@@ -199,7 +205,6 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
         CHK_PTR_NULL(src);
         ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
-        constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
         while (offset < len) {
             const uint64_t remaining = len - offset;
@@ -222,14 +227,15 @@ int32_t asccomm_local_reduce_on_thread(
         CHK_PTR_NULL(src);
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
         uint64_t len = 0;
-        CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
+        uint32_t dataTypeSize = 1;
+        CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn, &dataTypeSize));
         ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
-        constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
+        const uint64_t maxReduceSize = SDMA_SEND_MAX_SIZE / dataTypeSize * dataTypeSize;
         uint64_t offset = 0;
         while (offset < len) {
             const uint64_t remaining = len - offset;
-            const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
+            const uint64_t realSize = remaining > maxReduceSize ? maxReduceSize : remaining;
             CHK_RET(asccomm_rtsq_sdma_reduce(
                 *threadEntity, reinterpret_cast<uintptr_t>(dst) + offset, reinterpret_cast<uintptr_t>(src) + offset,
                 static_cast<uint32_t>(realSize), reduceIn));

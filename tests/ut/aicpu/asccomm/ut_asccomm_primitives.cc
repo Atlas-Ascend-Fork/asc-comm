@@ -43,6 +43,37 @@ TEST_F(AsccommPrimitivesTest, ValidatesChannelResourceBeforeTransport)
     EXPECT_TRUE(g_runtimeStubState.writeCalls.empty());
 }
 
+TEST_F(AsccommPrimitivesTest, LocalCopySplitsFourGiBIntoNonZeroSdmaTasks)
+{
+    int value = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    constexpr uint64_t fourGiB = 1ULL << 32U;
+    EXPECT_EQ(asccomm_local_copy_on_thread(handle, &value, &value, fourGiB), ASCCOMM_SUCCESS);
+
+    ASSERT_EQ(g_runtimeStubState.copyCalls.size(), 2U);
+    EXPECT_EQ(g_runtimeStubState.copyCalls[0].size, std::numeric_limits<uint32_t>::max());
+    EXPECT_EQ(g_runtimeStubState.copyCalls[1].size, 1U);
+    EXPECT_EQ(g_runtimeStubState.copyCalls[1].dst, reinterpret_cast<uint64_t>(&value) + fourGiB - 1U);
+    EXPECT_EQ(g_runtimeStubState.copyCalls[1].src, reinterpret_cast<uint64_t>(&value) + fourGiB - 1U);
+}
+
+TEST_F(AsccommPrimitivesTest, LocalReduceSplitsFourGiBAlignedToDataType)
+{
+    int value = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    constexpr uint64_t count = 1ULL << 30U;
+    constexpr uint32_t firstReduceSize = 0xfffffffcU;
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(handle, &value, &value, count, ASCCOMM_DATA_TYPE_FP32, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_SUCCESS);
+
+    ASSERT_EQ(g_runtimeStubState.reduceCalls.size(), 2U);
+    EXPECT_EQ(g_runtimeStubState.reduceCalls[0].size, firstReduceSize);
+    EXPECT_EQ(g_runtimeStubState.reduceCalls[1].size, sizeof(float));
+    EXPECT_EQ(g_runtimeStubState.reduceCalls[1].dst, reinterpret_cast<uint64_t>(&value) + firstReduceSize);
+    EXPECT_EQ(g_runtimeStubState.reduceCalls[1].src, reinterpret_cast<uint64_t>(&value) + firstReduceSize);
+}
+
 TEST_F(AsccommPrimitivesTest, WritePassesResourceEntitiesAndAddresses)
 {
     int value = 123;

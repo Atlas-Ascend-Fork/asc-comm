@@ -17,6 +17,7 @@
 
 namespace Asc {
 constexpr uint32_t ADDR_BIT_OFFSET = 32;
+constexpr uint32_t SQE_SIZE_96 = 96;
 constexpr uint32_t SQE_SIZE_128 = 128;
 constexpr uint32_t SQE_SIZE_64 = 64;
 constexpr uint32_t SQE_INLINE_DATA_SIZE = 16;
@@ -28,6 +29,8 @@ constexpr uint32_t ADDR_BIT_LOW = 0xffffffff;
 constexpr uint32_t UB_RELAX_ORDER = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
 constexpr uint32_t UB_STRONG_ORDER = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
 constexpr uint32_t RMT_OBJ_ID_MASK = 0xfffff;
+
+static_assert(sizeof(UdmaSqeWriteWithNotify) == SQE_SIZE_96, "notify WQE size must be 96 bytes");
 
 uint32_t get_data_type_size(DataType dataType)
 {
@@ -239,21 +242,27 @@ void UbConnLite::process_slices_with_notify(
     uint32_t sliceSize = maxSliceSize;
     if (dataType != DataType::INVALID) {
         uint32_t dataTypeSize = get_data_type_size(dataType);
+        if (UNLIKELY(dataTypeSize == 0 || maxSliceSize < dataTypeSize)) {
+            throw_exception<InvalidParamsException>(string_format(
+                "%s maxSliceSize[%u] is less than dataTypeSize[%u]", __func__, maxSliceSize, dataTypeSize));
+        }
         sliceSize = maxSliceSize / dataTypeSize * dataTypeSize;
+    } else if (UNLIKELY(maxSliceSize == 0)) {
+        throw_exception<InvalidParamsException>(string_format("%s maxSliceSize is zero", __func__));
     }
 
-    uint32_t locBufSize = loc.get_size();
-    uint32_t sliceNum = locBufSize / sliceSize;
-    uint32_t lastSliceSize = locBufSize % sliceSize;
+    uint64_t locBufSize = loc.get_size();
+    uint64_t sliceNum = locBufSize / sliceSize;
+    uint64_t lastSliceSize = locBufSize % sliceSize;
     if (sliceNum > 0 && lastSliceSize == 0) {
         sliceNum--;
         lastSliceSize = sliceSize;
     }
-    uint64_t totalSize = static_cast<uint64_t>(sliceNum) * static_cast<uint64_t>(sliceSize);
+    uint64_t totalSize = sliceNum * sliceSize;
     if (UNLIKELY(loc.get_addr() > UINT64_MAX - totalSize || rmt.get_addr() > UINT64_MAX - totalSize)) {
         throw_exception<InternalException>("integer overflow occurs");
     }
-    for (uint32_t sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
+    for (uint64_t sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
         RmaBufSliceLite locSlice(loc.get_addr() + sliceIdx * sliceSize, sliceSize, 0, loc.get_token_id());
 
         RmtRmaBufSliceLite rmtSlice(
@@ -275,8 +284,8 @@ void UbConnLite::process_slices_with_notify(
     }
 
     ASCCOMM_INFO(
-        "[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__, locBufSize,
-        sliceNum, sliceSize, lastSliceSize);
+        "[UbConnLite::%s] end, locBufSize[%llu], sliceNUm[%llu], sliceSize[%u], lastSliceSize[%llu]", __func__,
+        locBufSize, sliceNum, sliceSize, lastSliceSize);
 }
 
 void UbConnLite::fill_one_sqe_write(
@@ -377,23 +386,24 @@ void UbConnLite::process_one_wqe_with_notify(
     if (!dwqeCacheLocked_) {
         // 带notify的wqe是96字节, 需要占用两个wqebb, 实际占用128字节
         if (sqOffset == sqDepth_ - 1) {
-            memory_set_and_copy(va, SQE_SIZE_64, sqe);
+            memory_set_and_copy(va, SQE_SIZE_64, sqe, SQE_SIZE_64);
             va = reinterpret_cast<uint8_t*>(sqVa_);
-            memory_set_and_copy(va, SQE_SIZE_64, reinterpret_cast<uint8_t*>(sqe) + SQE_SIZE_64);
+            memory_set_and_copy(
+                va, SQE_SIZE_64, reinterpret_cast<const uint8_t*>(sqe) + SQE_SIZE_64, SQE_SIZE_96 - SQE_SIZE_64);
         } else {
-            memory_set_and_copy(va, SQE_SIZE_128, sqe);
+            memory_set_and_copy(va, SQE_SIZE_128, sqe, SQE_SIZE_96);
         }
     }
     ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
-void UbConnLite::memory_set_and_copy(uint8_t* va, uint32_t sqeSize, void* sqe)
+void UbConnLite::memory_set_and_copy(uint8_t* va, uint32_t destSize, const void* sqe, uint32_t copySize)
 {
-    auto ret = memset_s(va, sqeSize, 0, sqeSize);
+    auto ret = memset_s(va, destSize, 0, destSize);
     if (UNLIKELY(ret != 0)) {
         throw_exception<InternalException>(string_format("[UbConnLite::%s] memset fail, ret = %d", __func__, ret));
     }
-    ret = memcpy_sp(va, sqeSize, sqe, sqeSize);
+    ret = memcpy_sp(va, destSize, sqe, copySize);
     if (UNLIKELY(ret != 0)) {
         throw_exception<InternalException>(string_format("[UbConnLite::%s] not support this op type yet.", __func__));
     }

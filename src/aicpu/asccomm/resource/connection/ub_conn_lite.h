@@ -106,7 +106,7 @@ private:
     void fill_one_sqe_send(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, uint64_t immData, SlicePosition slicePos);
-    void memory_set_and_copy(uint8_t* va, uint32_t sqeSize, void* sqe);
+    void memory_set_and_copy(uint8_t* va, uint32_t destSize, const void* sqe, uint32_t copySize);
 };
 } // namespace Asc
 
