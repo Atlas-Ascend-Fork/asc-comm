@@ -1113,7 +1113,10 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(ubc_b
     uint32_t sq_depth = batch_handle.sq_context.contextInfo.ubJfs.sqDepth;
     auto* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(batch_handle.channel_handle);
     uint32_t cq_depth = batch_handle.cq_context.contextInfo.ubJfc.cqDepth;
-    uint32_t sq_outstanding = batch_handle.cursor.sq_head - batch_handle.cursor.sq_tail;
+    // entry_idx only carries a 16-bit ring position. A multi-lap sq_tail deficit inflates the absolute
+    // outstanding by full laps even though in-ring usage is valid; the ring delta ignores whole laps.
+    uint16_t sq_outstanding =
+        (uint16_t)((batch_handle.cursor.sq_head & 0xFFFFU) - (batch_handle.cursor.sq_tail & 0xFFFFU));
     bool sq_overflow = sq_outstanding > sq_depth || pre_sq_cnt > sq_depth - sq_outstanding;
     uint32_t cq_after_commit = batch_handle.cursor.cq_head - batch_handle.cursor.cq_tail;
     bool cq_overflow = cq_after_commit > cq_depth;
