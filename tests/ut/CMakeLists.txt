@@ -340,6 +340,77 @@ run_llt_test(
     FILTERS TestCcuHostLaunch.*
 )
 
+set(ASCCOMM_CCU_RUNTIME_PROFILING_UT_DIR ${CMAKE_BINARY_DIR}/tests/ut/ccu/experimental)
+
+add_library(asccomm_fake_profapi SHARED
+    ${ASCCOMM_UT_ROOT}/ccu/experimental/fake_profapi.cc
+)
+set_target_properties(asccomm_fake_profapi PROPERTIES
+    OUTPUT_NAME profapi
+    LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_CCU_RUNTIME_PROFILING_UT_DIR}
+)
+target_include_directories(asccomm_fake_profapi PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment/msprof
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment/runtime
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment
+)
+target_compile_features(asccomm_fake_profapi PRIVATE cxx_std_17)
+target_compile_options(asccomm_fake_profapi PRIVATE -Wall -Wextra -Werror)
+
+add_library(asccomm_fake_runtime SHARED
+    ${ASCCOMM_UT_ROOT}/ccu/experimental/fake_runtime.cc
+)
+set_target_properties(asccomm_fake_runtime PROPERTIES
+    OUTPUT_NAME runtime
+    LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_CCU_RUNTIME_PROFILING_UT_DIR}
+)
+target_compile_features(asccomm_fake_runtime PRIVATE cxx_std_17)
+target_compile_options(asccomm_fake_runtime PRIVATE -Wall -Wextra -Werror)
+
+add_executable(asccomm_ut_ccu_runtime_profiling
+    ${ASCCOMM_ROOT}/src/ccu/experimental/ccu_profiling.cc
+    ${ASCCOMM_ROOT}/src/ccu/experimental/ccu_runtime.cpp
+    ${ASCCOMM_ROOT}/src/ccu/experimental/ccu_runtime_backend.cpp
+    ${ASCCOMM_UT_ROOT}/ccu/experimental/test_ccu_runtime_profiling.cc
+)
+target_include_directories(asccomm_ut_ccu_runtime_profiling PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/src/ccu/experimental
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment/msprof
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment/msprof
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment/runtime
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment/runtime
+    ${ASCEND_CANN_PACKAGE_PATH}/include/experiment
+    ${ASCEND_CANN_ARCH_DIR}/include/experiment
+)
+target_compile_features(asccomm_ut_ccu_runtime_profiling PRIVATE cxx_std_17)
+target_compile_options(asccomm_ut_ccu_runtime_profiling PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(asccomm_ut_ccu_runtime_profiling PRIVATE
+    intf_llt_pub_basic
+    asccomm_fake_profapi
+    atomic
+    ${CMAKE_DL_LIBS}
+)
+add_dependencies(asccomm_ut_ccu_runtime_profiling asccomm_fake_runtime)
+
+run_llt_test(
+    TARGET asccomm_ut_ccu_runtime_profiling
+    TASK_NUM 1
+    FILTERS CcuRuntimeProfiling.*
+    RUNTIME_DIRS ${ASCCOMM_CCU_RUNTIME_PROFILING_UT_DIR}
+)
+
 set(ASCCOMM_UT_V310_NPU_ARCH "3510" CACHE STRING "NPU architecture used by v310-compatible Hcomm UT targets")
 set_property(CACHE ASCCOMM_UT_V310_NPU_ARCH PROPERTY STRINGS 3510 9201 9202)
 if(NOT ASCCOMM_UT_V310_NPU_ARCH MATCHES "^(3510|9201|9202)$")

@@ -9,6 +9,7 @@
  */
 
 #include "detail/ccuobj_reader.h"
+#include "ccu_profiling.h"
 #include "ccu_runtime_backend.h"
 #include "ccu_runtime_external.h"
 
@@ -90,6 +91,8 @@ struct OwnedDescriptor {
     ccu_kernel_descriptor_t descriptor{};
     uint32_t selectedKernelIndex = 0;
     std::string target;
+    size_t selectedKernelNameOffset = 0;
+    uint32_t selectedKernelNameLength = 0;
     std::vector<uint8_t> blob;
     std::vector<uint32_t> kernelIndices;
 
@@ -99,6 +102,12 @@ struct OwnedDescriptor {
         image.ccuobj = blob.data();
         descriptor.image = &image;
         descriptor.kernel_indices = kernelIndices.data();
+    }
+
+    const char* selectedKernelName() const
+    {
+        return selectedKernelNameLength == 0 ? nullptr :
+                                               reinterpret_cast<const char*>(blob.data() + selectedKernelNameOffset);
     }
 };
 
@@ -181,6 +190,12 @@ ccu_status_t makeOwnedDescriptor(
     try {
         auto result = std::make_unique<OwnedDescriptor>();
         copyOwnedArrays(*result, source, image, validated.selectedKernelIndex);
+        const ccu::ccuobj::ParsedKernel& parsedKernel = validated.parsed.kernels[validated.selectedKernelIndex];
+        if (parsedKernel.name != nullptr) {
+            result->selectedKernelNameOffset = static_cast<size_t>(
+                reinterpret_cast<const uint8_t*>(parsedKernel.name) - static_cast<const uint8_t*>(image.ccuobj));
+            result->selectedKernelNameLength = parsedKernel.nameLen;
+        }
         result->finalizePointers();
         owned = std::move(result);
     } catch (const std::bad_alloc&) {
@@ -457,6 +472,9 @@ ccu_status_t ccu_context_create(const ccu_context_options_t* options, ccu_contex
                 return CCU_STATUS_RECOVERY_FAILED;
             return CCU_STATUS_RUNTIME_ERROR;
         }
+        // Register the profiler callback before applications can submit their
+        // first CCU launch, so an earlier profiling-start command is not missed.
+        (void)rt::profiling::isReportReady();
         ccu_context* created = result.release();
         {
             std::lock_guard<std::mutex> instanceLock(instanceRegistryMutex);
@@ -649,12 +667,30 @@ ccu_status_t ccu_compiler_submit_with_schedule(
         launch->context = context;
         launch->kernel = kernel.get();
         launch->stream = stream;
+        const bool profilingReady = rt::profiling::isReportReady();
+        rt::profiling::LaunchContext profilingContext{};
+        if (profilingReady) {
+            profilingContext.kernelNameView = kernel->owned->selectedKernelName();
+            profilingContext.kernelNameViewLength =
+                kernel->owned->selectedKernelNameLength > rt::profiling::LaunchContext::maxKernelNameCopyLength ?
+                    rt::profiling::LaunchContext::maxKernelNameCopyLength :
+                    kernel->owned->selectedKernelNameLength;
+            profilingContext.rankId = context->rank;
+            profilingContext.rankSize = context->rankSize;
+            profilingContext.beginTime = rt::profiling::sysCycleTime();
+        }
+
         status = normalizeStatus(context->backend->launch(
             context->backendContext, &kernel->owned->descriptor, kernel->owned->selectedKernelIndex, stream, schd,
             arguments, argumentCount, backendExternalArguments.empty() ? nullptr : backendExternalArguments.data(),
             static_cast<uint32_t>(backendExternalArguments.size()), &launch->backendLaunch));
         if (!launch->backendLaunch) {
             return status == CCU_STATUS_SUCCESS ? CCU_STATUS_RUNTIME_ERROR : status;
+        }
+
+        if (profilingReady) {
+            profilingContext.endTime = rt::profiling::sysCycleTime();
+            rt::profiling::reportLaunchAfterSubmit(profilingContext);
         }
 
         if (schd.cacheTag != 0)

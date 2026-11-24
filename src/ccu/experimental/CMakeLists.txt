@@ -13,6 +13,7 @@ set(ASCCOMM_CCU_RUNTIME_ROOT ${CMAKE_CURRENT_LIST_DIR})
 set(_ASCCOMM_CCU_RUNTIME_SOURCES
     ccu_runtime.cpp
     ccu_runtime_backend.cpp
+    ccu_profiling.cc
     ccu_aot_adapter.cpp
     ccu_runtime_asccomm_backend.cpp
 )
@@ -46,7 +47,9 @@ target_link_libraries(ccu_runtime PRIVATE
     acl_rt
     runtime
     c_sec
-    pthread)
+    pthread
+    atomic
+    ${CMAKE_DL_LIBS})
 
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
     if(NOT INSTALL_PKG_INCLUDE_DIR)
