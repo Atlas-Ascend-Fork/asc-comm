@@ -21,6 +21,7 @@
 #ifndef ASC_COMM_EXAMPLES_UTILS_ARG_PARSER_H
 #define ASC_COMM_EXAMPLES_UTILS_ARG_PARSER_H
 
+#include <cctype>
 #include <cerrno>
 #include <climits>
 #include <cstdint>
@@ -30,11 +31,26 @@
 
 namespace examples {
 
+namespace detail {
+
+inline bool has_nonnegative_prefix(const char* text)
+{
+    if (text == nullptr) {
+        return false;
+    }
+    while (std::isspace(static_cast<unsigned char>(*text)) != 0) {
+        ++text;
+    }
+    return *text != '\0' && *text != '-';
+}
+
+} // namespace detail
+
 // 解析非负整数文本为 uint32_t。
 // 返回 true 表示解析成功且 value >= min；返回 false 表示文本非法或越界。
 inline bool parse_uint32(const char* text, uint32_t& value, uint32_t min = 0)
 {
-    if (text == nullptr || *text == '\0' || *text == '-') {
+    if (!detail::has_nonnegative_prefix(text)) {
         return false;
     }
     errno = 0;
@@ -51,7 +67,7 @@ inline bool parse_uint32(const char* text, uint32_t& value, uint32_t min = 0)
 // 返回 true 表示解析成功且 value >= min；返回 false 表示文本非法或越界。
 inline bool parse_uint64(const char* text, uint64_t& value, uint64_t min = 0)
 {
-    if (text == nullptr || *text == '\0' || *text == '-') {
+    if (!detail::has_nonnegative_prefix(text)) {
         return false;
     }
     errno = 0;
