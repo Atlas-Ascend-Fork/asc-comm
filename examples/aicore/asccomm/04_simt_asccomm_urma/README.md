@@ -1,13 +1,13 @@
-# asccomm SIMT URMA 功能样例
+# CommRW SIMT URMA 功能样例
 
 ## 概述
 
-本样例验证`asccomm/asccomm_simt.h`中全部SIMT URMA点对点通信接口：`asccomm_write_nbi`、`asccomm_write_value_nbi`、
-`asccomm_write_with_notify_nbi`、`asccomm_atomic_faa_nbi`和`asccomm_atomic_cas_nbi`，并覆盖立即提交和延迟提交两种发布方式。
+本样例验证`asccomm/asccomm_simt.h`中全部SIMT URMA点对点通信接口：`write_nbi`、`write_value_nbi`、
+`write_with_notify_nbi`、`atomic_faa_nbi`和`atomic_cas_nbi`，并覆盖立即提交和延迟提交两种发布方式。
 
 拓扑为环形：每个rank把操作发送到`next = (rank + 1) % nranks`的注册内存，并校验
 `prev = (rank - 1 + nranks) % nranks`写入的结果。每个rank既是发送方也是接收方，两侧都校验：
-`send_buf`保存本rank原子操作取回的旧值，`recv_buf`保存prev写入的数据，环上每个`recv_buf`恰好只有
+`send_buf`保存本rank原子操作取回的旧值，`recv_buf`保存`prev`写入的数据，环上每个`recv_buf`恰好只有
 一个写者，因此期望值都是确定的。
 
 所有操作均由单个SIMT线程发起。一个channel必须由一个lane驱动：延迟提交的WQE停留在发送队列中，
@@ -39,32 +39,32 @@
 
 **Write系列**
 
-`asccomm_write_nbi`从本地缓冲区取数据，WQE中是指向该缓冲区的SGE。第`i`个slot携带值`i + 1`，因此接收侧
+`write_nbi`从本地缓冲区取数据，WQE中是指向该缓冲区的SGE。第`i`个slot携带值`i + 1`，因此接收侧
 任何错值都能直接定位到它本该来自哪个slot。
 
-`asccomm_write_value_nbi`把待写值直接内联在WQE中，不读发送缓冲区。要求`config`开启inline（默认即
+`write_value_nbi`把待写值直接内联在WQE中，不读发送缓冲区。要求`config`开启inline（默认即
 `URMA_INLINE_CFG`），且`sizeof(T)`不超过WQE内联负载区，两者均有编译期检查。
 
 | `mode` | 提交方式 |
 | --- | --- |
-| `write_single` | 32次独立的`asccomm_write_nbi<commit=true>` |
-| `write_batch_last` | 31次串行`asccomm_write_nbi<false>`，最后1次`asccomm_write_nbi<true>` |
-| `write_value_single` | 32次独立的`asccomm_write_value_nbi<commit=true>` |
-| `write_value_batch_last` | 31次串行`asccomm_write_value_nbi<false>`，最后1次`asccomm_write_value_nbi<true>` |
+| `write_single` | 32次独立的`write_nbi<commit=true>` |
+| `write_batch_last` | 31次串行`write_nbi<false>`，最后1次`write_nbi<true>` |
+| `write_value_single` | 32次独立的`write_value_nbi<commit=true>` |
+| `write_value_batch_last` | 31次串行`write_value_nbi<false>`，最后1次`write_value_nbi<true>` |
 
 **notify/atomic系列**
 
 | `mode` | 说明 |
 | --- | --- |
-| `notify` | 提交一次notify操作并调用`asccomm_drain` |
+| `notify` | 提交一次notify操作并调用`drain` |
 | `faa` | 提交一次FAA操作，校验远端累加结果和本地取回的旧值 |
 | `cas` | 提交一次CAS操作，校验远端交换结果和本地取回的旧值 |
-| `single`（默认） | 串行提交notify、faa和cas，每次操作后分别调用`asccomm_drain` |
+| `single`（默认） | 串行提交notify、faa和cas，每次操作后分别调用`drain` |
 | `batch_last` | Notify和FAA使用`commit=false`延迟提交，最后由`commit=true`的CAS提交整批 |
-| `notify_immediate_repeat` | 单lane连续提交`NOTIFY_IMMEDIATE_REPEAT_COUNT`个`asccomm_write_with_notify_nbi<true>`（当前为100），最后统一调用一次`asccomm_drain` |
+| `notify_immediate_repeat` | 单lane连续提交`NOTIFY_IMMEDIATE_REPEAT_COUNT`个`write_with_notify_nbi<true>`（当前为100），最后统一调用一次`drain` |
 
-两个系列使用互不重叠的slot布局，缓冲区按两者中较大的布局分配。SIMT没有`asccomm_commit`接口，延迟提交
-的任务只能由后续一次`commit=true`的提交带出；所有模式最后都调用`asccomm_drain`，确保kernel返回前CQ已被
+两个系列使用互不重叠的slot布局，缓冲区按两者中较大的布局分配。SIMT没有`commit`接口，延迟提交
+的任务只能由后续一次`commit=true`的提交带出；所有模式最后都调用`drain`，确保kernel返回前CQ已被
 消费。
 
 ### 样例规格
@@ -84,7 +84,7 @@
 2. 每个rank通过`HcclCommMemReg`注册`send_buf`和`recv_buf`。
 3. 通过`HcclRankGraphGetLayers`/`HcclRankGraphGetLinks`获取到`next`的链路Endpoint，调用
    `HcclChannelAcquire`创建Channel，并通过`HcclChannelGetRemoteMems`获取对端内存地址。
-4. Kernel侧按选定模式提交URMA操作，最后调用`asccomm_drain`等待完成。
+4. Kernel侧按选定模式提交URMA操作，最后调用`drain`等待完成。
 5. Host侧通过控制通道的两次barrier（`ready`、`sent`）保证所有rank完成注册和写入后再回读校验。
 6. 校验`send_buf`取回值和`recv_buf`落地数据，输出PASS/FAIL。
 
@@ -147,7 +147,7 @@
   RESULT | Example=simt_urma Mode=write_single | Status=PASS
   ```
 
-  所有rank均输出PASS且最终输出`Status=PASS`，表示样例执行成功。
+  所有rank均输出`PASS`且最终输出`Status=PASS`，表示样例执行成功。
 
 ## 注意事项
 
@@ -160,4 +160,4 @@
   缓冲区。
 - 可执行文件捕获`SIGINT`/`SIGTERM`并终止全部rank进程，Ctrl+C不会留下阻塞在Host barrier上、
   仍占用设备的进程。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

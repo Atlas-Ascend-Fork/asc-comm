@@ -21,6 +21,10 @@ team/window interfaces with their runtime libraries, and support ASC compilation
 For dependency and build environment details, see
 [Dependencies and Compatibility](../../../../docs/en/compilation/dependencies.md).
 
+| Product | CANN Software Version |
+| --- | --- |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
+
 ## Directory Structure
 
 ```text

@@ -20,8 +20,8 @@
 constexpr int32_t SUCCESS = 0;
 constexpr int32_t FAIL = -1;
 
-// 通信buffer按DATA_SIZE分段：SEND区存放本端数据（被对端asccomm_read_nbi读取），
-// WRITE区存放对端asccomm_write_nbi写入的结果，READ区存放本端asccomm_read_nbi取回的结果。
+// 通信buffer按DATA_SIZE分段：SEND区存放本端数据（被对端read_nbi读取），
+// WRITE区存放对端write_nbi写入的结果，READ区存放本端read_nbi取回的结果。
 constexpr uint32_t DATA_SIZE = 256U;
 constexpr uint64_t COMM_BUF_SIZE = 4096U;
 constexpr uint64_t SEND_DATA_OFFSET = 0U;
@@ -56,13 +56,13 @@ struct comm_context {
 
 } // namespace asccomm_example
 
-// 只读kernel入口：对next做一次asccomm_read_nbi。
+// 只读kernel入口：对next做一次read_nbi。
 extern "C" __vector__ __global__ __aicore__ void kernel_asccomm_read_nbi(GM_ADDR context);
 
-// 只写kernel入口：对next做一次asccomm_write_nbi。
+// 只写kernel入口：对next做一次write_nbi。
 extern "C" __vector__ __global__ __aicore__ void kernel_asccomm_write_nbi(GM_ADDR context);
 
-// 读写组合kernel入口：对next做一次asccomm_write_nbi与一次asccomm_read_nbi。
+// 读写组合kernel入口：对next做一次write_nbi与一次read_nbi。
 extern "C" __vector__ __global__ __aicore__ void kernel_asccomm_write_read_nbi(GM_ADDR context);
 
 #endif // ASCCOMM_RW_DEF_H

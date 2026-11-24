@@ -32,8 +32,7 @@ public:
 
         pipe->InitBuffer(hcommBuf_, HCOMM_WORKSPACE_SIZE);
         hcommTensor_ = hcommBuf_.Get<uint8_t>();
-        if (asccomm_.asccomm_init(
-                reinterpret_cast<__ubuf__ uint8_t*>(hcommTensor_.GetPhyAddr()), HCOMM_WORKSPACE_SIZE) ==
+        if (asccomm_.init(reinterpret_cast<__ubuf__ uint8_t*>(hcommTensor_.GetPhyAddr()), HCOMM_WORKSPACE_SIZE) ==
             asc::ASCCOMM_SUCCESS) {
             initOk_ = true;
         }
@@ -49,7 +48,7 @@ public:
 
         GM_ADDR remoteFaaValue = remoteBuffer_ + FAA_VALUE_OFFSET;
         GM_ADDR localFaaFetch = localBuffer_ + FAA_FETCH_OFFSET;
-        if (asccomm_.asccomm_atomic_faa_nbi<uint64_t, false>(channel_, remoteFaaValue, localFaaFetch, FAA_ADD_VALUE) !=
+        if (asccomm_.atomic_faa_nbi<uint64_t, false>(channel_, remoteFaaValue, localFaaFetch, FAA_ADD_VALUE) !=
             asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_ATOMIC_FAA_FAILED;
             return;
@@ -57,25 +56,25 @@ public:
 
         GM_ADDR remoteCasValue = remoteBuffer_ + CAS_VALUE_OFFSET;
         GM_ADDR localCasFetch = localBuffer_ + CAS_FETCH_OFFSET;
-        if (asccomm_.asccomm_atomic_cas_nbi<uint64_t, false>(
+        if (asccomm_.atomic_cas_nbi<uint64_t, false>(
                 channel_, remoteCasValue, localCasFetch, CAS_COMPARE_VALUE, CAS_SWAP_VALUE) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_ATOMIC_CAS_FAILED;
             return;
         }
 
         GM_ADDR remoteInlineValue = remoteBuffer_ + INLINE_VALUE_OFFSET;
-        if (asccomm_.asccomm_write_value_nbi<uint64_t, false>(channel_, remoteInlineValue, INLINE_WRITE_VALUE) !=
+        if (asccomm_.write_value_nbi<uint64_t, false>(channel_, remoteInlineValue, INLINE_WRITE_VALUE) !=
             asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_WRITE_VALUE_FAILED;
             return;
         }
 
-        if (asccomm_.asccomm_commit<PIPE_S>(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.commit<PIPE_S>(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_COMMIT_FAILED;
             return;
         }
 
-        if (asccomm_.asccomm_drain<PIPE_MTE3>(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.drain<PIPE_MTE3>(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_DRAIN_FAILED;
         }
     }

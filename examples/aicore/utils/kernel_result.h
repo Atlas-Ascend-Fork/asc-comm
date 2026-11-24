@@ -20,7 +20,7 @@ enum kernel_result : uint32_t {
     KERNEL_MAKE_HANDLE_FAILED, // 批量句柄创建失败
     KERNEL_WRITE_FAILED,       // asccomm_write_nbi失败
     KERNEL_READ_FAILED,        // asccomm_read_nbi失败
-    KERNEL_COMMIT_FAILED,      // asccomm_commit/asccomm_batch_commit失败
+    KERNEL_COMMIT_FAILED,      // commit/batch_commit失败
     KERNEL_DRAIN_FAILED,       // asccomm_drain失败
     KERNEL_LOCK_FAILED,        // 通道锁获取失败
     KERNEL_UNLOCK_FAILED,      // 通道锁释放失败

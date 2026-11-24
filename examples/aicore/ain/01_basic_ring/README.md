@@ -13,14 +13,14 @@ Kernel侧只通过AIN接口提交数据面通信任务。
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 
 ```text
 basic_ring
 ├── CMakeLists.txt    // 编译工程文件
-├── basic_ring.asc    // Host侧资源准备、AICore侧AIN调用和共享定义
+├── basic_ring.asc    // Host侧资源准备、AI Core侧AIN调用和共享定义
 ├── README.md         // 中文样例说明
 └── README_en.md      // 英文样例说明
 ```
@@ -56,7 +56,7 @@ basic_ring
    调用`HcclTeamCreate`创建team并自动建立AIV + UB_CTP通信channel。
 3. 分别将`send_buf`和`recv_buf`通过`HcclCommSymWinRegister`注册为对称window。
 4. 下发`team`、`send_win`、`recv_win`到Kernel。
-5. Kernel侧构造`asc::ain`对象并初始化asccomm UB临时工作区，执行`put`和`get`后调用`flush`
+5. Kernel侧构造`asc::ain`对象并初始化UB临时工作区，执行`put`和`get`后调用`flush`
    等待通信任务完成，最后通过`ain_barrier_session::sync`完成rank间同步。
 
 ## 编译运行

@@ -25,7 +25,7 @@ public:
         this->local_buffer = reinterpret_cast<GM_ADDR>(this->context->local_buffer_addr);
         this->remote_buffer = reinterpret_cast<GM_ADDR>(this->context->remote_buffer_addr);
 
-        if (asccomm.asccomm_init(workspace, ASCCOMM_WORKSPACE_SIZE) == asc::HCOMM_SUCCESS) {
+        if (asccomm.init(workspace, ASCCOMM_WORKSPACE_SIZE) == asc::HCOMM_SUCCESS) {
             init_ok = true;
         }
     }
@@ -61,7 +61,7 @@ public:
         }
 
         // 等待下发的通信任务完成
-        if (asccomm.asccomm_drain(channel) != asc::HCOMM_SUCCESS) {
+        if (asccomm.drain(channel) != asc::HCOMM_SUCCESS) {
             context->test_result = KERNEL_DRAIN_FAILED;
         }
     }
@@ -72,7 +72,7 @@ private:
     {
         GM_ADDR write_src = local_buffer + SEND_DATA_OFFSET;
         GM_ADDR write_dst = remote_buffer + WRITE_RESULT_OFFSET;
-        if (asccomm.asccomm_write_nbi(channel, write_dst, write_src, DATA_SIZE) != asc::HCOMM_SUCCESS) {
+        if (asccomm.write_nbi(channel, write_dst, write_src, DATA_SIZE) != asc::HCOMM_SUCCESS) {
             context->test_result = KERNEL_WRITE_FAILED;
         }
     }
@@ -82,7 +82,7 @@ private:
     {
         GM_ADDR read_dst = local_buffer + READ_RESULT_OFFSET;
         GM_ADDR read_src = remote_buffer + SEND_DATA_OFFSET;
-        if (asccomm.asccomm_read_nbi(channel, read_dst, read_src, DATA_SIZE) != asc::HCOMM_SUCCESS) {
+        if (asccomm.read_nbi(channel, read_dst, read_src, DATA_SIZE) != asc::HCOMM_SUCCESS) {
             context->test_result = KERNEL_READ_FAILED;
         }
     }

@@ -2,7 +2,7 @@
 
 ## 概述
 
-本样例在Ascend C AIV Kernel中直接调用Asccomm RoCE普通接口，覆盖`asccomm_atomic_faa_nbi`、`asccomm_atomic_cas_nbi`、`asccomm_write_value_nbi`、`asccomm_init`、`asccomm_commit`和`asccomm_drain`。Host侧使用MPI管理多进程，负责初始化HCCL通信域、注册通信内存、创建RoCE P2P通道，并在Kernel执行完成后校验结果。
+本样例在Ascend C AIV Kernel中直接调用Asccomm RoCE普通接口，覆盖`atomic_faa_nbi`、`atomic_cas_nbi`、`write_value_nbi`、`init`、`commit`和`drain`。Host侧使用MPI管理多进程，负责初始化HCCL通信域、注册通信内存、创建RoCE P2P通道，并在Kernel执行完成后校验结果。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -29,12 +29,12 @@ rank i 与 rank i + N/2 两两成对通信，其中 N 为 rank 总数。每个ra
 Kernel内的调用顺序为：
 
 ```cpp
-asccomm.asccomm_init(...);                                  // 初始化Asccomm UB工作空间
-asccomm.asccomm_atomic_faa_nbi<uint64_t, false>(...);      // 延迟提交远端fetch-and-add
-asccomm.asccomm_atomic_cas_nbi<uint64_t, false>(...);      // 延迟提交远端compare-and-swap
-asccomm.asccomm_write_value_nbi<uint64_t, false>(...);    // 延迟提交inline标量写
-asccomm.asccomm_commit<PIPE_S>(channel);                   // 统一触发doorbell
-asccomm.asccomm_drain<PIPE_MTE3>(channel);                // 等待CQE完成
+asccomm.init(...);                                  // 初始化Asccomm UB工作空间
+asccomm.atomic_faa_nbi<uint64_t, false>(...);      // 延迟提交远端fetch-and-add
+asccomm.atomic_cas_nbi<uint64_t, false>(...);      // 延迟提交远端compare-and-swap
+asccomm.write_value_nbi<uint64_t, false>(...);    // 延迟提交inline标量写
+asccomm.commit<PIPE_S>(channel);                   // 统一触发doorbell
+asccomm.drain<PIPE_MTE3>(channel);                // 等待CQE完成
 ```
 
 ## 数据布局
@@ -43,11 +43,11 @@ asccomm.asccomm_drain<PIPE_MTE3>(channel);                // 等待CQE完成
 
 | 偏移 | 初始值 | 操作后预期值 | 用途 |
 | --- | ---: | ---: | --- |
-| 0 | 0 | 100 | 对端`asccomm_atomic_faa_nbi`写入的远端结果 |
-| 8 | 任意 | 任意 | 对端`asccomm_atomic_faa_nbi`在本rank读取的旧值 |
-| 16 | 200 | 300 | 对端`asccomm_atomic_cas_nbi`写入的远端结果 |
-| 24 | 任意 | 任意 | 对端`asccomm_atomic_cas_nbi`在本rank读取的旧值 |
-| 32 | 任意 | 400 | 对端`asccomm_write_value_nbi`写入的远端结果 |
+| 0 | 0 | 100 | 对端`atomic_faa_nbi`写入的远端结果 |
+| 8 | 任意 | 任意 | 对端`atomic_faa_nbi`在本rank读取的旧值 |
+| 16 | 200 | 300 | 对端`atomic_cas_nbi`写入的远端结果 |
+| 24 | 任意 | 任意 | 对端`atomic_cas_nbi`在本rank读取的旧值 |
+| 32 | 任意 | 400 | 对端`write_value_nbi`写入的远端结果 |
 
 Kernel结束后，Host侧校验本地通信内存中的offset 0、16和32。
 
@@ -99,5 +99,5 @@ RESULT | Example=asccomm_roce_atomic_inline | Status=PASS
 
 - 运行需要至少2张NPU，rank数必须为偶数且不超过当前可用NPU数量。
 - 通道必须使用COMM_PROTOCOL_ROCE，与Kernel侧 `asc::asccomm<asc::COMM_PROTOCOL_ROCE>` 保持一致。
-- 三个数据面接口均使用 `commit=false`，`asccomm_commit` 是必要步骤；`asccomm_drain` 返回后才校验数据。
+- 三个数据面接口均使用 `commit=false`，`commit` 是必要步骤；`drain` 返回后才校验数据。
 - 本样例验证每个rank被对端修改的远端结果，不校验fetch buffer内容。

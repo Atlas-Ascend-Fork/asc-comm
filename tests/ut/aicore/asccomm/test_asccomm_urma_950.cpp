@@ -250,11 +250,10 @@ protected:
         for (uint32_t i = 0; i < asc::ASCCOMM_URMA_TMP_BUF_SIZE; i++) {
             asccomm_tmp_buf[i] = 0;
         }
-        return asccomm.asccomm_init(
-            reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE);
+        return asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE);
     }
 
-    template <typename T, asc::asccomm_urma_reduce_op reduce_op>
+    template <typename T, asc::asccomm_reduce_op reduce_op>
     void check_write_reduce(uint32_t expected_data_type, uint32_t expected_reduce_opcode)
     {
         constexpr uint64_t count = 3;
@@ -264,7 +263,7 @@ protected:
 
         asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
         ASSERT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-        int32_t ret = asccomm.asccomm_write_reduce_nbi<T, reduce_op, false>(
+        int32_t ret = asccomm.write_reduce_nbi<T, reduce_op, false>(
             channel.get_handle(), reinterpret_cast<GM_ADDR>(remote_addr), reinterpret_cast<GM_ADDR>(local_addr), count);
         ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
         EXPECT_EQ(channel.get_sq_head(), 1U);
@@ -294,7 +293,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_MAKE_BATCH_HANDLE_UB_POINTER)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) uint8_t batch_buf[128] = {};
 
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), reinterpret_cast<__ubuf__ uint8_t*>(batch_buf), 128, reinterpret_cast<GM_ADDR>(0x3008));
 
     EXPECT_EQ(batch_handle.channel_handle, channel.get_handle());
@@ -317,17 +316,17 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_MAKE_BATCH_HANDLE_UB_POINTER)
     EXPECT_EQ(batch_handle.cursor.cq_head, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 1U);
 
-    auto& batch_handle_ref = asccomm.asccomm_get_handle_ref(batch_handle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
+    auto& batch_handle_ref = asccomm.get_handle_ref(batch_handle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
     EXPECT_EQ(&batch_handle_ref, &batch_handle);
     EXPECT_EQ(batch_handle_ref.remote_info.token_id, 0x123456U);
     EXPECT_EQ(batch_handle_ref.remote_info.token_value, 0x654321U);
 
     auto default_remote_handle =
-        asccomm.asccomm_make_batch_handle(channel.get_handle(), reinterpret_cast<__ubuf__ uint8_t*>(batch_buf), 128);
+        asccomm.make_batch_handle(channel.get_handle(), reinterpret_cast<__ubuf__ uint8_t*>(batch_buf), 128);
     EXPECT_EQ(default_remote_handle.remote_info.token_id, 0x123456U);
     EXPECT_EQ(default_remote_handle.remote_info.token_value, 0x654321U);
 
-    auto ignored_remote_addr_handle = asccomm.asccomm_make_batch_handle(
+    auto ignored_remote_addr_handle = asccomm.make_batch_handle(
         channel.get_handle(), reinterpret_cast<__ubuf__ uint8_t*>(batch_buf), 128, reinterpret_cast<GM_ADDR>(0x500U));
     EXPECT_EQ(ignored_remote_addr_handle.channel_handle, channel.get_handle());
     EXPECT_EQ(ignored_remote_addr_handle.buffer.buffer_capacity, 2U);
@@ -353,25 +352,23 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_MULTI_CHANNEL_BATCH_USES_OUTER_HANDLE_F
     urma_multi_channel_resource multi_channel;
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batch_buffer{};
-    auto multi_batch_handle = asccomm.asccomm_make_batch_handle(
-        multi_channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size());
+    auto multi_batch_handle =
+        asccomm.make_batch_handle(multi_channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size());
 
-    auto& batch_handle = asccomm.asccomm_get_handle_ref(multi_batch_handle, 0U, reinterpret_cast<GM_ADDR>(0x3008U));
+    auto& batch_handle = asccomm.get_handle_ref(multi_batch_handle, 0U, reinterpret_cast<GM_ADDR>(0x3008U));
     EXPECT_EQ(&batch_handle, &multi_batch_handle.handle);
     EXPECT_EQ(batch_handle.channel_handle, multi_batch_handle.channel_handle);
     EXPECT_EQ(batch_handle.remote_info.token_id, 0x11111U);
     EXPECT_EQ(batch_handle.remote_info.token_value, 0xAAAAU);
     multi_channel.set_remote_buffer_token(0U, 0x44444U, 0xDDDDU);
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(
-            batch_handle, reinterpret_cast<GM_ADDR>(0x3010U), reinterpret_cast<GM_ADDR>(0x7010U), 8U),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x3010U), reinterpret_cast<GM_ADDR>(0x7010U), 8U),
         asc::ASCCOMM_SUCCESS);
 
-    auto& second_peer_handle =
-        asccomm.asccomm_get_handle_ref(multi_batch_handle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
+    auto& second_peer_handle = asccomm.get_handle_ref(multi_batch_handle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
     EXPECT_EQ(&second_peer_handle, &batch_handle);
     ASSERT_EQ(
-        asccomm.asccomm_read_nbi(
+        asccomm.read_nbi(
             second_peer_handle, reinterpret_cast<GM_ADDR>(0x8010U), reinterpret_cast<GM_ADDR>(0x5010U), 8U),
         asc::ASCCOMM_SUCCESS);
 
@@ -384,14 +381,14 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_MULTI_CHANNEL_BATCH_USES_OUTER_HANDLE_F
     EXPECT_EQ(second_sqe->rmt_token_value, 0xBBBBU);
     EXPECT_EQ(second_sqe->tp_id, 22U);
 
-    ASSERT_EQ(asccomm.asccomm_batch_commit(multi_batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(multi_batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 2U);
     EXPECT_EQ(multi_channel.get_sq_head(), 2U);
     EXPECT_EQ(multi_channel.get_cq_head(), 2U);
     EXPECT_EQ(multi_channel.get_sq_doorbell(), 2U);
 
-    ASSERT_EQ(asccomm.asccomm_drain(multi_batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.drain(multi_batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_tail, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 2U);
     EXPECT_EQ(multi_channel.get_sq_tail(), 2U);
@@ -404,7 +401,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_NBI_MULTI_SGE)
     urma_channel_resource channel(URMA_BATCH_QUEUE_DEPTH);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 4U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     const buf_desc src_descs[3] = {
@@ -413,7 +410,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_NBI_MULTI_SGE)
         {reinterpret_cast<GM_ADDR>(0x2030U), 24U},
     };
     // 48B SQE + 3 * 16B SGE = 96B -> 2 WQEBB
-    int32_t ret = asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1010), src_descs, 3U);
+    int32_t ret = asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1010), src_descs, 3U);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
@@ -431,7 +428,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_NBI_MULTI_SGE)
     }
 
     // Follow with a single-SGE op: next WQE starts at WQEBB 2 (compile-time path shares the cursor).
-    ret = asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+    ret = asccomm.write_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2040), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 3U);
@@ -446,7 +443,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MULTI_SGE)
     urma_channel_resource channel(URMA_BATCH_QUEUE_DEPTH);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 4U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     constexpr uint64_t notify_value = 0x1122334455667788ULL;
@@ -455,7 +452,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MULTI_SGE)
         {reinterpret_cast<GM_ADDR>(0x2030U), 24U},
     };
     // 48B SQE + 32B notify ctx + 2 * 16B SGE = 112B -> 2 WQEBB
-    int32_t ret = asccomm.asccomm_write_with_notify_nbi(
+    int32_t ret = asccomm.write_with_notify_nbi(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1020), src_descs, 2U, reinterpret_cast<GM_ADDR>(0x1030),
         notify_value);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
@@ -481,7 +478,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MULTI_SGE)
     EXPECT_EQ(sges[1].len, 24U);
     EXPECT_EQ(sges[1].va, 0x2030U);
 
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 2U);
     EXPECT_EQ(channel.get_sq_doorbell(), 2U);
 }
@@ -492,11 +489,11 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_NBI)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 128> batch_buffer;
     batch_buffer.fill(0xFFU);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
-    int32_t ret = asccomm.asccomm_write_nbi(
-        batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
+    int32_t ret =
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 1U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
@@ -527,7 +524,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_NBI)
     EXPECT_EQ(first_sge->len, 8U);
     EXPECT_EQ(first_sge->va, 0x2010U);
 
-    ret = asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+    ret = asccomm.write_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 2U);
@@ -542,11 +539,11 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_READ_NBI)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 128> batch_buffer;
     batch_buffer.fill(0xFFU);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret =
-        asccomm.asccomm_read_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8);
+        asccomm.read_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 1U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
@@ -567,7 +564,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_READ_NBI)
     EXPECT_EQ(first_sge->len, 8U);
     EXPECT_EQ(first_sge->va, 0x2010U);
 
-    ret = asccomm.asccomm_read_nbi<URMA_NO_CQE_CFG>(
+    ret = asccomm.read_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x2020), reinterpret_cast<GM_ADDR>(0x1020), 16);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 2U);
@@ -581,17 +578,17 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MIXED)
     urma_channel_resource channel(8);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 384> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
-    int32_t ret = asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+    int32_t ret = asccomm.write_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 1U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 0U);
 
     constexpr uint64_t notify_value = 0x1122334455667788ULL;
-    ret = asccomm.asccomm_write_with_notify_nbi(
+    ret = asccomm.write_with_notify_nbi(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 16,
         reinterpret_cast<GM_ADDR>(0x1030), notify_value);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
@@ -621,7 +618,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MIXED)
     EXPECT_EQ(sge->len, 16U);
     EXPECT_EQ(sge->va, 0x2020U);
 
-    ret = asccomm.asccomm_write_with_notify_nbi<URMA_NO_CQE_CFG>(
+    ret = asccomm.write_with_notify_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1040), reinterpret_cast<GM_ADDR>(0x2040), 8,
         reinterpret_cast<GM_ADDR>(0x1050), 1);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
@@ -631,8 +628,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_NBI_MIXED)
         reinterpret_cast<const asc::asccomm_urma_sqe_ctx*>(batch_buffer.data() + 3U * URMA_WQE_SIZE);
     EXPECT_EQ(no_cqe_notify_sqe->flag & (1U << 5U), 0U);
 
-    ret = asccomm.asccomm_write_nbi(
-        batch_handle, reinterpret_cast<GM_ADDR>(0x1060), reinterpret_cast<GM_ADDR>(0x2060), 8);
+    ret = asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1060), reinterpret_cast<GM_ADDR>(0x2060), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 6U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 2U);
@@ -650,12 +646,12 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_ENCODES64_BIT_A
     channel.set_local_buffer_addr(0U, local_base);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(),
         reinterpret_cast<GM_ADDR>(remote_base + 8U));
 
     ASSERT_EQ(
-        asccomm.asccomm_write_with_notify_nbi(
+        asccomm.write_with_notify_nbi(
             batch_handle, reinterpret_cast<GM_ADDR>(remote_addr), reinterpret_cast<GM_ADDR>(local_addr), 8,
             reinterpret_cast<GM_ADDR>(notify_addr), 1),
         asc::ASCCOMM_SUCCESS);
@@ -677,19 +673,18 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_READ_WRITE_NOTIFY_MIXED_COMMIT)
     urma_channel_resource channel(8);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 256> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
-        asccomm.asccomm_read_nbi<URMA_NO_CQE_CFG>(
+        asccomm.read_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(
-            batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_with_notify_nbi<URMA_NO_CQE_CFG>(
+        asccomm.write_with_notify_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
             reinterpret_cast<GM_ADDR>(0x1040), 1),
         asc::ASCCOMM_SUCCESS);
@@ -697,7 +692,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_READ_WRITE_NOTIFY_MIXED_COMMIT)
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
     EXPECT_EQ(channel.get_cq_head(), 0U);
 
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 4U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
     EXPECT_EQ(channel.get_sq_head(), 4U);
@@ -712,17 +707,17 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_HANDLE_COMMIT_WRAP_AND_REUSE)
     channel.set_sq_tail(URMA_BATCH_QUEUE_DEPTH - 1U);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 128> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
-    int32_t ret = asccomm.asccomm_write_nbi(
-        batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
+    int32_t ret =
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    ret = asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+    ret = asccomm.write_nbi<URMA_NO_CQE_CFG>(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
 
-    ret = asccomm.asccomm_batch_commit(batch_handle);
+    ret = asccomm.batch_commit(batch_handle);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 5U);
     EXPECT_EQ(channel.get_cq_head(), 1U);
@@ -731,11 +726,11 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_HANDLE_COMMIT_WRAP_AND_REUSE)
     EXPECT_EQ(batch_handle.cursor.sq_head, 5U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
 
-    ret = asccomm.asccomm_write_with_notify_nbi(
+    ret = asccomm.write_with_notify_nbi(
         batch_handle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
         reinterpret_cast<GM_ADDR>(0x1040), 1);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 7U);
     EXPECT_EQ(channel.get_cq_head(), 2U);
     EXPECT_EQ(channel.get_sq_doorbell(), 7U);
@@ -751,16 +746,16 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_WRITE_WITH_NOTIFY_COMMIT_WRAPS_SI
     channel.set_sq_tail(URMA_BATCH_QUEUE_DEPTH - 1U);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
-        asccomm.asccomm_write_with_notify_nbi(
+        asccomm.write_with_notify_nbi(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8,
             reinterpret_cast<GM_ADDR>(0x1020), 0x1122334455667788ULL),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(batch_handle.cursor.pre_sq_cnt, 2U);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
 
     EXPECT_EQ(batch_handle.cursor.sq_head, URMA_BATCH_QUEUE_DEPTH + 1U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
@@ -774,31 +769,31 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_ALL_NO_CQE_COMMIT_AND_DRAIN)
     urma_channel_resource channel(8);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 4U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
-        asccomm.asccomm_read_nbi<URMA_NO_CQE_CFG>(
+        asccomm.read_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+        asccomm.write_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_with_notify_nbi<URMA_NO_CQE_CFG>(
+        asccomm.write_with_notify_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
             reinterpret_cast<GM_ADDR>(0x1040), 1),
         asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 4U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 0U);
 
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 4U);
     EXPECT_EQ(channel.get_sq_head(), 4U);
     EXPECT_EQ(channel.get_cq_head(), 0U);
     EXPECT_EQ(channel.get_sq_doorbell(), 4U);
-    EXPECT_EQ(asccomm.asccomm_drain(batch_handle), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 0U);
     EXPECT_EQ(channel.get_cq_tail(), 0U);
     EXPECT_EQ(channel.get_cq_doorbell(), 0U);
@@ -809,39 +804,38 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_MULTIPLE_COMMITS_SINGLE_DRAIN)
     urma_channel_resource channel(8);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 3U * URMA_WQE_SIZE> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<URMA_NO_CQE_CFG>(
+        asccomm.write_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_read_nbi<URMA_NO_CQE_CFG>(
+        asccomm.read_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x2020), reinterpret_cast<GM_ADDR>(0x1020), 8),
         asc::ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 2U);
     EXPECT_EQ(channel.get_sq_head(), 2U);
     EXPECT_EQ(channel.get_cq_head(), 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_with_notify_nbi<URMA_NO_CQE_CFG>(
+        asccomm.write_with_notify_nbi<URMA_NO_CQE_CFG>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
             reinterpret_cast<GM_ADDR>(0x1040), 1),
         asc::ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(
-            batch_handle, reinterpret_cast<GM_ADDR>(0x1050), reinterpret_cast<GM_ADDR>(0x2050), 8),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1050), reinterpret_cast<GM_ADDR>(0x2050), 8),
         asc::ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 5U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
     EXPECT_EQ(channel.get_sq_head(), 5U);
     EXPECT_EQ(channel.get_cq_head(), 1U);
     EXPECT_EQ(channel.get_sq_doorbell(), 5U);
 
-    ASSERT_EQ(asccomm.asccomm_drain(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.drain(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 1U);
     EXPECT_EQ(channel.get_cq_tail(), 1U);
     EXPECT_EQ(channel.get_cq_doorbell(), 1U);
@@ -852,26 +846,25 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_DRAIN_WITHOUT_INIT)
     urma_channel_resource channel(URMA_BATCH_QUEUE_DEPTH);
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     alignas(32) std::array<uint8_t, 64> batch_buffer{};
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel.get_handle(), wrap_ub_buffer(batch_buffer), batch_buffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
-    int32_t ret = asccomm.asccomm_write_nbi(
-        batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
+    int32_t ret =
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
 
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_drain(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 1U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 1U);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 1U);
     EXPECT_EQ(channel.get_cq_tail(), 1U);
     EXPECT_EQ(channel.get_cq_doorbell(), 1U);
 
-    ret = asccomm.asccomm_write_nbi(
-        batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
+    ret = asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
     ASSERT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_drain(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), asc::ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.drain(batch_handle), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(batch_handle.cursor.sq_head, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_head, 2U);
     EXPECT_EQ(batch_handle.cursor.cq_tail, 2U);
@@ -885,9 +878,9 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_LOCK_UNLOCK)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
 
     EXPECT_EQ(channel.get_lock(), asc::ASCCOMM_LOCK_FREE);
-    EXPECT_EQ(asccomm.asccomm_lock(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.lock(channel.get_handle()), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_lock(), asc::ASCCOMM_LOCK_HELD);
-    EXPECT_EQ(asccomm.asccomm_unlock(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.unlock(channel.get_handle()), asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_lock(), asc::ASCCOMM_LOCK_FREE);
 }
 
@@ -897,7 +890,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_UNLOCK_WITHOUT_LOCK)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
 
     EXPECT_EQ(channel.get_lock(), asc::ASCCOMM_LOCK_FREE);
-    EXPECT_EQ(asccomm.asccomm_unlock(channel.get_handle()), asc::ASCCOMM_FAILED);
+    EXPECT_EQ(asccomm.unlock(channel.get_handle()), asc::ASCCOMM_FAILED);
     EXPECT_EQ(channel.get_lock(), asc::ASCCOMM_LOCK_FREE);
 }
 
@@ -908,11 +901,11 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_READ)
 
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-    int32_t ret = asccomm.asccomm_read_nbi(
-        channel.get_handle(), reinterpret_cast<GM_ADDR>(0x5008), reinterpret_cast<GM_ADDR>(0x3008), 8);
+    int32_t ret =
+        asccomm.read_nbi(channel.get_handle(), reinterpret_cast<GM_ADDR>(0x5008), reinterpret_cast<GM_ADDR>(0x3008), 8);
     EXPECT_EQ(ret, 0);
     channel.complete_current_sq();
-    ret = asccomm.asccomm_drain(channel.get_handle());
+    ret = asccomm.drain(channel.get_handle());
     EXPECT_EQ(ret, 0);
 }
 
@@ -923,29 +916,29 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE)
 
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-    int32_t ret = asccomm.asccomm_write_nbi<false>(
+    int32_t ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8);
     EXPECT_EQ(ret, 0);
-    ret = asccomm.asccomm_commit(channel.get_handle());
+    ret = asccomm.commit(channel.get_handle());
     EXPECT_EQ(ret, 0);
     channel.complete_current_sq();
-    ret = asccomm.asccomm_drain(channel.get_handle());
+    ret = asccomm.drain(channel.get_handle());
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_REDUCE_MAX_INT8)
 {
-    check_write_reduce<int8_t, asc::asccomm_urma_reduce_op::MAX>(0x0U, 0x8U);
+    check_write_reduce<int8_t, asc::asccomm_reduce_op::MAX>(0x0U, 0x8U);
 }
 
 TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_REDUCE_MIN_HALF)
 {
-    check_write_reduce<half, asc::asccomm_urma_reduce_op::MIN>(0x6U, 0x9U);
+    check_write_reduce<half, asc::asccomm_reduce_op::MIN>(0x6U, 0x9U);
 }
 
 TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_REDUCE_SUM_FLOAT)
 {
-    check_write_reduce<float, asc::asccomm_urma_reduce_op::SUM>(0x7U, 0xAU);
+    check_write_reduce<float, asc::asccomm_reduce_op::SUM>(0x7U, 0xAU);
 }
 
 // write_with_notify_nbi with commit=false: explicit Commit then Drain succeeds
@@ -955,14 +948,14 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_WITH_NOTIFY)
 
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-    int32_t ret = asccomm.asccomm_write_with_notify_nbi<false>(
+    int32_t ret = asccomm.write_with_notify_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
     EXPECT_EQ(ret, 0);
-    ret = asccomm.asccomm_commit(channel.get_handle());
+    ret = asccomm.commit(channel.get_handle());
     EXPECT_EQ(ret, 0);
     channel.complete_current_sq();
-    ret = asccomm.asccomm_drain(channel.get_handle());
+    ret = asccomm.drain(channel.get_handle());
     EXPECT_EQ(ret, 0);
 }
 
@@ -973,11 +966,11 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_WITH_VALUE)
 
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-    int32_t ret = asccomm.asccomm_write_value_nbi<uint64_t>(
+    int32_t ret = asccomm.write_value_nbi<uint64_t>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), 0xCAFEBABEDEADBEEFULL);
     EXPECT_EQ(ret, 0);
     channel.complete_current_sq();
-    ret = asccomm.asccomm_drain(channel.get_handle());
+    ret = asccomm.drain(channel.get_handle());
     EXPECT_EQ(ret, 0);
 }
 
@@ -988,13 +981,13 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_WITH_VALUE_DELAYED_COMMIT)
 
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
-    int32_t ret = asccomm.asccomm_write_value_nbi<uint32_t, false>(
-        channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), 0x12345678U);
+    int32_t ret =
+        asccomm.write_value_nbi<uint32_t, false>(channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), 0x12345678U);
     EXPECT_EQ(ret, 0);
-    ret = asccomm.asccomm_commit(channel.get_handle());
+    ret = asccomm.commit(channel.get_handle());
     EXPECT_EQ(ret, 0);
     channel.complete_current_sq();
-    ret = asccomm.asccomm_drain(channel.get_handle());
+    ret = asccomm.drain(channel.get_handle());
     EXPECT_EQ(ret, 0);
 }
 
@@ -1006,13 +999,12 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_WITH_VALUE_WQEBB_CNT)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
 
-    int32_t ret = asccomm.asccomm_write_value_nbi<uint64_t, false>(
-        channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), 0xAAULL);
+    int32_t ret =
+        asccomm.write_value_nbi<uint64_t, false>(channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), 0xAAULL);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 1U);
 
-    ret = asccomm.asccomm_write_value_nbi<uint32_t, false>(
-        channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), 0xBBU);
+    ret = asccomm.write_value_nbi<uint32_t, false>(channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), 0xBBU);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 2U);
 }
@@ -1027,20 +1019,20 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_WRITE_WITH_NOTIFY_WQEBB_CNT)
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
 
     // write_nbi should advance sqHead by 1
-    int32_t ret = asccomm.asccomm_write_nbi<false>(
+    int32_t ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 1U);
 
     // write_with_notify_nbi should advance sq_pi by 2
-    ret = asccomm.asccomm_write_with_notify_nbi<false>(
+    ret = asccomm.write_with_notify_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 3U);
 
     // Another write_nbi should advance by 1 more
-    ret = asccomm.asccomm_write_nbi<false>(
+    ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.get_sq_head(), 4U);
@@ -1054,20 +1046,20 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_BATCH_COMMIT_DRAIN)
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
     EXPECT_EQ(init_asccomm(asccomm), asc::ASCCOMM_SUCCESS);
 
-    int32_t ret = asccomm.asccomm_write_nbi<false>(
+    int32_t ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    ret = asccomm.asccomm_write_with_notify_nbi<false>(
+    ret = asccomm.write_with_notify_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    ret = asccomm.asccomm_write_nbi<false>(
+    ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x1018), reinterpret_cast<GM_ADDR>(0x2018), 8);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
 
-    EXPECT_EQ(asccomm.asccomm_commit(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.commit(channel.get_handle()), asc::ASCCOMM_SUCCESS);
     channel.complete_current_sq();
-    EXPECT_EQ(asccomm.asccomm_drain(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(channel.get_handle()), asc::ASCCOMM_SUCCESS);
 }
 
 // Init via a 32-byte-aligned local buffer: pass the raw __ubuf__ pointer directly
@@ -1082,7 +1074,7 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_INIT_UB_POINTER)
 
     // Init with the UB buffer pointer should succeed
     EXPECT_EQ(
-        asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(local_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE),
+        asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(local_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE),
         asc::ASCCOMM_SUCCESS);
 
     // Short buffers and misaligned addresses are debug-trap contract violations.
@@ -1090,16 +1082,16 @@ TEST_F(asccomm_urma_test_suite, AIV_URMA_INIT_UB_POINTER)
     // execution and Init keeps returning success. Debug builds trap.
     asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm2;
     EXPECT_EQ(
-        asccomm2.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(local_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE - 1),
+        asccomm2.init(reinterpret_cast<__ubuf__ uint8_t*>(local_buf), asc::ASCCOMM_URMA_TMP_BUF_SIZE - 1),
         asc::ASCCOMM_SUCCESS);
 
     // Verify the initialized asccomm can perform operations
-    int32_t ret = asccomm.asccomm_write_nbi<false>(
+    int32_t ret = asccomm.write_nbi<false>(
         channel.get_handle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8);
     EXPECT_EQ(ret, asc::ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_commit(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.commit(channel.get_handle()), asc::ASCCOMM_SUCCESS);
     channel.complete_current_sq();
-    EXPECT_EQ(asccomm.asccomm_drain(channel.get_handle()), asc::ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(channel.get_handle()), asc::ASCCOMM_SUCCESS);
 }
 
 // Dump helpers: full function bodies.

@@ -26,7 +26,7 @@ constexpr int RECEIVER_RANK = 1;
 // 允许拉起更多进程，其余rank直接退出，不参与建链和性能测试。
 constexpr int BENCH_RANKS = 2;
 
-// Byte the sender fills its payload with, and the value asccomm_write_value_nbi carries inline. Both are
+// Byte the sender fills its payload with, and the value write_value_nbi carries inline. Both are
 // distinctive enough that a receive buffer left at its initial 0 is obvious.
 constexpr uint8_t PAYLOAD_BYTE = 0x5AU;
 constexpr uint64_t INLINE_VALUE = 0x1122334455667788ULL;
@@ -39,7 +39,7 @@ constexpr uint64_t FAA_ADD = 3U;
 constexpr uint64_t CAS_INITIAL = 20U;
 constexpr uint64_t CAS_SWAP = 30U;
 
-// asccomm_write_nbi with commit=true splits its payload across two SGEs so the WQE fills the 128-byte
+// write_nbi with commit=true splits its payload across two SGEs so the WQE fills the 128-byte
 // DWQE window that publishes it. A one-byte payload would give the first SGE a zero length,
 // which URMA does not accept, so the smallest payload this example allows is two bytes.
 constexpr uint32_t MIN_PAYLOAD_BYTES = 2U;

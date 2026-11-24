@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_simt_urma_def.h
- * \brief Hcomm SIMT URMA definition
+ * \brief asccomm SIMT URMA definition
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_SIMT_URMA_DEF_H
 #endif
@@ -75,79 +75,76 @@ class asccomm_impl<COMM_PROTOCOL_UB_CTP> {
 public:
     __simt_callee__ inline asccomm_impl();
     __simt_callee__ inline ~asccomm_impl();
-    __simt_callee__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len);
-    __simt_callee__ inline ubc_ctp_batch_handle asccomm_make_batch_handle(
+    __simt_callee__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline ubc_ctp_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len);
-    __simt_callee__ inline ubc_ctp_batch_handle asccomm_make_batch_handle(
+    __simt_callee__ inline ubc_ctp_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, uint32_t group_rank, uint32_t group_size);
     template <typename coop_group>
-    __simt_callee__ inline ubc_ctp_batch_handle asccomm_make_batch_handle(
+    __simt_callee__ inline ubc_ctp_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, const coop_group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    __simt_callee__ inline int32_t write_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
+    __simt_callee__ inline int32_t write_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
+    __simt_callee__ inline int32_t write_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group);
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value);
+    __simt_callee__ inline int32_t write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value);
     template <typename T, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(
-        ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value);
+    __simt_callee__ inline int32_t write_value_nbi(ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value);
     template <typename T, auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(
+    __simt_callee__ inline int32_t write_value_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value, const coop_group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    __simt_callee__ inline int32_t read_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
+    __simt_callee__ inline int32_t read_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
+    __simt_callee__ inline int32_t read_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val);
     template <auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val, const coop_group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T add_val);
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val);
     template <typename T, auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val,
         const coop_group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val);
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val);
     template <typename T, auto const& config, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val,
         const coop_group& group);
-    __simt_callee__ inline int32_t asccomm_batch_commit(ubc_ctp_batch_handle& batch_handle);
+    __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle);
     template <typename coop_group>
-    __simt_callee__ inline int32_t asccomm_batch_commit(ubc_ctp_batch_handle& batch_handle, const coop_group& group);
+    __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle, const coop_group& group);
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ChannelHandle channel);
+    __simt_callee__ inline int32_t drain(ChannelHandle channel);
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ubc_ctp_batch_handle& batch_handle);
+    __simt_callee__ inline int32_t drain(ubc_ctp_batch_handle& batch_handle);
 
 private:
     bool initialized = false;

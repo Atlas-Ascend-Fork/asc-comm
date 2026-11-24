@@ -32,7 +32,7 @@ constexpr uint64_t SLOT_BYTES = sizeof(uint64_t);
 constexpr uint32_t WRITE_SLOT_COUNT = 32U;
 
 // The host fills the send buffer with these values and checks them on the receiving side; the
-// asccomm_write_value_nbi kernels pass them as inline payload, so this must be callable from device code
+// write_value_nbi kernels pass them as inline payload, so this must be callable from device code
 // too. The ASC driver also sema-checks the .asc host TU with the device arch macros in scope,
 // so those macros alone cannot tell the two TUs apart: op_kernel.cpp defines
 // SIMT_URMA_KERNEL_TU after pulling in the kernel headers (which provide __aicore__), and only
@@ -87,16 +87,16 @@ constexpr uint32_t NOTIFY_IMMEDIATE_REPEAT_COUNT = 100U;
 //
 // write_* 与 notify/atomic 的模式名分开：两族的 "single"/"batch_last" 含义不同——前者选择 32 次
 // slot 写入如何发布，后者选择 Notify、FAA、CAS 三个操作如何组合。
-constexpr uint32_t MODE_WRITE_SINGLE = 0U;     // one asccomm_write_nbi<commit=true> per slot
-constexpr uint32_t MODE_WRITE_BATCH_LAST = 1U; // N-1 serial asccomm_write_nbi<false> + asccomm_write_nbi<true>
-// asccomm_write_value_nbi carries the payload inline in the WQE instead of pointing at a local buffer,
+constexpr uint32_t MODE_WRITE_SINGLE = 0U;     // one write_nbi<commit=true> per slot
+constexpr uint32_t MODE_WRITE_BATCH_LAST = 1U; // N-1 serial write_nbi<false> + write_nbi<true>
+// write_value_nbi carries the payload inline in the WQE instead of pointing at a local buffer,
 // so the sender needs no send buffer at all for these two modes.
 constexpr uint32_t MODE_WRITE_VALUE_SINGLE = 2U;
 constexpr uint32_t MODE_WRITE_VALUE_BATCH_LAST = 3U;
 
-constexpr uint32_t MODE_NOTIFY = 4U;                   // one asccomm_write_with_notify_nbi, then Drain
-constexpr uint32_t MODE_FAA = 5U;                      // one asccomm_atomic_faa_nbi, checks remote sum and old value
-constexpr uint32_t MODE_CAS = 6U;                      // one asccomm_atomic_cas_nbi, checks remote swap and old value
+constexpr uint32_t MODE_NOTIFY = 4U;                   // one write_with_notify_nbi, then Drain
+constexpr uint32_t MODE_FAA = 5U;                      // one atomic_faa_nbi, checks remote sum and old value
+constexpr uint32_t MODE_CAS = 6U;                      // one atomic_cas_nbi, checks remote swap and old value
 constexpr uint32_t MODE_NOTIFY_ATOMIC_SINGLE = 7U;     // Notify, FAA, CAS serially, Drain after each
 constexpr uint32_t MODE_NOTIFY_ATOMIC_BATCH_LAST = 8U; // Notify and FAA deferred, CAS publishes
 constexpr uint32_t MODE_NOTIFY_IMMEDIATE_REPEAT = 9U;  // NOTIFY_IMMEDIATE_REPEAT_COUNT immediate posts

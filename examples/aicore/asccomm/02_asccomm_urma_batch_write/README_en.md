@@ -1,17 +1,17 @@
-# asccomm Batch Write Sample
+# CommRW Batch Write Sample
 
 ## Overview
 
-This sample demonstrates how to use the asccomm batch write API to write data from rank 0 to the other ranks in a single-host multi-NPU environment. Multiple URMA
-channels share one Jetty and submit cross-peer write tasks in batches through `asccomm_make_batch_handle`, `asccomm_get_handle_ref`, `asccomm_batch_commit`, and
-`asccomm_drain`. The program prepares the data to be sent, submits a batch of write operations, and waits for completion. The receiving ranks then verify the received data, and the parent
+This sample demonstrates how to use the CommRW batch write API to write data from rank 0 to the other ranks in a single-host multi-NPU environment. Multiple URMA
+channels share one Jetty and submit cross-peer write tasks in batches through `make_batch_handle`, `get_handle_ref`, `batch_commit`, and
+`drain`. The program prepares the data to be sent, submits a batch of write operations, and waits for completion. The receiving ranks then verify the received data, and the parent
 process finally aggregates the results of all ranks.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Directory Structure
 
@@ -30,7 +30,7 @@ process finally aggregates the results of all ranks.
 ### Functionality Description
 
 Rank 0 writes a local data segment to the receive buffers of all other ranks at the same time through the batch write API. Batch submission packages multiple write tasks into
-one batch handle and issues them through a single `asccomm_batch_commit`, reducing the number of submissions. After `asccomm_drain` waits for the whole batch to complete, each receiving
+one batch handle and issues them through a single `batch_commit`, reducing the number of submissions. After `drain` waits for the whole batch to complete, each receiving
 rank verifies that the written data is consistent with the data sent by rank 0.
 
 ### Sample Specifications
@@ -38,7 +38,7 @@ rank verifies that the written data is consistent with the data sent by rank 0.
 | Item | Description |
 | --- | --- |
 | Communication Mode | One-to-many batch write from rank 0 to all other ranks |
-| Invocation Method | `asccomm_make_batch_handle`/`asccomm_get_handle_ref`/`asccomm_batch_commit`/`asccomm_drain` within the AIV Kernel |
+| Invocation Method | `make_batch_handle`/`get_handle_ref`/`batch_commit`/`drain` within the AIV Kernel |
 | Data Validation | Each receiving rank verifies the written data |
 | Supported Rank Count | 2 to 16, not exceeding the number of available NPUs on the host |
 
@@ -48,8 +48,8 @@ rank verifies that the written data is consistent with the data sent by rank 0.
    ranks exchange root info through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`) and
    create the communication domain, and rank 0 prepares the data to be sent.
 2. Each rank registers the communication memory and exchanges buffer addresses through the control channel. Rank 0 establishes a URMA channel that shares the Jetty with each peer.
-3. The Kernel side constructs a batch handle, fills in a write task reference for each peer, and then issues a single `asccomm_batch_commit`.
-4. `asccomm_drain` waits for the whole batch of tasks to complete.
+3. The Kernel side constructs a batch handle, fills in a write task reference for each peer, and then issues a single `batch_commit`.
+4. `drain` waits for the whole batch of tasks to complete.
 5. Each receiving rank verifies the written data, and the parent process aggregates the results of all ranks.
 
 ## Compilation and Execution
@@ -109,4 +109,4 @@ Follow the steps below in the root directory of this sample to compile and run i
 
 - Running the sample requires at least 2 NPUs; a single-card environment only supports compilation verification.
 - The rank count must not exceed the number of available NPUs on the host, and the running user must have device access permission.
-- Compilation depends on the CANN ASC CMake capability and links the CANN `asccomm` library at the link stage.
+- Compilation depends on the CANN ASC CMake capability and links the CANN `hcomm` library at the link stage.

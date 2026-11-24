@@ -35,15 +35,6 @@ namespace asc {
 AIN_DEVICE HcommMemHandle get_peer_pointer(uint32_t peer, HcclCommSymWindow window, size_t offset);
 
 /*!
- * @brief Deprecated PascalCase alias. Forwards to get_peer_pointer.
- */
-ASC_DEPRECATED(9.3.0, "2027/12/31", get_peer_pointer)
-AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
-{
-    return get_peer_pointer(peer, window, offset);
-}
-
-/*!
  * @class ain
  * @brief This class provides device-side one-sided communication primitives (put/get) layered on top
  *        of the Hcomm point-to-point engine. It resolves the per-peer communication channel from the
@@ -74,12 +65,6 @@ public:
     AIN_DEVICE void flush(HcommTeamHandle team);
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to flush.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", flush)
-    AIN_DEVICE void Flush(HcommTeamHandle team) { flush(team); }
-
-    /*!
      * @brief Get the channel handle of a given peer without blocking, for deferred wait.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
@@ -89,15 +74,6 @@ public:
     AIN_DEVICE void flush_async(HcommTeamHandle team, uint32_t peer, ChannelHandle* out_channel_handle);
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to flush_async.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", flush_async)
-    AIN_DEVICE void FlushAsync(HcommTeamHandle team, uint32_t peer, ChannelHandle* outChannelHandle)
-    {
-        flush_async(team, peer, outChannelHandle);
-    }
-
-    /*!
      * @brief Block until all CQE-generating tasks submitted to the given channel have completed.
      * @param [in] channel_handle: The channel handle returned by FlushAsync.
      * @note Same completion semantics as flush(): only tasks that generate a CQE (the cqe bit set in the
@@ -105,12 +81,6 @@ public:
      *       are not covered.
      */
     AIN_DEVICE void wait(ChannelHandle& channel_handle);
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to wait.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", wait)
-    AIN_DEVICE void Wait(ChannelHandle& channelHandle) { wait(channelHandle); }
 
     /*!
      * @brief Issue a one-sided write (put) from a local window to a remote peer's window.
@@ -139,22 +109,6 @@ public:
         const descriptor_ubuf& ubuf = descriptor_ubuf{});
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to put.
-     */
-    template <
-        typename remote_action = ain_remote_none, typename descriptor_ubuf = ain_descriptor_ubuf,
-        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_DEFAULT_CFG>
-    ASC_DEPRECATED(9.3.0, "2027/12/31", put)
-    AIN_DEVICE void Put(
-        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
-        uint64_t srcOffset, uint64_t bytes, remote_action action = remote_action{},
-        const descriptor_ubuf& ubuf = descriptor_ubuf{})
-    {
-        put<remote_action, descriptor_ubuf, commit_flags, config>(
-            team, peer, dstWin, dstOffset, srcWin, srcOffset, bytes, action, ubuf);
-    }
-
-    /*!
      * @brief Issue an inline one-sided write (put) of a typed value to a remote peer's window.
      * @tparam T: Value type to write.
      * @tparam remote_action: Signal action type, for example ain_signal_inc, ain_signal_add.
@@ -177,21 +131,6 @@ public:
     AIN_DEVICE void put_value(
         HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dst_win, uint64_t dst_offset, T value,
         remote_action action = remote_action{}, const descriptor_ubuf& ubuf = descriptor_ubuf{});
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to put_value.
-     */
-    template <
-        typename T, typename remote_action = ain_remote_none, typename descriptor_ubuf = ain_descriptor_ubuf,
-        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_INLINE_CFG>
-    ASC_DEPRECATED(9.3.0, "2027/12/31", put_value)
-    AIN_DEVICE void PutValue(
-        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
-        remote_action action = remote_action{}, const descriptor_ubuf& ubuf = descriptor_ubuf{})
-    {
-        put_value<T, remote_action, descriptor_ubuf, commit_flags, config>(
-            team, peer, dstWin, dstOffset, value, action, ubuf);
-    }
 
     /*!
      * @brief Issue a one-sided read (get) from a remote peer's window into a local window.
@@ -217,20 +156,6 @@ public:
         uint64_t src_offset, uint64_t bytes, const descriptor_ubuf& ubuf = descriptor_ubuf{});
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to get.
-     */
-    template <
-        typename descriptor_ubuf = ain_descriptor_ubuf, ain_commit_flags commit_flags = AIN_COMMIT_IMMED,
-        auto const& config = URMA_DEFAULT_CFG>
-    ASC_DEPRECATED(9.3.0, "2027/12/31", get)
-    AIN_DEVICE void Get(
-        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
-        uint64_t srcOffset, uint64_t bytes, const descriptor_ubuf& ubuf = descriptor_ubuf{})
-    {
-        get<descriptor_ubuf, commit_flags, config>(team, peer, dstWin, dstOffset, srcWin, srcOffset, bytes, ubuf);
-    }
-
-    /*!
      * @brief Atomically update a remote peer's signal via Fetch-and-Add.
      * @tparam remote_action: Signal action type, for example ain_signal_inc, ain_signal_add.
      * @tparam descriptor_ubuf: UB workspace descriptor type, ain_descriptor_ubuf by default.
@@ -248,19 +173,6 @@ public:
         HcommTeamHandle team, uint32_t peer, remote_action action, const descriptor_ubuf& ubuf = descriptor_ubuf{});
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to signal.
-     */
-    template <
-        typename remote_action, typename descriptor_ubuf = ain_descriptor_ubuf,
-        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_DEFAULT_CFG>
-    ASC_DEPRECATED(9.3.0, "2027/12/31", signal)
-    AIN_DEVICE void Signal(
-        HcommTeamHandle team, uint32_t peer, remote_action action, const descriptor_ubuf& ubuf = descriptor_ubuf{})
-    {
-        signal<remote_action, descriptor_ubuf, commit_flags, config>(team, peer, action, ubuf);
-    }
-
-    /*!
      * @brief Read the local signal value, masked to the lower `bits` bits.
      * @param [in] team: The communication team handle.
      * @param [in] signal_window: Symmetric window containing the signal.
@@ -272,17 +184,6 @@ public:
     AIN_DEVICE uint64_t read_signal(
         HcommTeamHandle team, HcclCommSymWindow signal_window, size_t signal_offset, uint32_t bits = 64,
         ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const;
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to read_signal.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", read_signal)
-    AIN_DEVICE uint64_t ReadSignal(
-        HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint32_t bits = 64,
-        ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const
-    {
-        return read_signal(team, signalWindow, signalOffset, bits, order);
-    }
 
     /*!
      * @brief Block until the local signal reaches at least `least` (masked to `bits` bits).
@@ -297,9 +198,76 @@ public:
         HcommTeamHandle team, HcclCommSymWindow signal_window, size_t signal_offset, uint64_t least, uint32_t bits = 64,
         ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const;
 
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to wait_signal.
-     */
+    // ===================== deprecated PascalCase compatibility aliases =====================
+    // Legacy ain interface spellings kept for source compatibility (remove after 2027/12/31);
+    // each forwards to the corresponding ain interface above.
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", flush)
+    AIN_DEVICE void Flush(HcommTeamHandle team) { flush(team); }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", flush_async)
+    AIN_DEVICE void FlushAsync(HcommTeamHandle team, uint32_t peer, ChannelHandle* outChannelHandle)
+    {
+        flush_async(team, peer, outChannelHandle);
+    }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", wait)
+    AIN_DEVICE void Wait(ChannelHandle& channelHandle) { wait(channelHandle); }
+
+    template <
+        typename remote_action = ain_remote_none, typename descriptor_ubuf = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", put)
+    AIN_DEVICE void Put(
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
+        uint64_t srcOffset, uint64_t bytes, remote_action action = remote_action{},
+        const descriptor_ubuf& ubuf = descriptor_ubuf{})
+    {
+        put<remote_action, descriptor_ubuf, commit_flags, config>(
+            team, peer, dstWin, dstOffset, srcWin, srcOffset, bytes, action, ubuf);
+    }
+
+    template <
+        typename T, typename remote_action = ain_remote_none, typename descriptor_ubuf = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_INLINE_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", put_value)
+    AIN_DEVICE void PutValue(
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
+        remote_action action = remote_action{}, const descriptor_ubuf& ubuf = descriptor_ubuf{})
+    {
+        put_value<T, remote_action, descriptor_ubuf, commit_flags, config>(
+            team, peer, dstWin, dstOffset, value, action, ubuf);
+    }
+
+    template <
+        typename descriptor_ubuf = ain_descriptor_ubuf, ain_commit_flags commit_flags = AIN_COMMIT_IMMED,
+        auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", get)
+    AIN_DEVICE void Get(
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
+        uint64_t srcOffset, uint64_t bytes, const descriptor_ubuf& ubuf = descriptor_ubuf{})
+    {
+        get<descriptor_ubuf, commit_flags, config>(team, peer, dstWin, dstOffset, srcWin, srcOffset, bytes, ubuf);
+    }
+
+    template <
+        typename remote_action, typename descriptor_ubuf = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = AIN_COMMIT_IMMED, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", signal)
+    AIN_DEVICE void Signal(
+        HcommTeamHandle team, uint32_t peer, remote_action action, const descriptor_ubuf& ubuf = descriptor_ubuf{})
+    {
+        signal<remote_action, descriptor_ubuf, commit_flags, config>(team, peer, action, ubuf);
+    }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_signal)
+    AIN_DEVICE uint64_t ReadSignal(
+        HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint32_t bits = 64,
+        ain_memory_order order = AIN_MEMORY_ORDER_RELAX) const
+    {
+        return read_signal(team, signalWindow, signalOffset, bits, order);
+    }
+
     ASC_DEPRECATED(9.3.0, "2027/12/31", wait_signal)
     AIN_DEVICE void WaitSignal(
         HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint64_t least, uint32_t bits = 64,
@@ -335,16 +303,6 @@ public:
     AIN_DEVICE void sync(ain_memory_order order, const descriptor_ubuf& ubuf = descriptor_ubuf{});
 
     /*!
-     * @brief Deprecated PascalCase alias. Forwards to sync.
-     */
-    template <typename descriptor_ubuf = ain_descriptor_ubuf>
-    ASC_DEPRECATED(9.3.0, "2027/12/31", sync)
-    AIN_DEVICE void Sync(ain_memory_order order, const descriptor_ubuf& ubuf = descriptor_ubuf{})
-    {
-        sync(order, ubuf);
-    }
-
-    /*!
      * @brief Synchronize with all peers in the team with a timeout.
      * @param [in] order: Memory order.
      * @param [in] timeout_cycles: Maximum cycles to wait.
@@ -355,9 +313,17 @@ public:
     AIN_DEVICE int32_t
     sync(ain_memory_order order, uint64_t timeout_cycles, const descriptor_ubuf& ubuf = descriptor_ubuf{});
 
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to sync.
-     */
+    // ===================== deprecated PascalCase compatibility aliases =====================
+    // Legacy ain_barrier_session interface spellings kept for source compatibility (remove after
+    // 2027/12/31); each forwards to the corresponding sync interface above.
+
+    template <typename descriptor_ubuf = ain_descriptor_ubuf>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", sync)
+    AIN_DEVICE void Sync(ain_memory_order order, const descriptor_ubuf& ubuf = descriptor_ubuf{})
+    {
+        sync(order, ubuf);
+    }
+
     template <typename descriptor_ubuf = ain_descriptor_ubuf>
     ASC_DEPRECATED(9.3.0, "2027/12/31", sync)
     AIN_DEVICE int32_t
@@ -369,6 +335,18 @@ public:
 private:
     ain_barrier_session_impl<comm_engine_mask> barrier_impl;
 };
+
+// ===================== deprecated PascalCase compatibility aliases =====================
+// Legacy free-function spelling kept for source compatibility (remove after 2027/12/31).
+
+/*!
+ * @brief Deprecated PascalCase alias. Forwards to get_peer_pointer.
+ */
+ASC_DEPRECATED(9.3.0, "2027/12/31", get_peer_pointer)
+AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
+{
+    return get_peer_pointer(peer, window, offset);
+}
 
 } // namespace asc
 

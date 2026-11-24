@@ -1,9 +1,9 @@
-# asccomm URMA Normal API Performance Example
+# CommRW URMA Normal API Performance Example
 
 ## Overview
 
 This example measures the send performance of three point-to-point APIs over the URMA path
-(AIV-Kernel direct drive): `asccomm_write_nbi`, `asccomm_read_nbi` and `asccomm_write_with_notify_nbi`, each covering the
+(AIV-Kernel direct drive): `write_nbi`, `read_nbi` and `write_with_notify_nbi`, each covering the
 latency and bandwidth metrics and both immediate and deferred publishing strategies.
 
 The two ranks send and receive symmetrically: both sides issue communication to the peer and
@@ -48,21 +48,21 @@ Three APIs x two metrics x two publishing strategies:
 
 | `api` | Description |
 | --- | --- |
-| `write` | `asccomm_write_nbi`, local source region -> peer write region |
-| `read` | `asccomm_read_nbi`, local read region <- peer source region |
-| `notify` | `asccomm_write_with_notify_nbi`, local source region -> peer notify region, plus one remote flag word after the payload |
+| `write` | `write_nbi`, local source region -> peer write region |
+| `read` | `read_nbi`, local read region <- peer source region |
+| `notify` | `write_with_notify_nbi`, local source region -> peer notify region, plus one remote flag word after the payload |
 
 | `metric` | Description |
 | --- | --- |
-| `lat` | Latency: the timed window contains only the issue loop, no Drain — pure submit-path latency (the final `asccomm_commit` of the `final` mode is also outside the window) |
+| `lat` | Latency: the timed window contains only the issue loop, no Drain — pure submit-path latency (the final `commit` of the `final` mode is also outside the window) |
 | `bw` | Bandwidth: a single window covers the issue loop plus one trailing Drain — end-to-end bandwidth |
 
 | `commit` | Description |
 | --- | --- |
 | `inline` | Template parameter `commit=true` on every call: each issue rings its own doorbell |
-| `final` | Template parameter `commit=false` writes SQEs only; one `asccomm_commit` fires after each timed window — under `lat` the Commit is outside the window, under `bw` the trailing Commit + Drain are inside |
+| `final` | Template parameter `commit=false` writes SQEs only; one `commit` fires after each timed window — under `lat` the Commit is outside the window, under `bw` the trailing Commit + Drain are inside |
 
-Timing flow: after `min(100, rounds)` warmup issues followed by a `asccomm_drain` (not timed), the
+Timing flow: after `min(100, rounds)` warmup issues followed by a `drain` (not timed), the
 kernel issues `rounds` requests and records the in-window cycles. Under `lat` the window
 contains only the issues (the `final`-mode Commit is outside); under `bw` the window also
 covers the tail (`final`: trailing Commit + Drain; `inline`: trailing Drain).
@@ -82,10 +82,10 @@ All cases share one **2GB** registered buffer, split by absolute offsets:
 
 | Offset | Size | Region |
 | --- | --- | --- |
-| 0 | 256MB | source: local send source / peer `asccomm_read_nbi` read source |
-| 256MB | 512MB | write: peer `asccomm_write_nbi` landing region (one `len` window reused per round) |
-| 768MB | 512MB | read: local `asccomm_read_nbi` landing region (one `len` window reused per round) |
-| 1280MB | 512MB | notify: peer `asccomm_write_with_notify_nbi` landing region (one `len` window reused per round) |
+| 0 | 256MB | source: local send source / peer `read_nbi` read source |
+| 256MB | 512MB | write: peer `write_nbi` landing region (one `len` window reused per round) |
+| 768MB | 512MB | read: local `read_nbi` landing region (one `len` window reused per round) |
+| 1280MB | 512MB | notify: peer `write_with_notify_nbi` landing region (one `len` window reused per round) |
 | 1792MB | 8B | flag: single notify flag slot (fixed address) |
 
 Notes:
@@ -198,7 +198,7 @@ Follow these steps in the example directory. NPU mode only.
 - Expected output
 
   ```text
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | Commit=inline | Topology=p2p | Metric=lat | Rounds=1000 | Cycles=145000 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | Commit=inline | Topology=p2p | Metric=lat | Rounds=1000 | Cycles=145000 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
   [rank 0] case=4096B validation: PASS (checked 3MB per region)
   RESULT | Example=urma_normal_api_perf | Status=PASS
   ```
@@ -215,5 +215,5 @@ Follow these steps in the example directory. NPU mode only.
   has no static cap.
 - Under the latency metric no Drain happens inside the timed window, so `rounds` requests must
   all reside in the SQ; SQ-overflow shows up as a post-window Post return code
-  (`asccomm_write_with_notify_nbi` occupies 2 WQEBBs, the others 1).
-- Building depends on the CANN ASC CMake capability and links against the CANN `asccomm` library.
+  (`write_with_notify_nbi` occupies 2 WQEBBs, the others 1).
+- Building depends on the CANN ASC CMake capability and links against the CANN `hcomm` library.

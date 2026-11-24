@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_aiv_urma_def.h
- * \brief Hcomm AIV URMA definition for V310
+ * \brief asccomm AIV URMA definition for V310
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include hcomm/hcomm.h instead.")
+#pragma message("This is an internal asccomm header. Please include asccomm/asccomm.h instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_AIV_URMA_DEF_H
 #endif
@@ -30,8 +30,6 @@ constexpr uint32_t ASCCOMM_URMA_MAX_RETRY_TIMES = 100000000;
 constexpr uint32_t ASCCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES = 1000000;
 constexpr uint32_t ASCCOMM_URMA_ADDR_ALIGNMENT = 32U;
 constexpr uint32_t ASCCOMM_URMA_TMP_BUF_SIZE = 512;
-// Deprecated pre-rename spelling, kept for source compatibility of 9.2.0-era code; removed after 2027/12/31.
-constexpr auto HCOMM_URMA_TMP_BUF_SIZE = ASCCOMM_URMA_TMP_BUF_SIZE;
 constexpr uint32_t ASCCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t ASCCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t ASCCOMM_URMA_UDF_FLAG = 0x80U;
@@ -78,101 +76,100 @@ class asccomm_impl<COMM_PROTOCOL_UB_CTP> {
 public:
     __aicore__ inline asccomm_impl();
     __aicore__ inline ~asccomm_impl();
-    __aicore__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len);
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
-    __aicore__ inline int32_t asccomm_init(const LocalTensor<T>& buff, uint32_t len);
-    __aicore__ inline ubc_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline int32_t init(const LocalTensor<T>& buff, uint32_t len);
+    __aicore__ inline ubc_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr);
-    __aicore__ inline ubc_multi_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline ubc_multi_batch_handle make_batch_handle(
         multi_channel_handle multi_channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr,
         GM_ADDR local_addr);
     template <typename U>
-    __aicore__ inline ubc_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline ubc_batch_handle make_batch_handle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr);
     template <typename U>
-    __aicore__ inline ubc_multi_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline ubc_multi_batch_handle make_batch_handle(
         multi_channel_handle multi_channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr,
         GM_ADDR local_addr);
-    __aicore__ inline ubc_batch_handle& asccomm_get_handle_ref(
-        ubc_batch_handle& batch_handle, uint32_t channel_index, GM_ADDR remote_addr);
-    __aicore__ inline ubc_batch_handle& asccomm_get_handle_ref(
-        ubc_multi_batch_handle& multi_batch_handle, uint32_t channel_index, GM_ADDR remote_addr);
+    __aicore__ inline ubc_batch_handle& get_handle_ref(
+        ubc_batch_handle& batch_handle, uint32_t channel_idx, GM_ADDR remote_addr);
+    __aicore__ inline ubc_batch_handle& get_handle_ref(
+        ubc_multi_batch_handle& multi_batch_handle, uint32_t channel_idx, GM_ADDR remote_addr);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
+    __aicore__ inline int32_t write_nbi(
         ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t write_nbi(ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
+    __aicore__ inline int32_t write_nbi(
         ubc_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
     template <
-        typename T, asccomm_urma_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
+        typename T, asccomm_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
         pipe_t req_pipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
+    __aicore__ inline int32_t write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t read_nbi(ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(
+    __aicore__ inline int32_t read_nbi(
         ubc_batch_handle& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
+    __aicore__ inline int32_t write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
         uint64_t notify_val);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notify_addr,
         uint64_t notify_val);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ubc_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
         uint64_t notify_val);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
+    __aicore__ inline int32_t atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_cas_nbi(
+    __aicore__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_commit(ChannelHandle channel);
-    __aicore__ inline int32_t asccomm_batch_commit(ubc_batch_handle& batch_handle);
-    __aicore__ inline int32_t asccomm_batch_commit(ubc_multi_batch_handle& batch_handle);
+    __aicore__ inline int32_t commit(ChannelHandle channel);
+    __aicore__ inline int32_t batch_commit(ubc_batch_handle& batch_handle);
+    __aicore__ inline int32_t batch_commit(ubc_multi_batch_handle& batch_handle);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t asccomm_drain(ChannelHandle channel);
+    __aicore__ inline int32_t drain(ChannelHandle channel);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_drain(ubc_batch_handle& batch_handle);
+    __aicore__ inline int32_t drain(ubc_batch_handle& batch_handle);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_drain(ubc_multi_batch_handle& batch_handle);
-    __aicore__ inline int32_t asccomm_lock(ChannelHandle channel);
-    __aicore__ inline int32_t asccomm_unlock(ChannelHandle channel);
+    __aicore__ inline int32_t drain(ubc_multi_batch_handle& batch_handle);
+    __aicore__ inline int32_t lock(ChannelHandle channel);
+    __aicore__ inline int32_t unlock(ChannelHandle channel);
 
 private:
     template <
@@ -217,12 +214,11 @@ private:
 };
 } // namespace asc
 
-// Compatibility bridge for pre-rename AscendC-namespace spellings. Declared next to the
-// definitions so the aliases share the same platform gating as the entities; 9.2.0-era
-// code built against the asccomm/jetty public headers resolves the old spellings here
-// instead of through the legacy hcomm header. Removed together with the legacy API.
+// ===================== legacy AscendC spellings (remove after 2027/12/31) =====================
+// Platform-gated with the canonical definitions above.
 namespace AscendC {
-using asc::HCOMM_URMA_TMP_BUF_SIZE;
+// Deprecated pre-rename spelling; removed after 2027/12/31.
+constexpr auto HCOMM_URMA_TMP_BUF_SIZE = asc::ASCCOMM_URMA_TMP_BUF_SIZE;
 } // namespace AscendC
 
 #endif

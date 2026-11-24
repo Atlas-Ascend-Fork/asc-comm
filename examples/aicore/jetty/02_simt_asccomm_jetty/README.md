@@ -171,4 +171,4 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
   `memHandles`数组下标：本地表下标0由CCL buffer预留，第一个显式注册的缓冲区使用下标1；远端缓冲区
   下标通过`HcclChannelGetRemoteMems`按tag查找。
 - mixed模式不支持`--timing`；`--warmup`必须与`--timing`同时使用。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

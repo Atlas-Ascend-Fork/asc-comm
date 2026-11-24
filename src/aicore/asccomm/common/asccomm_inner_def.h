@@ -70,59 +70,21 @@ enum class multi_channel_handle : uint64_t {};
 
 constexpr int32_t ASCCOMM_FAILED = -1;
 constexpr int32_t ASCCOMM_SUCCESS = 0;
-// Deprecated pre-rename spellings, kept for source compatibility of 9.2.0-era code;
-// removed after 2027/12/31.
-constexpr int32_t HCOMM_FAILED = ASCCOMM_FAILED;
-constexpr int32_t HCOMM_SUCCESS = ASCCOMM_SUCCESS;
 constexpr uint32_t ASCCOMM_LOCK_FREE = 0U;
-// Deprecated pre-rename spellings, kept for source compatibility of 9.2.0-era code; removed after 2027/12/31.
-constexpr auto HCOMM_LOCK_FREE = ASCCOMM_LOCK_FREE;
 constexpr uint32_t ASCCOMM_LOCK_HELD = 1U;
-constexpr auto HCOMM_LOCK_HELD = ASCCOMM_LOCK_HELD;
 constexpr uint32_t ASCCOMM_UB_BUF_SIZE = 512;
-constexpr uint32_t HCOMM_UB_BUF_SIZE = ASCCOMM_UB_BUF_SIZE;
 constexpr uint32_t ASCCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 constexpr uint32_t ASCCOMM_POLL_CQ_THRESHOLD = 10;
-constexpr auto HCOMM_POLL_CQ_THRESHOLD = ASCCOMM_POLL_CQ_THRESHOLD;
 constexpr uint32_t ASCCOMM_NUM_CQE_PER_POLL_CQ = 100;
 // HCCL guarantees buffer 0 covers all URMA buffers and shares their protection metadata.
 constexpr uint32_t ASCCOMM_URMA_DEFAULT_BUFFER_IDX = 0U;
 
-// config_type types accepted by the template config parameter: WqeEntry/UdmaWqeEntry-style legacy layouts carry
-// camelCase inlineEn, while wqe_entry uses snake_case inline_en. Every other member name is identical,
-// so only the inline flag needs a dual-name read. Compile-time only: config objects are constexpr.
-template <typename config_type, typename = void>
-struct has_snake_inline_en : std::false_type {};
+// Backward-compatibility aliases: URMA_DEFAULT_CFG / URMA_INLINE_CFG are initialized from the
+// canonical ASCCOMM_DEFAULT_CFG / ASCCOMM_INLINE_CFG defined by the public asccomm/asccomm_common.h
+// header and stay value-identical to them.
+static constexpr wqe_entry URMA_DEFAULT_CFG = ASCCOMM_DEFAULT_CFG;
 
-template <typename config_type>
-struct has_snake_inline_en<config_type, std::void_t<decltype(std::declval<const config_type&>().inline_en)>>
-    : std::true_type {};
-
-template <typename config_type>
-__aicore__ constexpr uint32_t asccomm_config_inline_en(const config_type& config)
-{
-    if constexpr (has_snake_inline_en<config_type>::value) {
-        return config.inline_en;
-    } else {
-        return config.inlineEn;
-    }
-}
-
-static constexpr wqe_entry URMA_DEFAULT_CFG = {
-    .odr = 5,
-    .fence = 1,
-    .se = 0,
-    .cqe = 1,
-    .inline_en = 0,
-};
-
-static constexpr wqe_entry URMA_INLINE_CFG = {
-    .odr = 5,
-    .fence = 1,
-    .se = 0,
-    .cqe = 1,
-    .inline_en = 1,
-};
+static constexpr wqe_entry URMA_INLINE_CFG = ASCCOMM_INLINE_CFG;
 
 static constexpr wqe_entry ROCE_DEFAULT_CFG = {
     .odr = 0,
@@ -142,12 +104,25 @@ typedef enum {
     COMM_ENGINE_CCU = 5,       ///< CCU引擎
 } CommEngine;
 
+// Shared enumerators must stay value-identical to CANN hcomm/hcomm_res_defs.h.
+static_assert(
+    COMM_ENGINE_RESERVED == -1 && COMM_ENGINE_CPU == 0 && COMM_ENGINE_CPU_TS == 1 && COMM_ENGINE_AICPU == 2 &&
+        COMM_ENGINE_AICPU_TS == 3 && COMM_ENGINE_AIV == 4 && COMM_ENGINE_CCU == 5,
+    "asc::CommEngine values must stay aligned with CANN hcomm_res_defs.h");
+
 typedef struct {
     uint32_t version;
     uint32_t magicWord;
     uint32_t size;
     uint32_t reserved;
 } CommAbiHeader;
+
+// Mirrors CANN hcomm/hcomm_res_defs.h's ::CommAbiHeader member-for-member.
+static_assert(sizeof(CommAbiHeader) == 16, "CommAbiHeader must stay 16 bytes");
+static_assert(
+    offsetof(CommAbiHeader, version) == 0 && offsetof(CommAbiHeader, magicWord) == 4 &&
+        offsetof(CommAbiHeader, size) == 8 && offsetof(CommAbiHeader, reserved) == 12,
+    "CommAbiHeader field layout must stay aligned with CANN hcomm_res_defs.h");
 
 typedef enum {
     PROTECTION_TYPE_INVALID = -1,
@@ -324,6 +299,25 @@ typedef struct {
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
+// Field offsets must stay identical to the runtime contract pkg_inc/hcomm/hcomm_res_entity_defs.h.
+static_assert(
+    offsetof(ChannelEntity, abiHeader) == 0 && offsetof(ChannelEntity, engine) == 16 &&
+        offsetof(ChannelEntity, protocol) == 20 && offsetof(ChannelEntity, localNotifyNum) == 24 &&
+        offsetof(ChannelEntity, remoteNotifyNum) == 28 && offsetof(ChannelEntity, localBufferNum) == 32 &&
+        offsetof(ChannelEntity, remoteBufferNum) == 36 && offsetof(ChannelEntity, sqNum) == 40 &&
+        offsetof(ChannelEntity, cqNum) == 44,
+    "ChannelEntity fixed prefix must stay aligned with the hcomm entity contract");
+static_assert(
+    offsetof(ChannelEntity, localNotifyAddr) == 48 && offsetof(ChannelEntity, remoteNotifyAddr) == 56 &&
+        offsetof(ChannelEntity, localBufferAddr) == 64 && offsetof(ChannelEntity, remoteBufferAddr) == 72 &&
+        offsetof(ChannelEntity, sqContextAddr) == 80 && offsetof(ChannelEntity, cqContextAddr) == 88,
+    "ChannelEntity pointer section must stay aligned with the hcomm entity contract");
+static_assert(
+    offsetof(ChannelEntity, resv1) == 96 && offsetof(ChannelEntity, sqHead) == 144 &&
+        offsetof(ChannelEntity, sqTail) == 148 && offsetof(ChannelEntity, cqHead) == 152 &&
+        offsetof(ChannelEntity, cqTail) == 156 && offsetof(ChannelEntity, reserve) == 160,
+    "ChannelEntity device-only tail must not shift under the 256-byte contract size");
+
 typedef struct {
     uint32_t token_id;
     uint32_t token_value;
@@ -363,6 +357,10 @@ typedef struct {
 } multi_channel_entity;
 
 static_assert(sizeof(multi_channel_entity) == 24U, "multi_channel_entity layout must not change");
+static_assert(
+    offsetof(multi_channel_entity, channel_handle) == 0 && offsetof(multi_channel_entity, channel_num) == 8 &&
+        offsetof(multi_channel_entity, reserved) == 12 && offsetof(multi_channel_entity, remote_info_addr) == 16,
+    "multi_channel_entity field offsets must not change");
 
 typedef struct {
     uint32_t l_key;
@@ -413,7 +411,7 @@ typedef struct {
 template <typename T>
 struct handle_traits;
 
-// For channel types, BatchHandleType is the asccomm_make_batch_handle result; for batch types, it is the execution handle.
+// For channel types, BatchHandleType is the make_batch_handle result; for batch types, it is the execution handle.
 template <>
 struct handle_traits<ChannelHandle> {
     using BatchHandleType = ubc_batch_handle;
@@ -539,7 +537,6 @@ typedef struct {
 
 // URMA struct
 constexpr uint32_t ASCCOMM_URMA_DEFAULT_QP_IDX = 0U;
-constexpr auto HCOMM_URMA_DEFAULT_QP_IDX = ASCCOMM_URMA_DEFAULT_QP_IDX;
 
 enum class asccomm_urma_op_code : uint32_t {
     SEND = 0U,
@@ -558,31 +555,66 @@ enum class asccomm_urma_op_code : uint32_t {
     NOP = 0x11U,
 };
 
+// ===================== legacy URMA wire dual view (remove after 2027/12/31) =====================
+// Canonical snake view + legacy camelCase view overlaid at identical bit offsets; shared spellings
+// (flag/rsv0/nf/owner/opcode/...) exist only in the canonical view.
 typedef struct {
-    uint32_t sqe_bb_idx : 16;
-    uint32_t flag : 8;
-    uint32_t rsv0 : 3;
-    uint32_t nf : 1;
-    uint32_t token_en : 1;
-    uint32_t rmt_jetty_type : 2;
-    uint32_t owner : 1;
-    uint32_t target_hint : 8;
-    uint32_t opcode : 8;
-    uint32_t rsv1 : 6;
-    uint32_t inline_msg_len : 10;
-    uint32_t tp_id : 24;
-    uint32_t sge_num : 8;
-    uint32_t rmt_jetty_or_seg_id : 20;
-    uint32_t rsv2 : 12;
-    uint64_t rmt_eid_l;
-    uint64_t rmt_eid_h;
-    uint32_t rmt_token_value;
-    uint32_t udf_type : 8;
-    uint32_t reduce_data_type : 4;
-    uint32_t reduce_opcode : 4;
-    uint32_t rsv3 : 16;
-    uint32_t rmt_addr_l_or_token_id;
-    uint32_t rmt_addr_h_or_token_value;
+    union {
+        // canonical members (snake_case)
+        struct {
+            uint32_t sqe_bb_idx : 16;
+            uint32_t flag : 8;
+            uint32_t rsv0 : 3;
+            uint32_t nf : 1;
+            uint32_t token_en : 1;
+            uint32_t rmt_jetty_type : 2;
+            uint32_t owner : 1;
+            uint32_t target_hint : 8;
+            uint32_t opcode : 8;
+            uint32_t rsv1 : 6;
+            uint32_t inline_msg_len : 10;
+            uint32_t tp_id : 24;
+            uint32_t sge_num : 8;
+            uint32_t rmt_jetty_or_seg_id : 20;
+            uint32_t rsv2 : 12;
+            uint64_t rmt_eid_l;
+            uint64_t rmt_eid_h;
+            uint32_t rmt_token_value;
+            uint32_t udf_type : 8;
+            uint32_t reduce_data_type : 4;
+            uint32_t reduce_opcode : 4;
+            uint32_t rsv3 : 16;
+            uint32_t rmt_addr_l_or_token_id;
+            uint32_t rmt_addr_h_or_token_value;
+        };
+        // legacy camelCase view
+        struct {
+            uint32_t sqeBbIdx ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", sqe_bb_idx) : 16;
+            uint32_t : 8; // flag (shared spelling)
+            uint32_t : 3; // rsv0
+            uint32_t : 1; // nf
+            uint32_t tokenEn ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", token_en) : 1;
+            uint32_t rmtJettyType ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_jetty_type) : 2;
+            uint32_t : 1; // owner
+            uint32_t targetHint ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", target_hint) : 8;
+            uint32_t : 8; // opcode
+            uint32_t : 6; // rsv1
+            uint32_t inlineMsgLen ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", inline_msg_len) : 10;
+            uint32_t tpId ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", tp_id) : 24;
+            uint32_t sgeNum ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", sge_num) : 8;
+            uint32_t rmtJettyOrSegId ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_jetty_or_seg_id) : 20;
+            uint32_t : 12; // rsv2
+            uint64_t rmtEidL ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_eid_l);
+            uint64_t rmtEidH ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_eid_h);
+            uint32_t rmtTokenValue ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_token_value);
+            uint32_t udfType ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", udf_type) : 8;
+            uint32_t reduceDataType ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", reduce_data_type) : 4;
+            uint32_t reduceOpcode ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", reduce_opcode) : 4;
+            uint32_t : 16; // rsv3
+            uint32_t rmtAddrLOrTokenId ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_addr_l_or_token_id);
+            uint32_t rmtAddrHOrTokenValue ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", rmt_addr_h_or_token_value);
+        };
+    };
 } asccomm_urma_sqe_ctx;
 
 // asccomm_urma_sqe_ctx is the URMA SQE wire layout: its size and member offsets are part of the
@@ -594,21 +626,49 @@ static_assert(
 static_assert(
     offsetof(asccomm_urma_sqe_ctx, rmt_addr_l_or_token_id) == 40U, "asccomm_urma_sqe_ctx wire layout must not change");
 
+// SGE wire layout, dual-view like asccomm_urma_sqe_ctx.
 typedef struct {
-    uint32_t len;
-    uint32_t token_id;
-    uint64_t va;
+    union {
+        struct {
+            uint32_t len;
+            uint32_t token_id;
+            uint64_t va;
+        };
+        // legacy camelCase view
+        struct {
+            uint32_t : 32; // len (shared spelling)
+            uint32_t tokenId ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", token_id);
+            uint64_t : 64; // va (shared spelling)
+        };
+    };
 } asccomm_urma_sge_ctx;
 
+// Notify wire layout, dual-view like asccomm_urma_sqe_ctx.
 typedef struct {
-    uint32_t notify_token_id : 20;
-    uint32_t rsv : 12;
-    uint32_t notify_token_value;
-    uint32_t notify_addr_l;
-    uint32_t notify_addr_h;
-    uint32_t notify_data_l;
-    uint32_t notify_data_h;
-    uint32_t rsv2[2];
+    union {
+        struct {
+            uint32_t notify_token_id : 20;
+            uint32_t rsv : 12;
+            uint32_t notify_token_value;
+            uint32_t notify_addr_l;
+            uint32_t notify_addr_h;
+            uint32_t notify_data_l;
+            uint32_t notify_data_h;
+            uint32_t rsv2[2];
+        };
+        // legacy camelCase view
+        struct {
+            uint32_t notifyTokenId ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_token_id) : 20;
+            uint32_t : 12; // rsv (shared spelling)
+            uint32_t notifyTokenValue ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_token_value);
+            uint32_t notifyAddrL ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_addr_l);
+            uint32_t notifyAddrH ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_addr_h);
+            uint32_t notifyDataL ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_data_l);
+            uint32_t notifyDataH ASC_MEMBER_DEPRECATED(9.3.0, "2027/12/31", notify_data_h);
+            uint32_t : 32; // rsv2[0] (shared spelling)
+            uint32_t : 32; // rsv2[1] (shared spelling)
+        };
+    };
 } asccomm_urma_notify_ctx;
 
 static_assert(sizeof(asccomm_urma_notify_ctx) == 32U, "asccomm_urma_notify_ctx wire layout must not change");
@@ -641,13 +701,43 @@ typedef struct {
     uint32_t inline_data[3];
 } asccomm_urma_jfc_cqe_ctx;
 
+// ===================== legacy dual-name config read (remove after 2027/12/31) =====================
+// Accepts both inline_en (wqe_entry) and inlineEn (WqeEntry/UdmaWqeEntry) WQE config spellings.
+
+template <typename config_type, typename = void>
+struct has_snake_inline_en : std::false_type {};
+
+template <typename config_type>
+struct has_snake_inline_en<config_type, std::void_t<decltype(std::declval<const config_type&>().inline_en)>>
+    : std::true_type {};
+
+template <typename config_type, typename = void>
+struct has_camel_inline_en : std::false_type {};
+
+template <typename config_type>
+struct has_camel_inline_en<config_type, std::void_t<decltype(std::declval<const config_type&>().inlineEn)>>
+    : std::true_type {};
+
+template <typename config_type>
+__aicore__ constexpr uint32_t asccomm_config_inline_en(const config_type& config)
+{
+    static_assert(
+        has_snake_inline_en<config_type>::value || has_camel_inline_en<config_type>::value,
+        "WQE config must carry either 'inline_en' (wqe_entry) or 'inlineEn' (WqeEntry/UdmaWqeEntry)");
+    if constexpr (has_snake_inline_en<config_type>::value) {
+        return config.inline_en;
+    } else {
+        return config.inlineEn;
+    }
+}
+
 } // namespace asc
 
-// Compatibility bridge: the legacy Hcomm public headers (src/aicore/legacy/hcomm) and the other
-// AscendC-surface modules (ain, Jetty) resolve the shared communication entities through these
-// aliases. The single source of truth is namespace asc; the aliases are removed together
-// with the legacy API.
+// ===================== legacy AscendC-surface aliases (remove with the legacy API after 2027/12/31) =====================
+// Legacy hcomm/ain/jetty headers and gen1-era kernels resolve the shared entities through these
+// aliases; the single source of truth is namespace asc.
 namespace AscendC {
+
 using ChannelHandle = asc::ChannelHandle;
 using MultiChannelHandle = asc::multi_channel_handle;
 using BatchRemoteInfo = asc::batch_remote_info;
@@ -656,6 +746,7 @@ using BatchQueueCursor = asc::batch_queue_cursor;
 using MultiChannelEntity = asc::multi_channel_entity;
 using RoceMrKey = asc::roce_mr_key;
 using BatchBuffer = asc::batch_buffer;
+
 using UbcBatchHandle = asc::ubc_batch_handle;
 using RoceBatchHandle = asc::roce_batch_handle;
 using UbcMultiBatchHandle = asc::ubc_multi_batch_handle;
@@ -663,6 +754,7 @@ template <typename T>
 using HandleTraits = asc::handle_traits<T>;
 template <typename T>
 using BatchHandle = asc::batch_handle<T>;
+
 using RoceWqeCtrlSeg = asc::roce_wqe_ctrl_seg;
 using RoceWqeTaskComSeg = asc::roce_wqe_task_com_seg;
 using RoceWqeTaskSeg = asc::roce_wqe_task_seg;
@@ -670,6 +762,7 @@ using RoceWqeDataSeg = asc::roce_wqe_data_seg;
 using RoceWqeEntry = asc::roce_wqe_entry;
 using RoceCqeEntry = asc::roce_cqe_entry;
 using RoceDbEntry = asc::roce_db_entry;
+
 using CommProtocol = asc::CommProtocol;
 using asc::COMM_PROTOCOL_HCCS;
 using asc::COMM_PROTOCOL_HCCS_ONLY;
@@ -684,61 +777,64 @@ using asc::COMM_PROTOCOL_UBC_CTP;
 using asc::COMM_PROTOCOL_UBC_TP;
 using asc::COMM_PROTOCOL_UBG;
 using asc::COMM_PROTOCOL_UBOE;
-using BufDesc = asc::buf_desc;
-// Compatibility alias for the deprecated legacy type; kept so legacy user code keeps compiling while
-// referencing the deprecated real struct. The diagnostic suppression only covers the alias declaration.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-using WqeEntry = asc::WqeEntry;
-#pragma GCC diagnostic pop
-// 兼容旧类型名：外部组件以 struct AscendC::UrmaWqeEntry 书写配置（需真实类名，
-// 别名无法满足 elaborated-type-specifier）。布局与 WqeEntry/wqe_entry 一致，config 经
-// 模板 auto 透传，三者可互换（9.3.0 起对外统一，新增代码建议使用 wqe_entry）。
-struct __attribute__((packed)) UrmaWqeEntry {
-    uint32_t odr : 3;
-    uint32_t fence : 1;
-    uint32_t se : 1;
-    uint32_t cqe : 1;
-    uint32_t inlineEn : 1;
-};
-static_assert(sizeof(UrmaWqeEntry) == sizeof(asc::wqe_entry), "UrmaWqeEntry layout must stay identical to wqe_entry");
+
 using CommEngine = asc::CommEngine;
+using CommAbiHeader = asc::CommAbiHeader;
+
 using ChannelEntity = asc::ChannelEntity;
-using MultiChannelEntity = asc::multi_channel_entity;
 using SqContext = asc::SqContext;
 using CqContext = asc::CqContext;
 using RegedBufferEntity = asc::RegedBufferEntity;
-template <typename T>
-using HandleTraits = asc::handle_traits<T>;
-using HcommUrmaReduceOp = asc::asccomm_urma_reduce_op;
-template <typename T>
-using BatchHandle = asc::batch_handle<T>;
+using RegedBufferType = asc::RegedBufferType;
+using RegedNotifyEntity = asc::RegedNotifyEntity;
+using RegedNotifyType = asc::RegedNotifyType;
+using ProtectionInfo = asc::ProtectionInfo;
+using ProtectionType = asc::ProtectionType;
+using SqContextType = asc::SqContextType;
+using CqContextType = asc::CqContextType;
+
 using asc::ASCCOMM_FAILED;
 using asc::ASCCOMM_SUCCESS;
 using asc::ASCCOMM_UB_BUF_SIZE;
-// Deprecated pre-rename spellings, kept for source compatibility of 9.2.0-era code;
-// removed after 2027/12/31.
-using asc::HCOMM_FAILED;
-using asc::HCOMM_SUCCESS;
-using asc::HCOMM_UB_BUF_SIZE;
 using asc::ROCE_DEFAULT_CFG;
 using asc::URMA_DEFAULT_CFG;
 using asc::URMA_INLINE_CFG;
-// Deprecated pre-rename spellings, kept for source compatibility of 9.2.0-era code; removed after 2027/12/31.
-using asc::HCOMM_LOCK_FREE;
-using asc::HCOMM_LOCK_HELD;
-using asc::HCOMM_POLL_CQ_THRESHOLD;
+
+using asc::CQ_CONTEXT_TYPE_INVALID;
+using asc::CQ_CONTEXT_TYPE_ROCE;
+using asc::CQ_CONTEXT_TYPE_UB_JFC;
+using asc::PROTECTION_TYPE_INVALID;
+using asc::PROTECTION_TYPE_ROCE;
+using asc::PROTECTION_TYPE_UB;
+using asc::REGED_BUFFER_INVALID;
+using asc::REGED_BUFFER_IPC;
+using asc::REGED_BUFFER_RMA;
+using asc::REGED_NOTIFY_INVALID;
+using asc::REGED_NOTIFY_IPC_MEM;
+using asc::REGED_NOTIFY_IPC_RT;
+using asc::REGED_NOTIFY_RMA_MEM;
+using asc::REGED_NOTIFY_RMA_RT;
+using asc::SQ_CONTEXT_TYPE_INVALID;
+using asc::SQ_CONTEXT_TYPE_ROCE;
+using asc::SQ_CONTEXT_TYPE_UB_JFS;
+
+// ===================== legacy HCOMM_* constants (remove after 2027/12/31) =====================
+constexpr int32_t HCOMM_FAILED = asc::ASCCOMM_FAILED;
+constexpr int32_t HCOMM_SUCCESS = asc::ASCCOMM_SUCCESS;
+constexpr auto HCOMM_LOCK_FREE = asc::ASCCOMM_LOCK_FREE;
+constexpr auto HCOMM_LOCK_HELD = asc::ASCCOMM_LOCK_HELD;
+constexpr uint32_t HCOMM_UB_BUF_SIZE = asc::ASCCOMM_UB_BUF_SIZE;
+constexpr auto HCOMM_POLL_CQ_THRESHOLD = asc::ASCCOMM_POLL_CQ_THRESHOLD;
+constexpr auto HCOMM_URMA_DEFAULT_QP_IDX = asc::ASCCOMM_URMA_DEFAULT_QP_IDX;
+
+// ===================== legacy HcommUrma* aliases (remove after 2027/12/31) =====================
 using HcommUrmaOpCode = asc::asccomm_urma_op_code;
 using HcommUrmaSqeCtx = asc::asccomm_urma_sqe_ctx;
 using HcommUrmaSgeCtx = asc::asccomm_urma_sge_ctx;
 using HcommUrmaNotifyCtx = asc::asccomm_urma_notify_ctx;
-using RegedBufferType = asc::RegedBufferType;
-using asc::CQ_CONTEXT_TYPE_UB_JFC;
-using asc::HCOMM_URMA_DEFAULT_QP_IDX;
-using asc::PROTECTION_TYPE_UB;
-using asc::REGED_BUFFER_RMA;
-using asc::SQ_CONTEXT_TYPE_UB_JFS;
+
 } // namespace AscendC
+
 #endif // IMPL_COMM_API_AICORE_ASCCOMM_COMMON_ASCCOMM_INNER_DEF_H
 #if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_INNER_DEF_H)
 #undef ASCCOMM_INCLUDE_INTERNAL_HEADERS

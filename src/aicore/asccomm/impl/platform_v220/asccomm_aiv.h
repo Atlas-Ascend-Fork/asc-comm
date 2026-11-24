@@ -42,7 +42,7 @@ __aicore__ inline asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_impl()
 __aicore__ inline asccomm_impl<COMM_PROTOCOL_ROCE>::~asccomm_impl() {}
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)config;
@@ -53,7 +53,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)config;
@@ -64,8 +64,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_value_nbi(
-    ChannelHandle channel, GM_ADDR dst, T value)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
     (void)commit;
     (void)commit_pipe;
@@ -74,12 +73,12 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_value_
     (void)channel;
     (void)dst;
     (void)value;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE asccomm_write_value_nbi is not supported.");
+    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE write_value_nbi is not supported.");
     return ASCCOMM_FAILED;
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     (void)commit;
@@ -92,7 +91,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_n
     (void)len;
     (void)notify_addr;
     (void)notify_val;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE asccomm_write_with_notify_nbi is not supported");
+    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE write_with_notify_nbi is not supported");
     return ASCCOMM_FAILED;
 }
 

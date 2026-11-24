@@ -79,7 +79,7 @@ AIN_DEVICE void ain<comm_engine_mask>::flush(HcommTeamHandle team)
             continue;
         }
         ChannelHandle channel = get_channel_handle(hcomm_team, i, context_index);
-        comm.asccomm_drain(channel);
+        comm.drain(channel);
     }
 }
 
@@ -94,7 +94,7 @@ AIN_DEVICE void ain<comm_engine_mask>::flush_async(
 template <unsigned comm_engine_mask>
 AIN_DEVICE void ain<comm_engine_mask>::wait(ChannelHandle& channel_handle)
 {
-    comm.asccomm_drain(channel_handle);
+    comm.drain(channel_handle);
 }
 
 template <unsigned comm_engine_mask>
@@ -106,7 +106,7 @@ AIN_DEVICE void ain<comm_engine_mask>::put(
     static_assert(
         !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
         "put requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
-    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+    comm.init(ubuf.addr, ubuf.bytes);
 
     auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -116,9 +116,9 @@ AIN_DEVICE void ain<comm_engine_mask>::put(
     ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
     if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
-        comm.template asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
+        comm.template write_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
     } else {
-        comm.template asccomm_write_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
+        comm.template write_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, local_addr, bytes);
     }
 
     if constexpr (
@@ -138,7 +138,7 @@ AIN_DEVICE void ain<comm_engine_mask>::put_value(
     static_assert(
         !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
         "putValue requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
-    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+    comm.init(ubuf.addr, ubuf.bytes);
 
     auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -147,9 +147,9 @@ AIN_DEVICE void ain<comm_engine_mask>::put_value(
     ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
     if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
-        comm.template asccomm_write_value_nbi<T, false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
+        comm.template write_value_nbi<T, false, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
     } else {
-        comm.template asccomm_write_value_nbi<T, true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
+        comm.template write_value_nbi<T, true, PIPE_S, PIPE_MTE3, config>(channel, remote_addr, value);
     }
 
     if constexpr (
@@ -168,7 +168,7 @@ AIN_DEVICE void ain<comm_engine_mask>::get(
     static_assert(
         !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
         "get requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
-    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+    comm.init(ubuf.addr, ubuf.bytes);
 
     auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -178,9 +178,9 @@ AIN_DEVICE void ain<comm_engine_mask>::get(
     ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
 
     if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
-        comm.template asccomm_read_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
+        comm.template read_nbi<false, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
     } else {
-        comm.template asccomm_read_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
+        comm.template read_nbi<true, PIPE_S, PIPE_MTE3, config>(channel, local_addr, remote_addr, bytes);
     }
 }
 
@@ -202,7 +202,7 @@ AIN_DEVICE void ain<comm_engine_mask>::signal(
     static_assert(
         !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
         "signal requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
-    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+    comm.init(ubuf.addr, ubuf.bytes);
 
     auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
     ChannelHandle channel = get_channel_handle(hcomm_team, peer, context_index);
@@ -220,10 +220,10 @@ AIN_DEVICE void ain<comm_engine_mask>::signal(
     auto amo_addr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(local_base) + amo_offset);
 
     if constexpr (commit_flags == AIN_COMMIT_DELAYED) {
-        comm.template asccomm_atomic_faa_nbi<uint64_t, false, PIPE_S, PIPE_MTE3, config>(
+        comm.template atomic_faa_nbi<uint64_t, false, PIPE_S, PIPE_MTE3, config>(
             channel, remote_addr, amo_addr, signal_op_arg);
     } else {
-        comm.template asccomm_atomic_faa_nbi<uint64_t, true, PIPE_S, PIPE_MTE3, config>(
+        comm.template atomic_faa_nbi<uint64_t, true, PIPE_S, PIPE_MTE3, config>(
             channel, remote_addr, amo_addr, signal_op_arg);
     }
 }
@@ -340,7 +340,7 @@ AIN_DEVICE void ain_barrier_session_impl<comm_engine_mask>::signal(
     static_assert(
         !IsSameType<descriptor_ubuf, ain_descriptor_ubuf_none>::value,
         "signal requires a valid descriptor_ubuf; ain_descriptor_ubuf_none is not allowed");
-    comm.asccomm_init(ubuf.addr, ubuf.bytes);
+    comm.init(ubuf.addr, ubuf.bytes);
 
     auto hcomm_team = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
     ChannelHandle channel = get_channel_handle(hcomm_team, peer, index);
@@ -354,7 +354,7 @@ AIN_DEVICE void ain_barrier_session_impl<comm_engine_mask>::signal(
     auto local_base = hcomm_team->syncMem.shadowMem.addr;
     auto amo_addr = reinterpret_cast<__gm__ uint8_t*>(reinterpret_cast<uintptr_t>(local_base) + signal_offset);
 
-    comm.template asccomm_atomic_faa_nbi<>(channel, remote_addr, amo_addr, (uint64_t)1);
+    comm.template atomic_faa_nbi<>(channel, remote_addr, amo_addr, (uint64_t)1);
 }
 
 template <unsigned comm_engine_mask>

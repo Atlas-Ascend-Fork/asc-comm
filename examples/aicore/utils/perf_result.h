@@ -37,7 +37,7 @@ namespace examples {
 // 静态串或公共枚举名）。
 struct perf_row {
     uint32_t rank;
-    const char* api;      // "asccomm_write_nbi" / "asccomm_read_nbi" / "asccomm_write_with_notify_nbi"
+    const char* api;      // "write_nbi" / "read_nbi" / "write_with_notify_nbi"
     uint64_t len;         // DataSize/B
     uint32_t batch;       // BatchSize（无批维度的样例恒填 1，csv 照写）
     const char* commit;   // 提交方式名（各样例自己的 "inline"/"final" 等）
@@ -85,21 +85,21 @@ struct perf_wire_header {
 
 inline uint32_t perf_api_name_to_wire(const char* name)
 {
-    if (std::strcmp(name, "asccomm_write_nbi") == 0) {
+    if (std::strcmp(name, "write_nbi") == 0) {
         return PERF_WIRE_API_WRITE;
     }
-    return std::strcmp(name, "asccomm_read_nbi") == 0 ? PERF_WIRE_API_READ : PERF_WIRE_API_NOTIFY;
+    return std::strcmp(name, "read_nbi") == 0 ? PERF_WIRE_API_READ : PERF_WIRE_API_NOTIFY;
 }
 
 inline const char* perf_api_wire_to_name(uint32_t code)
 {
     switch (code) {
         case PERF_WIRE_API_WRITE:
-            return "asccomm_write_nbi";
+            return "write_nbi";
         case PERF_WIRE_API_READ:
-            return "asccomm_read_nbi";
+            return "read_nbi";
         default:
-            return "asccomm_write_with_notify_nbi";
+            return "write_with_notify_nbi";
     }
 }
 
@@ -123,23 +123,22 @@ inline const char* perf_drain_wire_to_name(uint32_t code)
 // 单个样例），自带一套带 PERF_ROW_ 前缀的定义——与 PERF_WIRE_* 同一防撞思路：
 // 前缀不与任何样例常量重名（含 11 号的 PERF_API_*），样例侧把 examples 名字
 // 空间整体 using 进来也安全。调用方直接传样例命令行里的掩码值即可。
-constexpr uint32_t PERF_ROW_API_WRITE = 1U << 0;      // asccomm_write_nbi
-constexpr uint32_t PERF_ROW_API_READ = 1U << 1;       // asccomm_read_nbi
-constexpr uint32_t PERF_ROW_API_NOTIFY = 1U << 2;     // asccomm_write_with_notify_nbi
+constexpr uint32_t PERF_ROW_API_WRITE = 1U << 0;      // write_nbi
+constexpr uint32_t PERF_ROW_API_READ = 1U << 1;       // read_nbi
+constexpr uint32_t PERF_ROW_API_NOTIFY = 1U << 2;     // write_with_notify_nbi
 constexpr uint32_t PERF_ROW_METRIC_LAT = 1U << 0;     // 时延口径
 constexpr uint32_t PERF_ROW_METRIC_BW = 1U << 1;      // 带宽口径
 constexpr uint32_t PERF_ROW_LAT_CYCLES_INDEX = 1U;    // timing[] 时延档 cycles 下标
 constexpr uint32_t PERF_ROW_BW_CYCLES_INDEX = 2U;     // timing[] 带宽档 cycles 下标
-constexpr uint32_t PERF_ROW_COMMIT_CYCLES_INDEX = 3U; // timing[] split 时 asccomm_batch_commit cycles 下标
+constexpr uint32_t PERF_ROW_COMMIT_CYCLES_INDEX = 3U; // timing[] split 时 batch_commit cycles 下标
 // 计数器换算：Ascend950 1GHz，1000 cycles = 1us（换 SOC 需同步改样例侧 def.h）
 constexpr uint64_t PERF_ROW_CYCLES_PER_US = 1000ULL;
 
-// api_bit → PERF_DATA 的 API 列名（"asccomm_write_nbi" 等）。
+// api_bit → PERF_DATA 的 API 列名（"write_nbi" 等）。
 inline const char* perf_api_bit_name(uint32_t api_bit)
 {
-    return api_bit == PERF_ROW_API_WRITE ?
-               "asccomm_write_nbi" :
-               (api_bit == PERF_ROW_API_READ ? "asccomm_read_nbi" : "asccomm_write_with_notify_nbi");
+    return api_bit == PERF_ROW_API_WRITE ? "write_nbi" :
+                                           (api_bit == PERF_ROW_API_READ ? "read_nbi" : "write_with_notify_nbi");
 }
 
 // ---------------- PERF_DATA 行与 csv 落盘 ----------------
@@ -166,7 +165,7 @@ inline void print_perf_row(const perf_row& row)
 // commit_name / topology_name：提交方式与拓扑名（同 gather_perf_rows_to_root 的
 // 重导参数，两卡恒同）。
 // commit_latency=true（13 号 split 提交方式）时额外生成 commit-lat 行：一个样本 =
-// 一次 asccomm_batch_commit 调用（样本数 = rounds），不派生带宽（固定输出 0）。
+// 一次 batch_commit 调用（样本数 = rounds），不派生带宽（固定输出 0）。
 // kernel 失败时调用方不进本函数（timing 无效）。
 template <size_t timing_words>
 inline void collect_perf_rows(

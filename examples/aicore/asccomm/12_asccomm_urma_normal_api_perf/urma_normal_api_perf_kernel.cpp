@@ -32,9 +32,9 @@ constexpr asc::wqe_entry WQE_NO_CQE_CFG = {
 // MODE_* 同时是 timing 第一维槽位（与 def.h 的 API_*_IDX 同值），
 // static_assert 编译期钉死这个 ABI。
 enum test_api : int32_t {
-    MODE_WRITE = 0, // asccomm_write_nbi
-    MODE_READ = 1,  // asccomm_read_nbi
-    MODE_NOTIFY = 2 // asccomm_write_with_notify_nbi
+    MODE_WRITE = 0, // write_nbi
+    MODE_READ = 1,  // read_nbi
+    MODE_NOTIFY = 2 // write_with_notify_nbi
 };
 
 static_assert(
@@ -56,7 +56,7 @@ public:
         this->recv_remote_base = reinterpret_cast<GM_ADDR>(this->context->recv_remote_buffer_addr);
 
         this->comm_buf = workspace;
-        if (asccomm.asccomm_init(comm_buf, asc::HCOMM_UB_BUF_SIZE) == asc::HCOMM_SUCCESS) {
+        if (asccomm.init(comm_buf, asc::HCOMM_UB_BUF_SIZE) == asc::HCOMM_SUCCESS) {
             init_ok = true;
         }
     }
@@ -114,28 +114,26 @@ private:
     {
         if constexpr (mode == MODE_WRITE) {
             if constexpr (commit) {
-                return asccomm.asccomm_write_nbi(channel, remote_addr, local_addr, len);
+                return asccomm.write_nbi(channel, remote_addr, local_addr, len);
             }
-            return asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(
-                channel, remote_addr, local_addr, len);
+            return asccomm.write_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(channel, remote_addr, local_addr, len);
         } else if constexpr (mode == MODE_READ) {
             if constexpr (commit) {
-                return asccomm.asccomm_read_nbi(recv_channel, local_addr, remote_addr, len);
+                return asccomm.read_nbi(recv_channel, local_addr, remote_addr, len);
             }
-            return asccomm.asccomm_read_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(
+            return asccomm.read_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(
                 recv_channel, local_addr, remote_addr, len);
         } else {
             if constexpr (commit) {
-                return asccomm.asccomm_write_with_notify_nbi(
-                    channel, remote_addr, local_addr, len, flag_addr, NOTIFY_VAL_BASE);
+                return asccomm.write_with_notify_nbi(channel, remote_addr, local_addr, len, flag_addr, NOTIFY_VAL_BASE);
             }
-            return asccomm.asccomm_write_with_notify_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(
+            return asccomm.write_with_notify_nbi<false, PIPE_S, PIPE_MTE3, WQE_NO_CQE_CFG>(
                 channel, remote_addr, local_addr, len, flag_addr, NOTIFY_VAL_BASE);
         }
     }
 
     // warmup：固定 commit=true 逐条提交（不受 commit=false 的 sq_depth 约束），
-    // 跑完 asccomm_drain 清干净。
+    // 跑完 drain 清干净。
     template <int mode>
     __aicore__ inline bool warmup(
         uint32_t warmups, uint64_t len, GM_ADDR local_fixed, GM_ADDR remote_addr, GM_ADDR flag_slot)
@@ -148,7 +146,7 @@ private:
                 return false;
             }
         }
-        const int32_t ret = asccomm.asccomm_drain(mode == MODE_READ ? recv_channel : channel);
+        const int32_t ret = asccomm.drain(mode == MODE_READ ? recv_channel : channel);
         context->drain_ret = static_cast<uint32_t>(ret);
         if (ret != asc::HCOMM_SUCCESS) {
             context->result = KERNEL_WARMUP_FAILED;
@@ -158,7 +156,7 @@ private:
         return true;
     }
 
-    // 时延档：计时段内只发起，asccomm_commit（final 方式）与 asccomm_drain 都在段外
+    // 时延档：计时段内只发起，commit（final 方式）与 drain 都在段外
     template <bool commit, int mode>
     __aicore__ inline bool run_latency(
         uint32_t rounds, uint64_t len, GM_ADDR local_fixed, GM_ADDR remote_addr, GM_ADDR flag_slot)
@@ -179,14 +177,14 @@ private:
         }
         int32_t ret = asc::HCOMM_SUCCESS;
         if constexpr (!commit) {
-            ret = asccomm.asccomm_commit(mode == MODE_READ ? recv_channel : channel);
+            ret = asccomm.commit(mode == MODE_READ ? recv_channel : channel);
             if (ret != asc::HCOMM_SUCCESS) {
                 context->result = KERNEL_LAT_COMMIT_FAILED;
                 context->timing[mode][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
                 return false;
             }
         }
-        ret = asccomm.asccomm_drain(mode == MODE_READ ? recv_channel : channel);
+        ret = asccomm.drain(mode == MODE_READ ? recv_channel : channel);
         context->drain_ret = static_cast<uint32_t>(ret);
         if (ret != asc::HCOMM_SUCCESS) {
             context->result = KERNEL_LAT_DRAIN_FAILED;
@@ -197,7 +195,7 @@ private:
         return true;
     }
 
-    // 带宽档：计时段内含收尾（asccomm_commit + asccomm_drain），端到端
+    // 带宽档：计时段内含收尾（commit + drain），端到端
     template <bool commit, int mode>
     __aicore__ inline bool run_bandwidth(
         uint32_t rounds, uint64_t len, GM_ADDR local_fixed, GM_ADDR remote_addr, GM_ADDR flag_slot)
@@ -210,9 +208,9 @@ private:
             ret_post = post<commit, mode>(len, local_fixed, remote_addr, flag_slot);
         }
         if constexpr (!commit) {
-            ret_commit = asccomm.asccomm_commit(mode == MODE_READ ? recv_channel : channel);
+            ret_commit = asccomm.commit(mode == MODE_READ ? recv_channel : channel);
         }
-        const int32_t ret = asccomm.asccomm_drain(mode == MODE_READ ? recv_channel : channel);
+        const int32_t ret = asccomm.drain(mode == MODE_READ ? recv_channel : channel);
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t1 = AscendC::GetSystemCycle();
         // 计时段结束（以下出窗）

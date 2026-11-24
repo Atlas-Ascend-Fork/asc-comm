@@ -1,4 +1,4 @@
-# Ain Samples
+# AIN Samples
 
 English | [简体中文](./README.md)
 

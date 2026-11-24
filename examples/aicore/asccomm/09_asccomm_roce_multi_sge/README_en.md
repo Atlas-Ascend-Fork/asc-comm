@@ -2,7 +2,7 @@
 
 ## Overview
 
-This example submits scattered memory segments through the multi-SGE `asccomm_write_nbi` and `asccomm_read_nbi` overloads on a RoCE channel. It supports both batch and normal modes, selected by `--mode batch|normal`; batch is the default.
+This example submits scattered memory segments through the multi-SGE `write_nbi` and `read_nbi` overloads on a RoCE channel. It supports both batch and normal modes, selected by `--mode batch|normal`; batch is the default.
 MPI manages the processes, exchanges HCCL root information, and synchronizes each phase.
 
 ## Supported Products and CANN Software Versions
@@ -13,18 +13,18 @@ MPI manages the processes, exchanges HCCL root information, and synchronizes eac
 
 ## Example Behavior
 
-- In batch mode, `asccomm_write_nbi` is called 128 times. Each call passes eight 64-byte scattered segments in
+- In batch mode, `write_nbi` is called 128 times. Each call passes eight 64-byte scattered segments in
   `srcDescs` and writes them to one 512-byte contiguous remote `dst`.
-- In batch mode, `asccomm_read_nbi` is called 128 times. Each call passes eight 64-byte scattered segments in
+- In batch mode, `read_nbi` is called 128 times. Each call passes eight 64-byte scattered segments in
   `dstDescs` and reads from one 512-byte contiguous remote `src`.
-- In batch mode, all calls except the last `asccomm_write_nbi` and the last `asccomm_read_nbi` use the `cqe=0`
+- In batch mode, all calls except the last `write_nbi` and the last `read_nbi` use the `cqe=0`
   configuration to suppress completion events. Those two calls use the default config template
   parameter, whose `cqe` is `1`, so the write path and read path each produce one CQE. The `poll_cq`
-  inside `asccomm_drain` handles only the corresponding completion event.
-- In normal mode, `asccomm_write_nbi` and `asccomm_read_nbi` are each called once. The request is posted with
-  `commit=false`, then published by one `asccomm_commit`, and completed by one `asccomm_drain`.
-- In batch mode, all 128 `asccomm_write_nbi` or `asccomm_read_nbi` calls are added to the same batch handle, then
-  submitted with one `asccomm_batch_commit` and completed with one `asccomm_drain`.
+  inside `drain` handles only the corresponding completion event.
+- In normal mode, `write_nbi` and `read_nbi` are each called once. The request is posted with
+  `commit=false`, then published by one `commit`, and completed by one `drain`.
+- In batch mode, all 128 `write_nbi` or `read_nbi` calls are added to the same batch handle, then
+  submitted with one `batch_commit` and completed with one `drain`.
 - Rank i communicates with rank i + N/2. In each pair, the lower rank issues the writes and the higher rank verifies the remote data. The higher rank then issues the reads and verifies its local scattered segments.
 
 ## Directory Structure
@@ -48,7 +48,7 @@ Each rank registers a 393216-byte communication buffer divided into four regions
 | `[0, 131072)` | 131072B | Local scattered source data: 128 calls × 8 segments, 64B each with 128B stride |
 | `[131072, 196608)` | 65536B | Contiguous source data: 128 messages of 512B; initialized by the lower rank and read by the higher rank in each pair |
 | `[196608, 262144)` | 65536B | Destination on the higher rank for the 128 contiguous 512B messages written by the lower rank |
-| `[262144, 393216)` | 131072B | Local scattered result of `asccomm_read_nbi`: 64B segments with 128B stride |
+| `[262144, 393216)` | 131072B | Local scattered result of `read_nbi`: 64B segments with 128B stride |
 
 The `128 * 3 * 64` byte VECOUT UB buffer is the contiguous WQE staging area in batch mode and the single-WQE construction area in normal mode.
 
@@ -100,20 +100,20 @@ mpirun -n 4 $(pwd)/build/asccomm_roce_multi_sge --mode batch
 In batch mode, the sample prints:
 
 ```text
-[rank 1] asccomm_roce_multi_sge | peer=0 mode=batch asccomm_write_nbi=128 SGEs=8 | PASS
-[rank 1] asccomm_roce_multi_sge | peer=0 mode=batch asccomm_read_nbi=128 SGEs=8 | PASS
-[rank 3] asccomm_roce_multi_sge | peer=1 mode=batch asccomm_write_nbi=128 SGEs=8 | PASS
-[rank 3] asccomm_roce_multi_sge | peer=1 mode=batch asccomm_read_nbi=128 SGEs=8 | PASS
+[rank 1] asccomm_roce_multi_sge | peer=0 mode=batch write_nbi=128 SGEs=8 | PASS
+[rank 1] asccomm_roce_multi_sge | peer=0 mode=batch read_nbi=128 SGEs=8 | PASS
+[rank 3] asccomm_roce_multi_sge | peer=1 mode=batch write_nbi=128 SGEs=8 | PASS
+[rank 3] asccomm_roce_multi_sge | peer=1 mode=batch read_nbi=128 SGEs=8 | PASS
 RESULT | Example=asccomm_roce_multi_sge | Status=PASS
 ```
 
 In normal mode, the sample prints:
 
 ```text
-[rank 1] asccomm_roce_multi_sge | peer=0 mode=normal asccomm_write_nbi=1 SGEs=8 | PASS
-[rank 1] asccomm_roce_multi_sge | peer=0 mode=normal asccomm_read_nbi=1 SGEs=8 | PASS
-[rank 3] asccomm_roce_multi_sge | peer=1 mode=normal asccomm_write_nbi=1 SGEs=8 | PASS
-[rank 3] asccomm_roce_multi_sge | peer=1 mode=normal asccomm_read_nbi=1 SGEs=8 | PASS
+[rank 1] asccomm_roce_multi_sge | peer=0 mode=normal write_nbi=1 SGEs=8 | PASS
+[rank 1] asccomm_roce_multi_sge | peer=0 mode=normal read_nbi=1 SGEs=8 | PASS
+[rank 3] asccomm_roce_multi_sge | peer=1 mode=normal write_nbi=1 SGEs=8 | PASS
+[rank 3] asccomm_roce_multi_sge | peer=1 mode=normal read_nbi=1 SGEs=8 | PASS
 RESULT | Example=asccomm_roce_multi_sge | Status=PASS
 ```
 
@@ -122,7 +122,7 @@ RESULT | Example=asccomm_roce_multi_sge | Status=PASS
 - Running the sample requires at least two NPUs; the rank count must be even and must not exceed the available NPU count.
 - Every pair of rank i and rank i + N/2 must have a RoCE link, and the channel protocol must be COMM_PROTOCOL_ROCE.
 - The CANN installation must contain the RoCE batch multi-SGE interfaces.
-- In batch mode, all 128 asccomm_write_nbi or asccomm_read_nbi calls are submitted through one batch handle and then drained together.
-- In normal mode, no batch handle is created; asccomm_write_nbi or asccomm_read_nbi is issued once, then committed and
+- In batch mode, all 128 write_nbi or read_nbi calls are submitted through one batch handle and then drained together.
+- In normal mode, no batch handle is created; write_nbi or read_nbi is issued once, then committed and
   drained, and the first 512-byte message is verified.
 - Local segment addresses and lengths are described by srcDescs/dstDescs; every segment must lie in registered communication memory.

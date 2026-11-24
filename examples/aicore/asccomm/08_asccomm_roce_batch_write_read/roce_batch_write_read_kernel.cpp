@@ -46,7 +46,7 @@ public:
         context_->result = KERNEL_SUCCESS;
         context_->hcommResult = asc::ASCCOMM_SUCCESS;
 
-        auto batchHandle = asccomm_.asccomm_make_batch_handle(
+        auto batchHandle = asccomm_.make_batch_handle(
             static_cast<AscendC::ChannelHandle>(context_->channelHandle),
             reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), BATCH_BUFFER_BYTES,
             remoteBuffer_ + SEND_DATA_OFFSET, localBuffer_ + SEND_DATA_OFFSET);
@@ -58,7 +58,7 @@ public:
 
         for (uint32_t index = 0U; index + 1U < OPERATION_COUNT; ++index) {
             const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = asccomm_.asccomm_write_nbi<ROCE_BATCH_NO_CQE_CFG>(
+            context_->hcommResult = asccomm_.write_nbi<ROCE_BATCH_NO_CQE_CFG>(
                 batchHandle, remoteBuffer_ + WRITE_RESULT_OFFSET + offset, localBuffer_ + SEND_DATA_OFFSET + offset,
                 TRANSFER_BYTES);
             if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
@@ -68,7 +68,7 @@ public:
         }
 
         const uint64_t writeLastOffset = static_cast<uint64_t>(OPERATION_COUNT - 1U) * TRANSFER_BYTES;
-        context_->hcommResult = asccomm_.asccomm_write_nbi(
+        context_->hcommResult = asccomm_.write_nbi(
             batchHandle, remoteBuffer_ + WRITE_RESULT_OFFSET + writeLastOffset,
             localBuffer_ + SEND_DATA_OFFSET + writeLastOffset, TRANSFER_BYTES);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
@@ -78,7 +78,7 @@ public:
 
         for (uint32_t index = 0U; index + 1U < OPERATION_COUNT; ++index) {
             const uint64_t offset = static_cast<uint64_t>(index) * TRANSFER_BYTES;
-            context_->hcommResult = asccomm_.asccomm_read_nbi<ROCE_BATCH_NO_CQE_CFG>(
+            context_->hcommResult = asccomm_.read_nbi<ROCE_BATCH_NO_CQE_CFG>(
                 batchHandle, localBuffer_ + READ_RESULT_OFFSET + offset, remoteBuffer_ + SEND_DATA_OFFSET + offset,
                 TRANSFER_BYTES);
             if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
@@ -88,7 +88,7 @@ public:
         }
 
         const uint64_t readLastOffset = static_cast<uint64_t>(OPERATION_COUNT - 1U) * TRANSFER_BYTES;
-        context_->hcommResult = asccomm_.asccomm_read_nbi(
+        context_->hcommResult = asccomm_.read_nbi(
             batchHandle, localBuffer_ + READ_RESULT_OFFSET + readLastOffset,
             remoteBuffer_ + SEND_DATA_OFFSET + readLastOffset, TRANSFER_BYTES);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
@@ -96,13 +96,13 @@ public:
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_batch_commit(batchHandle);
+        context_->hcommResult = asccomm_.batch_commit(batchHandle);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_drain(batchHandle);
+        context_->hcommResult = asccomm_.drain(batchHandle);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }

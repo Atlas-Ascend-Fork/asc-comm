@@ -55,8 +55,8 @@ cann-asc-comm_9.2.0_linux-<arch>.run
 
 | 仓库扫描目录 | CANN安装目录 |
 | --- | --- |
-| `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
-| `src/aicore/hcomm/` | `asc/impl/adv_api/detail/hcomm/` |
+| `src/aicore/legacy/hcomm/` | `asc/include/adv_api/hcomm/` |
+| `src/aicore/legacy/jetty/` | `asc/include/comm_api/aicore/jetty/` |
 | `include/`中的其他目录 | `asc/include/comm_api/`，保留相对路径 |
 | `src/`中的其他目录 | `asc/impl/comm_api/`，保留相对路径 |
 
@@ -64,7 +64,6 @@ cann-asc-comm_9.2.0_linux-<arch>.run
 
 ```text
 asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
-asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
 例如，`include/aicore/ain/`安装到`asc/include/comm_api/aicore/ain/`，`include/ccu/`安装到`asc/include/comm_api/ccu/`。run包仅收集上述目录中制包时存在的`.h`文件；`.cpp`、`.inc`等其他类型的文件不会进入包。在这些目录中新增头文件后重新制包，新文件会自动进入run包。

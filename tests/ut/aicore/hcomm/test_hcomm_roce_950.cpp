@@ -605,15 +605,15 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
         HCOMM_SUCCESS);
 
     RoceWqeEntry expected[2]{};
-    hcomm.impl_.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
-    hcomm.impl_.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
+    hcomm.impl.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    hcomm.impl.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
         &expected[0], reinterpret_cast<GM_ADDR>(0x200), 10, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
-    hcomm.impl_.fill_data_seg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mr_key.l_key);
+    hcomm.impl.fill_data_seg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mr_key.l_key);
 
-    hcomm.impl_.fill_ctrl_seg<kRoceNoCqeCfg>(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
-    hcomm.impl_.fill_task_seg<kRoceNoCqeCfg, asc::asccomm_roce_op_type::READ>(
+    hcomm.impl.fill_ctrl_seg<kRoceNoCqeCfg>(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    hcomm.impl.fill_task_seg<kRoceNoCqeCfg, asc::asccomm_roce_op_type::READ>(
         &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
-    hcomm.impl_.fill_data_seg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mr_key.l_key);
+    hcomm.impl.fill_data_seg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mr_key.l_key);
 
     auto* actualWords = reinterpret_cast<uint64_t*>(batchHandle.buffer.raw_buffer);
     auto* expectedWords = reinterpret_cast<uint64_t*>(expected);
@@ -639,12 +639,12 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
 
     auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.raw_buffer);
     RoceWqeEntry expected{};
-    hcomm.impl_.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
+    hcomm.impl.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
     expected.ctrl.wf_bdsl &= ~asc::hto_ns(
         static_cast<uint16_t>(0xffU << (asc::ROCE_1825_WQE_DATA_SEG_SHIFT - asc::ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
     expected.ctrl.wf_bdsl |= asc::hto_ns(
         static_cast<uint16_t>(2U << (asc::ROCE_1825_WQE_DATA_SEG_SHIFT - asc::ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
-    hcomm.impl_.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
+    hcomm.impl.fill_task_seg<ROCE_DEFAULT_CFG, asc::asccomm_roce_op_type::WRITE>(
         &expected, reinterpret_cast<GM_ADDR>(0x200), 21, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
     auto* expectedWords = reinterpret_cast<uint64_t*>(&expected);
     for (uint32_t i = 0; i < 6; ++i) {

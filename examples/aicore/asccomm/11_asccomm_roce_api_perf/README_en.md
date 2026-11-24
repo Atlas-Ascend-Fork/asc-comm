@@ -2,34 +2,34 @@
 
 ## Overview
 
-This example is adapted from 09_asccomm_roce_batch_write_read to measure the RoCE batch APIs at different payload sizes. By default, it runs the complete asccomm_write_nbi flow with payloads starting at 8 bytes and doubling up to 16 MB. Use --api read to run the complete asccomm_read_nbi flow.
+This example is adapted from 09_asccomm_roce_batch_write_read to measure the RoCE batch APIs at different payload sizes. By default, it runs the complete write_nbi flow with payloads starting at 8 bytes and doubling up to 16 MB. Use --api read to run the complete read_nbi flow.
 Requests in one batch do not overlap: request i uses an offset of i * AlignUp(dataSize, 64) bytes.
 
 By default, `--mode batch` measures the batch APIs. Use `--mode normal` to measure the normal APIs. Both modes run 100 warmup rounds and average the following 100 rounds.
 
 Each batch-mode round contains these phases:
 
-1. asccomm_make_batch_handle
-2. asccomm_write_nbi or asccomm_read_nbi 1024 times by default, configurable with --batch-size; the first N-1 requests use cqe=0 and the Nth uses cqe=1
-3. asccomm_batch_commit
-4. asccomm_drain
+1. make_batch_handle
+2. write_nbi or read_nbi 1024 times by default, configurable with --batch-size; the first N-1 requests use cqe=0 and the Nth uses cqe=1
+3. batch_commit
+4. drain
 
-The Nth request generates the only CQE in the batch, so asccomm_drain waits for all requests in that batch.
+The Nth request generates the only CQE in the batch, so drain waits for all requests in that batch.
 
 Each normal-mode round contains these phases:
 
-1. asccomm_init
-2. asccomm_write_nbi or asccomm_read_nbi: the first 999 requests use commit=false and cqe=0, and the 1000th uses commit=true with cqe=1
+1. init
+2. write_nbi or read_nbi: the first 999 requests use commit=false and cqe=0, and the 1000th uses commit=true with cqe=1
 3. The first 999 requests and the 1000th commit=true request are timed as one whole phase; commit is not timed separately
-4. asccomm_drain
+4. drain
 
-Batch mode records issue time per request, the per-request average of all batch requests plus one commit, asccomm_batch_commit, asccomm_drain, and total elapsed time used for throughput calculation. Normal mode records only the per-request average of all requests plus the final commit, asccomm_drain, and throughput. All times are in microseconds (us), using 1 cycle = 1 ns.
+Batch mode records issue time per request, the per-request average of all batch requests plus one commit, batch_commit, drain, and total elapsed time used for throughput calculation. Normal mode records only the per-request average of all requests plus the final commit, drain, and throughput. All times are in microseconds (us), using 1 cycle = 1 ns.
 
 ## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR&950DT products | >= CANN 9.1.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Files
 
@@ -47,7 +47,7 @@ Batch mode records issue time per request, the per-request average of all batch 
 ## Data Layout
 
 At startup, the example calculates, allocates, and registers one contiguous communication memory region from --max-bytes and --batch-size; the registered region is at least 4 KB. --min-bytes and --max-bytes are configurable within the range from 8 bytes to 16 MB, and the registered memory size adapts to --max-bytes. The send buffer starts at the region base, and the receive buffer starts after the 64-byte-aligned request span. Requests use payload-sized slots aligned up to 64 bytes based on the initial registered address; no request registers a new memory region.
-The total registered size is max(4096, 2 * batchSize * AlignUp(maxBytes, 64)). The first half is the send region and the second half is the receive region. Both regions contain batchSize request slots of AlignUp(maxBytes, 64) bytes each. For asccomm_write_nbi, a local send slot is the source and the peer receive slot is the destination. For asccomm_read_nbi, a local receive slot is the destination and the peer send slot is the source. Requests in one batch advance by AlignUp(dataSize, 64) bytes based on the initial registered address; no request registers a new memory region.
+The total registered size is max(4096, 2 * batchSize * AlignUp(maxBytes, 64)). The first half is the send region and the second half is the receive region. Both regions contain batchSize request slots of AlignUp(maxBytes, 64) bytes each. For write_nbi, a local send slot is the source and the peer receive slot is the destination. For read_nbi, a local receive slot is the destination and the peer send slot is the source. Requests in one batch advance by AlignUp(dataSize, 64) bytes based on the initial registered address; no request registers a new memory region.
 The send region is filled with a data pattern that varies by rank and address offset, which detects requests landing in the wrong slot or data being shifted.
 
 ## Build
@@ -110,8 +110,8 @@ mpirun -n 2 $(pwd)/build/asccomm_roce_api_perf \
 The output contains one PERF_DATA record per rank, API, and payload size:
 
 ```text
-    Rank=0 | Mode=batch | API=asccomm_write_nbi | DataBytes=256 | BatchSize=1024 | IssuePerRequest(Us)=... | IssueCommitPerRequest(Us)=... | asccomm_batch_commit(Us)=... | asccomm_drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
-    Rank=0 | Mode=normal | API=asccomm_write_nbi | DataBytes=256 | LoopSize=1000 | IssueCommitPerRequest(Us)=... | asccomm_drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
+    Rank=0 | Mode=batch | API=write_nbi | DataBytes=256 | BatchSize=1024 | IssuePerRequest(Us)=... | IssueCommitPerRequest(Us)=... | batch_commit(Us)=... | drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
+    Rank=0 | Mode=normal | API=write_nbi | DataBytes=256 | LoopSize=1000 | IssueCommitPerRequest(Us)=... | drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
 RESULT | Example=asccomm_roce_api_perf | Status=PASS
 ```
 
@@ -135,4 +135,4 @@ This creates perf_data.csv in the current directory by default.
 - MPI Bcast distributes the root info generated by HcclGetRootInfo to all ranks.
 - A full default run registers 32 GB of contiguous device memory on each rank (16 GB for send and 16 GB for receive). When --max-bytes specifies a smaller upper bound, the registered memory shrinks accordingly.
 - All communication addresses must be 64-byte aligned.
-- After both asccomm_write_nbi and asccomm_read_nbi complete, the first min(dataSize, 256) bytes of each request slot are validated. Local receive slots are cleared before asccomm_read_nbi to prevent stale data from affecting validation.
+- After both write_nbi and read_nbi complete, the first min(dataSize, 256) bytes of each request slot are validated. Local receive slots are cleared before read_nbi to prevent stale data from affecting validation.

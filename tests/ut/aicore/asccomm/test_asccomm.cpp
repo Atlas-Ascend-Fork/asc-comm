@@ -58,8 +58,7 @@ TEST_F(asccomm_common_test_suite, AIV_READ)
 {
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    int32_t ret =
-        asccomm.asccomm_read_nbi(channel_handle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
+    int32_t ret = asccomm.read_nbi(channel_handle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
 }
 
@@ -68,7 +67,7 @@ TEST_F(asccomm_common_test_suite, AIV_WRITE)
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     int32_t ret =
-        asccomm.asccomm_write_nbi(channel_handle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
+        asccomm.write_nbi(channel_handle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
 }
 
@@ -76,7 +75,7 @@ TEST_F(asccomm_common_test_suite, AIV_WRITE_WITH_NOTIFY_NBI)
 {
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    int32_t ret = asccomm.asccomm_write_with_notify_nbi(
+    int32_t ret = asccomm.write_with_notify_nbi(
         channel_handle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1,
         reinterpret_cast<GM_ADDR>(0x33), 2);
     EXPECT_EQ(ret, -1);

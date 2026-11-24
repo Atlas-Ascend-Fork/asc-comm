@@ -1,9 +1,9 @@
-# asccomm SIMT URMA Performance Sample
+# CommRW SIMT URMA Performance Sample
 
 ## Overview
 
-This sample measures the issue performance of five point-to-point interfaces on the SIMT path: `asccomm_write_nbi`, `asccomm_write_value_nbi`, `asccomm_write_with_notify_nbi`,
-`asccomm_atomic_faa_nbi`, and `asccomm_atomic_cas_nbi`, covering both immediate and deferred publication, and reports the WQE issue latency and completion bandwidth separately.
+This sample measures the issue performance of five point-to-point interfaces on the SIMT path: `write_nbi`, `write_value_nbi`, `write_with_notify_nbi`,
+`atomic_faa_nbi`, and `atomic_cas_nbi`, covering both immediate and deferred publication, and reports the WQE issue latency and completion bandwidth separately.
 
 This is a point-to-point benchmark: `<nranks>` can be >= 2, but only rank 0 (the sender) and rank 1 (the receiver) establish the channel and run the timing;
 the other ranks print `SKIP` and exit directly. Keeping a single sender is intentional — multiple concurrent senders contend for the link and SQ resources,
@@ -38,23 +38,23 @@ Five interfaces x two publication strategies:
 
 | `api` | Description |
 | --- | --- |
-| `write` | `asccomm_write_nbi`; the WQE points at a local buffer through an SGE, and the payload length is configurable |
-| `write_value` | `asccomm_write_value_nbi`; an 8-byte payload inlined in the WQE, without reading the local buffer |
-| `notify` | `asccomm_write_with_notify_nbi`; writes a remote signal word after the payload, and the payload length is configurable |
-| `faa` | `asccomm_atomic_faa_nbi`; accumulates into the same remote 8-byte word |
-| `cas` | `asccomm_atomic_cas_nbi`; compare-and-swap on the same remote 8-byte word |
+| `write` | `write_nbi`; the WQE points at a local buffer through an SGE, and the payload length is configurable |
+| `write_value` | `write_value_nbi`; an 8-byte payload inlined in the WQE, without reading the local buffer |
+| `notify` | `write_with_notify_nbi`; writes a remote signal word after the payload, and the payload length is configurable |
+| `faa` | `atomic_faa_nbi`; accumulates into the same remote 8-byte word |
+| `cas` | `atomic_cas_nbi`; compare-and-swap on the same remote 8-byte word |
 
 | `commit-mode` | Description |
 | --- | --- |
 | `immediate` | Every WQE uses `commit=true` and rings its own doorbell |
 | `last` | All WQEs except the last one use `commit=false`, and the last one publishes the whole batch |
 
-The two strategies also differ in SQ footprint: a deferred `asccomm_write_nbi` occupies one basic block, while an immediate one splits the payload into two SGEs
+The two strategies also differ in SQ footprint: a deferred `write_nbi` occupies one basic block, while an immediate one splits the payload into two SGEs
 to fill the 128-byte DWQE window and occupies two. The other four interfaces occupy a fixed 2 BB regardless of strategy. `SqBlocksPerWqe` in the log
 reports the actual footprint.
 
-The timing flow is: issue the interface `warmup` times, then `asccomm_drain` (not timed); then issue it `iterations` times and record `IssueTime`
-(counts only the timed WQE issues, used to compare issue latency between interfaces). After `asccomm_drain` completes, record `CompletionTime` (used only to compute
+The timing flow is: issue the interface `warmup` times, then `drain` (not timed); then issue it `iterations` times and record `IssueTime`
+(counts only the timed WQE issues, used to compare issue latency between interfaces). After `drain` completes, record `CompletionTime` (used only to compute
 `CompletionBandwidth`). `DrainStatus` and `Completed` are used to confirm that the run completed correctly.
 
 Consecutive WQEs rotate over multiple slots to avoid landing on the same cache line — otherwise the measurement reflects the remote memory system rather than the issue path.
@@ -76,7 +76,7 @@ The two atomic interfaces are the exception: they must target the same word for 
    ranks exchange root info through the TCP control channel specified on the command line (`examples/aicore/utils/rank_sync.h`) and
    create the communicator; only rank 0 and rank 1 join the communicator, and the other ranks exit directly.
 2. Rank 0 and rank 1 register their memory, create the channel, and exchange memory addresses.
-3. Rank 0 issues the interface `warmup` times and calls `asccomm_drain`, then issues it `iterations` times while timing, and calls `asccomm_drain` again.
+3. Rank 0 issues the interface `warmup` times and calls `drain`, then issues it `iterations` times while timing, and calls `drain` again.
 4. Rank 0 records `IssueTime`, `CompletionTime`, and `Completed`; rank 1 validates the landed data.
 5. Outputs the RESULT line.
 
@@ -148,11 +148,11 @@ Perform the following steps in the root directory of this sample to compile and 
 ## Notes
 
 - Running the sample requires at least two NPUs; a single-card environment supports compilation verification only.
-- `--payload-bytes` must be at least 2: an immediate `asccomm_write_nbi` splits the payload into two SGEs, and a single byte would make the first segment zero-length,
+- `--payload-bytes` must be at least 2: an immediate `write_nbi` splits the payload into two SGEs, and a single byte would make the first segment zero-length,
   which URMA does not accept.
 - The receiving side only validates `write` and `write_value`: the `notify` signal word shares one slot with its payload, and the two atomic
   interfaces rewrite the target word on every iteration, so the landed image depends on the iteration count and has no stable expected value. These two categories rely on
   `DrainStatus` and `Completed` to determine whether the run completed correctly.
 - For a payload sweep, run the executable once for each of several `--payload-bytes` values (such as `8 16 64 256 1024 4096 16384 65536`).
   No further configuration is required.
-- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `asccomm` library.
+- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `hcomm` library.

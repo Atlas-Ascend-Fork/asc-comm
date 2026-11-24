@@ -3,35 +3,35 @@
 ## 概述
 
 本样例基于 09_asccomm_roce_batch_write_read 改造，用于测量 RoCE 批量接口在不同数据量下的性能。
-默认执行 asccomm_write_nbi 全流程，数据量从 8B 开始，按 2 倍递增到 16MB；可通过 --api 参数切换为 asccomm_read_nbi。
+默认执行 write_nbi 全流程，数据量从 8B 开始，按 2 倍递增到 16MB；可通过 --api 参数切换为 read_nbi。
 同一批请求不重叠：第 i 次请求使用 i * AlignUp(dataSize, 64) 字节偏移。
 
 默认通过 `--mode batch` 测试批量接口；通过 `--mode normal` 可切换到普通接口。两种模式都先执行 100 次 warmup，再对后续 100 次取平均值。
 
 `--mode batch` 每轮包含以下阶段：
 
-1. asccomm_make_batch_handle
-2. asccomm_write_nbi 或 asccomm_read_nbi 默认执行 1024 次，次数由 --batch-size 配置；前 N-1 次 cqe=0，第 N 次 cqe=1
-3. asccomm_batch_commit
-4. asccomm_drain
+1. make_batch_handle
+2. write_nbi 或 read_nbi 默认执行 1024 次，次数由 --batch-size 配置；前 N-1 次 cqe=0，第 N 次 cqe=1
+3. batch_commit
+4. drain
 
-第 N 次请求生成整批唯一的 CQE，使 asccomm_drain 可以等待本批请求全部完成。
+第 N 次请求生成整批唯一的 CQE，使 drain 可以等待本批请求全部完成。
 
 `--mode normal` 每轮包含以下阶段：
 
-1. asccomm_init
-2. asccomm_write_nbi 或 asccomm_read_nbi：前 999 次延迟提交且 cqe=0，第 1000 次 commit=true 且 cqe=1
+1. init
+2. write_nbi 或 read_nbi：前 999 次延迟提交且 cqe=0，第 1000 次 commit=true 且 cqe=1
 3. 前 999 次请求与第 1000 次 commit=true 请求作为一个整体计时，不单独统计提交阶段
-4. asccomm_drain
+4. drain
 
-batch 模式记录单次请求下发、“batch 次请求加 1 次提交”的单请求平均耗时、asccomm_batch_commit、asccomm_drain 以及用于吞吐计算的整轮耗时；normal 模式仅记录“全部请求加最后一次提交”的单请求平均耗时、asccomm_drain 和吞吐。耗时均以微秒（us）为单位，按 1 cycle = 1 ns 换算。
+batch 模式记录单次请求下发、“batch 次请求加 1 次提交”的单请求平均耗时、batch_commit、drain 以及用于吞吐计算的整轮耗时；normal 模式仅记录“全部请求加最后一次提交”的单请求平均耗时、drain 和吞吐。耗时均以微秒（us）为单位，按 1 cycle = 1 ns 换算。
 
 
 ## 本样例支持的产品及CANN软件版本
 
 | 产品 | CANN软件版本 |
 |------|-------------|
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构
 
@@ -103,8 +103,8 @@ export LD_LIBRARY_PATH="${MPI_HOME}/lib:${LD_LIBRARY_PATH:-}"
 
 运行输出为 PERF_DATA 记录，包含每个 rank、接口、数据量、各阶段耗时和吞吐量：
 
-    Rank=0 | Mode=batch | API=asccomm_write_nbi | DataBytes=256 | BatchSize=1024 | IssuePerRequest(Us)=... | IssueCommitPerRequest(Us)=... | asccomm_batch_commit(Us)=... | asccomm_drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
-    Rank=0 | Mode=normal | API=asccomm_write_nbi | DataBytes=256 | LoopSize=1000 | IssueCommitPerRequest(Us)=... | asccomm_drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
+    Rank=0 | Mode=batch | API=write_nbi | DataBytes=256 | BatchSize=1024 | IssuePerRequest(Us)=... | IssueCommitPerRequest(Us)=... | batch_commit(Us)=... | drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
+    Rank=0 | Mode=normal | API=write_nbi | DataBytes=256 | LoopSize=1000 | IssueCommitPerRequest(Us)=... | drain(Us)=... | DeviceTime(Us)=... | DeviceGBps=...
     RESULT | Example=asccomm_roce_api_perf | Status=PASS
 
 --api 可选值为 write 和 read，默认值为 write。--mode 可选值为 batch 和 normal，默认值为 batch。

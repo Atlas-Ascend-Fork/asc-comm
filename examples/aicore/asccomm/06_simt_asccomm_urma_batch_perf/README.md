@@ -1,16 +1,16 @@
-# asccomm SIMT Batch提交方式功能与下发性能样例
+# CommRW SIMT Batch提交方式功能与下发性能样例
 
 ## 概述
 
 本样例展示如何在Ascend C SIMT Kernel中，基于`asc::simt::asccomm`的Batch提交接口，验证六类URMA
-接口（`asccomm_write_nbi`、`asccomm_read_nbi`、`asccomm_write_with_notify_nbi`、`asccomm_write_value_nbi`、`asccomm_atomic_faa_nbi`、`asccomm_atomic_cas_nbi`）的
+接口（`write_nbi`、`read_nbi`、`write_with_notify_nbi`、`write_value_nbi`、`atomic_faa_nbi`、`atomic_cas_nbi`）的
 功能正确性，并测量不同提交方式下WQE的设备侧下发耗时。样例采用rank配对拓扑（2卡直连一对；
 8卡按0→1、2→3、4→5、6→7配成四对），每对独立建链、独立计时并输出结果。
 
 样例覆盖两种提交方式：
 
-- **ExplicitBatch**：单lane执行`Append → asccomm_batch_commit`，batch size固定为1。
-- **GroupBatch**：多lane各构造一个请求，每批一次`asccomm_batch_commit`；batch size等于lane数。
+- **ExplicitBatch**：单lane执行`Append → batch_commit`，batch size固定为1。
+- **GroupBatch**：多lane各构造一个请求，每批一次`batch_commit`；batch size等于lane数。
 
 主要指标`IssueTicksPerRequest`为计时提交区间的设备`clock()`差值除以请求数，越低越好。
 
@@ -26,7 +26,7 @@
 06_simt_asccomm_urma_batch_perf
 ├── CMakeLists.txt            // 编译工程文件
 ├── simt_batch_perf.asc       // Host侧通信域创建、内存注册、用例调度与结果校验
-├── op_kernel.cpp             // SIMT Kernel侧asccomm接口调用与下发计时
+├── op_kernel.cpp             // SIMT Kernel侧CommRW接口调用与下发计时
 ├── simt_batch_perf_common.h  // Host与Kernel共享定义
 ├── README.md                 // 中文样例说明
 └── README_en.md              // 英文样例说明
@@ -40,23 +40,23 @@
 
 | API | 数据流向 | 语义说明 |
 |------|---------|------|
-| `asccomm_write_nbi` | 本地GM → 远端GM | 将本地Global Memory数据写入远端NPU指定地址。 |
-| `asccomm_read_nbi` | 远端GM → 本地GM | 从远端NPU指定地址读取数据到本地Global Memory。 |
-| `asccomm_write_with_notify_nbi` | 本地GM → 远端GM | 写入payload后，再写一个远端notify word。 |
-| `asccomm_write_value_nbi` | 本地WQE → 远端GM | 8字节值内联在WQE中直接写入远端，不读本地缓冲区。 |
-| `asccomm_atomic_faa_nbi` | 远端GM ↔ 本地GM | 对远端8字节word累加，fetch返回值写回本地。 |
-| `asccomm_atomic_cas_nbi` | 远端GM ↔ 本地GM | 对远端8字节word比较交换，fetch返回值写回本地。 |
+| `write_nbi` | 本地GM → 远端GM | 将本地Global Memory数据写入远端NPU指定地址。 |
+| `read_nbi` | 远端GM → 本地GM | 从远端NPU指定地址读取数据到本地Global Memory。 |
+| `write_with_notify_nbi` | 本地GM → 远端GM | 写入payload后，再写一个远端notify word。 |
+| `write_value_nbi` | 本地WQE → 远端GM | 8字节值内联在WQE中直接写入远端，不读本地缓冲区。 |
+| `atomic_faa_nbi` | 远端GM ↔ 本地GM | 对远端8字节word累加，fetch返回值写回本地。 |
+| `atomic_cas_nbi` | 远端GM ↔ 本地GM | 对远端8字节word比较交换，fetch返回值写回本地。 |
 
 两种提交方式：
 
 | 提交方式 | 说明 |
 |---------|------|
-| ExplicitBatch | 单lane先`append_one_wqe`入队，再`asccomm_batch_commit`统一发布，batch size固定为1。 |
+| ExplicitBatch | 单lane先`append_one_wqe`入队，再`batch_commit`统一发布，batch size固定为1。 |
 | GroupBatch | group内每个lane各构造一个请求，由最后一个publisher lane发布整批；batch size等于lane数。 |
 
 数据校验策略：
 
-- 每项用例同时检查设备返回状态（`asccomm_drain`状态与完成计数）和落地数据。
+- 每项用例同时检查设备返回状态（`drain`状态与完成计数）和落地数据。
 - **read**检查本地落地的远端数据；**write/notify**检查接收端payload与notify值；
   **FAA/CAS**同时校验fetch返回值（发送端）与远端累加/交换结果（接收端）。
 - 计时与预热请求轮转64个slot，避免都落在同一条cache line上；按slot而非按操作校验。
@@ -81,8 +81,8 @@
    `HcclChannelAcquire`创建P2P通道（引擎`COMM_ENGINE_AIV`、协议`COMM_PROTOCOL_UBC_CTP`），
    并通过`HcclChannelGetRemoteMems`解析远端recv buffer的注册索引。
 4. Host预初始化send/recv数据（原子接口预置远端初值），barrier同步后发送方发起Kernel。
-5. Kernel侧执行`asccomm_init()`分配UB工作区后，按提交方式下发warmup与计时请求：连续请求轮转64个slot，
-   最后`asccomm_drain()`（Batch方式为`asccomm_drain(batch)`）等待完成。
+5. Kernel侧执行`init()`分配UB工作区后，按提交方式下发warmup与计时请求：连续请求轮转64个slot，
+   最后`drain()`（Batch方式为`drain(batch)`）等待完成。
 6. 发送方回读计时与完成状态，Read/Atomic接口同时校验本地数据；接收方校验Write/Notify落地
    数据与原子远端结果。
 7. 两端校验结果经控制通道allgather汇聚，由发送方输出该pair的RESULT行，父进程输出汇总结果。
@@ -92,25 +92,25 @@
 constexpr uint32_t bytes = 256U; // 128B共享上下文 + 128B发布者DWQE镜像
 alignas(128) __ubuf__ uint64_t workspace[bytes / sizeof(uint64_t)];
 asc::simt::asccomm<> asccomm;
-if (asccomm.asccomm_init(nullptr, 0U) != 0) return;
-auto batch = asccomm.asccomm_make_batch_handle(
+if (asccomm.init(nullptr, 0U) != 0) return;
+auto batch = asccomm.make_batch_handle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes);
 if (batch.context == nullptr) return;
-if (asccomm.asccomm_write_nbi(batch, remote, local, 64U) != 0) return;
-if (asccomm.asccomm_batch_commit(batch) != 0) return;
-if (asccomm.asccomm_drain(batch) != 0) return;
+if (asccomm.write_nbi(batch, remote, local, 64U) != 0) return;
+if (asccomm.batch_commit(batch) != 0) return;
+if (asccomm.drain(batch) != 0) return;
 ```
 
 GroupBatch调用使用同一个不保存Group的asccomm对象，并在每次批次操作末尾显式传入group：
 
 ```cpp
 // 以下调用由group所有lane参与；每lane构造自己的一个请求。
-auto batch = asccomm.asccomm_make_batch_handle(
+auto batch = asccomm.make_batch_handle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, group);
 if (batch.context == nullptr) return;
-if (asccomm.asccomm_write_nbi(batch, remote_for_lane, local_for_lane, 64U, group) != 0) return;
-if (asccomm.asccomm_batch_commit(batch, group) != 0) return;
-// 所有posting lane返回后，由一个lane调用asccomm_drain；asccomm_drain不接收group。
+if (asccomm.write_nbi(batch, remote_for_lane, local_for_lane, 64U, group) != 0) return;
+if (asccomm.batch_commit(batch, group) != 0) return;
+// 所有posting lane返回后，由一个lane调用drain；drain不接收group。
 ```
 
 ## 编译运行
@@ -195,7 +195,7 @@ if (asccomm.asccomm_batch_commit(batch, group) != 0) return;
   ```
 
   主要指标`IssueTicksPerRequest`=计时提交区间的设备`clock()`差值/请求数，越低越好。包含构造、
-  提交及提交路径同步，不包含随后`asccomm_drain`的等待；单位为原始ticks，未换算为ns。`BatchSize`是每批
+  提交及提交路径同步，不包含随后`drain`的等待；单位为原始ticks，未换算为ns。`BatchSize`是每批
   请求数；`Jettys`和`ConcurrentJettys`分别是配置数量和实际最大并行数量，本样例单Jetty两者均为1；
   `Pair`是rank对。只比较PASS行，不与未对齐时钟口径的SIMD数据直接计算加速比。
 
@@ -205,9 +205,9 @@ if (asccomm.asccomm_batch_commit(batch, group) != 0) return;
 - BatchHandle绑定本channel的远端注册区，后续目标地址必须位于同一区域；同一批次仅允许提交相同类型的通信请求。
 - Group调用使用同一个不保存Group的asccomm对象，并在每次批次操作末尾显式传入group；同一handle
   从创建到提交必须使用同一Group（成员、rank及size保持一致）和同一UB工作区。无group重载用于
-  单lane handle；size=1的Group使用单lane分派。asccomm_write_nbi/asccomm_read_nbi/asccomm_write_with_notify_nbi/asccomm_write_value_nbi/asccomm_atomic_faa_nbi/asccomm_atomic_cas_nbi均在末尾
+  单lane handle；size=1的Group使用单lane分派。write_nbi/read_nbi/write_with_notify_nbi/write_value_nbi/atomic_faa_nbi/atomic_cas_nbi均在末尾
   接收group入参，显式config模板参数位于group之前。
 - `IssueTicksPerRequest`衡量平均下发成本，不是单个请求的端到端延迟：包括构造/发布和提交路径
-  同步，不包含后续`asccomm_drain`等待；不计预热，也不计host launch间隙。
-- `--payload-bytes`最小为2：`asccomm_write_nbi`把payload拆成两段SGE，1字节会让第一段长度为0，
+  同步，不包含后续`drain`等待；不计预热，也不计host launch间隙。
+- `--payload-bytes`最小为2：`write_nbi`把payload拆成两段SGE，1字节会让第一段长度为0，
   而URMA不接受长度为0的SGE。

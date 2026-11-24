@@ -1,15 +1,15 @@
-# Asccomm AIV RoCE 批量 asccomm_write_nbi/asccomm_read_nbi 样例
+# Asccomm AIV RoCE 批量 write_nbi/read_nbi 样例
 
 ## 概述
 
 本样例使用 MPI 管理多进程，在每个 MPI rank 上选择一张 NPU，并通过 RoCE
 `COMM_PROTOCOL_ROCE` 通道验证 `asccomm.h` 提供的批量接口：
 
-- `asccomm_make_batch_handle`
-- 入参为 `asc::ubc_batch_handle` 的 `asccomm_write_nbi`
-- 入参为 `asc::ubc_batch_handle` 的 `asccomm_read_nbi`
-- `asccomm_batch_commit`
-- `asccomm_drain`
+- `make_batch_handle`
+- 入参为 `asc::ubc_batch_handle` 的 `write_nbi`
+- 入参为 `asc::ubc_batch_handle` 的 `read_nbi`
+- `batch_commit`
+- `drain`
 
 rank i 与 rank i + N/2 两两成对通信，其中 N 为 rank 总数：
 
@@ -18,12 +18,12 @@ rank i 与 rank i + N/2 两两成对通信，其中 N 为 rank 总数：
 - 8 卡：rank 0 ↔ rank 4，rank 1 ↔ rank 5，rank 2 ↔ rank 6，rank 3 ↔ rank 7
 
 每个 rank 只与唯一对端建立通道。在同一个 batch handle 中连续调用 1000 次
-`asccomm_write_nbi` 和 1000 次 `asccomm_read_nbi`；第 `i` 次调用使用 `i * 64` 字节的地址偏移。提交和
+`write_nbi` 和 1000 次 `read_nbi`；第 `i` 次调用使用 `i * 64` 字节的地址偏移。提交和
 完成等待结束后，各 rank 校验对端 rank 写入的 1000 个数据片段以及从同一对端读回的
 1000 个数据片段。
-除最后一次 `asccomm_write_nbi` 和最后一次 `asccomm_read_nbi` 外，其余 WQE 均通过 `cqe=0` 配置关闭完成事件
+除最后一次 `write_nbi` 和最后一次 `read_nbi` 外，其余 WQE 均通过 `cqe=0` 配置关闭完成事件
 生成；最后两次操作使用默认 config 模板参数，其 `cqe=1`。因此整批 2000 个 WQE 只产生
-2 个 CQE，`asccomm_drain` 内的 `poll_cq` 只需等待并处理这 2 个完成事件。
+2 个 CQE，`drain` 内的 `poll_cq` 只需等待并处理这 2 个完成事件。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -50,8 +50,8 @@ rank i 与 rank i + N/2 两两成对通信，其中 N 为 rank 总数：
 | 区域 | 用途 |
 | --- | --- |
 | `[0, 64000)` | 本 rank 的源数据 |
-| `[64000, 128000)` | 接收对端 rank 的 `asccomm_write_nbi` 结果 |
-| `[128000, 192000)` | 保存本 rank 从对端读回的 `asccomm_read_nbi` 结果 |
+| `[64000, 128000)` | 接收对端 rank 的 `write_nbi` 结果 |
+| `[128000, 192000)` | 保存本 rank 从对端读回的 `read_nbi` 结果 |
 
 批量 WQE 缓冲区位于 Kernel 的 VECOUT UB 中，大小为 `2000 * 64` 字节。
 
@@ -101,10 +101,10 @@ mpirun -n 4 $(pwd)/build/asccomm_roce_batch_write_read
 设置访问 NPU 所需的环境变量。运行成功时输出：
 
 ```text
-[rank 0] asccomm_roce_batch_write_read | peer=2 asccomm_write_nbi=1000 asccomm_read_nbi=1000 | PASS
-[rank 1] asccomm_roce_batch_write_read | peer=3 asccomm_write_nbi=1000 asccomm_read_nbi=1000 | PASS
-[rank 2] asccomm_roce_batch_write_read | peer=0 asccomm_write_nbi=1000 asccomm_read_nbi=1000 | PASS
-[rank 3] asccomm_roce_batch_write_read | peer=1 asccomm_write_nbi=1000 asccomm_read_nbi=1000 | PASS
+[rank 0] asccomm_roce_batch_write_read | peer=2 write_nbi=1000 read_nbi=1000 | PASS
+[rank 1] asccomm_roce_batch_write_read | peer=3 write_nbi=1000 read_nbi=1000 | PASS
+[rank 2] asccomm_roce_batch_write_read | peer=0 write_nbi=1000 read_nbi=1000 | PASS
+[rank 3] asccomm_roce_batch_write_read | peer=1 write_nbi=1000 read_nbi=1000 | PASS
 RESULT | Example=asccomm_roce_batch_write_read | Status=PASS
 ```
 
@@ -113,5 +113,5 @@ RESULT | Example=asccomm_roce_batch_write_read | Status=PASS
 - 运行需要至少2张NPU，rank数必须为偶数且不超过当前可用NPU数量。
 - 通道必须使用COMM_PROTOCOL_ROCE，与Kernel侧 `asc::asccomm<asc::COMM_PROTOCOL_ROCE>` 保持一致。
 - HcclGetRootInfo生成的root info由MPI Bcast分发给所有rank。
-- 1000次asccomm_write_nbi和1000次asccomm_read_nbi使用同一个batch handle提交；只有最后一次asccomm_write_nbi和最后一次asccomm_read_nbi使用默认config并请求CQE，asccomm_drain返回后才校验数据。
+- 1000次write_nbi和1000次read_nbi使用同一个batch handle提交；只有最后一次write_nbi和最后一次read_nbi使用默认config并请求CQE，drain返回后才校验数据。
 - 每个rank只与 rank i + N/2 建立通道，写结果和读结果校验同一个对端。

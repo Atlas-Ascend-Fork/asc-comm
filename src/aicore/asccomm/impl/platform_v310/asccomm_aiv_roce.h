@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_aiv_roce.h
- * \brief Asccomm AIV implementation for V310
+ * \brief asccomm AIV implementation for V310
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Asccomm header. Please include public Asccomm headers instead.")
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_AIV_ROCE_H
 #endif
@@ -30,27 +30,26 @@
 
 namespace asc {
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uintptr_t>(buff) & (ASCCOMM_ROCE_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Hcomm asccomm_init failed: buff is not 32-byte aligned. addr = %llu\n",
+        "Hcomm init failed: buff is not 32-byte aligned. addr = %llu\n",
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buff)));
-    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_UB_BUF_SIZE, "Hcomm asccomm_init failed: len = %u\n", len);
+    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_UB_BUF_SIZE, "Hcomm init failed: len = %u\n", len);
     wqe_ub = reinterpret_cast<__ubuf__ uint32_t*>(buff);
     return ASCCOMM_SUCCESS;
 }
 
 template <typename T>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_init(const LocalTensor<T>& buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::init(const LocalTensor<T>& buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
         len < ASCCOMM_UB_BUF_SIZE || buff.GetSize() * sizeof(T) < ASCCOMM_UB_BUF_SIZE,
-        "Hcomm asccomm_init failed: len = %u, tensor_size = %llu\n", len,
-        static_cast<uint64_t>(buff.GetSize()) * sizeof(T));
+        "Hcomm init failed: len = %u, tensor_size = %llu\n", len, static_cast<uint64_t>(buff.GetSize()) * sizeof(T));
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uintptr_t>(buff.GetPhyAddr()) & (ASCCOMM_ROCE_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Hcomm asccomm_init failed: buff is not 32-byte aligned. addr = %llu\n",
+        "Hcomm init failed: buff is not 32-byte aligned. addr = %llu\n",
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buff.GetPhyAddr())));
     wqe_ub = reinterpret_cast<__ubuf__ uint32_t*>(buff.GetPhyAddr());
     return ASCCOMM_SUCCESS;
@@ -231,22 +230,21 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return post_send<commit, config, asccomm_roce_op_type::WRITE>(channel, dst, src, len);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return post_send<commit, config, asccomm_roce_op_type::READ>(channel, src, dst, len);
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_value_nbi(
-    ChannelHandle channel, GM_ADDR dst, T value)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
     (void)commit;
     (void)commit_pipe;
@@ -255,12 +253,12 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_value_
     (void)channel;
     (void)dst;
     (void)value;
-    ASCCOMM_DEBUG_TRAP_IF(true, "Hcomm ROCE asccomm_write_value_nbi is not supported.\n");
+    ASCCOMM_DEBUG_TRAP_IF(true, "Hcomm ROCE write_value_nbi is not supported.\n");
     return ASCCOMM_SUCCESS;
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     (void)commit;
@@ -273,7 +271,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_n
     (void)len;
     (void)notify_addr;
     (void)notify_val;
-    ASCCOMM_DEBUG_TRAP_IF(true, "Hcomm ROCE asccomm_write_with_notify_nbi is not supported.\n");
+    ASCCOMM_DEBUG_TRAP_IF(true, "Hcomm ROCE write_with_notify_nbi is not supported.\n");
     return ASCCOMM_SUCCESS;
 }
 
@@ -330,16 +328,16 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_commit(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::commit(ChannelHandle channel)
 {
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_commit: Enter\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: Enter\n");
     __gm__ ChannelEntity* chnl_ptr = (__gm__ ChannelEntity*)(channel);
     // post_send updates the software PI; the hardware head is not a staging location for deferred posts.
     uint32_t sq_head = chnl_ptr->sqHead;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_commit: sq_head = %u\n", sq_head);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: sq_head = %u\n", sq_head);
 
     knock_door_bell(chnl_ptr, sq_head);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_commit: Exit ok.\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: Exit ok.\n");
     return ASCCOMM_SUCCESS;
 }
 
@@ -461,40 +459,40 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_drain(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(ChannelHandle channel)
 {
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_drain: Enter\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: Enter\n");
     __gm__ ChannelEntity* chnl_ptr = (__gm__ ChannelEntity*)(channel);
-    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm asccomm_drain failed with invalid channel.\n");
+    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm drain failed with invalid channel.\n");
     uint32_t cq_head = chnl_ptr->cqHead;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_drain: cq_head = %u\n", cq_head);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: cq_head = %u\n", cq_head);
     if (poll_cq(chnl_ptr, cq_head) != ASCCOMM_SUCCESS) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm asccomm_drain: poll_cq failed.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm drain: poll_cq failed.\n");
         return ASCCOMM_FAILED;
     }
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm asccomm_drain: Exit ok.\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: Exit ok.\n");
     return ASCCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_lock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::lock(ChannelHandle channel)
 {
     return asccomm_channel_lock<COMM_PROTOCOL_ROCE>(channel);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_unlock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::unlock(ChannelHandle channel)
 {
     return asccomm_channel_unlock<COMM_PROTOCOL_ROCE>(channel);
 }
 
-__aicore__ inline roce_batch_handle& asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_get_handle_ref(
-    roce_batch_handle& batch_handle, uint32_t channel_index, GM_ADDR remote_addr)
+__aicore__ inline roce_batch_handle& asccomm_impl<COMM_PROTOCOL_ROCE>::get_handle_ref(
+    roce_batch_handle& batch_handle, uint32_t channel_idx, GM_ADDR remote_addr)
 {
-    (void)channel_index;
+    (void)channel_idx;
     (void)remote_addr;
     return batch_handle;
 }
 
-__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_make_batch_handle(
+__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     roce_batch_handle batch_handle{};
@@ -503,13 +501,12 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
     ASCCOMM_DEBUG_TRAP_IF(
         !check_channel_param(chnl_ptr) || buff_len < ASCCOMM_ROCE_WQEBB_SIZE ||
             (buffer_addr & (ASCCOMM_ROCE_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Hcomm asccomm_make_batch_handle: failed with invalid channel or buffer.\n");
+        "Hcomm make_batch_handle: failed with invalid channel or buffer.\n");
     int32_t remote_idx = asccomm_find_buffer_idx(chnl_ptr->remoteBufferAddr, chnl_ptr->remoteBufferNum, remote_addr, 1);
     ASCCOMM_DEBUG_TRAP_IF(
-        remote_idx < 0, "Hcomm asccomm_make_batch_handle: failed with invalid remote addr %llu.\n", remote_addr);
+        remote_idx < 0, "Hcomm make_batch_handle: failed with invalid remote addr %llu.\n", remote_addr);
     int32_t local_idx = asccomm_find_buffer_idx(chnl_ptr->localBufferAddr, chnl_ptr->localBufferNum, local_addr, 1);
-    ASCCOMM_DEBUG_TRAP_IF(
-        local_idx < 0, "Hcomm asccomm_make_batch_handle: failed with invalid local addr %llu.\n", local_addr);
+    ASCCOMM_DEBUG_TRAP_IF(local_idx < 0, "Hcomm make_batch_handle: failed with invalid local addr %llu.\n", local_addr);
     auto sq_ctx = chnl_ptr->sqContextAddr[ASCCOMM_DEFAULT_QP_IDX];
     auto cq_ctx = chnl_ptr->cqContextAddr[ASCCOMM_DEFAULT_QP_IDX];
     batch_handle.channel_handle = channel;
@@ -536,12 +533,12 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
 }
 
 template <typename U>
-__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_make_batch_handle(
+__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::make_batch_handle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        buff.GetSize() * sizeof(U) < buff_len, "Hcomm asccomm_make_batch_handle: failed with invalid buffer size.\n");
-    return asccomm_make_batch_handle(
+        buff.GetSize() * sizeof(U) < buff_len, "Hcomm make_batch_handle: failed with invalid buffer size.\n");
+    return make_batch_handle(
         channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buff_len, remote_addr, local_addr);
 }
 
@@ -699,52 +696,51 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_post_send(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return batch_post_send<asccomm_roce_op_type::WRITE, config>(batch_handle, dst, src, len);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return batch_post_send<asccomm_roce_op_type::READ, config>(batch_handle, src, dst, len);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
     return batch_post_send<asccomm_roce_op_type::WRITE, config>(batch_handle, dst, src_descs, src_num);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     roce_batch_handle& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
     return batch_post_send<asccomm_roce_op_type::READ, config>(batch_handle, src, dst_descs, dst_num);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_batch_commit(roce_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_commit(roce_batch_handle& batch_handle)
 {
     uint32_t pre_sq_cnt = batch_handle.cursor.pre_sq_cnt;
     ASCCOMM_DEBUG_TRAP_IF(
         pre_sq_cnt == 0 || pre_sq_cnt > ROCE_SQ_INDEX_MASK || pre_sq_cnt > batch_handle.buffer.buffer_capacity,
-        "Hcomm asccomm_batch_commit: failed with invalid WQEBB count\n");
+        "Hcomm batch_commit: failed with invalid WQEBB count\n");
     auto* chnl_ptr = reinterpret_cast<__gm__ ChannelEntity*>(batch_handle.channel_handle);
-    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm asccomm_batch_commit failed with invalid channel.\n");
+    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm batch_commit failed with invalid channel.\n");
     if (is_batch_sq_near_full(chnl_ptr, batch_handle)) {
         ASCCOMM_KERNEL_LOG(
-            KERNEL_INFO,
-            "Hcomm asccomm_batch_commit: RoCE SQ near full, poll CQ first. sq_head=%u sq_tail=%u sq_depth=%u\n",
+            KERNEL_INFO, "Hcomm batch_commit: RoCE SQ near full, poll CQ first. sq_head=%u sq_tail=%u sq_depth=%u\n",
             (batch_handle.cursor.sq_head + pre_sq_cnt) & ROCE_SQ_INDEX_MASK, chnl_ptr->sqTail,
             batch_handle.sq_context.contextInfo.roceSq.depth);
         (void)poll_cq<true>(chnl_ptr, chnl_ptr->cqHead, ASCCOMM_POLL_CQ_THRESHOLD);
     }
     ASCCOMM_DEBUG_TRAP_IF(
         !has_batch_sq_capacity(chnl_ptr, batch_handle),
-        "Hcomm asccomm_batch_commit: failed because batch num larger than SQ capacity\n");
+        "Hcomm batch_commit: failed because batch num larger than SQ capacity\n");
     uint32_t sq_depth = batch_handle.sq_context.contextInfo.roceSq.depth;
     uint32_t start_wqebb_index = batch_handle.cursor.sq_head;
     uint32_t new_sq_head = (start_wqebb_index + pre_sq_cnt) & ROCE_SQ_INDEX_MASK;
@@ -797,17 +793,17 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_batch_cq(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_drain(roce_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(roce_batch_handle& batch_handle)
 {
     (void)pipe;
     ASCCOMM_DEBUG_TRAP_IF(
         batch_handle.channel_handle == 0U || batch_handle.buffer.buffer_capacity == 0U ||
             batch_handle.cursor.pre_sq_cnt != 0U,
-        "Hcomm Batch asccomm_drain failed with invalid batch handle\n");
+        "Hcomm Batch drain failed with invalid batch handle\n");
 
     int32_t poll_ret = poll_batch_cq(batch_handle, batch_handle.cursor.cq_head);
     if (poll_ret != ASCCOMM_SUCCESS) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm RoCE asccomm_drain by batch handle failed.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm RoCE drain by batch handle failed.\n");
         return poll_ret;
     }
     return ASCCOMM_SUCCESS;

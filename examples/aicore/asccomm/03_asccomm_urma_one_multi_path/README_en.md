@@ -14,7 +14,7 @@ and the rank 0 process distributes `HcclRootInfo`.
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Directory Structure
 
@@ -164,4 +164,4 @@ Perform the following steps in the sample root directory to compile and run the 
 - In multi-machine runs, all machines must use the same `<rank_size>` and `<ip:port>` (pointing to rank 0), and the rank ranges must be
   complete and non-duplicated.
 - The `<ip:port>` control channel is only used to distribute `HcclRootInfo` and Host-side synchronization, and does not participate in HCCL data link selection.
-- When `HcclChannelAcquire` fails, locate the failure scope based on the preceding peer link-selection logs.
+- When `HcclChannelAcquire` fails, locate the failure scope based on the preceding `peer` link-selection logs.

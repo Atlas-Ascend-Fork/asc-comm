@@ -32,8 +32,7 @@ public:
 
         pipe->InitBuffer(hcommBuf_, HCOMM_WORKSPACE_SIZE);
         hcommTensor_ = hcommBuf_.Get<uint8_t>();
-        if (asccomm_.asccomm_init(
-                reinterpret_cast<__ubuf__ uint8_t*>(hcommTensor_.GetPhyAddr()), HCOMM_WORKSPACE_SIZE) ==
+        if (asccomm_.init(reinterpret_cast<__ubuf__ uint8_t*>(hcommTensor_.GetPhyAddr()), HCOMM_WORKSPACE_SIZE) ==
             asc::ASCCOMM_SUCCESS) {
             initOk_ = true;
         }
@@ -47,36 +46,36 @@ public:
             return;
         }
 
-        if (asccomm_.asccomm_lock(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.lock(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_LOCK_FAILED;
             return;
         }
 
         GM_ADDR writeSrc = localBuffer_ + SEND_DATA_OFFSET;
         GM_ADDR writeDst = remoteBuffer_ + WRITE_RESULT_OFFSET;
-        if (asccomm_.asccomm_write_nbi<false>(channel_, writeDst, writeSrc, DATA_SIZE) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.write_nbi<false>(channel_, writeDst, writeSrc, DATA_SIZE) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_WRITE_FAILED;
             return;
         }
 
         GM_ADDR readDst = localBuffer_ + READ_RESULT_OFFSET;
         GM_ADDR readSrc = remoteBuffer_ + SEND_DATA_OFFSET;
-        if (asccomm_.asccomm_read_nbi<false>(channel_, readDst, readSrc, DATA_SIZE) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.read_nbi<false>(channel_, readDst, readSrc, DATA_SIZE) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_READ_FAILED;
             return;
         }
 
-        if (asccomm_.asccomm_commit<PIPE_S>(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.commit<PIPE_S>(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_COMMIT_FAILED;
             return;
         }
 
-        if (asccomm_.asccomm_unlock(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.unlock(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_UNLOCK_FAILED;
             return;
         }
 
-        if (asccomm_.asccomm_drain<PIPE_MTE3>(channel_) != asc::ASCCOMM_SUCCESS) {
+        if (asccomm_.drain<PIPE_MTE3>(channel_) != asc::ASCCOMM_SUCCESS) {
             context_->testResult = TEST_HCOMM_DRAIN_FAILED;
         }
     }

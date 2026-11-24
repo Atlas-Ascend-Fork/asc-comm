@@ -24,13 +24,13 @@
 namespace urma_batch_api_perf_example {
 
 // ---------------- 注册对称内存（2GB，各档共用，每档重铺初值） ----------------
-// source/write/read/notify 各占一个 len 窗口；batch 表示每次 asccomm_batch_commit 聚合的请求数。
+// source/write/read/notify 各占一个 len 窗口；batch 表示每次 batch_commit 聚合的请求数。
 constexpr uint64_t BUFFER_BYTES = 2ULL << 30;
 
 // ---------------- 接口选择（api_mask 位）与计时槽 ----------------
-constexpr uint32_t API_WRITE = 1U << 0;  // asccomm_write_nbi
-constexpr uint32_t API_READ = 1U << 1;   // asccomm_read_nbi
-constexpr uint32_t API_NOTIFY = 1U << 2; // asccomm_write_with_notify_nbi
+constexpr uint32_t API_WRITE = 1U << 0;  // write_nbi
+constexpr uint32_t API_READ = 1U << 1;   // read_nbi
+constexpr uint32_t API_NOTIFY = 1U << 2; // write_with_notify_nbi
 constexpr uint32_t API_ALL = API_WRITE | API_READ | API_NOTIFY;
 // API 位 → timing 第一维下标：--api all 时各操作的计时写各自的槽，互不覆盖
 constexpr uint32_t API_WRITE_IDX = 0U;
@@ -67,7 +67,7 @@ static_assert(
     static_cast<int32_t>(HOST_COMM_PROTOCOL) == static_cast<int32_t>(COMM_PROTOCOL_UB_CTP),
     "Host and Kernel communication protocols must match");
 
-// 每条请求的 WQEBB 占用：asccomm_write_with_notify_nbi 占 2、其余占 1（每 WQEBB 64B）。
+// 每条请求的 WQEBB 占用：write_with_notify_nbi 占 2、其余占 1（每 WQEBB 64B）。
 // batch WQE 暂存缓冲住在 VECOUT UB，按 256KiB 总预算校验。
 constexpr uint32_t NOTIFY_WQEBB = 2U;
 constexpr uint32_t WQEBB_BYTES = 64U;
@@ -97,7 +97,7 @@ __host__ __aicore__ inline case_layout case_layout_of(uint64_t len)
 constexpr uint32_t WARMUP_METRIC_INDEX = 0U; // timing[api_idx][0]：失败码（无计时值）
 constexpr uint32_t LAT_CYCLES_INDEX = 1U;    // timing[api_idx][1]：时延档 cycles（各轮之和）
 constexpr uint32_t BW_CYCLES_INDEX = 2U;     // timing[api_idx][2]：带宽档 cycles
-constexpr uint32_t COMMIT_CYCLES_INDEX = 3U; // timing[api_idx][3]：split 时 asccomm_batch_commit cycles（各轮之和）
+constexpr uint32_t COMMIT_CYCLES_INDEX = 3U; // timing[api_idx][3]：split 时 batch_commit cycles（各轮之和）
 constexpr uint32_t TIMING_WORDS = 4U;
 
 // kernel 只上报原始 cycles，均值与派生列由 host 侧计算。
@@ -114,9 +114,9 @@ struct kernel_context {
     uint32_t api_mask;
     uint32_t commit_mode; // COMMIT_MODE_COMBINE / COMMIT_MODE_SPLIT
     uint32_t metric_mask;
-    // [api_idx][0]=失败码 [1]=lat cycles [2]=bw cycles [3]=split 时 asccomm_batch_commit cycles
+    // [api_idx][0]=失败码 [1]=lat cycles [2]=bw cycles [3]=split 时 batch_commit cycles
     uint64_t timing[API_IDX_COUNT][TIMING_WORDS];
-    uint32_t drain_ret; // 最后一次 asccomm_drain 返回码（0=成功）
+    uint32_t drain_ret; // 最后一次 drain 返回码（0=成功）
     uint32_t result;    // kernel_result
 };
 
@@ -144,7 +144,7 @@ inline const char* kernel_result_name(kernel_result result)
         case KERNEL_INVALID_ARGS:
             return "invalid kernel args";
         case KERNEL_INIT_FAILED:
-            return "asccomm_init failed";
+            return "init failed";
         case KERNEL_UB_OVERFLOW:
             // 预算 = batch_cap × 每条WQEBB × 64B ≤ 256KiB（notify 占 2 WQEBB，其余 1），缩小 --batch
             return "batch exceeds VECOUT UB budget (reduce --batch)";
@@ -152,22 +152,22 @@ inline const char* kernel_result_name(kernel_result result)
             // 窗口 = 4 × len + 8 ≤ 2GB 注册内存，缩小 --exponent-range
             return "data window exceeds registered buffer (reduce --exponent-range)";
         case KERNEL_MAKE_HANDLE_FAILED:
-            return "asccomm_make_batch_handle failed";
+            return "make_batch_handle failed";
         case KERNEL_WARMUP_FAILED:
             return "warmup failed";
         case KERNEL_LAT_POST_FAILED:
             // 典型原因：一批 batch_cap 条请求须驻留 SQ（notify 占 2 WQEBB），超深度即 Post 失败
             return "latency-window post failed (SQ may be full: reduce --batch)";
         case KERNEL_LAT_COMMIT_FAILED:
-            return "latency-window asccomm_batch_commit failed";
+            return "latency-window batch_commit failed";
         case KERNEL_LAT_DRAIN_FAILED:
-            return "latency-window asccomm_drain failed";
+            return "latency-window drain failed";
         case KERNEL_BW_POST_FAILED:
             return "bandwidth-window post failed";
         case KERNEL_BW_COMMIT_FAILED:
-            return "bandwidth-window asccomm_batch_commit failed";
+            return "bandwidth-window batch_commit failed";
         case KERNEL_BW_DRAIN_FAILED:
-            return "bandwidth-window asccomm_drain failed";
+            return "bandwidth-window drain failed";
         default:
             return "unknown kernel error";
     }

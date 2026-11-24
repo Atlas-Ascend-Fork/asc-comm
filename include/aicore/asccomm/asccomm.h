@@ -37,16 +37,16 @@ namespace asc {
  * @class asccomm
  * @brief This class mainly provides a series of point-to-point communication primitive interfaces,
  *        benchmarking against Huawei's point-to-point communication C++ interface,
- *        including asccomm_write_nbi、asccomm_read_nbi and so on.
+ *        including write_nbi、read_nbi and so on.
  *        The typical usage of this class is as follows:
  *          1) Create asccomm object.
  *          2) Initialize communication channel.
  *          3) Launch comm tasks asynchronously through the corresponding interface,
  *             and the server starts assembling and launching comm tasks as soon as it listens.
- *          4) If commit is false when launching task, call the asccomm_commit interface to notify the execution of the
+ *          4) If commit is false when launching task, call the commit interface to notify the execution of the
  *             corresponding comm task.
- *          5) Call the asccomm_drain interface (blocking) to wait for the server to complete the corresponding comm task.
- *             Only CQE-generating tasks can be tracked; see the asccomm_drain notes.
+ *          5) Call the drain interface (blocking) to wait for the server to complete the corresponding comm task.
+ *             Only CQE-generating tasks can be tracked; see the drain notes.
  * @tparam comm_protocol: The communication protocol to use. COMM_PROTOCOL_UB_CTP (implemented through URMA) is used
  *                       by default.
  */
@@ -60,7 +60,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note URMA uses buff as its temporary workspace. Misaligned addresses are rejected by debug-mode checks.
      */
-    __aicore__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len);
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
      * @brief Create a batch handle and bind a C-pointer workspace.
@@ -73,34 +73,35 @@ public:
      * @param [in] local_addr: Reserved parameter. Not used in the current version.
      * @return A batch handle for comm_protocol. Returns a zero-valued invalid handle if the multi-channel handle is
      *         invalid or remote registered-memory selection fails.
-     * @note For multi_channel_handle, call asccomm_get_handle_ref to select a logical channel and remote registered memory.
+     * @note For multi_channel_handle, call get_handle_ref to select a logical channel and remote registered memory.
      *       The 64-byte task slots used by one batch must be fewer than the channel task-submission capacity, which is
      *       determined when channel resources are created on the Host.
      */
     template <typename T>
-    __aicore__ inline batch_handle<T> asccomm_make_batch_handle(
+    __aicore__ inline batch_handle<T> make_batch_handle(
         T channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr = nullptr,
         GM_ADDR local_addr = nullptr);
 
     /*!
      * @brief Get the batch handle reference used to add tasks for one logical channel.
      * @tparam T: The batch handle type.
-     * @param [in,out] batch_handle: A batch handle created from ChannelHandle or multi_channel_handle.
-     * @param [in] channel_index: Index in the channel descriptor array used to create multi_channel_handle. Ignored for
+     * @param [in,out] batch_handle_pool: The batch handle created by make_batch_handle. Its logical-channel and
+     *                                  remote-memory selection is updated by this call.
+     * @param [in] channel_idx: Index in the channel descriptor array used to create multi_channel_handle. Ignored for
      *                          ChannelHandle.
      * @param [in] remote_addr: An address in the remote registered-memory region to select. If it is null, the first
      *                         remote registered buffer is selected. Ignored for ChannelHandle.
-     * @return A batch handle reference for the selected logical channel and remote registered memory. For
-     *         ChannelHandle, returns the input handle itself.
-     * @note For ChannelHandle, remote memory remains bound as selected by asccomm_make_batch_handle. For multi_channel_handle,
+     * @return A batch handle reference for the selected logical channel and remote registered memory. It aliases
+     *         storage inside batch_handle_pool. For ChannelHandle, returns the input handle itself.
+     * @note For ChannelHandle, remote memory remains bound as selected by make_batch_handle. For multi_channel_handle,
      *       batch operations through the returned handle access the selected remote registered memory. Repeated calls
      *       return the same inner handle reference and update its current selection. Different requests in one batch
-     *       may select different logical channels. Add each request immediately after its asccomm_get_handle_ref call; all
+     *       may select different logical channels. Add each request immediately after its get_handle_ref call; all
      *       segments of one scatter/gather request use that selected channel, and one request cannot span channels.
      */
     template <typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline batch_handle<T>& asccomm_get_handle_ref(
-        T& batch_handle, uint32_t channel_index, GM_ADDR remote_addr = nullptr);
+    __aicore__ inline batch_handle<T>& get_handle_ref(
+        T& batch_handle_pool, uint32_t channel_idx, GM_ADDR remote_addr = nullptr);
 
     /*!
      * @class asccomm
@@ -122,8 +123,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /**
      * @brief Submit a scatter/gather Write task through a channel. Source segments are gathered in array order and
@@ -131,8 +132,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t write_nbi(
         ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
 
     /*!
@@ -149,28 +150,27 @@ public:
      *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_write_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t write_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
      * @brief Add a scatter/gather Write task to a batch handle. Data is gathered from src_descs in array order and
      *        written contiguously starting at dst.
      * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by asccomm_get_handle_ref for
+     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by get_handle_ref for
      *                              one logical channel of a multi-channel batch.
      * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
      *                   address in src_descs order.
      * @param [in] src_descs: The local source buffer descriptor array.
      * @param [in] src_num: The number of elements in src_descs.
      * @return 0 indicates success and -1 indicates failure.
-     * @note In multi-channel mode, the immediately preceding asccomm_get_handle_ref call selects the logical channel for this
+     * @note In multi-channel mode, the immediately preceding get_handle_ref call selects the logical channel for this
      *       task. All source segments are sent through that channel and cannot span channels. The caller must provide
      *       a valid descriptor array, payload addresses and lengths.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_write_nbi(
-        T& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t write_nbi(T& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
 
     /*!
      * @class asccomm
@@ -190,8 +190,8 @@ public:
      */
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
+        auto const& config = ASCCOMM_INLINE_CFG>
+    __aicore__ inline int32_t write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
 
     /*!
      * @class asccomm
@@ -212,9 +212,9 @@ public:
      * @note Only the UB_CTP/URMA path supports this interface.
      */
     template <
-        typename T, asccomm_urma_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
-        pipe_t req_pipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
+        typename T, asccomm_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
+        pipe_t req_pipe = PIPE_MTE3, auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
 
     /*!
      * @class asccomm
@@ -236,8 +236,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val);
 
     /**
@@ -245,8 +245,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
         uint64_t notify_val);
 
@@ -265,8 +265,8 @@ public:
      * @param [in] notify_val: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t write_with_notify_nbi(
         T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notify_addr, uint64_t notify_val);
 
     /*!
@@ -274,7 +274,7 @@ public:
      *        order and written contiguously starting at dst.
      * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by asccomm_get_handle_ref for
+     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by get_handle_ref for
      *                              one logical channel of a multi-channel batch.
      * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
      *                   address in src_descs order.
@@ -283,12 +283,12 @@ public:
      * @param [in] notify_addr: The remote notify address.
      * @param [in] notify_val: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note In multi-channel mode, the immediately preceding asccomm_get_handle_ref call selects the logical channel for this
+     * @note In multi-channel mode, the immediately preceding get_handle_ref call selects the logical channel for this
      *       task. All source segments and the notification use that channel and cannot span channels. The caller must
      *       provide a valid descriptor array, payload/notify addresses and lengths.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t write_with_notify_nbi(
         T& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
         uint64_t notify_val);
 
@@ -310,8 +310,8 @@ public:
      */
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
 
     /*!
      * @class asccomm
@@ -332,8 +332,8 @@ public:
      */
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_cas_nbi(
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val);
 
     /*!
@@ -356,8 +356,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /**
      * @brief Submit a scatter/gather Read task through a channel. Data is read contiguously from src and scattered
@@ -365,9 +365,8 @@ public:
      */
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
 
     /*!
      * @brief Add a Read task to a batch handle.
@@ -383,28 +382,27 @@ public:
      *                  1024 bytes) on the RoCE path.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_read_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t read_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
      * @brief Add a scatter/gather Read task to a batch handle. Data is read contiguously starting at src and scattered
      *        into dst_descs in array order.
      * @tparam config: WQE control config. Inline data is not supported, and cqe can only be 0 or 1.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by asccomm_get_handle_ref for
+     * @param [in,out] batch_handle: A single-channel batch handle, or the batch handle returned by get_handle_ref for
      *                              one logical channel of a multi-channel batch.
      * @param [in] dst_descs: The local destination buffer descriptor array. The payload is scattered into these
      *                       buffers in array order.
      * @param [in] dst_num: The number of elements in dst_descs.
      * @param [in] src: The remote source base address. The total payload is read contiguously from this address.
      * @return 0 indicates success and -1 indicates failure.
-     * @note In multi-channel mode, the immediately preceding asccomm_get_handle_ref call selects the logical channel for this
+     * @note In multi-channel mode, the immediately preceding get_handle_ref call selects the logical channel for this
      *       task. All destination segments receive data through that channel and cannot span channels. The caller must
      *       provide a valid descriptor array, payload addresses and lengths.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_read_nbi(
-        T& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t read_nbi(T& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
 
     /*!
      * @class asccomm
@@ -414,7 +412,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_commit(ChannelHandle channel);
+    __aicore__ inline int32_t commit(ChannelHandle channel);
 
     /*!
      * @brief Submit all tasks in the current batch of a batch handle.
@@ -423,7 +421,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_batch_commit(T& batch_handle);
+    __aicore__ inline int32_t batch_commit(T& batch_handle);
 
     /*!
      * @class asccomm
@@ -438,7 +436,7 @@ public:
      *       this interface; synchronize them through other means if their completion matters.
      */
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t asccomm_drain(ChannelHandle channel);
+    __aicore__ inline int32_t drain(ChannelHandle channel);
 
     /*!
      * @brief Block Aicore until all CQEs generated through a batch handle are available.
@@ -447,13 +445,13 @@ public:
      * @param [in,out] batch_handle: The batch handle whose generated CQEs are awaited.
      * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UB_CTP, 0xFF indicates a
      *         CQE polling timeout; other positive values encode status and substatus.
-     * @note This overload does not require asccomm_init. It must be called after all tasks in the current batch are submitted
-     *       through asccomm_batch_commit. Multiple batches may be submitted before one asccomm_drain if channel capacity permits.
+     * @note This overload does not require init. It must be called after all tasks in the current batch are submitted
+     *       through batch_commit. Multiple batches may be submitted before one drain if channel capacity permits.
      *       As with the channel overload, only tasks that generate a CQE (the cqe bit set in the wqe_entry config,
      *       which is the default) can be tracked; tasks submitted without a CQE request are not covered.
      */
     template <pipe_t pipe = PIPE_S, typename T, typename handle_traits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t asccomm_drain(T& batch_handle);
+    __aicore__ inline int32_t drain(T& batch_handle);
 
     /*!
      * @brief Acquire the cross-AI-Core lock of a channel.
@@ -461,9 +459,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note This interface is supported by both COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE on Ascend 950. It
      *       blocks until the lock is acquired and does not guarantee acquisition order among AI Cores. All
-     *       accesses that update the channel state must be protected by asccomm_lock and asccomm_unlock.
+     *       accesses that update the channel state must be protected by lock and unlock.
      */
-    __aicore__ inline int32_t asccomm_lock(ChannelHandle channel);
+    __aicore__ inline int32_t lock(ChannelHandle channel);
 
     /*!
      * @brief Flush the channel state and release its cross-AI-Core lock.
@@ -473,7 +471,181 @@ public:
      *       must be called by the AI Core that successfully acquired the channel lock, after the last operation
      *       that updates the channel state.
      */
-    __aicore__ inline int32_t asccomm_unlock(ChannelHandle channel);
+    __aicore__ inline int32_t unlock(ChannelHandle channel);
+
+    // ===================== deprecated PascalCase compatibility aliases =====================
+    // Legacy Hcomm interface spellings kept for source compatibility (remove after 2027/12/31);
+    // each forwards to the corresponding asccomm* interface above.
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", init)
+    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len) { return init(buff, len); }
+
+    template <typename T>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", init)
+    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len)
+    {
+        return init(reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), len);
+    }
+
+    template <typename T, typename U>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", make_batch_handle)
+    __aicore__ inline batch_handle<T> MakeBatchHandle(
+        T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
+        GM_ADDR localAddr = nullptr)
+    {
+        return make_batch_handle(
+            channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buffLen, remoteAddr, localAddr);
+    }
+
+    template <typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", get_handle_ref)
+    __aicore__ inline batch_handle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr)
+    {
+        return get_handle_ref(batchHandle, channelIndex, remoteAddr);
+    }
+
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    {
+        return write_nbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    {
+        return write_nbi<config>(batchHandle, dst, src, len);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const buf_desc* srcDescs, uint32_t srcNum)
+    {
+        return write_nbi<config>(batchHandle, dst, srcDescs, srcNum);
+    }
+
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_INLINE_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_value_nbi)
+    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+    {
+        return write_value_nbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
+    }
+
+    template <
+        typename T, asccomm_reduce_op reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
+        pipe_t reqPipe = PIPE_MTE3, auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_reduce_nbi)
+    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
+    {
+        return write_reduce_nbi<T, reduceOp, commit, commitPipe, reqPipe, config>(channel, dst, src, count);
+    }
+
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+    {
+        return write_with_notify_nbi<commit, commitPipe, reqPipe, config>(
+            channel, dst, src, len, notifyAddr, notifyVal);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+    {
+        return write_with_notify_nbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, const buf_desc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal)
+    {
+        return write_with_notify_nbi<config>(batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
+    }
+
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_faa_nbi)
+    __aicore__ inline int32_t AtomicFAA(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal)
+    {
+        return atomic_faa_nbi<T, commit, commitPipe, reqPipe, config>(channel, dst, fetchAddr, addVal);
+    }
+
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_cas_nbi)
+    __aicore__ inline int32_t AtomicCAS(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal)
+    {
+        return atomic_cas_nbi<T, commit, commitPipe, reqPipe, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    }
+
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ASCCOMM_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    {
+        return read_nbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    {
+        return read_nbi<config>(batchHandle, dst, src, len);
+    }
+
+    template <auto const& config = ASCCOMM_DEFAULT_CFG, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, const buf_desc* dstDescs, uint32_t dstNum, GM_ADDR src)
+    {
+        return read_nbi<config>(batchHandle, dstDescs, dstNum, src);
+    }
+
+    template <pipe_t pipe = PIPE_S>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", commit)
+    __aicore__ inline int32_t Commit(ChannelHandle channel)
+    {
+        return commit<pipe>(channel);
+    }
+
+    template <typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", batch_commit)
+    __aicore__ inline int32_t BatchCommit(T& batchHandle)
+    {
+        return batch_commit(batchHandle);
+    }
+
+    template <pipe_t pipe = PIPE_MTE3>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", drain)
+    __aicore__ inline int32_t Drain(ChannelHandle channel)
+    {
+        return drain<pipe>(channel);
+    }
+
+    template <pipe_t pipe = PIPE_S, typename T, typename handle_traits<T>::ChannelType* = nullptr>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", drain)
+    __aicore__ inline int32_t Drain(T& batchHandle)
+    {
+        return drain<pipe>(batchHandle);
+    }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", lock)
+    __aicore__ inline int32_t Lock(ChannelHandle channel) { return lock(channel); }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", unlock)
+    __aicore__ inline int32_t Unlock(ChannelHandle channel) { return unlock(channel); }
 
 private:
     asccomm_impl<protocol_traits<comm_protocol>::backend> impl;

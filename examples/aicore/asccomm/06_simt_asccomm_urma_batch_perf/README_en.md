@@ -1,9 +1,9 @@
-# asccomm SIMT Batch Submission Modes Validation and Issue Timing Sample
+# CommRW SIMT Batch Submission Modes Validation and Issue Timing Sample
 
 ## Overview
 
-This sample demonstrates how to validate the functional correctness of six URMA APIs (`asccomm_write_nbi`, `asccomm_read_nbi`,
-`asccomm_write_with_notify_nbi`, `asccomm_write_value_nbi`, `asccomm_atomic_faa_nbi`, and `asccomm_atomic_cas_nbi`) and measure the device-side WQE issue timing
+This sample demonstrates how to validate the functional correctness of six URMA APIs (`write_nbi`, `read_nbi`,
+`write_with_notify_nbi`, `write_value_nbi`, `atomic_faa_nbi`, and `atomic_cas_nbi`) and measure the device-side WQE issue timing
 of different submission modes in an Ascend C SIMT Kernel, based on the batch submission APIs of
 `asc::simt::asccomm`.
 The sample adopts a rank-pairing topology (2 NPUs directly connected as one pair; 8 NPUs paired as 0→1, 2→3,
@@ -12,8 +12,8 @@ own result.
 
 The sample covers two submission modes:
 
-- **ExplicitBatch**: one lane executes `Append → asccomm_batch_commit` with a fixed batch size of 1.
-- **GroupBatch**: multiple lanes each build one request, one `asccomm_batch_commit` per batch; the batch size equals the lane count.
+- **ExplicitBatch**: one lane executes `Append → batch_commit` with a fixed batch size of 1.
+- **GroupBatch**: multiple lanes each build one request, one `batch_commit` per batch; the batch size equals the lane count.
 
 The primary metric `IssueTicksPerRequest` is the device `clock()` delta over the timed submission interval
 divided by the request count; lower is better.
@@ -30,7 +30,7 @@ divided by the request count; lower is better.
 06_simt_asccomm_urma_batch_perf
 ├── CMakeLists.txt            // CMake build file
 ├── simt_batch_perf.asc       // Host-side communication domain setup, memory registration, case scheduling, and validation
-├── op_kernel.cpp             // asccomm API calls and issue timing in the SIMT Kernel
+├── op_kernel.cpp             // CommRW API calls and issue timing in the SIMT Kernel
 ├── simt_batch_perf_common.h  // Definitions shared by Host and Kernel
 ├── README.md                 // Chinese sample documentation
 └── README_en.md              // English sample documentation
@@ -44,23 +44,23 @@ Test semantics of the six APIs (SIMT path, WQEs issued directly inside the Kerne
 
 | API | Data Flow | Semantic Description |
 | --- | --- | --- |
-| `asccomm_write_nbi` | Local GM → Remote GM | Writes local Global Memory data to a specified address on the remote NPU. |
-| `asccomm_read_nbi` | Remote GM → Local GM | Reads data from a specified address on the remote NPU into local Global Memory. |
-| `asccomm_write_with_notify_nbi` | Local GM → Remote GM | Writes the payload and then a remote notify word. |
-| `asccomm_write_value_nbi` | Local WQE → Remote GM | Carries an 8-byte value inline in the WQE and writes it to the remote side without reading the local buffer. |
-| `asccomm_atomic_faa_nbi` | Remote GM ↔ Local GM | Adds to a remote 8-byte word and writes the fetched value back locally. |
-| `asccomm_atomic_cas_nbi` | Remote GM ↔ Local GM | Compares and swaps a remote 8-byte word and writes the fetched value back locally. |
+| `write_nbi` | Local GM → Remote GM | Writes local Global Memory data to a specified address on the remote NPU. |
+| `read_nbi` | Remote GM → Local GM | Reads data from a specified address on the remote NPU into local Global Memory. |
+| `write_with_notify_nbi` | Local GM → Remote GM | Writes the payload and then a remote notify word. |
+| `write_value_nbi` | Local WQE → Remote GM | Carries an 8-byte value inline in the WQE and writes it to the remote side without reading the local buffer. |
+| `atomic_faa_nbi` | Remote GM ↔ Local GM | Adds to a remote 8-byte word and writes the fetched value back locally. |
+| `atomic_cas_nbi` | Remote GM ↔ Local GM | Compares and swaps a remote 8-byte word and writes the fetched value back locally. |
 
 Two submission modes:
 
 | Submission Mode | Description |
 | --- | --- |
-| ExplicitBatch | One lane enqueues with `append_one_wqe` first and publishes the batch with `asccomm_batch_commit`; the batch size is fixed at 1. |
+| ExplicitBatch | One lane enqueues with `append_one_wqe` first and publishes the batch with `batch_commit`; the batch size is fixed at 1. |
 | GroupBatch | Every lane in the group builds one request, and the last publisher lane publishes the whole batch; the batch size equals the lane count. |
 
 Data validation policy:
 
-- Each case checks both the device-returned status (`asccomm_drain` status and completion count) and the landed data.
+- Each case checks both the device-returned status (`drain` status and completion count) and the landed data.
 - **Read** checks the remote data landed locally; **Write/Notify** check the receiver payload and notify value;
   **FAA/CAS** check both the fetched value (sender) and the remote accumulate/swap result (receiver).
 - Timed and warmup requests rotate over 64 slots to avoid all landing on one cache line; validation is
@@ -88,8 +88,8 @@ Data validation policy:
    and call `HcclChannelGetRemoteMems` to resolve the registration index of the remote recv buffer.
 4. The Host pre-initializes the send/recv data (atomics get a preset remote initial value), and the sender launches
    the Kernel after a barrier.
-5. The Kernel side executes `asccomm_init()` to allocate the UB workspace, then issues warmup and timed requests according
-   to the submission mode: consecutive requests rotate over 64 slots, and `asccomm_drain()` (`asccomm_drain(batch)` for Batch modes)
+5. The Kernel side executes `init()` to allocate the UB workspace, then issues warmup and timed requests according
+   to the submission mode: consecutive requests rotate over 64 slots, and `drain()` (`drain(batch)` for Batch modes)
    waits for completion.
 6. The sender reads back the timing and completion status, and additionally validates local data for Read/Atomic
    APIs; the receiver validates the landed Write/Notify data and remote atomic results.
@@ -101,13 +101,13 @@ Data validation policy:
 constexpr uint32_t bytes = 256U; // 128B shared context + 128B publisher DWQE image
 alignas(128) __ubuf__ uint64_t workspace[bytes / sizeof(uint64_t)];
 asc::simt::asccomm<> asccomm;
-if (asccomm.asccomm_init(nullptr, 0U) != 0) return;
-auto batch = asccomm.asccomm_make_batch_handle(
+if (asccomm.init(nullptr, 0U) != 0) return;
+auto batch = asccomm.make_batch_handle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes);
 if (batch.context == nullptr) return;
-if (asccomm.asccomm_write_nbi(batch, remote, local, 64U) != 0) return;
-if (asccomm.asccomm_batch_commit(batch) != 0) return;
-if (asccomm.asccomm_drain(batch) != 0) return;
+if (asccomm.write_nbi(batch, remote, local, 64U) != 0) return;
+if (asccomm.batch_commit(batch) != 0) return;
+if (asccomm.drain(batch) != 0) return;
 ```
 
 GroupBatch calls use the same asccomm object without storing a Group, and pass the group explicitly at the end of
@@ -115,11 +115,11 @@ each batch operation:
 
 ```cpp
 // The calls below are joined by all lanes in the group; each lane builds its own request.
-auto batch = asccomm.asccomm_make_batch_handle(
+auto batch = asccomm.make_batch_handle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, group);
 if (batch.context == nullptr) return;
-if (asccomm.asccomm_write_nbi(batch, remote_for_lane, local_for_lane, 64U, group) != 0) return;
-if (asccomm.asccomm_batch_commit(batch, group) != 0) return;
+if (asccomm.write_nbi(batch, remote_for_lane, local_for_lane, 64U, group) != 0) return;
+if (asccomm.batch_commit(batch, group) != 0) return;
 // After all posting lanes return, one lane calls Drain; Drain takes no group.
 ```
 
@@ -208,7 +208,7 @@ Follow the steps below in the root directory of this sample to compile and run i
 
   The primary metric `IssueTicksPerRequest` = the device `clock()` delta over the timed submission interval / the
   request count; lower is better. It includes construction, submission, and submission-path synchronization, and
-  excludes the subsequent `asccomm_drain` wait; the unit is raw ticks, not converted to ns. `BatchSize` is the request count
+  excludes the subsequent `drain` wait; the unit is raw ticks, not converted to ns. `BatchSize` is the request count
   per batch; `Jettys` and `ConcurrentJettys` are the configured count and the actual maximum parallel count
   respectively, both 1 in this single-Jetty sample; `Pair` is the rank pair. Only compare PASS rows, and do not
   compute a speedup directly against SIMD data whose clock units are not aligned.
@@ -224,7 +224,7 @@ Follow the steps below in the root directory of this sample to compile and run i
   dispatch. Write/Read/Notify/WriteValue/FAA/CAS all accept the group as the final argument, with the explicit config
   template parameters before the group.
 - `IssueTicksPerRequest` measures the average submission cost, not the end-to-end latency of a single request: it
-  includes construction/publication and submission-path synchronization, excludes the subsequent `asccomm_drain` wait, and
+  includes construction/publication and submission-path synchronization, excludes the subsequent `drain` wait, and
   does not count warmup or host launch gaps.
-- `--payload-bytes` has a minimum of 2: a `asccomm_write_nbi` splits its payload across two SGEs, and a 1-byte
+- `--payload-bytes` has a minimum of 2: a `write_nbi` splits its payload across two SGEs, and a 1-byte
   payload would give the first SGE a zero length, which URMA does not accept.

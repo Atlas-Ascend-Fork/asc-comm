@@ -46,7 +46,7 @@ TEST_F(asccomm_host_cleanup_test, DESTROYS_CREATED_CHANNELS_WHEN_CONFIG_DESTROY_
     reset(HCCL_E_INTERNAL, HCCL_SUCCESS);
 
     const HcommResult result =
-        asc::asccomm_create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
+        asc::create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
 
     EXPECT_EQ(result, HCCL_E_INTERNAL);
     EXPECT_EQ(destroyCalls(), 1U);
@@ -58,7 +58,7 @@ TEST_F(asccomm_host_cleanup_test, PRESERVES_CONFIG_DESTROY_ERROR_WHEN_CHANNEL_CL
     reset(HCCL_E_INTERNAL, HCCL_E_NOT_SUPPORT);
 
     const HcommResult result =
-        asc::asccomm_create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
+        asc::create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
 
     EXPECT_EQ(result, HCCL_E_INTERNAL);
     EXPECT_EQ(destroyCalls(), 1U);
@@ -70,7 +70,7 @@ TEST_F(asccomm_host_cleanup_test, DOES_NOT_DESTROY_CHANNELS_WHEN_CONFIG_DESTROY_
     reset(HCCL_SUCCESS, HCCL_E_NOT_SUPPORT);
 
     const HcommResult result =
-        asc::asccomm_create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
+        asc::create_shared_channels(reinterpret_cast<EndpointHandle>(0x1), channelDescs, 3, channels);
 
     EXPECT_EQ(result, HCCL_SUCCESS);
     EXPECT_EQ(destroyCalls(), 0U);

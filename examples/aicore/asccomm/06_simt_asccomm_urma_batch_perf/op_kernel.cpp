@@ -26,26 +26,25 @@ __simt_callee__ inline int32_t append_one_wqe(
 {
     const uint64_t offset = static_cast<uint64_t>(slot) * slot_bytes;
     if constexpr (api == API_WRITE) {
-        return asccomm.asccomm_write_nbi(batch, remote + offset, local + offset, payload_bytes, groups...);
+        return asccomm.write_nbi(batch, remote + offset, local + offset, payload_bytes, groups...);
     } else if constexpr (api == API_READ) {
-        return asccomm.asccomm_read_nbi(batch, local + offset, remote + offset, payload_bytes, groups...);
+        return asccomm.read_nbi(batch, local + offset, remote + offset, payload_bytes, groups...);
     } else if constexpr (api == API_NOTIFY) {
-        return asccomm.asccomm_write_with_notify_nbi(
+        return asccomm.write_with_notify_nbi(
             batch, remote + offset, local + offset, payload_bytes, remote + offset + slot_bytes - sizeof(uint64_t),
             NOTIFY_VALUE, groups...);
     } else if constexpr (api == API_WRITE_VALUE) {
-        return asccomm.template asccomm_write_value_nbi<uint64_t>(batch, remote + offset, INLINE_VALUE, groups...);
+        return asccomm.template write_value_nbi<uint64_t>(batch, remote + offset, INLINE_VALUE, groups...);
     } else if constexpr (api == API_FAA) {
-        return asccomm.template asccomm_atomic_faa_nbi<uint64_t>(
-            batch, remote + offset, local + offset, FAA_ADD, groups...);
+        return asccomm.template atomic_faa_nbi<uint64_t>(batch, remote + offset, local + offset, FAA_ADD, groups...);
     } else {
-        return asccomm.template asccomm_atomic_cas_nbi<uint64_t>(
+        return asccomm.template atomic_cas_nbi<uint64_t>(
             batch, remote + offset, local + offset, CAS_INITIAL, CAS_SWAP, groups...);
     }
 }
 
 template <uint32_t api>
-// 单lane批量：每批仅提交一个任务请求，逐批添加并asccomm_batch_commit，批次间复用同一句柄。
+// 单lane批量：每批仅提交一个任务请求，逐批添加并batch_commit，批次间复用同一句柄。
 __simt_callee__ inline int32_t submit_batch_series(
     asc::simt::asccomm<>& asccomm, asc::simt::ubc_ctp_batch_handle& batch, __gm__ uint8_t* remote,
     __gm__ uint8_t* local, uint32_t payload_bytes, uint32_t slot_bytes, uint32_t count, uint32_t& publish_count)
@@ -56,7 +55,7 @@ __simt_callee__ inline int32_t submit_batch_series(
         if (status != 0) {
             return status;
         }
-        status = asccomm.asccomm_batch_commit(batch);
+        status = asccomm.batch_commit(batch);
         if (status != 0) {
             return status;
         }
@@ -66,9 +65,9 @@ __simt_callee__ inline int32_t submit_batch_series(
 }
 
 template <uint32_t api, typename asccomm_t, typename Group>
-// 多lane协同批量：group内每lane各构造一个请求添加到批次，asccomm_batch_commit为协作调用（所有lane
+// 多lane协同批量：group内每lane各构造一个请求添加到批次，batch_commit为协作调用（所有lane
 // 均须调用，由发布lane统一发布整批，每批任务数等于lane数）；同批请求必须使用相同WQE宽度，
-// 添加失败不得对本批调用asccomm_batch_commit。
+// 添加失败不得对本批调用batch_commit。
 __simt_callee__ inline int32_t submit_group_batches(
     asccomm_t& asccomm, const Group& group, asc::simt::ubc_ctp_batch_handle& batch, __gm__ uint8_t* remote,
     __gm__ uint8_t* local, uint32_t payload_bytes, uint32_t slot_bytes, uint32_t count, uint32_t& publish_count)
@@ -81,7 +80,7 @@ __simt_callee__ inline int32_t submit_group_batches(
         // One group lane prepares exactly one WQE for this batch.
         const int32_t append_status = append_one_wqe<api>(
             asccomm, batch, remote, local, payload_bytes, slot_bytes, operation % SLOT_COUNT, group);
-        int32_t commit_status = append_status == 0 ? asccomm.asccomm_batch_commit(batch, group) : append_status;
+        int32_t commit_status = append_status == 0 ? asccomm.batch_commit(batch, group) : append_status;
         if (append_status != 0 || commit_status != 0) {
             return append_status != 0 ? append_status : commit_status;
         }
@@ -99,20 +98,19 @@ __simt_vf__ __launch_bounds__(32) inline void simt_batch_perf_vf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         timing[STATUS_INDEX] = static_cast<uint64_t>(-1);
         return;
     }
 
     uint32_t publish_count = 0U;
     int32_t status = 0;
-    // 单lane批量：每批仅提交一个任务请求，逐批添加并asccomm_batch_commit，批次间复用同一句柄；
+    // 单lane批量：每批仅提交一个任务请求，逐批添加并batch_commit，批次间复用同一句柄；
     // 批量工作区至少256字节，由asccomm_make_batch_handle绑定（不经过asccomm_init）。
-    asc::simt::ubc_ctp_batch_handle batch =
-        asccomm.asccomm_make_batch_handle(channel, batch_buffer, BATCH_BUFFER_BYTES);
+    asc::simt::ubc_ctp_batch_handle batch = asccomm.make_batch_handle(channel, batch_buffer, BATCH_BUFFER_BYTES);
     if (batch.context == nullptr) {
         status = asc::HCOMM_FAILED;
     } else {
@@ -125,7 +123,7 @@ __simt_vf__ __launch_bounds__(32) inline void simt_batch_perf_vf(
         return;
     }
     if (warmup != 0U) {
-        status = asccomm.asccomm_drain(batch);
+        status = asccomm.drain(batch);
         if (status != 0) {
             timing[STATUS_INDEX] = static_cast<uint64_t>(status);
             timing[PUBLISH_COUNT_INDEX] = publish_count;
@@ -143,7 +141,7 @@ __simt_vf__ __launch_bounds__(32) inline void simt_batch_perf_vf(
         timing[PUBLISH_COUNT_INDEX] = publish_count;
         return;
     }
-    status = asccomm.asccomm_drain(batch);
+    status = asccomm.drain(batch);
     uint64_t completion_end = clock();
     timing[ISSUE_CYCLES_INDEX] = issue_end - begin;
     timing[COMPLETION_CYCLES_INDEX] = completion_end - begin;
@@ -160,11 +158,11 @@ __simt_vf__ __launch_bounds__(group_capacity) inline void simt_group_batch_perf_
 {
     auto group = cooperative_groups::this_thread_block();
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
     asc::simt::asccomm<> asccomm;
-    int32_t status = asccomm.asccomm_init(nullptr, 0U);
-    auto batch = asccomm.asccomm_make_batch_handle(channel, batch_buffer, BATCH_BUFFER_BYTES, group);
+    int32_t status = asccomm.init(nullptr, 0U);
+    auto batch = asccomm.make_batch_handle(channel, batch_buffer, BATCH_BUFFER_BYTES, group);
     if (batch.context == nullptr) {
         status = asc::HCOMM_FAILED;
     }
@@ -174,9 +172,9 @@ __simt_vf__ __launch_bounds__(group_capacity) inline void simt_group_batch_perf_
             asccomm, group, batch, remote, local, payload_bytes, slot_bytes, warmup, publish_count);
     }
     if (status == 0 && warmup != 0U) {
-        // asccomm_drain不接收group：group.sync()后由一个lane（thread_rank 0）统一调用。
+        // drain不接收group：group.sync()后由一个lane（thread_rank 0）统一调用。
         if (rank == 0U) {
-            status = asccomm.asccomm_drain(batch);
+            status = asccomm.drain(batch);
             drain_status[0] = static_cast<uint32_t>(status);
         }
         group.sync();
@@ -196,8 +194,8 @@ __simt_vf__ __launch_bounds__(group_capacity) inline void simt_group_batch_perf_
         asccomm, group, batch, remote, local, payload_bytes, slot_bytes, iterations, publish_count);
     uint64_t issue_end = rank == 0U ? clock() : 0U;
     if (status == 0 && rank == 0U) {
-        // 仅rank 0统一asccomm_drain该批量句柄累计提交的任务。
-        status = asccomm.asccomm_drain(batch);
+        // 仅rank 0统一drain该批量句柄累计提交的任务。
+        status = asccomm.drain(batch);
     }
     if (rank == 0U) {
         const uint64_t completion_end = clock();

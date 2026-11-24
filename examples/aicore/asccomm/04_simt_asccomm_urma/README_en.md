@@ -1,9 +1,9 @@
-# asccomm SIMT URMA Functional Sample
+# CommRW SIMT URMA Functional Sample
 
 ## Overview
 
-This sample validates all SIMT URMA point-to-point communication interfaces in `asccomm/asccomm_simt.h`: `asccomm_write_nbi`, `asccomm_write_value_nbi`,
-`asccomm_write_with_notify_nbi`, `asccomm_atomic_faa_nbi`, and `asccomm_atomic_cas_nbi`, and covers both immediate and deferred publication.
+This sample validates all SIMT URMA point-to-point communication interfaces in `asccomm/asccomm_simt.h`: `write_nbi`, `write_value_nbi`,
+`write_with_notify_nbi`, `atomic_faa_nbi`, and `atomic_cas_nbi`, and covers both immediate and deferred publication.
 
 The topology is a ring: each rank sends operations to the memory registered by `next = (rank + 1) % nranks` and validates
 the results written by `prev = (rank - 1 + nranks) % nranks`. Each rank is both a sender and a receiver, and both sides are checked:
@@ -39,32 +39,32 @@ The sample provides ten test modes, covering immediate and deferred publication 
 
 **Write family**
 
-`asccomm_write_nbi` takes data from a local buffer, and the WQE carries an SGE pointing to that buffer. Slot `i` carries the value `i + 1`, so on the receiving side
+`write_nbi` takes data from a local buffer, and the WQE carries an SGE pointing to that buffer. Slot `i` carries the value `i + 1`, so on the receiving side
 any wrong value can be traced directly to the slot it should have come from.
 
-`asccomm_write_value_nbi` inlines the value to be written in the WQE without reading the send buffer. It requires `config` to have inline enabled (the default is
+`write_value_nbi` inlines the value to be written in the WQE without reading the send buffer. It requires `config` to have inline enabled (the default is
 `URMA_INLINE_CFG`) and `sizeof(T)` not to exceed the WQE inline payload area; both are checked at compile time.
 
 | `mode` | Publication |
 | --- | --- |
-| `write_single` | 32 independent `asccomm_write_nbi<commit=true>` calls |
-| `write_batch_last` | 31 serial `asccomm_write_nbi<false>` calls, then one `asccomm_write_nbi<true>` |
-| `write_value_single` | 32 independent `asccomm_write_value_nbi<commit=true>` calls |
-| `write_value_batch_last` | 31 serial `asccomm_write_value_nbi<false>` calls, then one `asccomm_write_value_nbi<true>` |
+| `write_single` | 32 independent `write_nbi<commit=true>` calls |
+| `write_batch_last` | 31 serial `write_nbi<false>` calls, then one `write_nbi<true>` |
+| `write_value_single` | 32 independent `write_value_nbi<commit=true>` calls |
+| `write_value_batch_last` | 31 serial `write_value_nbi<false>` calls, then one `write_value_nbi<true>` |
 
 **Notify/Atomic family**
 
 | `mode` | Description |
 | --- | --- |
-| `notify` | Submits one Notify operation and calls `asccomm_drain` |
+| `notify` | Submits one Notify operation and calls `drain` |
 | `faa` | Submits one FAA operation and validates the remote accumulated result and the old value fetched back locally |
 | `cas` | Submits one CAS operation and validates the remote swapped result and the old value fetched back locally |
-| `single` (default) | Submits Notify, FAA, and CAS serially, calling `asccomm_drain` after each operation |
+| `single` (default) | Submits Notify, FAA, and CAS serially, calling `drain` after each operation |
 | `batch_last` | Defers Notify and FAA with `commit=false`, then publishes the whole batch with a `commit=true` CAS |
-| `notify_immediate_repeat` | One lane submits `NOTIFY_IMMEDIATE_REPEAT_COUNT` `asccomm_write_with_notify_nbi<true>` posts in a row (currently 100), then calls `asccomm_drain` once at the end |
+| `notify_immediate_repeat` | One lane submits `NOTIFY_IMMEDIATE_REPEAT_COUNT` `write_with_notify_nbi<true>` posts in a row (currently 100), then calls `drain` once at the end |
 
-The two families use non-overlapping slot layouts, and the buffer is allocated according to the larger of the two. SIMT has no `asccomm_commit` interface, so a deferred
-task can only be carried out by a later `commit=true` post. All modes call `asccomm_drain` at the end to ensure that the CQ is consumed before the kernel
+The two families use non-overlapping slot layouts, and the buffer is allocated according to the larger of the two. SIMT has no `commit` interface, so a deferred
+task can only be carried out by a later `commit=true` post. All modes call `drain` at the end to ensure that the CQ is consumed before the kernel
 returns.
 
 ### Sample Specifications
@@ -84,7 +84,7 @@ returns.
 2. Each rank registers `send_buf` and `recv_buf` through `HcclCommMemReg`.
 3. Obtains the link endpoint to `next` through `HcclRankGraphGetLayers`/`HcclRankGraphGetLinks`, then calls
    `HcclChannelAcquire` to create the channel and obtains the peer memory address through `HcclChannelGetRemoteMems`.
-4. The Kernel side submits the URMA operations according to the selected mode, then calls `asccomm_drain` to wait for completion.
+4. The Kernel side submits the URMA operations according to the selected mode, then calls `drain` to wait for completion.
 5. The Host side uses two barriers (`ready` and `sent`) over the control channel to ensure that all ranks finish registration and writing before reading back and validating.
 6. Validates the values fetched back in `send_buf` and the data landed in `recv_buf`, and outputs PASS/FAIL.
 
@@ -160,4 +160,4 @@ Perform the following steps in the root directory of this sample to compile and 
   finished.
 - The executable captures `SIGINT`/`SIGTERM` and terminates all rank processes, so Ctrl+C does not leave processes blocked on a Host barrier and
   still holding devices.
-- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `asccomm` library.
+- The build relies on the CANN ASC CMake utilities and, at the link stage, on the CANN `hcomm` library.

@@ -27,7 +27,7 @@
 #include <mutex>
 
 // Device-side multi-channel handle created by the host (asccomm_host_impl.h) and consumed by
-// asccomm_make_batch_handle on the device. uint64_t so it stays ABI-identical to the legacy
+// make_batch_handle on the device. uint64_t so it stays ABI-identical to the legacy
 // typedef uint64_t MultiChannelHandle in hcomm_host.h.
 typedef uint64_t multi_channel_handle;
 

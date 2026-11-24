@@ -1,11 +1,11 @@
-# asccomm URMA Batch API Performance Example
+# CommRW URMA Batch API Performance Example
 
 ## Overview
 
 This example measures the send performance of three point-to-point operations over the URMA
-path (AIV-Kernel direct drive) using the batch APIs (`asccomm_make_batch_handle` + `asccomm_batch_commit`):
-`asccomm_write_nbi`, `asccomm_read_nbi` and `asccomm_write_with_notify_nbi`, covering the latency and bandwidth metrics and
-both asccomm_batch_commit timing strategies (combined or split timing).
+path (AIV-Kernel direct drive) using the batch APIs (`make_batch_handle` + `batch_commit`):
+`write_nbi`, `read_nbi` and `write_with_notify_nbi`, covering the latency and bandwidth metrics and
+both batch_commit timing strategies (combined or split timing).
 
 The two ranks send and receive symmetrically: both sides issue communication to the peer and
 validate their local landing regions. This is intentional — concurrent bidirectional traffic
@@ -49,27 +49,27 @@ Three operations x two metrics x two publishing strategies:
 
 | `api` | Description |
 | --- | --- |
-| `write` | `asccomm_write_nbi` (batch-handle overload), local source region -> peer write region |
-| `read` | `asccomm_read_nbi` (batch-handle overload), local read region <- peer source region |
-| `notify` | `asccomm_write_with_notify_nbi` (batch-handle overload), local source region -> peer notify region, plus one remote flag word after the payload |
+| `write` | `write_nbi` (batch-handle overload), local source region -> peer write region |
+| `read` | `read_nbi` (batch-handle overload), local read region <- peer source region |
+| `notify` | `write_with_notify_nbi` (batch-handle overload), local source region -> peer notify region, plus one remote flag word after the payload |
 
 | `metric` | Description |
 | --- | --- |
-| `lat` | Latency: per-round segmented timing; the timed window contains only the issues (plus asccomm_batch_commit when `commit=combine`), no asccomm_drain — pure submit-path latency; under `split`, asccomm_batch_commit stays outside the Post window, and one out-of-window asccomm_drain between batches lets the SQ restart from scratch each round |
-| `bw` | Bandwidth: one window covers all rounds; each round runs Post + `asccomm_batch_commit` + asccomm_drain — end-to-end bandwidth with SQ usage independent of rounds |
+| `lat` | Latency: per-round segmented timing; the timed window contains only the issues (plus batch_commit when `commit=combine`), no drain — pure submit-path latency; under `split`, batch_commit stays outside the Post window, and one out-of-window drain between batches lets the SQ restart from scratch each round |
+| `bw` | Bandwidth: one window covers all rounds; each round runs Post + `batch_commit` + drain — end-to-end bandwidth with SQ usage independent of rounds |
 
 | `commit` | Description |
 | --- | --- |
-| `combine` | Post and asccomm_batch_commit share one latency window (default) |
-| `split` | The Post window stops first; asccomm_batch_commit is timed in its own window and emits an extra `commit-lat` row |
+| `combine` | Post and batch_commit share one latency window (default) |
+| `split` | The Post window stops first; batch_commit is timed in its own window and emits an extra `commit-lat` row |
 
-The bandwidth metric does not distinguish the two: asccomm_batch_commit is always inside the bandwidth
+The bandwidth metric does not distinguish the two: batch_commit is always inside the bandwidth
 window.
 
 ### Loop Model
 
 - **rounds (default 1)** = outer batch-round repetition count;
-- **batch_cap (default 1024)** is only the number of requests aggregated by one asccomm_batch_commit;
+- **batch_cap (default 1024)** is only the number of requests aggregated by one batch_commit;
 - it does not determine the address window. In-batch requests and rounds reuse one `len`
   window; the notify flag remains one fixed slot; the host validates only **one `len` window**
   — every round writes the same data.
@@ -90,9 +90,9 @@ columns from full-precision cycles:
 - `Bandwidth/GB/s = DataSize / SingleCoreTime / 1000`
 
 Latency and bandwidth rows use the formulas above, with one request as one sample. When
-`commit=split`, an extra `commit-lat` row is emitted: its sample is one `asccomm_batch_commit` call, so
+`commit=split`, an extra `commit-lat` row is emitted: its sample is one `batch_commit` call, so
 `AvgCycles = Cycles / Rounds`. That row describes only the submission call, does not derive
-bandwidth, and always reports 0. The Post/asccomm_batch_commit/asccomm_drain control flow is identical under
+bandwidth, and always reports 0. The Post/batch_commit/drain control flow is identical under
 combine and split; only the timing-window boundary changes.
 
 ### Memory Layout
@@ -101,10 +101,10 @@ One **2GB** registered buffer is partitioned per case by `len`; every region is 
 
 | Offset | Region |
 | --- | --- |
-| 0 | source: local send source / peer `asccomm_read_nbi` read source |
-| len | write: peer `asccomm_write_nbi` landing region |
-| 2 x len | read: local `asccomm_read_nbi` landing region |
-| 3 x len | notify: peer `asccomm_write_with_notify_nbi` landing region |
+| 0 | source: local send source / peer `read_nbi` read source |
+| len | write: peer `write_nbi` landing region |
+| 2 x len | read: local `read_nbi` landing region |
+| 3 x len | notify: peer `write_with_notify_nbi` landing region |
 | 4 x len (8B aligned) | flag: single notify flag slot (fixed address, 8B only) |
 
 Notes:
@@ -114,7 +114,7 @@ Notes:
 - **Batch capacity caps** (violations abort instead of clamping — the window size is
   determined by batch_cap, and clamping would desynchronize the host validation window):
   - VECOUT UB: batch staging buffer `batch_cap x WQEBBs-per-request x 64B < 256KiB`,
-    validated at kernel runtime (`asccomm_write_with_notify_nbi` takes 2 WQEBBs, the others 1);
+    validated at kernel runtime (`write_with_notify_nbi` takes 2 WQEBBs, the others 1);
   - SQ: bandwidth drains immediately after each round and latency drains out of window between
     batches, so the SQ only needs one batch. The default sq_depth is 8192 entries x 4 WQEBBs
     = 32768 WQEBBs; the stricter UB cap (at most 4096 WQEBBs) already satisfies it;
@@ -158,10 +158,10 @@ Comparison granularity is 4B (int32).
 | Item | Description |
 | --- | --- |
 | Communication mode | Topology via `--perf_type`: `p2p` (two symmetric ranks, default) or `ring` (unidirectional ring) |
-| Invocation | Batch APIs (`asccomm_make_batch_handle` + `asccomm_batch_commit`) inside an AIV Kernel |
+| Invocation | Batch APIs (`make_batch_handle` + `batch_commit`) inside an AIV Kernel |
 | APIs under test | `write`, `read`, `notify` |
 | Metrics | `lat` (submit latency), `bw` (end-to-end bandwidth) |
-| Publishing strategies | `combine` (Post and asccomm_batch_commit in one latency window, default), `split` (separate windows, extra `commit-lat` row) |
+| Publishing strategies | `combine` (Post and batch_commit in one latency window, default), `split` (separate windows, extra `commit-lat` row) |
 | Rank count | 2..N (`ring`: all ranks active; `p2p`: only ranks 0/1 communicate, the rest idle) |
 
 ## Build and Run
@@ -208,7 +208,7 @@ Follow these steps in the example directory. NPU mode only.
   | `--exponent` | none | Single exponent (equivalent to `--exponent-range exp exp`) |
   | `--api` | `all` | Operations to measure: `all`, or a comma-separated subset of `write`/`read`/`notify` |
   | `--metric` | `all` | `all`, or a comma-separated subset of `lat`/`bw` |
-  | `--commit` | `combine` | `combine` times Post+asccomm_batch_commit in one window; `split` times them separately and emits an extra `commit-lat` row; bandwidth does not distinguish |
+  | `--commit` | `combine` | `combine` times Post+batch_commit in one window; `split` times them separately and emits an extra `commit-lat` row; bandwidth does not distinguish |
   | `--rounds` | `1` | Batch-round repetitions (warmup is fixed at 50 full batch rounds, not configurable) |
   | `--batch-range` | `1024 1024` | Requests per batch (x2 steps, inclusive; aggregation count only, not address-window size) |
   | `--batch` | none | Single batch size (equivalent to `--batch-range N N`; capped by kernel runtime checks) |
@@ -223,8 +223,8 @@ Follow these steps in the example directory. NPU mode only.
 - Expected output
 
   ```text
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
   [rank 0] case=batch1024_4096B validation: PASS (checked 4096KB per region)
   RESULT | Example=urma_batch_api_perf | Status=PASS
   ```
@@ -240,7 +240,7 @@ Follow these steps in the example directory. NPU mode only.
 - At least 2 NPUs are required; single-card environments support compile-only validation.
 - Batch-capacity constraints: the VECOUT UB budget and the registered-memory window are
   validated at kernel runtime. All violations abort without clamping.
-- Default batch 1024: `asccomm_write_with_notify_nbi` takes 2 WQEBBs per request, so staging is 128KiB,
+- Default batch 1024: `write_with_notify_nbi` takes 2 WQEBBs per request, so staging is 128KiB,
   below the 256KiB UB budget and far below the 32768-WQEBB SQ capacity.
 - Device memory requirement: 2GB registered memory per rank, supporting `len=256MB`.
-- Building depends on the CANN ASC CMake capability and links against the CANN `asccomm` library.
+- Building depends on the CANN ASC CMake capability and links against the CANN `hcomm` library.

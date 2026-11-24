@@ -39,9 +39,9 @@ constexpr asc::wqe_entry WQE_CQE_CFG = {
 // OP_* 同时是 timing 第一维槽位（与 def.h 的 API_*_IDX 同值），
 // static_assert 编译期钉死这个 ABI。
 enum test_operation : int32_t {
-    OP_WRITE = 0, // asccomm_write_nbi
-    OP_READ = 1,  // asccomm_read_nbi
-    OP_NOTIFY = 2 // asccomm_write_with_notify_nbi
+    OP_WRITE = 0, // write_nbi
+    OP_READ = 1,  // read_nbi
+    OP_NOTIFY = 2 // write_with_notify_nbi
 };
 
 static_assert(
@@ -130,25 +130,25 @@ private:
     {
         if constexpr (op == OP_WRITE) {
             if constexpr (enable_cqe) {
-                return asccomm.asccomm_write_nbi<WQE_CQE_CFG>(batch_handle, remote_addr, local_addr, len);
+                return asccomm.write_nbi<WQE_CQE_CFG>(batch_handle, remote_addr, local_addr, len);
             }
-            return asccomm.asccomm_write_nbi<WQE_NO_CQE_CFG>(batch_handle, remote_addr, local_addr, len);
+            return asccomm.write_nbi<WQE_NO_CQE_CFG>(batch_handle, remote_addr, local_addr, len);
         } else if constexpr (op == OP_READ) {
             if constexpr (enable_cqe) {
-                return asccomm.asccomm_read_nbi<WQE_CQE_CFG>(batch_handle, local_addr, remote_addr, len);
+                return asccomm.read_nbi<WQE_CQE_CFG>(batch_handle, local_addr, remote_addr, len);
             }
-            return asccomm.asccomm_read_nbi<WQE_NO_CQE_CFG>(batch_handle, local_addr, remote_addr, len);
+            return asccomm.read_nbi<WQE_NO_CQE_CFG>(batch_handle, local_addr, remote_addr, len);
         } else {
             if constexpr (enable_cqe) {
-                return asccomm.asccomm_write_with_notify_nbi<WQE_CQE_CFG>(
+                return asccomm.write_with_notify_nbi<WQE_CQE_CFG>(
                     batch_handle, remote_addr, local_addr, len, flag_addr, NOTIFY_VAL_BASE);
             }
-            return asccomm.asccomm_write_with_notify_nbi<WQE_NO_CQE_CFG>(
+            return asccomm.write_with_notify_nbi<WQE_NO_CQE_CFG>(
                 batch_handle, remote_addr, local_addr, len, flag_addr, NOTIFY_VAL_BASE);
         }
     }
 
-    // warmup：固定 WARMUP_ROUNDS(=50) 个完整批轮次（B 条 → asccomm_batch_commit → asccomm_drain）
+    // warmup：固定 WARMUP_ROUNDS(=50) 个完整批轮次（B 条 → batch_commit → drain）
     template <int op>
     __aicore__ inline bool warmup(
         asc::ubc_batch_handle& batch_handle, uint32_t last_batch_index, uint32_t msg_len, GM_ADDR local_fixed,
@@ -169,13 +169,13 @@ private:
                 context->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
                 return false;
             }
-            ret = asccomm.asccomm_batch_commit(batch_handle);
+            ret = asccomm.batch_commit(batch_handle);
             if (ret != asc::HCOMM_SUCCESS) {
                 context->result = KERNEL_WARMUP_FAILED;
                 context->timing[op][WARMUP_METRIC_INDEX] = static_cast<uint64_t>(ret);
                 return false;
             }
-            ret = asccomm.asccomm_drain(batch_handle);
+            ret = asccomm.drain(batch_handle);
             context->drain_ret = static_cast<uint32_t>(ret);
             if (ret != asc::HCOMM_SUCCESS) {
                 context->result = KERNEL_WARMUP_FAILED;
@@ -186,8 +186,8 @@ private:
         return true;
     }
 
-    // 时延档：逐轮分段计时，asccomm_drain 在段外。COMMIT_IN_WINDOW=true 时 Post 与
-    // asccomm_batch_commit 同窗；false 时 Post 窗先停表，asccomm_batch_commit 再单独开窗计时。
+    // 时延档：逐轮分段计时，drain 在段外。COMMIT_IN_WINDOW=true 时 Post 与
+    // batch_commit 同窗；false 时 Post 窗先停表，batch_commit 再单独开窗计时。
     template <int op, bool COMMIT_IN_WINDOW>
     __aicore__ inline bool run_latency(
         asc::ubc_batch_handle& batch_handle, uint32_t rounds, uint32_t last_batch_index, uint32_t msg_len,
@@ -205,7 +205,7 @@ private:
             }
             ret_post = post_batch<op, true>(batch_handle, msg_len, local_fixed, remote_addr, flag_slot);
             if constexpr (COMMIT_IN_WINDOW) {
-                ret_commit = asccomm.asccomm_batch_commit(batch_handle);
+                ret_commit = asccomm.batch_commit(batch_handle);
             }
             AscendC::PipeBarrier<PIPE_ALL>();
             uint64_t t1 = AscendC::GetSystemCycle();
@@ -214,7 +214,7 @@ private:
             if constexpr (!COMMIT_IN_WINDOW) {
                 AscendC::PipeBarrier<PIPE_ALL>();
                 uint64_t c0 = AscendC::GetSystemCycle();
-                ret_commit = asccomm.asccomm_batch_commit(batch_handle);
+                ret_commit = asccomm.batch_commit(batch_handle);
                 AscendC::PipeBarrier<PIPE_ALL>();
                 uint64_t c1 = AscendC::GetSystemCycle();
                 commit_elapsed += c1 - c0;
@@ -230,7 +230,7 @@ private:
                 return false;
             }
             // 段外清空 SQ，保证下一轮从空批次开始。
-            int32_t ret = asccomm.asccomm_drain(batch_handle);
+            int32_t ret = asccomm.drain(batch_handle);
             context->drain_ret = static_cast<uint32_t>(ret);
             if (ret != asc::HCOMM_SUCCESS) {
                 context->result = KERNEL_LAT_DRAIN_FAILED;
@@ -261,8 +261,8 @@ private:
                 ret_post = post_batch<op, false>(batch_handle, msg_len, local_fixed, remote_addr, flag_slot);
             }
             ret_post = post_batch<op, true>(batch_handle, msg_len, local_fixed, remote_addr, flag_slot);
-            ret_commit = asccomm.asccomm_batch_commit(batch_handle);
-            ret = asccomm.asccomm_drain(batch_handle);
+            ret_commit = asccomm.batch_commit(batch_handle);
+            ret = asccomm.drain(batch_handle);
         }
         AscendC::PipeBarrier<PIPE_ALL>();
         uint64_t t1 = AscendC::GetSystemCycle();
@@ -286,7 +286,7 @@ private:
         return true;
     }
 
-    // 单个操作的全流程：算地址 → asccomm_make_batch_handle → warmup → 时延档 → 带宽档。
+    // 单个操作的全流程：算地址 → make_batch_handle → warmup → 时延档 → 带宽档。
     template <int op>
     __aicore__ inline bool run_op(
         const case_layout& layout, uint32_t rounds, uint32_t batch_cap, uint32_t batch_buf_bytes, uint64_t msg_bytes)
@@ -307,7 +307,7 @@ private:
         // 批句柄绑定单条通道：read 用 recv 通道，其余用 send 通道
         asc::ChannelHandle selected_channel = is_read ? recv_channel : channel;
         auto batch_handle =
-            asccomm.asccomm_make_batch_handle(selected_channel, batch_buf, batch_buf_bytes, remote_fixed, local_fixed);
+            asccomm.make_batch_handle(selected_channel, batch_buf, batch_buf_bytes, remote_fixed, local_fixed);
         if (batch_handle.channel_handle == 0U) {
             context->result = KERNEL_MAKE_HANDLE_FAILED;
             return false;

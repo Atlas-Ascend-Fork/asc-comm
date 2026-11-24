@@ -48,7 +48,7 @@ using namespace AscendC;
 
 // head_addr stores cur_head in low 32 bits and wqe_cnt in high 32 bits.
 // A single lane drives a channel, so the reservation is a plain read-modify-write of both
-// counters; asccomm_drain is likewise called by a single lane.
+// counters; drain is likewise called by a single lane.
 constexpr uint64_t ASCCOMM_SIMT_WQE_CNT_MASK = 0xFFFFFFFFULL;
 
 // SIMT view of ChannelEntity: the shared definition stores typed host pointers, which the SIMT

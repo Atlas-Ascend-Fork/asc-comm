@@ -55,16 +55,15 @@ cann-asc-comm_9.2.0_linux-<arch>.run
 
 | Repository scan directory | CANN installation directory |
 | --- | --- |
-| `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
-| `src/aicore/hcomm/` | `asc/impl/adv_api/detail/hcomm/` |
+| `src/aicore/legacy/hcomm/` | `asc/include/adv_api/hcomm/` |
+| `src/aicore/legacy/jetty/` | `asc/include/comm_api/aicore/jetty/` |
 | Other directories under `include/` | `asc/include/comm_api/`, preserving relative paths |
 | Other directories under `src/` | `asc/impl/comm_api/`, preserving relative paths |
 
-The installation paths follow the asc-devkit subpackage layout. Relative subdirectories within each source directory are preserved. Installation also creates these Hcomm symbolic links:
+The installation paths follow the asc-devkit subpackage layout. Relative subdirectories within each source directory are preserved. Installation also creates this Hcomm symbolic link:
 
 ```text
 asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
-asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
 For example, `include/aicore/ain/` is installed under `asc/include/comm_api/aicore/ain/`, and `include/ccu/` is installed under `asc/include/comm_api/ccu/`. The run package collects only `.h` files that exist under these directories at packaging time; other file types such as `.cpp` and `.inc` are not included. New headers are included automatically the next time the package is built.

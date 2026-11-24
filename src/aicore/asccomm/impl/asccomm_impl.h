@@ -12,9 +12,9 @@
  * \file asccomm_impl.h
  * \brief Hcomm asccomm interface implementation
  *
- * Defines the new asccomm* interfaces declared by the public asccomm/asccomm.h header. Each
- * interface forwards to the same underlying asccomm_impl asccomm* implementation member that the
- * legacy Hcomm interface adapters in hcomm_impl.h also use.
+ * Defines the new asccomm* interfaces declared by the public asccomm/asccomm.h header. The legacy
+ * Hcomm interface adapters in hcomm/hcomm.h forward to these asccomm* interfaces, so both sets
+ * share the same underlying asccomm_impl implementation member.
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
@@ -40,21 +40,21 @@
 namespace asc {
 
 template <CommProtocol comm_protocol>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+__aicore__ inline int32_t asccomm<comm_protocol>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    return impl.asccomm_init(buff, len);
+    return impl.init(buff, len);
 }
 
 template <CommProtocol comm_protocol>
 template <typename T>
-__aicore__ inline batch_handle<T> asccomm<comm_protocol>::asccomm_make_batch_handle(
+__aicore__ inline batch_handle<T> asccomm<comm_protocol>::make_batch_handle(
     T channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     static_assert(
         protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_UB_CTP ||
             protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE,
         "batch_handle only supports UB_CTP, UBOE, UB_RTP and RoCE");
-    auto handle = impl.asccomm_make_batch_handle(channel, buff, buff_len, remote_addr, local_addr);
+    auto handle = impl.make_batch_handle(channel, buff, buff_len, remote_addr, local_addr);
     using ExpectedType = batch_handle<T>;
     static_assert(IsSameType<decltype(handle), ExpectedType>::value, "Channel type and batch_handle type do not match");
     return handle;
@@ -62,193 +62,188 @@ __aicore__ inline batch_handle<T> asccomm<comm_protocol>::asccomm_make_batch_han
 
 template <CommProtocol comm_protocol>
 template <typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline batch_handle<T>& asccomm<comm_protocol>::asccomm_get_handle_ref(
-    T& batch_handle, uint32_t channel_index, GM_ADDR remote_addr)
+__aicore__ inline batch_handle<T>& asccomm<comm_protocol>::get_handle_ref(
+    T& batch_handle_pool, uint32_t channel_idx, GM_ADDR remote_addr)
 {
-    return impl.asccomm_get_handle_ref(batch_handle, channel_index, remote_addr);
+    return impl.get_handle_ref(batch_handle_pool, channel_idx, remote_addr);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_nbi(
-    T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+__aicore__ inline int32_t asccomm<comm_protocol>::write_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
-    return impl.template asccomm_write_nbi<config>(batch_handle, dst, src, len);
+    return impl.template write_nbi<config>(batch_handle, dst, src, len);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_nbi(
     T& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
-    return impl.template asccomm_write_nbi<config>(batch_handle, dst, src_descs, src_num);
+    return impl.template write_nbi<config>(batch_handle, dst, src_descs, src_num);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl.template asccomm_write_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
+    return impl.template write_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
-    return impl.template asccomm_write_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src_descs, src_num);
+    return impl.template write_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src_descs, src_num);
 }
 
 template <CommProtocol comm_protocol>
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
+__aicore__ inline int32_t asccomm<comm_protocol>::write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
-    return impl.template asccomm_write_value_nbi<T, commit, commit_pipe, req_pipe, config>(channel, dst, value);
+    return impl.template write_value_nbi<T, commit, commit_pipe, req_pipe, config>(channel, dst, value);
 }
 
 template <CommProtocol comm_protocol>
-template <
-    typename T, asccomm_urma_reduce_op reduce_op, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_reduce_nbi(
+template <typename T, asccomm_reduce_op reduce_op, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::write_reduce_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
-    return impl.template asccomm_write_reduce_nbi<T, reduce_op, commit, commit_pipe, req_pipe, config>(
+    return impl.template write_reduce_nbi<T, reduce_op, commit, commit_pipe, req_pipe, config>(
         channel, dst, src, count);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_with_notify_nbi(
     T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
-    return impl.template asccomm_write_with_notify_nbi<config>(batch_handle, dst, src, len, notify_addr, notify_val);
+    return impl.template write_with_notify_nbi<config>(batch_handle, dst, src, len, notify_addr, notify_val);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_with_notify_nbi(
     T& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr, uint64_t notify_val)
 {
-    return impl.template asccomm_write_with_notify_nbi<config>(
-        batch_handle, dst, src_descs, src_num, notify_addr, notify_val);
+    return impl.template write_with_notify_nbi<config>(batch_handle, dst, src_descs, src_num, notify_addr, notify_val);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
-    return impl.template asccomm_write_with_notify_nbi<commit, commit_pipe, req_pipe, config>(
+    return impl.template write_with_notify_nbi<commit, commit_pipe, req_pipe, config>(
         channel, dst, src, len, notify_addr, notify_val);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
     uint64_t notify_val)
 {
-    return impl.template asccomm_write_with_notify_nbi<commit, commit_pipe, req_pipe, config>(
+    return impl.template write_with_notify_nbi<commit, commit_pipe, req_pipe, config>(
         channel, dst, src_descs, src_num, notify_addr, notify_val);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl.template asccomm_read_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
+    return impl.template read_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
 }
 
 template <CommProtocol comm_protocol>
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::read_nbi(
     ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
-    return impl.template asccomm_read_nbi<commit, commit_pipe, req_pipe, config>(channel, dst_descs, dst_num, src);
+    return impl.template read_nbi<commit, commit_pipe, req_pipe, config>(channel, dst_descs, dst_num, src);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_read_nbi(
-    T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+__aicore__ inline int32_t asccomm<comm_protocol>::read_nbi(T& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
-    return impl.template asccomm_read_nbi<config>(batch_handle, dst, src, len);
+    return impl.template read_nbi<config>(batch_handle, dst, src, len);
 }
 
 template <CommProtocol comm_protocol>
 template <auto const& config, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::read_nbi(
     T& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
-    return impl.template asccomm_read_nbi<config>(batch_handle, dst_descs, dst_num, src);
+    return impl.template read_nbi<config>(batch_handle, dst_descs, dst_num, src);
 }
 
 template <CommProtocol comm_protocol>
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_atomic_faa_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::atomic_faa_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val)
 {
-    return impl.template asccomm_atomic_faa_nbi<T, commit, commit_pipe, req_pipe, config>(
-        channel, dst, fetch_addr, add_val);
+    return impl.template atomic_faa_nbi<T, commit, commit_pipe, req_pipe, config>(channel, dst, fetch_addr, add_val);
 }
 
 template <CommProtocol comm_protocol>
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_atomic_cas_nbi(
+__aicore__ inline int32_t asccomm<comm_protocol>::atomic_cas_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val)
 {
-    return impl.template asccomm_atomic_cas_nbi<T, commit, commit_pipe, req_pipe, config>(
+    return impl.template atomic_cas_nbi<T, commit, commit_pipe, req_pipe, config>(
         channel, dst, fetch_addr, compare_val, swap_val);
 }
 
 template <CommProtocol comm_protocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_commit(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::commit(ChannelHandle channel)
 {
-    return impl.template asccomm_commit<pipe>(channel);
+    return impl.template commit<pipe>(channel);
 }
 
 template <CommProtocol comm_protocol>
 template <typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_batch_commit(T& batch_handle)
+__aicore__ inline int32_t asccomm<comm_protocol>::batch_commit(T& batch_handle)
 {
-    return impl.asccomm_batch_commit(batch_handle);
+    return impl.batch_commit(batch_handle);
 }
 
 template <CommProtocol comm_protocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_drain(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::drain(ChannelHandle channel)
 {
-    return impl.template asccomm_drain<pipe>(channel);
+    return impl.template drain<pipe>(channel);
 }
 
 template <CommProtocol comm_protocol>
 template <pipe_t pipe, typename T, typename handle_traits<T>::ChannelType*>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_drain(T& batch_handle)
+__aicore__ inline int32_t asccomm<comm_protocol>::drain(T& batch_handle)
 {
-    return impl.template asccomm_drain<pipe>(batch_handle);
+    return impl.template drain<pipe>(batch_handle);
 }
 
 template <CommProtocol comm_protocol>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_lock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::lock(ChannelHandle channel)
 {
     static_assert(
         protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE ||
             protocol_traits<comm_protocol>::uses_urma_backend,
-        "asccomm_lock only supports RoCE, UB_CTP, UBOE or UB_RTP");
-    return impl.asccomm_lock(channel);
+        "lock only supports RoCE, UB_CTP, UBOE or UB_RTP");
+    return impl.lock(channel);
 }
 
 template <CommProtocol comm_protocol>
-__aicore__ inline int32_t asccomm<comm_protocol>::asccomm_unlock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::unlock(ChannelHandle channel)
 {
     static_assert(
         protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE ||
             protocol_traits<comm_protocol>::uses_urma_backend,
-        "asccomm_unlock only supports RoCE, UB_CTP, UBOE or UB_RTP");
-    return impl.asccomm_unlock(channel);
+        "unlock only supports RoCE, UB_CTP, UBOE or UB_RTP");
+    return impl.unlock(channel);
 }
 } // namespace asc
 

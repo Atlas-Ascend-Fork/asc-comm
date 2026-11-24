@@ -174,4 +174,4 @@ Perform the following steps in the root directory of this sample to compile and 
   CCL buffer and the first explicitly registered buffer uses index 1; the remote buffer index is looked up by tag
   through `HcclChannelGetRemoteMems`.
 - The mixed mode does not support `--timing`; `--warmup` must be used together with `--timing`.
-- The build relies on the CANN ASC CMake utilities and links against the CANN `asccomm` library.
+- The build relies on the CANN ASC CMake utilities and links against the CANN `hcomm` library.

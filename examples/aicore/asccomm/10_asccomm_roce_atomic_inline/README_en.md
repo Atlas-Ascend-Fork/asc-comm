@@ -2,7 +2,7 @@
 
 ## Overview
 
-This sample calls the ordinary Asccomm RoCE interfaces directly in an Ascend C AIV kernel, covering `asccomm_atomic_faa_nbi`, `asccomm_atomic_cas_nbi`, `asccomm_write_value_nbi`, `asccomm_init`, `asccomm_commit`, and `asccomm_drain`. MPI manages the host processes. Each process initializes an HCCL communicator, registers communication memory, creates a RoCE P2P channel, and validates the result after the kernel completes.
+This sample calls the ordinary Asccomm RoCE interfaces directly in an Ascend C AIV kernel, covering `atomic_faa_nbi`, `atomic_cas_nbi`, `write_value_nbi`, `init`, `commit`, and `drain`. MPI manages the host processes. Each process initializes an HCCL communicator, registers communication memory, creates a RoCE P2P channel, and validates the result after the kernel completes.
 
 ## Supported Products and CANN Software Versions
 
@@ -29,12 +29,12 @@ Rank i communicates with rank i + N/2. Each rank creates only its channel to the
 The kernel calls the interfaces in this order:
 
 ```cpp
-asccomm.asccomm_init(...);                                  // Initialize the Asccomm UB workspace
-asccomm.asccomm_atomic_faa_nbi<uint64_t, false>(...);      // Post a deferred remote fetch-and-add
-asccomm.asccomm_atomic_cas_nbi<uint64_t, false>(...);      // Post a deferred remote compare-and-swap
-asccomm.asccomm_write_value_nbi<uint64_t, false>(...);    // Post a deferred inline scalar write
-asccomm.asccomm_commit<PIPE_S>(channel);                   // Trigger the doorbell once
-asccomm.asccomm_drain<PIPE_MTE3>(channel);                // Wait for CQE completion
+asccomm.init(...);                                  // Initialize the Asccomm UB workspace
+asccomm.atomic_faa_nbi<uint64_t, false>(...);      // Post a deferred remote fetch-and-add
+asccomm.atomic_cas_nbi<uint64_t, false>(...);      // Post a deferred remote compare-and-swap
+asccomm.write_value_nbi<uint64_t, false>(...);    // Post a deferred inline scalar write
+asccomm.commit<PIPE_S>(channel);                   // Trigger the doorbell once
+asccomm.drain<PIPE_MTE3>(channel);                // Wait for CQE completion
 ```
 
 ## Data Layout
@@ -43,11 +43,11 @@ Each rank registers a 4096-byte communication buffer. The first 40 bytes are use
 
 | Offset | Initial | Expected after operation | Purpose |
 | --- | ---: | ---: | --- |
-| 0 | 0 | 100 | Remote result written by the peer's `asccomm_atomic_faa_nbi` |
-| 8 | any | any | Old value fetched into this rank by the peer's `asccomm_atomic_faa_nbi` |
-| 16 | 200 | 300 | Remote result written by the peer's `asccomm_atomic_cas_nbi` |
-| 24 | any | any | Old value fetched into this rank by the peer's `asccomm_atomic_cas_nbi` |
-| 32 | any | 400 | Remote result written by the peer's `asccomm_write_value_nbi` |
+| 0 | 0 | 100 | Remote result written by the peer's `atomic_faa_nbi` |
+| 8 | any | any | Old value fetched into this rank by the peer's `atomic_faa_nbi` |
+| 16 | 200 | 300 | Remote result written by the peer's `atomic_cas_nbi` |
+| 24 | any | any | Old value fetched into this rank by the peer's `atomic_cas_nbi` |
+| 32 | any | 400 | Remote result written by the peer's `write_value_nbi` |
 
 After the kernel, the host validates offsets 0, 16, and 32 in the local communication buffer.
 
@@ -99,5 +99,5 @@ RESULT | Example=asccomm_roce_atomic_inline | Status=PASS
 
 - Running the sample requires at least two NPUs; the rank count must be even and must not exceed the available NPU count.
 - The channel must use COMM_PROTOCOL_ROCE, matching `asc::asccomm<asc::COMM_PROTOCOL_ROCE>` on the kernel side.
-- All three data-plane interfaces use `commit=false`, so `asccomm_commit` is required. Data is validated only after `asccomm_drain` returns.
+- All three data-plane interfaces use `commit=false`, so `commit` is required. Data is validated only after `drain` returns.
 - This sample validates the remote results modified by the peer; it does not validate the fetch buffers.

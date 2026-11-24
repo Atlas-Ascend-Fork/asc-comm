@@ -38,23 +38,23 @@ namespace asc::simt {
 /*!
  * @class asccomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
- *        communication primitives (asccomm_write_nbi, asccomm_read_nbi and so on) for code running in the SIMT
+ *        communication primitives (write_nbi, read_nbi and so on) for code running in the SIMT
  *        execution space, where LocalTensor and the pipe synchronization primitives are not
  *        available.
  *        The typical usage of this class is as follows:
  *          1) Create asccomm object.
  *          2) Launch comm tasks asynchronously through the corresponding interface.
- *          3) Call the asccomm_drain interface (blocking) to wait for completion of the comm tasks.
+ *          3) Call the drain interface (blocking) to wait for completion of the comm tasks.
  * @tparam comm_protocol: The communication protocol to use, UB_CTP supported as default.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
- * @note There is no asccomm_commit interface on SIMT. A task launched with commit set to false stays in the
+ * @note There is no commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
  * @note An asccomm object is lane-private. Non-batch interfaces are called by one lane. On a
  *       batch overload with a coop_group argument, one lane plans the SQ range, every
- *       lane writes its final slot, and asccomm_batch_commit publishes after those writes are ready.
+ *       lane writes its final slot, and batch_commit publishes after those writes are ready.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -75,10 +75,10 @@ public:
      * @param [in] buff: Not used. Pass nullptr.
      * @param [in] len: Not used. Pass 0.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Every posting lane calls asccomm_init on its own Hcomm object. The shared UB workspace for
-     *       a group batch is passed to asccomm_make_batch_handle, not asccomm_init.
+     * @note Every posting lane calls init on its own Hcomm object. The shared UB workspace for
+     *       a group batch is passed to make_batch_handle, not init.
      */
-    __simt_callee__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
      * @brief Create an explicit batch bound to one remote registration.
@@ -89,7 +89,7 @@ public:
      *       DWQE image. Each lane writes its request directly to the SQ, so the workspace
      *       size does not grow with the group size.
      * @note On failure this function returns a zero-valued handle (context == nullptr). The
-     *       caller must check it before any batch posting, asccomm_batch_commit or asccomm_drain operation.
+     *       caller must check it before any batch posting, batch_commit or drain operation.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the remote registered buffers of this channel. The caller owns this contract.
      * @note The handle keeps the group size fixed for its lifetime. Every appended request re-plans the batch
@@ -98,20 +98,20 @@ public:
      *       is exclusively owned by one live batch handle, and the non-batch posting interfaces of this class
      *       must not be used on that channel while the handle is live.
      */
-    __simt_callee__ inline batch_handle<ChannelHandle> asccomm_make_batch_handle(
+    __simt_callee__ inline batch_handle<ChannelHandle> make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len);
 
     /*!
      * @brief Create a batch for the explicitly supplied cooperative group.
      * @param [in] group: Cooperative group whose lanes own this batch.
-     * @note Pass the same group to every posting call and asccomm_batch_commit for this handle.
+     * @note Pass the same group to every posting call and batch_commit for this handle.
      *       The no-group overloads are for single-lane handles. A supplied coop_group uses the
      *       collective path, including when its current size is 1.
      *       Use fixed group membership, lane ranks and size for the handle's lifetime.
      *       Every lane must pass the same valid buff and buff_len arguments.
      */
     template <typename coop_group>
-    __simt_callee__ inline batch_handle<ChannelHandle> asccomm_make_batch_handle(
+    __simt_callee__ inline batch_handle<ChannelHandle> make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, const coop_group& group);
 
     /*!
@@ -129,15 +129,14 @@ public:
      *       (256 * 1024 * 1024 bytes).
      */
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    __simt_callee__ inline int32_t write_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
+    __simt_callee__ inline int32_t write_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     template <auto const& config = URMA_DEFAULT_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
+    __simt_callee__ inline int32_t write_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group);
 
     /*!
@@ -155,14 +154,13 @@ public:
      *       sizeof(T) must fit in the WQE inline payload area.
      */
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value);
+    __simt_callee__ inline int32_t write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value);
 
     template <typename T, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(
-        ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value);
+    __simt_callee__ inline int32_t write_value_nbi(ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value);
 
     template <typename T, auto const& config = URMA_INLINE_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(
+    __simt_callee__ inline int32_t write_value_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value, const coop_group& group);
 
     /*!
@@ -180,15 +178,14 @@ public:
      *       (256 * 1024 * 1024 bytes).
      */
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    __simt_callee__ inline int32_t read_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
+    __simt_callee__ inline int32_t read_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     template <auto const& config = URMA_DEFAULT_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
+    __simt_callee__ inline int32_t read_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group);
 
     /*!
@@ -206,17 +203,17 @@ public:
      * @note len must not exceed 256 MB (256 * 1024 * 1024 bytes).
      */
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val);
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val);
 
     template <auto const& config = URMA_DEFAULT_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val, const coop_group& group);
 
@@ -233,15 +230,15 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T add_val);
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val);
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val,
         const coop_group& group);
 
@@ -259,15 +256,15 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val);
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val);
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG, typename coop_group>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val,
         const coop_group& group);
 
@@ -276,14 +273,14 @@ public:
      * @note The overload with a coop_group argument is collective: every group lane must call it and
      *       prepare exactly one WQE.
      * @note The final item must request a CQE. If the preceding posting call fails to reserve SQ
-     *       space, the caller must not call asccomm_batch_commit for that batch.
+     *       space, the caller must not call batch_commit for that batch.
      * @note If no request has been appended since the handle was created or the last commit, the
      *       commit fails instead of publishing an empty SQ range.
      */
-    __simt_callee__ inline int32_t asccomm_batch_commit(ubc_ctp_batch_handle& batch_handle);
+    __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle);
 
     template <typename coop_group>
-    __simt_callee__ inline int32_t asccomm_batch_commit(ubc_ctp_batch_handle& batch_handle, const coop_group& group);
+    __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle, const coop_group& group);
 
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
@@ -293,10 +290,199 @@ public:
      * @note Must be called by a single lane, after every posting lane has returned.
      */
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ChannelHandle channel);
+    __simt_callee__ inline int32_t drain(ChannelHandle channel);
 
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ubc_ctp_batch_handle& batch_handle);
+    __simt_callee__ inline int32_t drain(ubc_ctp_batch_handle& batch_handle);
+
+    // ===================== deprecated PascalCase compatibility aliases =====================
+    // Legacy SIMT Hcomm interface spellings kept for source compatibility (remove after
+    // 2027/12/31); each forwards to the corresponding asccomm* interface above.
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", init)
+    __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len) { return init(buff, len); }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", make_batch_handle)
+    __simt_callee__ inline batch_handle<ChannelHandle> MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+    {
+        return make_batch_handle(channel, buff, buffLen);
+    }
+
+    template <typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", make_batch_handle)
+    __simt_callee__ inline batch_handle<ChannelHandle> MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group)
+    {
+        return make_batch_handle(channel, buff, buffLen, group);
+    }
+
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        return write_nbi<commit, config>(channel, dst, src, len);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __simt_callee__ inline int32_t
+        WriteNbi(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        return write_nbi<config>(batchHandle, dst, src, len);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_nbi)
+    __simt_callee__ inline int32_t WriteNbi(
+        ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+    {
+        return write_nbi<config>(batchHandle, dst, src, len, group);
+    }
+
+    template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_value_nbi)
+    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value)
+    {
+        return write_value_nbi<T, commit, config>(channel, dst, value);
+    }
+
+    template <typename T, auto const& config = URMA_INLINE_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_value_nbi)
+    __simt_callee__ inline int32_t WriteValueNbi(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, T value)
+    {
+        return write_value_nbi<T, config>(batchHandle, dst, value);
+    }
+
+    template <typename T, auto const& config = URMA_INLINE_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_value_nbi)
+    __simt_callee__ inline int32_t
+        WriteValueNbi(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, T value, const Group& group)
+    {
+        return write_value_nbi<T, config>(batchHandle, dst, value, group);
+    }
+
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        return read_nbi<commit, config>(channel, dst, src, len);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __simt_callee__ inline int32_t
+        ReadNbi(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        return read_nbi<config>(batchHandle, dst, src, len);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", read_nbi)
+    __simt_callee__ inline int32_t
+        ReadNbi(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+    {
+        return read_nbi<config>(batchHandle, dst, src, len, group);
+    }
+
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal)
+    {
+        return write_with_notify_nbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal)
+    {
+        return write_with_notify_nbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", write_with_notify_nbi)
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal, const Group& group)
+    {
+        return write_with_notify_nbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal, group);
+    }
+
+    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_faa_nbi)
+    __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+    {
+        return atomic_faa_nbi<T, commit, config>(channel, dst, fetchAddr, addVal);
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_faa_nbi)
+    __simt_callee__ inline int32_t
+        AtomicFAA(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+    {
+        return atomic_faa_nbi<T, config>(batchHandle, dst, fetchAddr, addVal);
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_faa_nbi)
+    __simt_callee__ inline int32_t AtomicFAA(
+        ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group)
+    {
+        return atomic_faa_nbi<T, config>(batchHandle, dst, fetchAddr, addVal, group);
+    }
+
+    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_cas_nbi)
+    __simt_callee__ inline int32_t
+        AtomicCAS(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+    {
+        return atomic_cas_nbi<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_cas_nbi)
+    __simt_callee__ inline int32_t
+        AtomicCAS(ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+    {
+        return atomic_cas_nbi<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal);
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG, typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", atomic_cas_nbi)
+    __simt_callee__ inline int32_t AtomicCAS(
+        ubc_ctp_batch_handle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+        const Group& group)
+    {
+        return atomic_cas_nbi<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal, group);
+    }
+
+    ASC_DEPRECATED(9.3.0, "2027/12/31", batch_commit)
+    __simt_callee__ inline int32_t BatchCommit(ubc_ctp_batch_handle& batchHandle) { return batch_commit(batchHandle); }
+
+    template <typename Group>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", batch_commit)
+    __simt_callee__ inline int32_t BatchCommit(ubc_ctp_batch_handle& batchHandle, const Group& group)
+    {
+        return batch_commit(batchHandle, group);
+    }
+
+    template <auto pipe = 0>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", drain)
+    __simt_callee__ inline int32_t Drain(ChannelHandle channel)
+    {
+        return drain<pipe>(channel);
+    }
+
+    template <auto pipe = 0>
+    ASC_DEPRECATED(9.3.0, "2027/12/31", drain)
+    __simt_callee__ inline int32_t Drain(ubc_ctp_batch_handle& batchHandle)
+    {
+        return drain<pipe>(batchHandle);
+    }
 
 private:
     asccomm_impl<protocol_traits<comm_protocol>::backend> impl;
@@ -308,7 +494,7 @@ private:
  * @param [in] buffer_idx: Index into the channel's local registered buffer table.
  * @return Base address of the requested local buffer.
  */
-__simt_callee__ inline __gm__ uint8_t* asccomm_local_buffer_addr(ChannelHandle channel, uint32_t buffer_idx);
+__simt_callee__ inline __gm__ uint8_t* get_local_buffer_addr(ChannelHandle channel, uint32_t buffer_idx);
 
 /*!
  * @brief Resolve the base address of a remotely registered buffer on the channel.
@@ -316,7 +502,7 @@ __simt_callee__ inline __gm__ uint8_t* asccomm_local_buffer_addr(ChannelHandle c
  * @param [in] buffer_idx: Index into the channel's remote registered buffer table.
  * @return Base address of the requested remote buffer.
  */
-__simt_callee__ inline __gm__ uint8_t* asccomm_remote_buffer_addr(ChannelHandle channel, uint32_t buffer_idx);
+__simt_callee__ inline __gm__ uint8_t* get_remote_buffer_addr(ChannelHandle channel, uint32_t buffer_idx);
 
 } // namespace asc::simt
 

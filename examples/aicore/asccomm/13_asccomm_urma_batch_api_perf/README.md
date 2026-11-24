@@ -1,10 +1,10 @@
-# asccomm URMA 批量接口性能样例
+# CommRW URMA 批量接口性能样例
 
 ## 概述
 
-本样例测量 URMA 路径（AIV Kernel 直驱）批量接口（`asccomm_make_batch_handle` + `asccomm_batch_commit`）下
-`asccomm_write_nbi` / `asccomm_read_nbi` / `asccomm_write_with_notify_nbi` 三种操作的发送性能，覆盖时延与带宽两个
-口径，以及 asccomm_batch_commit 合并计时 / 拆分计时两种提交计时方式。
+本样例测量 URMA 路径（AIV Kernel 直驱）批量接口（`make_batch_handle` + `batch_commit`）下
+`write_nbi` / `read_nbi` / `write_with_notify_nbi` 三种操作的发送性能，覆盖时延与带宽两个
+口径，以及 batch_commit 合并计时 / 拆分计时两种提交计时方式。
 
 两个 rank 对称收发：双方都向对端发起通信，各自校验本地落点。这是有意为之——两方
 并发会互相争抢链路和 SQ 资源，测出的数值是"双流并发"口径；与单发送方口径（如
@@ -44,21 +44,21 @@
 
 | `api` | 说明 |
 | --- | --- |
-| `write` | `asccomm_write_nbi`（批句柄重载），本卡 source 区 → 对端 write 区 |
-| `read` | `asccomm_read_nbi`（批句柄重载），本卡 read 区 ← 对端 source 区 |
-| `notify` | `asccomm_write_with_notify_nbi`（批句柄重载），本卡 source 区 → 对端 notify 区，payload 之后另写一个远端 flag word |
+| `write` | `write_nbi`（批句柄重载），本卡 source 区 → 对端 write 区 |
+| `read` | `read_nbi`（批句柄重载），本卡 read 区 ← 对端 source 区 |
+| `notify` | `write_with_notify_nbi`（批句柄重载），本卡 source 区 → 对端 notify 区，payload 之后另写一个远端 flag word |
 
 | `metric` | 说明 |
 | --- | --- |
-| `lat` | 时延：逐轮分段计时，计时段内只有发起（`commit=combine` 时含 asccomm_batch_commit）、不含 asccomm_drain——纯提交路径时延；`split` 时 Post 窗内不含 asccomm_batch_commit，每批之间窗外 asccomm_drain 一次，SQ 每轮从头起跑 |
-| `bw` | 带宽：单窗口包住全部轮次，每轮 Post + `asccomm_batch_commit` + asccomm_drain——端到端带宽，SQ 占用不随轮数累积 |
+| `lat` | 时延：逐轮分段计时，计时段内只有发起（`commit=combine` 时含 batch_commit）、不含 drain——纯提交路径时延；`split` 时 Post 窗内不含 batch_commit，每批之间窗外 drain 一次，SQ 每轮从头起跑 |
+| `bw` | 带宽：单窗口包住全部轮次，每轮 Post + `batch_commit` + drain——端到端带宽，SQ 占用不随轮数累积 |
 
 | `commit` | 说明 |
 | --- | --- |
-| `combine` | Post 与 asccomm_batch_commit 放在同一个时延窗口内（默认） |
-| `split` | Post 窗口先停表；asccomm_batch_commit 挪到窗外单独打点，额外输出 `commit-lat` 行 |
+| `combine` | Post 与 batch_commit 放在同一个时延窗口内（默认） |
+| `split` | Post 窗口先停表；batch_commit 挪到窗外单独打点，额外输出 `commit-lat` 行 |
 
-带宽口径不区分提交方式：asccomm_batch_commit 本身始终包含在带宽计时段内。
+带宽口径不区分提交方式：batch_commit 本身始终包含在带宽计时段内。
 
 ### 循环模型
 
@@ -69,7 +69,7 @@
 
 数据正确性：所有请求复用同一个落点窗口，host 校验该窗口——性能与功能一次覆盖。
 
-CQE 策略：**每批的最后一条请求用 cqe=1**（asccomm_drain按累计 CQE 数轮询、SQ 回收都依赖它），
+CQE 策略：**每批的最后一条请求用 cqe=1**（drain按累计 CQE 数轮询、SQ 回收都依赖它），
 其余 cqe=0——中间不产生 CQE 干扰。
 
 计时窗口内不判错、不提前退出：返回码直接覆盖存（零比较零分支），出窗后统一判断上报。
@@ -80,9 +80,9 @@ CQE 策略：**每批的最后一条请求用 cqe=1**（asccomm_drain按累计 C
 - `Bandwidth/GB/s = DataSize / SingleCoreTime / 1000`
 
 时延与带宽行均按上面公式计算，一个样本是一条请求。`commit=split` 时额外输出
-`commit-lat` 行：一个样本是一次 `asccomm_batch_commit` 调用，因此
+`commit-lat` 行：一个样本是一次 `batch_commit` 调用，因此
 `AvgCycles = Cycles / Rounds`；该口径只描述提交调用本身，不派生带宽，固定输出 0。
-Post、asccomm_batch_commit 与 asccomm_drain 的控制流在 combine/split 下相同，区别只是计时窗口边界。
+Post、batch_commit 与 drain 的控制流在 combine/split 下相同，区别只是计时窗口边界。
 
 ### 内存布局
 
@@ -90,10 +90,10 @@ Post、asccomm_batch_commit 与 asccomm_drain 的控制流在 combine/split 下�
 
 | 偏移 | 区域 |
 | --- | --- |
-| 0 | source：本卡发送源 / 对端 `asccomm_read_nbi` 的读源 |
-| len | write：对端 `asccomm_write_nbi` 的落点 |
-| 2×len | read：本卡 `asccomm_read_nbi` 读回的落点 |
-| 3×len | notify：对端 `asccomm_write_with_notify_nbi` 的落点 |
+| 0 | source：本卡发送源 / 对端 `read_nbi` 的读源 |
+| len | write：对端 `write_nbi` 的落点 |
+| 2×len | read：本卡 `read_nbi` 读回的落点 |
+| 3×len | notify：对端 `write_with_notify_nbi` 的落点 |
 | 4×len（8B 对齐后） | flag：notify flag **单槽**（固定地址，仅 8B） |
 
 要点：
@@ -102,8 +102,8 @@ Post、asccomm_batch_commit 与 asccomm_drain 的控制流在 combine/split 下�
 - **批容量上限**（超限报错退出、不钳制——窗口大小由 batch_cap 决定，钳小会导致 host
   校验窗口与实际不符）：
   - VECOUT UB：batch 暂存缓冲 `batch_cap × 每条WQEBB × 64B < 256KiB`，kernel 侧
-    运行期校验（`asccomm_write_with_notify_nbi` 占 2 WQEBB、其余占 1）；
-  - SQ：带宽档每轮 asccomm_batch_commit 后立即 asccomm_drain，时延档每批之间窗外 asccomm_drain，因此 SQ 只需
+    运行期校验（`write_with_notify_nbi` 占 2 WQEBB、其余占 1）；
+  - SQ：带宽档每轮 batch_commit 后立即 drain，时延档每批之间窗外 drain，因此 SQ 只需
     容纳一批；默认 sq_depth 为 8192 entry、每 entry 4 WQEBB，共 32768 WQEBB。UB 限制
     更严格（最多 4096 WQEBB），已隐式满足 SQ 约束；
   - 注册内存：`4 × len + 8 ≤ 2GB`，kernel 侧运行期校验。
@@ -141,10 +141,10 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
 | 项目 | 说明 |
 | --- | --- |
 | 通信模式 | `--perf_type` 选拓扑：`p2p`（两卡对称收发，默认）或 `ring`（单向环收发） |
-| 调用方式 | AIV Kernel 内批量接口（`asccomm_make_batch_handle` + `asccomm_batch_commit`） |
+| 调用方式 | AIV Kernel 内批量接口（`make_batch_handle` + `batch_commit`） |
 | 测试接口 | `write`、`read`、`notify` |
 | 性能口径 | `lat`（提交时延）、`bw`（端到端带宽） |
-| 提交方式 | `combine`（Post 与 asccomm_batch_commit 同窗计时，默认）、`split`（分窗计时，额外输出 `commit-lat` 行） |
+| 提交方式 | `combine`（Post 与 batch_commit 同窗计时，默认）、`split`（分窗计时，额外输出 `commit-lat` 行） |
 | 支持rank数 | 2..N（`ring` 全员参与；`p2p` 实际只有 rank 0/1 通信，其余空闲） |
 
 ## 编译运行
@@ -190,7 +190,7 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
   | `--exponent` | 无 | 单个幂数（等价 `--exponent-range exp exp`，只跑一档） |
   | `--api` | `all` | 测哪些操作：`all`或`write`/`read`/`notify`逗号分隔 |
   | `--metric` | `all` | 时延/带宽口径：`all`或`lat`/`bw`逗号分隔 |
-  | `--commit` | `combine` | `combine`=Post+asccomm_batch_commit 同窗计时；`split`=Post 与 asccomm_batch_commit 分窗计时并额外输出 `commit-lat` 行；带宽不区分 |
+  | `--commit` | `combine` | `combine`=Post+batch_commit 同窗计时；`split`=Post 与 batch_commit 分窗计时并额外输出 `commit-lat` 行；带宽不区分 |
   | `--rounds` | `1` | 批轮次重复次数（warmup 固定 50 个完整批轮次，不对外开放） |
   | `--batch-range` | `1024 1024` | 每批请求条数范围（min 起每档 ×2 至 max，含两端；只表示聚合提交条数，不决定地址窗口） |
   | `--batch` | 无 | 单个批大小（等价 `--batch-range N N`；上限由 kernel 运行期校验） |
@@ -205,8 +205,8 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
 - 执行结果
 
   ```text
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=combine | Topology=p2p | Metric=lat | Rounds=1 | Cycles=148480 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | BatchSize=1024 | Commit=split | Topology=p2p | Metric=commit-lat | Rounds=100 | Cycles=6500 | AvgCycles=65.0000 | SingleCoreTime/us=0.065000 | Bandwidth/GB/s=0
   [rank 0] case=batch1024_4096B validation: PASS (checked 4096KB per region)
   RESULT | Example=urma_batch_api_perf | Status=PASS
   ```
@@ -220,6 +220,6 @@ for batch in {min, min×2, ..., max}:        # --batch-range，默认只 1024 �
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - 批容量约束：VECOUT UB 预算与注册内存窗口在 kernel 侧运行期校验；超限均报错退出、不钳制。
-- 默认档 1024：`asccomm_write_with_notify_nbi` 每条占 2 WQEBB，暂存 128KiB，小于 256KiB UB 预算，也远小于默认 SQ 容量 32768 WQEBB。
+- 默认档 1024：`write_with_notify_nbi` 每条占 2 WQEBB，暂存 128KiB，小于 256KiB UB 预算，也远小于默认 SQ 容量 32768 WQEBB。
 - 设备内存需求：每卡 2GB 注册内存，支持 `len=256MB`（布局约 1GB+8B）。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

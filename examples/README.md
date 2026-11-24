@@ -8,9 +8,9 @@
 
 | 目录名称 | 内容说明 |
 | --- | --- |
-| [aicore](./aicore/README.md) | AICore侧通信样例，包含Hcomm点对点通信样例（AIV直驱URMA、SIMT URMA、RoCE路径）、Ain单边通信样例和Jetty通信样例。 |
+| [aicore](./aicore/README.md) | AI Core侧通信样例，包含CommRW点对点通信样例（AIV直驱URMA、SIMT URMA、RoCE路径）、AIN单边通信样例和Jetty通信样例。 |
 | [aicpu_ts](./aicpu_ts/README.md) | AICPU_TS通信样例，覆盖AICPU_TS MC2 builtin接入和自定义AICPU_TS通信算子两类开发方式。 |
-| [ccu](./ccu/README.md) | CCU通信和数据面开发样例，覆盖builtin接入、直调集成和自定义Kernel三类开发方式。 |
+| [ccu](./ccu/README.md) | CCU通信和数据面开发样例，包含direct（自定义算子）和builtin（MC2）两类样例，覆盖AllGather、AllReduce、ReduceScatter、AlltoAll等集合通信及AllGather+Add通算融合。 |
 
 ## 运行约束
 

@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_simt_urma.h
- * \brief Hcomm SIMT URMA implementation
+ * \brief asccomm SIMT URMA implementation
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_SIMT_URMA_H
 #endif
@@ -384,7 +384,7 @@ __simt_callee__ inline uint32_t asccomm_simt_batch_total_bb(uint32_t group_size,
 
 // Advance the private producer cursor without publishing it. The cached tail is sufficient on the
 // normal path; it is refreshed from GM only when the cached free range has been exhausted.
-// item_bb overrides context->item_bb for this planning pass without storing it, so asccomm_make_batch_handle can
+// item_bb overrides context->item_bb for this planning pass without storing it, so make_batch_handle can
 // pre-check capacity with the widest request layout before the first request fixes the actual width.
 __simt_callee__ inline bool asccomm_simt_plan_batch_from_head(
     __ubuf__ asccomm_simt_batch_static_context* context, uint64_t head_val, uint32_t item_bb = 0U)
@@ -446,7 +446,7 @@ __simt_callee__ inline asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_impl() {}
 
 __simt_callee__ inline asccomm_impl<COMM_PROTOCOL_UB_CTP>::~asccomm_impl() {}
 
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     (void)buff;
     (void)len;
@@ -492,13 +492,13 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::resolve_post(
     return ASCCOMM_SUCCESS;
 }
 
-__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len)
 {
-    return asccomm_make_batch_handle(channel, buff, buff_len, 0U, 1U);
+    return make_batch_handle(channel, buff, buff_len, 0U, 1U);
 }
 
-__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, uint32_t group_rank, uint32_t group_size)
 {
     ubc_ctp_batch_handle batch_handle;
@@ -549,7 +549,7 @@ __simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::
 }
 
 template <typename coop_group>
-__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, const coop_group& group)
 {
     ubc_ctp_batch_handle batch_handle;
@@ -561,7 +561,7 @@ __simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
     if (rank == 0U) {
-        (void)asccomm_make_batch_handle(channel, buff, buff_len, 0U, size);
+        (void)make_batch_handle(channel, buff, buff_len, 0U, size);
     }
     group.sync();
 
@@ -641,7 +641,7 @@ struct asccomm_simt_inline_desc {
         word_ptr words, const asccomm_simt_packed_sqe_template& sqe_template, uint32_t cur_head,
         uint32_t next_head) const
     {
-        static_assert(asccomm_config_inline_en(config) == 1, "asccomm_write_value_nbi requires inline data in WQE");
+        static_assert(asccomm_config_inline_en(config) == 1, "write_value_nbi requires inline data in WQE");
         static_assert(
             sizeof(T) <= ASCCOMM_URMA_WQE_BB_SIZE - sizeof(asccomm_urma_sqe_ctx),
             "WriteValue<T>: sizeof(T) must be less equal than primitive type");
@@ -726,7 +726,7 @@ __simt_callee__ inline void asccomm_simt_emit_final_batch_wqe(
     __ubuf__ asccomm_simt_batch_static_context* context, __gm__ uint8_t* first_bb, __gm__ uint8_t* second_bb,
     uint32_t cur_head, const asccomm_simt_inline_desc<T, commit_flag, config>& desc)
 {
-    static_assert(asccomm_config_inline_en(config) == 1, "asccomm_write_value_nbi requires inline data in WQE");
+    static_assert(asccomm_config_inline_en(config) == 1, "write_value_nbi requires inline data in WQE");
     static_assert(
         sizeof(T) <= ASCCOMM_URMA_WQE_BB_SIZE - sizeof(asccomm_urma_sqe_ctx),
         "WriteValue<T>: sizeof(T) must be less equal than primitive type");
@@ -940,7 +940,7 @@ __simt_callee__ inline bool asccomm_impl<COMM_PROTOCOL_UB_CTP>::reserve_post(
     constexpr bool commit = post_desc::commit;
     constexpr uint32_t bb_cnt = post_desc::bb_cnt;
     constexpr uint32_t cqe_cnt = post_desc::cqe_cnt;
-    // SIMT has no standalone asccomm_commit interface, so a deferred post must also leave room for the
+    // SIMT has no standalone commit interface, so a deferred post must also leave room for the
     // immediate 2-BB DWQE that will later publish the batch it belongs to.
     constexpr uint32_t extra_free_bb_cnt = commit ? 0U : ASCCOMM_URMA_DWQE_BB_CNT;
     uint32_t required_free_bb_cnt = bb_cnt + extra_free_bb_cnt;
@@ -1049,13 +1049,13 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_post_wq
     __ubuf__ asccomm_simt_batch_static_context* context =
         reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(batch_handle.context);
     // The first append plans on rank 0 and syncs before the emit; later appends read the state
-    // published by the previous sync. asccomm_batch_commit synchronizes the group again before the
+    // published by the previous sync. batch_commit synchronizes the group again before the
     // publisher advances the shared head.
     return asccomm_simt_append_final_batch_wqe(context, batch_handle.group_rank, batch_handle.group_size, desc, group);
 }
 
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return post_wqe(
@@ -1064,7 +1064,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return batch_post_wqe(
@@ -1073,7 +1073,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group)
 {
     return batch_post_wqe(
@@ -1084,7 +1084,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_value_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_value_nbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
     return post_wqe(
@@ -1092,7 +1092,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <typename T, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_value_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_value_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value)
 {
     return batch_post_wqe(
@@ -1100,7 +1100,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <typename T, auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_value_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_value_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value, const coop_group& group)
 {
     return batch_post_wqe(
@@ -1109,7 +1109,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return post_wqe(
@@ -1118,7 +1118,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_
 }
 
 template <auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return batch_post_wqe(
@@ -1127,7 +1127,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_
 }
 
 template <auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, const coop_group& group)
 {
     return batch_post_wqe(
@@ -1138,7 +1138,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_
 }
 
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
     uint64_t notify_val)
 {
@@ -1149,7 +1149,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
     uint64_t notify_val)
 {
@@ -1160,7 +1160,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
     uint64_t notify_val, const coop_group& group)
 {
@@ -1173,7 +1173,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_faa_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_faa_nbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T add_val)
 {
     return post_wqe(
@@ -1183,7 +1183,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
 }
 
 template <typename T, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_faa_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_faa_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val)
 {
     return batch_post_wqe(
@@ -1193,7 +1193,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
 }
 
 template <typename T, auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_faa_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_faa_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val, const coop_group& group)
 {
     return batch_post_wqe(
@@ -1205,7 +1205,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_cas_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_cas_nbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val)
 {
     return post_wqe(
@@ -1215,7 +1215,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
 }
 
 template <typename T, auto const& config>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_cas_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_cas_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val)
 {
     return batch_post_wqe(
@@ -1225,7 +1225,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
 }
 
 template <typename T, auto const& config, typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_cas_nbi(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_cas_nbi(
     ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val,
     const coop_group& group)
 {
@@ -1237,8 +1237,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomi
         group);
 }
 
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch_commit(
-    ubc_ctp_batch_handle& batch_handle)
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(ubc_ctp_batch_handle& batch_handle)
 {
     __ubuf__ asccomm_simt_batch_static_context* context =
         reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(batch_handle.context);
@@ -1258,7 +1257,7 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch
 }
 
 template <typename coop_group>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch_commit(
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(
     ubc_ctp_batch_handle& batch_handle, const coop_group& group)
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
@@ -1308,13 +1307,13 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain_channel
 }
 
 template <auto pipe>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_drain(ChannelHandle channel)
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain(ChannelHandle channel)
 {
     return drain_channel<false, pipe>(channel);
 }
 
 template <auto pipe>
-__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_drain(ubc_ctp_batch_handle& batch_handle)
+__simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain(ubc_ctp_batch_handle& batch_handle)
 {
     return drain_channel<true, pipe>(batch_handle.channel);
 }

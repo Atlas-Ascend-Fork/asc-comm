@@ -39,59 +39,32 @@ typedef uint64_t MultiChannelHandle;
                  " instead.")]]
 #endif
 
-/*!
- * @brief Create a group of communicator-owned shared-Jetty channels and the multi-channel handle used on the Device.
- * @param [in] comm: The initialized HCCL communicator that owns the channels and Device context.
- * @param [in] sharedQueueTag: The tag identifying the shared queue used by this channel group.
- * @param [in] channelDescs: The channel descriptor array. Its order defines the channelIndex used by GetHandleRef.
- * @param [in] channelNum: The number of elements in channelDescs. It must be greater than 0.
- * @param [out] multiChannel: The created Device-side multi-channel handle.
- * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
- * @note The returned handle is managed by comm. The communicator must remain valid while a Kernel uses the handle.
- */
-ASC_DEPRECATED(9.3.0, "2027/12/31", asccomm_make_multi_channel_handle)
+ASC_DEPRECATED(9.3.0, "2027/12/31", make_multi_channel_handle)
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
     ASC_CPU_LOG_INFO("Hcomm legacy interface MakeMultiChannelHandle is deprecated. "
-                     "Please use asccomm_make_multi_channel_handle instead.");
-    return asccomm_host_make_multi_channel_handle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
+                     "Please use make_multi_channel_handle instead.");
+    return make_multi_channel_handle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
 }
 
-/*!
- * @brief Create a group of shared-Jetty channels from an Hcomm Endpoint and the multi-channel handle used on the
- * Device.
- * @param [in] endpointHandle: The initialized Hcomm Endpoint that owns the channels.
- * @param [in] channelDescs: The channel descriptor array. Its order defines the channelIndex used by GetHandleRef.
- * @param [in] channelNum: The number of elements in channelDescs. It must be greater than 0.
- * @param [out] multiChannel: The created Device-side multi-channel handle.
- * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
- * @note Destroy the returned handle before destroying endpointHandle.
- */
-ASC_DEPRECATED(9.3.0, "2027/12/31", asccomm_make_multi_channel_handle)
+ASC_DEPRECATED(9.3.0, "2027/12/31", make_multi_channel_handle)
 static inline HcommResult MakeMultiChannelHandle(
     EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
     ASC_CPU_LOG_INFO("Hcomm legacy interface MakeMultiChannelHandle is deprecated. "
-                     "Please use asccomm_make_multi_channel_handle instead.");
-    return asccomm_host_make_multi_channel_handle(endpointHandle, channelDescs, channelNum, multiChannel);
+                     "Please use make_multi_channel_handle instead.");
+    return make_multi_channel_handle(endpointHandle, channelDescs, channelNum, multiChannel);
 }
 
-/*!
- * @brief Destroy channels and Device context owned by a handle created by MakeMultiChannelHandle.
- * @param [in] multiChannel: The multi-channel handle to destroy.
- * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
- * @note This is the destroy API corresponding to the MakeMultiChannelHandle overload without an HCCL communicator (the
- * EndpointHandle overload). Do not use it for a handle created by the HcclComm overload.
- */
-ASC_DEPRECATED(9.3.0, "2027/12/31", asccomm_destroy_multi_channel_handle)
+ASC_DEPRECATED(9.3.0, "2027/12/31", destroy_multi_channel_handle)
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {
     ASC_CPU_LOG_INFO("Hcomm legacy interface DestroyMultiChannelHandle is deprecated. "
-                     "Please use asccomm_destroy_multi_channel_handle instead.");
-    return asccomm_host_destroy_multi_channel_handle(multiChannel);
+                     "Please use destroy_multi_channel_handle instead.");
+    return destroy_multi_channel_handle(multiChannel);
 }
 
 #if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_HOST_H)

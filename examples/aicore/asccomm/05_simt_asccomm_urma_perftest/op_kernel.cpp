@@ -12,15 +12,15 @@
  * \file op_kernel.cpp
  * \brief Device side of the SIMT URMA performance example.
  *
- * Five interfaces are measured: asccomm_write_nbi, asccomm_write_value_nbi, asccomm_write_with_notify_nbi, asccomm_atomic_faa_nbi and
- * asccomm_atomic_cas_nbi. Two publishing strategies apply to each:
+ * Five interfaces are measured: write_nbi, write_value_nbi, write_with_notify_nbi, atomic_faa_nbi and
+ * atomic_cas_nbi. Two publishing strategies apply to each:
  *   Immediate  every WQE rings its own doorbell (commit=true).
  *   Last       every WQE but the last is deferred (commit=false); the final committed WQE
  *              publishes the whole batch with one head update.
  *
- * The two differ in SQ footprint as well as in doorbell count: a deferred asccomm_write_nbi fits in one
+ * The two differ in SQ footprint as well as in doorbell count: a deferred write_nbi fits in one
  * 64-byte basic block, while a committed one splits its payload across two SGEs to fill the
- * 128-byte DWQE window. So Immediate consumes twice the SQ space per asccomm_write_nbi. Notify and the
+ * 128-byte DWQE window. So Immediate consumes twice the SQ space per write_nbi. Notify and the
  * atomics are fixed 2-BB WQEs either way.
  *
  * Every kernel posts from a single lane: one channel is driven by one lane.
@@ -41,31 +41,30 @@ enum class perf_api : uint32_t { WRITE, WRITE_VALUE, NOTIFY, FAA, CAS };
 // 地址逐次前移，避免连续 WQE 都落在同一条 cache line 上——否则测到的是远端内存系统而不是下发
 // 路径。两个原子接口例外：必须打在同一个 word 上，累加才有意义。
 template <perf_api api, bool commit>
-// 提交单个通信任务：按api分派到asccomm_write_nbi/asccomm_write_value_nbi/asccomm_write_with_notify_nbi/asccomm_atomic_faa_nbi/asccomm_atomic_cas_nbi。
+// 提交单个通信任务：按api分派到write_nbi/write_value_nbi/write_with_notify_nbi/atomic_faa_nbi/atomic_cas_nbi。
 __simt_callee__ inline int32_t submit_one(
     asc::simt::asccomm<>& asccomm, uint64_t channel, __gm__ uint8_t* remote_base, __gm__ uint8_t* local_base,
     uint32_t payload_bytes, uint32_t slot_bytes, uint32_t slot)
 {
     uint64_t offset = static_cast<uint64_t>(slot) * slot_bytes;
     if constexpr (api == perf_api::WRITE) {
-        return asccomm.asccomm_write_nbi<commit>(channel, remote_base + offset, local_base + offset, payload_bytes);
+        return asccomm.write_nbi<commit>(channel, remote_base + offset, local_base + offset, payload_bytes);
     } else if constexpr (api == perf_api::WRITE_VALUE) {
-        return asccomm.asccomm_write_value_nbi<uint64_t, commit>(channel, remote_base + offset, INLINE_VALUE);
+        return asccomm.write_value_nbi<uint64_t, commit>(channel, remote_base + offset, INLINE_VALUE);
     } else if constexpr (api == perf_api::NOTIFY) {
         // The signal word sits immediately after the payload, rounded up to 8 bytes so the
         // notify address stays aligned.
         uint32_t notify_offset = (payload_bytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
         __gm__ uint8_t* remote = remote_base + offset;
-        return asccomm.asccomm_write_with_notify_nbi<commit>(
+        return asccomm.write_with_notify_nbi<commit>(
             channel, remote, local_base + offset, payload_bytes, remote + notify_offset, NOTIFY_SIGNAL);
     } else {
         __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(remote_base);
         __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(local_base);
         if constexpr (api == perf_api::FAA) {
-            return asccomm.asccomm_atomic_faa_nbi<uint64_t, commit>(channel, &remote[0], &local[0], FAA_ADD);
+            return asccomm.atomic_faa_nbi<uint64_t, commit>(channel, &remote[0], &local[0], FAA_ADD);
         } else {
-            return asccomm.asccomm_atomic_cas_nbi<uint64_t, commit>(
-                channel, &remote[0], &local[0], CAS_INITIAL, CAS_SWAP);
+            return asccomm.atomic_cas_nbi<uint64_t, commit>(channel, &remote[0], &local[0], CAS_INITIAL, CAS_SWAP);
         }
     }
 }
@@ -135,18 +134,18 @@ __simt_vf__ __launch_bounds__(32) inline void simt_urma_perf_vf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         report_failure(timing, -1);
         return;
     }
 
     int32_t status =
         submit_series<api, commit_each>(asccomm, channel, remote, local, payload_bytes, slot_bytes, slot_count, warmup);
-    int32_t drain_status = status != 0 ? status : (warmup == 0U ? 0 : asccomm.asccomm_drain(channel));
+    int32_t drain_status = status != 0 ? status : (warmup == 0U ? 0 : asccomm.drain(channel));
     if (drain_status != 0) {
         report_failure(timing, drain_status);
         return;
@@ -156,7 +155,7 @@ __simt_vf__ __launch_bounds__(32) inline void simt_urma_perf_vf(
     status = submit_series<api, commit_each>(
         asccomm, channel, remote, local, payload_bytes, slot_bytes, slot_count, iterations);
     uint64_t issue_end = clock();
-    drain_status = status != 0 ? status : asccomm.asccomm_drain(channel);
+    drain_status = status != 0 ? status : asccomm.drain(channel);
     uint64_t completion_end = clock();
 
     timing[ISSUE_CYCLES_INDEX] = issue_end - begin;

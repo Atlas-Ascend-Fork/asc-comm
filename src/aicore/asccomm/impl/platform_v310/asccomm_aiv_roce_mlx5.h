@@ -30,27 +30,27 @@
 
 namespace asc {
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uintptr_t>(buff) & (ASCCOMM_MLX5_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_init failed: buff is not 32-byte aligned. addr = %llu\n",
+        "Asccomm MLX5 init failed: buff is not 32-byte aligned. addr = %llu\n",
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buff)));
-    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_UB_BUF_SIZE, "Asccomm MLX5 asccomm_init failed: len = %u\n", len);
+    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_UB_BUF_SIZE, "Asccomm MLX5 init failed: len = %u\n", len);
     wqe_ub = reinterpret_cast<__ubuf__ uint32_t*>(buff);
     return ASCCOMM_SUCCESS;
 }
 
 template <typename T>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_init(const LocalTensor<T>& buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::init(const LocalTensor<T>& buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
         len < ASCCOMM_UB_BUF_SIZE || buff.GetSize() * sizeof(T) < ASCCOMM_UB_BUF_SIZE,
-        "Asccomm MLX5 asccomm_init failed: len = %u, tensor_size = %llu\n", len,
+        "Asccomm MLX5 init failed: len = %u, tensor_size = %llu\n", len,
         static_cast<uint64_t>(buff.GetSize()) * sizeof(T));
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uintptr_t>(buff.GetPhyAddr()) & (ASCCOMM_MLX5_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_init failed: buff is not 32-byte aligned. addr = %llu\n",
+        "Asccomm MLX5 init failed: buff is not 32-byte aligned. addr = %llu\n",
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buff.GetPhyAddr())));
     wqe_ub = reinterpret_cast<__ubuf__ uint32_t*>(buff.GetPhyAddr());
     return ASCCOMM_SUCCESS;
@@ -399,28 +399,28 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 asccomm_write_nbi requires inline_en = 0.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 write_nbi requires inline_en = 0.");
     return post_send<commit, config, asccomm_mlx5_op_type::WRITE, uint64_t, roce_sge_mode::SINGLE>(
         channel, dst, src, len, uint64_t{0}, 0);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 asccomm_read_nbi requires inline_en = 0.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 read_nbi requires inline_en = 0.");
     return post_send<commit, config, asccomm_mlx5_op_type::READ, uint64_t, roce_sge_mode::SINGLE>(
         channel, src, dst, len, uint64_t{0}, 0);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 multi-SGE asccomm_write_nbi requires inline_en = 0.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 multi-SGE write_nbi requires inline_en = 0.");
     (void)commit_pipe;
     (void)req_pipe;
     return post_send<commit, config, asccomm_mlx5_op_type::WRITE, uint64_t, roce_sge_mode::MULTI>(
@@ -428,10 +428,10 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 multi-SGE asccomm_read_nbi requires inline_en = 0.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 multi-SGE read_nbi requires inline_en = 0.");
     (void)commit_pipe;
     (void)req_pipe;
     return post_send<commit, config, asccomm_mlx5_op_type::READ, uint64_t, roce_sge_mode::MULTI>(
@@ -439,27 +439,26 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_value_nbi(
-    ChannelHandle channel, GM_ADDR dst, T value)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
     static_assert(
         sizeof(T) == sizeof(uint32_t) || sizeof(T) == sizeof(uint64_t),
-        "MLX5 asccomm_write_value_nbi only supports 4-byte and 8-byte scalar types.");
-    static_assert(asccomm_config_inline_en(config) == 1U, "MLX5 asccomm_write_value_nbi requires inline_en = 1.");
+        "MLX5 write_value_nbi only supports 4-byte and 8-byte scalar types.");
+    static_assert(asccomm_config_inline_en(config) == 1U, "MLX5 write_value_nbi requires inline_en = 1.");
     constexpr uint32_t value_bytes = static_cast<uint32_t>(sizeof(T));
     ASCCOMM_DEBUG_TRAP_IF(
-        dst == 0, "Asccomm MLX5 asccomm_write_value_nbi failed: dst = %llu len = %u\n", reinterpret_cast<uint64_t>(dst),
+        dst == 0, "Asccomm MLX5 write_value_nbi failed: dst = %llu len = %u\n", reinterpret_cast<uint64_t>(dst),
         value_bytes);
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uint64_t>(dst) & (value_bytes - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_write_value_nbi failed: dst is not naturally aligned. dst = %llu len = %u\n",
+        "Asccomm MLX5 write_value_nbi failed: dst is not naturally aligned. dst = %llu len = %u\n",
         reinterpret_cast<uint64_t>(dst), value_bytes);
     return post_send<commit, config, asccomm_mlx5_op_type::WRITE, T, roce_sge_mode::SINGLE>(
         channel, dst, nullptr, value_bytes, value, 0);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     (void)commit;
@@ -472,42 +471,42 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_with_n
     (void)len;
     (void)notify_addr;
     (void)notify_val;
-    ASCCOMM_DEBUG_TRAP_IF(true, "Asccomm MLX5 asccomm_write_with_notify_nbi is not supported.\n");
+    ASCCOMM_DEBUG_TRAP_IF(true, "Asccomm MLX5 write_with_notify_nbi is not supported.\n");
     return ASCCOMM_FAILED;
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_atomic_faa_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::atomic_faa_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val)
 {
-    static_assert(sizeof(T) == sizeof(uint64_t), "MLX5 asccomm_atomic_faa_nbi only supports 64-bit scalar types.");
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 asccomm_atomic_faa_nbi requires inline_en = 0.");
-    static_assert(config.cqe == 1U, "MLX5 asccomm_atomic_faa_nbi requires cqe = 1.");
+    static_assert(sizeof(T) == sizeof(uint64_t), "MLX5 atomic_faa_nbi only supports 64-bit scalar types.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 atomic_faa_nbi requires inline_en = 0.");
+    static_assert(config.cqe == 1U, "MLX5 atomic_faa_nbi requires cqe = 1.");
     ASCCOMM_DEBUG_TRAP_IF(
-        dst == 0 || fetch_addr == 0, "Asccomm MLX5 asccomm_atomic_faa_nbi failed: dst = %llu fetch_addr = %llu\n",
+        dst == 0 || fetch_addr == 0, "Asccomm MLX5 atomic_faa_nbi failed: dst = %llu fetch_addr = %llu\n",
         reinterpret_cast<uint64_t>(dst), reinterpret_cast<uint64_t>(fetch_addr));
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uint64_t>(dst) & (sizeof(uint64_t) - 1U)) != 0U ||
             (reinterpret_cast<uint64_t>(fetch_addr) & (sizeof(uint64_t) - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_atomic_faa_nbi failed: dst and fetch_addr must be 8-byte aligned.\n");
+        "Asccomm MLX5 atomic_faa_nbi failed: dst and fetch_addr must be 8-byte aligned.\n");
     return post_send<commit, config, asccomm_mlx5_op_type::ATOMIC_FAA, uint64_t, roce_sge_mode::SINGLE>(
         channel, dst, fetch_addr, sizeof(uint64_t), static_cast<uint64_t>(add_val), 0);
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_atomic_cas_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::atomic_cas_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val)
 {
-    static_assert(sizeof(T) == sizeof(uint64_t), "MLX5 asccomm_atomic_cas_nbi only supports 64-bit scalar types.");
-    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 asccomm_atomic_cas_nbi requires inline_en = 0.");
-    static_assert(config.cqe == 1U, "MLX5 asccomm_atomic_cas_nbi requires cqe = 1.");
+    static_assert(sizeof(T) == sizeof(uint64_t), "MLX5 atomic_cas_nbi only supports 64-bit scalar types.");
+    static_assert(asccomm_config_inline_en(config) == 0U, "MLX5 atomic_cas_nbi requires inline_en = 0.");
+    static_assert(config.cqe == 1U, "MLX5 atomic_cas_nbi requires cqe = 1.");
     ASCCOMM_DEBUG_TRAP_IF(
-        dst == 0 || fetch_addr == 0, "Asccomm MLX5 asccomm_atomic_cas_nbi failed: dst = %llu fetch_addr = %llu\n",
+        dst == 0 || fetch_addr == 0, "Asccomm MLX5 atomic_cas_nbi failed: dst = %llu fetch_addr = %llu\n",
         reinterpret_cast<uint64_t>(dst), reinterpret_cast<uint64_t>(fetch_addr));
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uint64_t>(dst) & (sizeof(uint64_t) - 1U)) != 0U ||
             (reinterpret_cast<uint64_t>(fetch_addr) & (sizeof(uint64_t) - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_atomic_cas_nbi failed: dst and fetch_addr must be 8-byte aligned.\n");
+        "Asccomm MLX5 atomic_cas_nbi failed: dst and fetch_addr must be 8-byte aligned.\n");
     return post_send<commit, config, asccomm_mlx5_op_type::ATOMIC_CAS, uint64_t, roce_sge_mode::SINGLE>(
         channel, dst, fetch_addr, sizeof(uint64_t), static_cast<uint64_t>(compare_val),
         static_cast<uint64_t>(swap_val));
@@ -530,13 +529,13 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_commit(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::commit(ChannelHandle channel)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        !pending_valid || pending_channel != channel, "asccomm_commit failed: no pending request for the channel.\n");
+        !pending_valid || pending_channel != channel, "commit failed: no pending request for the channel.\n");
     __gm__ ChannelEntity* chnl_ptr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "asccomm_commit failed with invalid channel.\n");
-    ASCCOMM_DEBUG_TRAP_IF(chnl_ptr->sqHead != pending_sq_head, "asccomm_commit failed: pending SQ head changed.\n");
+    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "commit failed with invalid channel.\n");
+    ASCCOMM_DEBUG_TRAP_IF(chnl_ptr->sqHead != pending_sq_head, "commit failed: pending SQ head changed.\n");
     knock_door_bell(chnl_ptr, pending_sq_head, pending_db_value, wqe_ub);
     pending_valid = false;
     return ASCCOMM_SUCCESS;
@@ -656,32 +655,32 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_drain(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(ChannelHandle channel)
 {
     __gm__ ChannelEntity* chnl_ptr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Asccomm MLX5 asccomm_drain failed with invalid channel.\n");
+    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Asccomm MLX5 drain failed with invalid channel.\n");
     return poll_cq(chnl_ptr, chnl_ptr->cqHead);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_lock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::lock(ChannelHandle channel)
 {
     return asccomm_channel_lock<COMM_PROTOCOL_ROCE>(channel);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_unlock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::unlock(ChannelHandle channel)
 {
     return asccomm_channel_unlock<COMM_PROTOCOL_ROCE>(channel);
 }
 
-__aicore__ inline roce_batch_handle& asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_get_handle_ref(
-    roce_batch_handle& batch_handle, uint32_t channel_index, GM_ADDR remote_addr)
+__aicore__ inline roce_batch_handle& asccomm_impl<COMM_PROTOCOL_ROCE>::get_handle_ref(
+    roce_batch_handle& batch_handle, uint32_t channel_idx, GM_ADDR remote_addr)
 {
-    (void)channel_index;
+    (void)channel_idx;
     (void)remote_addr;
     return batch_handle;
 }
 
-__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_make_batch_handle(
+__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     roce_batch_handle batch_handle{};
@@ -690,16 +689,16 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
     ASCCOMM_DEBUG_TRAP_IF(
         !check_channel_param(chnl_ptr) || buff_len < ASCCOMM_MLX5_WQEBB_SIZE ||
             (buffer_addr & (ASCCOMM_MLX5_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Asccomm MLX5 asccomm_make_batch_handle failed with invalid channel or buffer.\n");
+        "Asccomm MLX5 make_batch_handle failed with invalid channel or buffer.\n");
     const int32_t remote_idx =
         asccomm_find_buffer_idx(chnl_ptr->remoteBufferAddr, chnl_ptr->remoteBufferNum, remote_addr, 1);
     ASCCOMM_DEBUG_TRAP_IF(
-        remote_idx < 0, "Asccomm MLX5 asccomm_make_batch_handle failed with invalid remote address %llu.\n",
+        remote_idx < 0, "Asccomm MLX5 make_batch_handle failed with invalid remote address %llu.\n",
         reinterpret_cast<uint64_t>(remote_addr));
     const int32_t local_idx =
         asccomm_find_buffer_idx(chnl_ptr->localBufferAddr, chnl_ptr->localBufferNum, local_addr, 1);
     ASCCOMM_DEBUG_TRAP_IF(
-        local_idx < 0, "Asccomm MLX5 asccomm_make_batch_handle failed with invalid local address %llu.\n",
+        local_idx < 0, "Asccomm MLX5 make_batch_handle failed with invalid local address %llu.\n",
         reinterpret_cast<uint64_t>(local_addr));
 
     batch_handle.channel_handle = channel;
@@ -720,13 +719,12 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
 }
 
 template <typename U>
-__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_make_batch_handle(
+__aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::make_batch_handle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        buff.GetSize() * sizeof(U) < buff_len,
-        "Asccomm MLX5 asccomm_make_batch_handle failed with invalid buffer size.\n");
-    return asccomm_make_batch_handle(
+        buff.GetSize() * sizeof(U) < buff_len, "Asccomm MLX5 make_batch_handle failed with invalid buffer size.\n");
+    return make_batch_handle(
         channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buff_len, remote_addr, local_addr);
 }
 
@@ -811,7 +809,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_post_send(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     buf_desc src_desc;
@@ -822,7 +820,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     buf_desc dst_desc;
@@ -832,7 +830,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     roce_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
     return batch_post_send<config, asccomm_mlx5_op_type::WRITE, roce_sge_mode::MULTI>(
@@ -840,22 +838,21 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_write_nbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     roce_batch_handle& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
     return batch_post_send<config, asccomm_mlx5_op_type::READ, roce_sge_mode::MULTI>(
         batch_handle, src, dst_descs, dst_num);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_batch_commit(roce_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_commit(roce_batch_handle& batch_handle)
 {
     const uint32_t pre_sq_cnt = batch_handle.cursor.pre_sq_cnt;
     ASCCOMM_DEBUG_TRAP_IF(
         pre_sq_cnt == 0 || pre_sq_cnt > ASCCOMM_MLX5_SQ_INDEX_MASK || pre_sq_cnt > batch_handle.buffer.buffer_capacity,
-        "Asccomm MLX5 asccomm_batch_commit failed with invalid WQEBB count.\n");
+        "Asccomm MLX5 batch_commit failed with invalid WQEBB count.\n");
     __gm__ ChannelEntity* chnl_ptr = reinterpret_cast<__gm__ ChannelEntity*>(batch_handle.channel_handle);
-    ASCCOMM_DEBUG_TRAP_IF(
-        !check_channel_param(chnl_ptr), "Asccomm MLX5 asccomm_batch_commit failed with invalid channel.\n");
+    ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Asccomm MLX5 batch_commit failed with invalid channel.\n");
 
     const uint32_t sq_depth = batch_handle.sq_context.contextInfo.roceSq.depth;
     const uint32_t sq_tail = chnl_ptr->sqTail;
@@ -868,7 +865,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_batch_commit
     }
     ASCCOMM_DEBUG_TRAP_IF(
         !has_batch_sq_capacity(sq_depth, chnl_ptr->sqTail, get_db_head(chnl_ptr), sq_head, pre_sq_cnt),
-        "Asccomm MLX5 asccomm_batch_commit failed because batch is larger than SQ capacity.\n");
+        "Asccomm MLX5 batch_commit failed because batch is larger than SQ capacity.\n");
 
     const uint32_t start_wqebb_index = sq_head;
     const uint32_t new_sq_head = start_wqebb_index + pre_sq_cnt;
@@ -919,13 +916,13 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_batch_cq(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_drain(roce_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(roce_batch_handle& batch_handle)
 {
     (void)pipe;
     ASCCOMM_DEBUG_TRAP_IF(
         batch_handle.channel_handle == 0U || batch_handle.buffer.buffer_capacity == 0U ||
             batch_handle.cursor.pre_sq_cnt != 0U,
-        "Asccomm MLX5 batch asccomm_drain failed with invalid batch handle.\n");
+        "Asccomm MLX5 batch drain failed with invalid batch handle.\n");
     return poll_batch_cq(batch_handle, batch_handle.cursor.cq_head);
 }
 } // namespace asc

@@ -167,72 +167,70 @@ class asccomm_impl<COMM_PROTOCOL_ROCE> {
 public:
     __aicore__ inline asccomm_impl() = default;
     __aicore__ inline ~asccomm_impl() = default;
-    __aicore__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len);
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
-    __aicore__ inline int32_t asccomm_init(const LocalTensor<T>& buff, uint32_t len);
+    __aicore__ inline int32_t init(const LocalTensor<T>& buff, uint32_t len);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
+    __aicore__ inline int32_t write_nbi(
         ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
+    __aicore__ inline int32_t write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value);
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
+    __aicore__ inline int32_t atomic_faa_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val);
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_atomic_cas_nbi(
+    __aicore__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_commit(ChannelHandle channel);
+    __aicore__ inline int32_t commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t asccomm_drain(ChannelHandle channel);
-    __aicore__ inline int32_t asccomm_lock(ChannelHandle channel);
-    __aicore__ inline int32_t asccomm_unlock(ChannelHandle channel);
-    __aicore__ inline roce_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline int32_t drain(ChannelHandle channel);
+    __aicore__ inline int32_t lock(ChannelHandle channel);
+    __aicore__ inline int32_t unlock(ChannelHandle channel);
+    __aicore__ inline roce_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr);
     template <typename U>
-    __aicore__ inline roce_batch_handle asccomm_make_batch_handle(
+    __aicore__ inline roce_batch_handle make_batch_handle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr);
-    __aicore__ inline roce_batch_handle& asccomm_get_handle_ref(
-        roce_batch_handle& batch_handle, uint32_t channel_index, GM_ADDR remote_addr);
+    __aicore__ inline roce_batch_handle& get_handle_ref(
+        roce_batch_handle& batch_handle, uint32_t channel_idx, GM_ADDR remote_addr);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
-        roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t write_nbi(roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(
+    __aicore__ inline int32_t write_nbi(
         roce_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t read_nbi(roce_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(
+    __aicore__ inline int32_t read_nbi(
         roce_batch_handle& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src);
-    __aicore__ inline int32_t asccomm_batch_commit(roce_batch_handle& batch_handle);
+    __aicore__ inline int32_t batch_commit(roce_batch_handle& batch_handle);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t asccomm_drain(roce_batch_handle& batch_handle);
+    __aicore__ inline int32_t drain(roce_batch_handle& batch_handle);
 
 private:
     __aicore__ inline bool check_channel_param(__gm__ ChannelEntity* chnl_ptr);

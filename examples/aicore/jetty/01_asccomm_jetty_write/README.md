@@ -1,4 +1,4 @@
-# asccomm Jetty Write样例
+# Jetty Write样例
 
 ## 概述
 
@@ -11,7 +11,7 @@
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 
@@ -120,4 +120,4 @@
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - rank数量不能超过本机可用NPU数量，且运行用户需具备设备访问权限。
 - 样例仅支持单机多卡运行，不支持跨节点多机运行。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

@@ -31,7 +31,7 @@ class asccomm_impl {
 public:
     __aicore__ inline asccomm_impl(){};
     __aicore__ inline ~asccomm_impl(){};
-    __aicore__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len)
     {
         (void)buff;
         (void)len;
@@ -39,7 +39,7 @@ public:
     }
 
     template <typename T>
-    __aicore__ inline int32_t asccomm_init(const LocalTensor<T>& buff, uint32_t len)
+    __aicore__ inline int32_t init(const LocalTensor<T>& buff, uint32_t len)
     {
         (void)buff;
         (void)len;
@@ -49,15 +49,15 @@ public:
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    __aicore__ inline int32_t write_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
         return ASCCOMM_FAILED;
     }
 
     template <
-        typename T, asccomm_urma_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
+        typename T, asccomm_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
         pipe_t req_pipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
+    __aicore__ inline int32_t write_reduce_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
     {
         return ASCCOMM_FAILED;
     }
@@ -65,7 +65,7 @@ public:
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    __aicore__ inline int32_t read_nbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
         return ASCCOMM_FAILED;
     }
@@ -73,7 +73,7 @@ public:
     template <
         typename T, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
+    __aicore__ inline int32_t write_value_nbi(ChannelHandle channel, GM_ADDR dst, T value)
     {
         return ASCCOMM_FAILED;
     }
@@ -81,20 +81,20 @@ public:
     template <
         bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t asccomm_write_with_notify_nbi(
+    __aicore__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
     {
         return ASCCOMM_FAILED;
     }
 
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t asccomm_commit(ChannelHandle channel)
+    __aicore__ inline int32_t commit(ChannelHandle channel)
     {
         return ASCCOMM_FAILED;
     }
 
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t asccomm_drain(ChannelHandle channel)
+    __aicore__ inline int32_t drain(ChannelHandle channel)
     {
         return ASCCOMM_FAILED;
     }

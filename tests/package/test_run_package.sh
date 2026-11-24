@@ -174,19 +174,15 @@ run_package --uninstall --install-path="${INTERNAL_LINK_CANN}"
 [[ -L "${INTERNAL_LINK_CANN}/asc/include/adv_api/hcomm" ]]
 
 HCOMM_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/legacy/hcomm" -type f \
-    \( -name '*.h' -o -name '*.hpp' \) \
-    ! -path "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl/*" \
-    ! -path "${PROJECT_ROOT}/src/aicore/legacy/hcomm/host/*" | wc -l)
-JETTY_LEGACY_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/legacy/jetty" -type f \
     \( -name '*.h' -o -name '*.hpp' \) | wc -l)
-HCOMM_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl" -type f \
+JETTY_LEGACY_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/legacy/jetty" -type f \
     \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f \
     \( -name '*.h' -o -name '*.hpp' \) | wc -l)
 COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f \
     \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/legacy/*" | wc -l)
-EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
+EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + \
     JETTY_LEGACY_PUBLIC_HEADER_COUNT + COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + 4))
 AICPU_LIBRARY="${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}/devlib/device/libasccomm_aicpu.so"
 AICPU_ARCHIVE="${EXTRACT_DIR}/payload/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz"
@@ -224,21 +220,12 @@ while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/legacy/hcomm/"}
     cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/${relative_path}"
 done < <(find "${PROJECT_ROOT}/src/aicore/legacy/hcomm" -type f \
-    \( -name '*.h' -o -name '*.hpp' \) \
-    ! -path "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl/*" \
-    ! -path "${PROJECT_ROOT}/src/aicore/legacy/hcomm/host/*" -print0 | sort -z)
+    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/legacy/jetty/"}
     cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/include/comm_api/aicore/jetty/${relative_path}"
 done < <(find "${PROJECT_ROOT}/src/aicore/legacy/jetty" -type f \
-    \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
-
-while IFS= read -r -d '' source_file; do
-    relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/legacy/hcomm/"}
-    cmp "${source_file}" \
-        "${EXTRACT_DIR}/payload/asc/impl/comm_api/aicore/asccomm/${relative_path}"
-done < <(find "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl" -type f \
     \( -name '*.h' -o -name '*.hpp' \) -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
@@ -274,6 +261,7 @@ chmod 711 "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm"
 chmod 700 "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/common"
 chmod 701 "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/unmanaged"
 cp -a "${FAKE_CANN}/asc" "${BASELINE_DIR}/asc"
+cp -a "${FAKE_CANN}/lib64" "${BASELINE_DIR}/lib64"
 
 expect_failure run_package --install --install-path="${FAKE_CANN}"
 [[ ! -e "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
@@ -289,7 +277,7 @@ while read -r _ path; do
     [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "${expected_mode}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/common")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/common")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/unmanaged")" == "701" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]

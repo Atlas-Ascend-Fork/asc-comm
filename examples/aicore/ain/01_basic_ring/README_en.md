@@ -13,14 +13,14 @@ the Kernel side only submits data-plane communication tasks through the AIN inte
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Directory Structure
 
 ```text
 basic_ring
 ├── CMakeLists.txt    // Build project file
-├── basic_ring.asc    // Host-side resource setup, AICore-side AIN calls, and shared definitions
+├── basic_ring.asc    // Host-side resource setup, AI Core-side AIN calls, and shared definitions
 ├── README.md         // Chinese sample documentation
 └── README_en.md      // English sample documentation
 ```
@@ -56,7 +56,7 @@ After the communication completes, each rank reads back `recv_buf` and validates
    and calls `HcclTeamCreate` to create the team, which automatically establishes the AIV + UB_CTP communication channels.
 3. Registers `send_buf` and `recv_buf` as symmetric windows through `HcclCommSymWinRegister`.
 4. Passes `team`, `send_win`, and `recv_win` to the Kernel.
-5. The Kernel side constructs an `asc::ain` object and initializes the asccomm UB temporary workspace, performs `put` and `get`, then calls `flush`
+5. The Kernel side constructs an `asc::ain` object and initializes the UB temporary workspace, performs `put` and `get`, then calls `flush`
    to wait for the communication tasks to complete, and finally synchronizes the ranks through `ain_barrier_session::sync`.
 
 ## Compilation and Execution

@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_aiv_urma.h
- * \brief Hcomm AIV URMA implementation for V310
+ * \brief asccomm AIV URMA implementation for V310
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include hcomm/hcomm.h instead.")
+#pragma message("This is an internal asccomm header. Please include asccomm/asccomm.h instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_AIV_URMA_H
 #endif
@@ -345,26 +345,25 @@ __aicore__ inline asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_impl() {}
 
 __aicore__ inline asccomm_impl<COMM_PROTOCOL_UB_CTP>::~asccomm_impl() {}
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
         (reinterpret_cast<uintptr_t>(buff) & (ASCCOMM_URMA_ADDR_ALIGNMENT - 1U)) != 0U,
-        "Hcomm asccomm_init failed: buff is not 32-byte aligned. addr = %llu\n",
+        "Hcomm init failed: buff is not 32-byte aligned. addr = %llu\n",
         static_cast<uint64_t>(reinterpret_cast<uintptr_t>(buff)));
-    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_URMA_TMP_BUF_SIZE, "Hcomm asccomm_init failed: len = %u\n", len);
+    ASCCOMM_DEBUG_TRAP_IF(len < ASCCOMM_URMA_TMP_BUF_SIZE, "Hcomm init failed: len = %u\n", len);
 
     wqe_item = reinterpret_cast<__ubuf__ uint32_t*>(buff);
     return ASCCOMM_SUCCESS;
 }
 
 template <typename T>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_init(const LocalTensor<T>& buff, uint32_t len)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::init(const LocalTensor<T>& buff, uint32_t len)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        len > buff.GetSize() * static_cast<uint32_t>(sizeof(T)),
-        "Hcomm asccomm_init failed: len = %u, tensor_size = %llu\n", len,
-        static_cast<uint64_t>(buff.GetSize()) * sizeof(T));
-    return asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), len);
+        len > buff.GetSize() * static_cast<uint32_t>(sizeof(T)), "Hcomm init failed: len = %u, tensor_size = %llu\n",
+        len, static_cast<uint64_t>(buff.GetSize()) * sizeof(T));
+    return init(reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), len);
 }
 
 __aicore__ inline void asccomm_urma_resolve_batch_remote(
@@ -382,7 +381,7 @@ __aicore__ inline void asccomm_urma_resolve_batch_remote(
     resolved_remote_info.remote_eid_high = remote_info.remote_eid_high;
 }
 
-__aicore__ inline ubc_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__aicore__ inline ubc_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     (void)local_addr;
@@ -412,14 +411,14 @@ __aicore__ inline ubc_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_m
     return batch_handle;
 }
 
-__aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     multi_channel_handle multi_channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr,
     GM_ADDR local_addr)
 {
     (void)remote_addr;
     (void)local_addr;
     ASCCOMM_DEBUG_TRAP_IF(
-        multi_channel == multi_channel_handle{}, "Hcomm asccomm_make_batch_handle failed with empty handle\n");
+        multi_channel == multi_channel_handle{}, "Hcomm make_batch_handle failed with empty handle\n");
 
     auto* multi_channel_entity_ptr =
         reinterpret_cast<__gm__ multi_channel_entity*>(static_cast<uint64_t>(multi_channel));
@@ -427,7 +426,7 @@ __aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asc
     ASCCOMM_DEBUG_TRAP_IF(
         channel == 0U || multi_channel_entity_ptr->channel_num == 0U ||
             multi_channel_entity_ptr->remote_info_addr == 0U,
-        "Hcomm asccomm_make_batch_handle failed with invalid multi channel entity\n");
+        "Hcomm make_batch_handle failed with invalid multi channel entity\n");
     auto* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     auto sq_ctx = channel_entity->sqContextAddr[ASCCOMM_URMA_DEFAULT_QP_IDX];
     auto cq_ctx = channel_entity->cqContextAddr[ASCCOMM_URMA_DEFAULT_QP_IDX];
@@ -448,46 +447,45 @@ __aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asc
 }
 
 template <typename U>
-__aicore__ inline ubc_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__aicore__ inline ubc_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
-    return asccomm_make_batch_handle(
+    return make_batch_handle(
         channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buff_len, remote_addr, local_addr);
 }
 
 template <typename U>
-__aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_make_batch_handle(
+__aicore__ inline ubc_multi_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::make_batch_handle(
     multi_channel_handle multi_channel, const LocalTensor<U>& buff, uint32_t buff_len, GM_ADDR remote_addr,
     GM_ADDR local_addr)
 {
-    return asccomm_make_batch_handle(
+    return make_batch_handle(
         multi_channel, reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr()), buff_len, remote_addr, local_addr);
 }
 
-__aicore__ inline ubc_batch_handle& asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_get_handle_ref(
-    ubc_batch_handle& batch_handle, uint32_t channel_index, GM_ADDR remote_addr)
+__aicore__ inline ubc_batch_handle& asccomm_impl<COMM_PROTOCOL_UB_CTP>::get_handle_ref(
+    ubc_batch_handle& batch_handle, uint32_t channel_idx, GM_ADDR remote_addr)
 {
-    (void)channel_index;
+    (void)channel_idx;
     (void)remote_addr;
     return batch_handle;
 }
 
-__aicore__ inline ubc_batch_handle& asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_get_handle_ref(
-    ubc_multi_batch_handle& multi_batch_handle, uint32_t channel_index, GM_ADDR remote_addr)
+__aicore__ inline ubc_batch_handle& asccomm_impl<COMM_PROTOCOL_UB_CTP>::get_handle_ref(
+    ubc_multi_batch_handle& multi_batch_handle, uint32_t channel_idx, GM_ADDR remote_addr)
 {
     multi_batch_handle.handle.remote_info = batch_remote_info{};
     multi_batch_handle.handle.channel_handle = 0U;
     ASCCOMM_DEBUG_TRAP_IF(
-        channel_index >= multi_batch_handle.channel_num,
-        "Hcomm asccomm_get_handle_ref failed with invalid channel index\n");
+        channel_idx >= multi_batch_handle.channel_num, "Hcomm get_handle_ref failed with invalid channel index\n");
 
     auto* remote_infos = reinterpret_cast<__gm__ multi_channel_remote_info*>(multi_batch_handle.remote_info_addr);
     multi_channel_remote_info remote_source{};
-    remote_source.remote_buffer_addr = remote_infos[channel_index].remote_buffer_addr;
-    remote_source.remote_buffer_num = remote_infos[channel_index].remote_buffer_num;
-    remote_source.remote_eid_low = remote_infos[channel_index].remote_eid_low;
-    remote_source.remote_eid_high = remote_infos[channel_index].remote_eid_high;
-    remote_source.tp_id = remote_infos[channel_index].tp_id;
+    remote_source.remote_buffer_addr = remote_infos[channel_idx].remote_buffer_addr;
+    remote_source.remote_buffer_num = remote_infos[channel_idx].remote_buffer_num;
+    remote_source.remote_eid_low = remote_infos[channel_idx].remote_eid_low;
+    remote_source.remote_eid_high = remote_infos[channel_idx].remote_eid_high;
+    remote_source.tp_id = remote_infos[channel_idx].tp_id;
     asccomm_urma_resolve_batch_remote(remote_source, remote_addr, multi_batch_handle.handle.remote_info);
     multi_batch_handle.handle.channel_handle = multi_batch_handle.channel_handle;
     return multi_batch_handle.handle;
@@ -604,35 +602,35 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_post_send(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return batch_post_send<asccomm_urma_op_code::WRITE, config>(batch_handle, dst, src, len);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ubc_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
     return batch_post_send<asccomm_urma_op_code::WRITE, config>(batch_handle, dst, src_descs, src_num);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return batch_post_send<asccomm_urma_op_code::READ, config>(batch_handle, src, dst, len);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ubc_batch_handle& batch_handle, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
     return batch_post_send<asccomm_urma_op_code::READ, config>(batch_handle, src, dst_descs, dst_num);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ubc_batch_handle& batch_handle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     return batch_post_send<asccomm_urma_op_code::WRITE_WITH_NOTIFY, config>(
@@ -640,7 +638,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with
 }
 
 template <auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ubc_batch_handle& batch_handle, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
     uint64_t notify_val)
 {
@@ -990,35 +988,33 @@ __aicore__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_batch_cq(
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::WRITE, config>(channel, dst, src, len);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num)
 {
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::WRITE, config>(
         channel, dst, src_descs, src_num);
 }
 
-template <
-    typename T, asccomm_urma_reduce_op reduce_op, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_reduce_nbi(
+template <typename T, asccomm_reduce_op reduce_op, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_reduce_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
     constexpr uint32_t reduce_data_type = ASCCOMM_URMA_REDUCE_DATA_TYPE<T>;
     static_assert(
         reduce_data_type != ASCCOMM_URMA_INVALID_REDUCE_DATA_TYPE,
-        "asccomm_write_reduce_nbi only supports int8_t, int16_t, int32_t, uint32_t, half, float and bfloat16_t");
+        "write_reduce_nbi only supports int8_t, int16_t, int32_t, uint32_t, half, float and bfloat16_t");
     static_assert(
-        reduce_op == asccomm_urma_reduce_op::MAX || reduce_op == asccomm_urma_reduce_op::MIN ||
-            reduce_op == asccomm_urma_reduce_op::SUM,
-        "asccomm_write_reduce_nbi only supports MAX, MIN and SUM");
-    static_assert(
-        asccomm_config_inline_en(config) == 0, "asccomm_write_reduce_nbi does not support inline data in WQE");
+        reduce_op == asccomm_reduce_op::MAX || reduce_op == asccomm_reduce_op::MIN ||
+            reduce_op == asccomm_reduce_op::SUM,
+        "write_reduce_nbi only supports MAX, MIN and SUM");
+    static_assert(asccomm_config_inline_en(config) == 0, "write_reduce_nbi does not support inline data in WQE");
     udma_params<uint32_t> params{};
     params.reduce_data_type = reduce_data_type;
     params.reduce_opcode = static_cast<uint32_t>(reduce_op);
@@ -1028,14 +1024,14 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_redu
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::READ, config>(channel, src, dst, len);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::read_nbi(
     ChannelHandle channel, const buf_desc* dst_descs, uint32_t dst_num, GM_ADDR src)
 {
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::READ, config>(
@@ -1043,17 +1039,17 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_read_nbi(
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_value_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_value_nbi(
     ChannelHandle channel, GM_ADDR dst, T value)
 {
-    static_assert(asccomm_config_inline_en(config) == 1, "asccomm_write_value_nbi requires inline data in WQE");
+    static_assert(asccomm_config_inline_en(config) == 1, "write_value_nbi requires inline data in WQE");
     udma_params<T> params{value, 0};
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::WRITE, config>(
         channel, dst, nullptr, 0U, nullptr, params);
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     udma_params<uint64_t> params{notify_val, 0, 0, 0};
@@ -1062,7 +1058,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with
 }
 
 template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with_notify_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
     ChannelHandle channel, GM_ADDR dst, const buf_desc* src_descs, uint32_t src_num, GM_ADDR notify_addr,
     uint64_t notify_val)
 {
@@ -1072,33 +1068,33 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_write_with
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_faa_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_faa_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T add_val)
 {
     static_assert(
         std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, int64_t>::value ||
             std::is_same<T, uint64_t>::value,
-        "asccomm_atomic_faa_nbi only supports int32_t, uint32_t, int64_t, uint64_t");
+        "atomic_faa_nbi only supports int32_t, uint32_t, int64_t, uint64_t");
     udma_params<T> params{add_val, 0, 0, 0};
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::FAA, config>(
         channel, dst, fetch_addr, sizeof(T), nullptr, params);
 }
 
 template <typename T, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_atomic_cas_nbi(
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::atomic_cas_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetch_addr, T compare_val, T swap_val)
 {
     static_assert(
         std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, int64_t>::value ||
             std::is_same<T, uint64_t>::value,
-        "asccomm_atomic_cas_nbi only supports int32_t, uint32_t, int64_t, uint64_t");
+        "atomic_cas_nbi only supports int32_t, uint32_t, int64_t, uint64_t");
     udma_params<T> params{swap_val, compare_val, 0, 0};
     return post_send<commit, commit_pipe, req_pipe, asccomm_urma_op_code::CAS, config>(
         channel, dst, fetch_addr, sizeof(T), nullptr, params);
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_commit(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::commit(ChannelHandle channel)
 {
     (void)pipe;
     __gm__ ChannelEntity* channel_entity = (__gm__ ChannelEntity*)channel;
@@ -1107,12 +1103,12 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_commit(Cha
     return ASCCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch_commit(ubc_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(ubc_batch_handle& batch_handle)
 {
     uint32_t pre_sq_cnt = batch_handle.cursor.pre_sq_cnt;
     ASCCOMM_DEBUG_TRAP_IF(
         pre_sq_cnt == 0 || pre_sq_cnt > batch_handle.buffer.buffer_capacity,
-        "Hcomm asccomm_batch_commit failed with invalid WQEBB count\n");
+        "Hcomm batch_commit failed with invalid WQEBB count\n");
 
     uint32_t sq_depth = batch_handle.sq_context.contextInfo.ubJfs.sqDepth;
     auto* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(batch_handle.channel_handle);
@@ -1161,48 +1157,46 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch_comm
     return ASCCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_batch_commit(ubc_multi_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(ubc_multi_batch_handle& batch_handle)
 {
-    return asccomm_batch_commit(batch_handle.handle);
+    return batch_commit(batch_handle.handle);
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_drain(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain(ChannelHandle channel)
 {
     (void)pipe;
     __gm__ ChannelEntity* channel_entity = (__gm__ ChannelEntity*)channel;
     uint32_t ret = poll_cq(channel, channel_entity->cqHead);
     ASCCOMM_DEBUG_TRAP_IF(
-        ret != ASCCOMM_SUCCESS, "Hcomm URMA asccomm_drain by channel failed channel=%lu poll_ret=%u \n", channel, ret);
+        ret != ASCCOMM_SUCCESS, "Hcomm URMA drain by channel failed channel=%lu poll_ret=%u \n", channel, ret);
     return ret;
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_drain(ubc_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain(ubc_batch_handle& batch_handle)
 {
     (void)pipe;
     ASCCOMM_DEBUG_TRAP_IF(
         batch_handle.channel_handle == 0U || batch_handle.buffer.buffer_capacity == 0U ||
             batch_handle.cursor.pre_sq_cnt != 0U,
-        "Hcomm Batch asccomm_drain failed with invalid batch handle\n");
+        "Hcomm Batch drain failed with invalid batch handle\n");
 
     uint32_t ret = poll_batch_cq(batch_handle, batch_handle.cursor.cq_head);
-    ASCCOMM_DEBUG_TRAP_IF(
-        ret != ASCCOMM_SUCCESS, "Hcomm URMA asccomm_drain by batch handle failed poll_ret=%u \n", ret);
+    ASCCOMM_DEBUG_TRAP_IF(ret != ASCCOMM_SUCCESS, "Hcomm URMA drain by batch handle failed poll_ret=%u \n", ret);
     return ret;
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_drain(ubc_multi_batch_handle& batch_handle)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::drain(ubc_multi_batch_handle& batch_handle)
 {
-    return asccomm_drain<pipe>(batch_handle.handle);
+    return drain<pipe>(batch_handle.handle);
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_lock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::lock(ChannelHandle channel)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U,
-        "Hcomm asccomm_lock failed with invalid channel\n");
+        channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U, "Hcomm lock failed with invalid channel\n");
 
     __gm__ ChannelEntity* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     __gm__ uint32_t* lock_addr = asccomm_urma_get_lock_addr(channel_entity);
@@ -1213,11 +1207,10 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_lock(Chann
     return ASCCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::asccomm_unlock(ChannelHandle channel)
+__aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::unlock(ChannelHandle channel)
 {
     ASCCOMM_DEBUG_TRAP_IF(
-        channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U,
-        "Hcomm asccomm_unlock failed with invalid channel\n");
+        channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U, "Hcomm unlock failed with invalid channel\n");
 
     __gm__ ChannelEntity* channel_entity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     __gm__ uint8_t* counter_addr = reinterpret_cast<__gm__ uint8_t*>(channel_entity) + offsetof(ChannelEntity, sqHead);

@@ -133,14 +133,14 @@ TEST_F(asccomm_roce_test_suite, INIT_READ_NBI_DRAIN)
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
     // Short buffers and misaligned addresses are debug-trap contract violations.
     // This UT target compiles out ASCENDC_DEBUG, so keep the valid-buffer path.
-    EXPECT_EQ(asccomm.asccomm_init((__ubuf__ uint8_t*)(addr), ASCCOMM_UB_BUF_SIZE), ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_init((__ubuf__ uint8_t*)(addr), 512), 0);
+    EXPECT_EQ(asccomm.init((__ubuf__ uint8_t*)(addr), ASCCOMM_UB_BUF_SIZE), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.init((__ubuf__ uint8_t*)(addr), 512), 0);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    int32_t ret = asccomm.asccomm_read_nbi(
-        channel_handle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
+    int32_t ret =
+        asccomm.read_nbi(channel_handle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
     EXPECT_EQ(ret, 0);
     set_cqe(0, 0);
-    ret = asccomm.asccomm_drain(channel_handle);
+    ret = asccomm.drain(channel_handle);
     EXPECT_EQ(ret, 0);
     EXPECT_EQ(channel.sqTail, 1U);
 }
@@ -148,31 +148,29 @@ TEST_F(asccomm_roce_test_suite, INIT_READ_NBI_DRAIN)
 TEST_F(asccomm_roce_test_suite, INIT_WRITE_NBI_DRAIN)
 {
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
-    EXPECT_EQ(
-        asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), ASCCOMM_UB_BUF_SIZE),
-        ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), 0);
+    EXPECT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), ASCCOMM_UB_BUF_SIZE), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), 0);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    int32_t ret = asccomm.asccomm_write_nbi<false>(
+    int32_t ret = asccomm.write_nbi<false>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, 0);
-    ret = asccomm.asccomm_write_nbi<false>(
+    ret = asccomm.write_nbi<false>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, 0);
-    ret = asccomm.asccomm_commit(channel_handle);
+    ret = asccomm.commit(channel_handle);
     EXPECT_EQ(ret, 0);
     set_cqe(0, 0);
     set_cqe(1, 1);
-    ret = asccomm.asccomm_drain(channel_handle);
+    ret = asccomm.drain(channel_handle);
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(asccomm_roce_test_suite, INIT_WRITE_WITH_NOTIFY_NBI)
 {
     asccomm<asc::COMM_PROTOCOL_ROCE> asccomm;
-    EXPECT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), 0);
+    EXPECT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), 0);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    int32_t ret = asccomm.asccomm_write_with_notify_nbi<false>(
+    int32_t ret = asccomm.write_with_notify_nbi<false>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10,
         reinterpret_cast<GM_ADDR>(0x310), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
@@ -192,26 +190,26 @@ TEST_F(asccomm_roce_test_suite, CHECK_CHANNEL_PARAM_REJECTS_SINGLE_ENTRY_SQ)
 TEST_F(asccomm_roce_test_suite, DRAIN_WITHOUT_NEW_CQE_KEEPS_SQ_TAIL)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.cqHead = 1;
     channel.cqTail = 1;
     channel.sqTail = 7U;
 
-    EXPECT_EQ(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqTail, 7U);
 }
 
 TEST_F(asccomm_roce_test_suite, DRAIN_CONSUMES_CQE_WHEN_TARGET_WRAPS_TO_ZERO)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 0;
     channel.sqTail = UINT32_MAX;
     channel.cqHead = 0;
     channel.cqTail = UINT32_MAX;
     set_cqe(UINT32_MAX, UINT32_MAX);
 
-    EXPECT_EQ(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.cqTail, 0U);
     EXPECT_EQ(channel.sqTail, 0U);
 }
@@ -219,7 +217,7 @@ TEST_F(asccomm_roce_test_suite, DRAIN_CONSUMES_CQE_WHEN_TARGET_WRAPS_TO_ZERO)
 TEST_F(asccomm_roce_test_suite, DRAIN_REJECTS_COUNTER_AT_OR_BEYOND_PRODUCER)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 10U;
     channel.sqTail = 9U;
     channel.cqHead = 1;
@@ -229,12 +227,12 @@ TEST_F(asccomm_roce_test_suite, DRAIN_REJECTS_COUNTER_AT_OR_BEYOND_PRODUCER)
         SCOPED_TRACE(counter);
         set_cqe(0, counter - 1U);
         if (counter == 10U) {
-            EXPECT_EQ(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
+            EXPECT_EQ(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
             EXPECT_EQ(channel.sqTail, counter);
             EXPECT_EQ(channel.cqTail, 1U);
             channel.cqTail = 0U;
         } else {
-            EXPECT_DEATH(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), "");
+            EXPECT_DEATH(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), "");
         }
     }
 }
@@ -242,14 +240,14 @@ TEST_F(asccomm_roce_test_suite, DRAIN_REJECTS_COUNTER_AT_OR_BEYOND_PRODUCER)
 TEST_F(asccomm_roce_test_suite, DRAIN_ACCEPTS_LAST_OUTSTANDING_WQE)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 10U;
     channel.sqTail = 7U;
     channel.cqHead = 1;
     channel.cqTail = 0;
     set_cqe(0, 9);
 
-    EXPECT_EQ(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqTail, 10U);
     EXPECT_EQ(channel.cqTail, 1U);
 }
@@ -257,40 +255,40 @@ TEST_F(asccomm_roce_test_suite, DRAIN_ACCEPTS_LAST_OUTSTANDING_WQE)
 TEST_F(asccomm_roce_test_suite, DRAIN_ERROR_CQE_DOES_NOT_ADVANCE_COUNTERS)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 2U;
     channel.sqTail = 0U;
     channel.cqHead = 1U;
     channel.cqTail = 0U;
     set_error_cqe(0);
 
-    EXPECT_DEATH(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), "");
+    EXPECT_DEATH(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), "");
 }
 
 TEST_F(asccomm_roce_test_suite, DRAIN_INVALID_COMPLETION_DOES_NOT_ADVANCE_COUNTERS)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 2U;
     channel.sqTail = 0U;
     channel.cqHead = 1U;
     channel.cqTail = 0U;
     set_cqe(0, 2U);
 
-    EXPECT_DEATH(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), "");
+    EXPECT_DEATH(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), "");
 }
 
 TEST_F(asccomm_roce_test_suite, DRAIN_HANDLES16_BIT_WQEBB_COUNTER_WRAP)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     channel.sqHead = 1U;
     channel.sqTail = UINT16_MAX - 1U;
     channel.cqHead = 1;
     channel.cqTail = 0;
     set_cqe(0, 0U);
 
-    EXPECT_EQ(asccomm.asccomm_drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(reinterpret_cast<ChannelHandle>(&channel)), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqTail, channel.sqHead);
     EXPECT_EQ(channel.cqTail, 1U);
 }
@@ -298,14 +296,14 @@ TEST_F(asccomm_roce_test_suite, DRAIN_HANDLES16_BIT_WQEBB_COUNTER_WRAP)
 TEST_F(asccomm_roce_test_suite, WRITE_NBI_WITHOUT_CQE_DOES_NOT_ADVANCE_CQ_HEAD)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 0;
     channel.sqTail = 0;
     channel.cqHead = 0;
     channel.cqTail = 0;
 
-    int32_t ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
+    int32_t ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 1U);
@@ -315,18 +313,18 @@ TEST_F(asccomm_roce_test_suite, WRITE_NBI_WITHOUT_CQE_DOES_NOT_ADVANCE_CQ_HEAD)
 TEST_F(asccomm_roce_test_suite, POST_SEND_KEEPS_ONE_SQ_SLOT_FOR_INVALID_MARKER)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 14U;
     channel.sqTail = 0;
     channel.cqHead = 14;
     channel.cqTail = 14;
 
-    int32_t ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
+    int32_t ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 15U);
-    ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
+    ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3, k_roce_no_cqe_cfg>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 16U);
@@ -335,14 +333,14 @@ TEST_F(asccomm_roce_test_suite, POST_SEND_KEEPS_ONE_SQ_SLOT_FOR_INVALID_MARKER)
 TEST_F(asccomm_roce_test_suite, POST_SEND_REJECTS_FULL_SQ_AFTER_POLL_CQ)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 15U;
     channel.sqTail = 0U;
     channel.cqHead = 15U;
     channel.cqTail = 15U;
 
-    int32_t ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3>(
+    int32_t ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 16U);
@@ -351,14 +349,14 @@ TEST_F(asccomm_roce_test_suite, POST_SEND_REJECTS_FULL_SQ_AFTER_POLL_CQ)
 TEST_F(asccomm_roce_test_suite, POST_SEND_REJECTS_OVERFLOW_SQ_AFTER_POLL_CQ)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 17U;
     channel.sqTail = 0U;
     channel.cqHead = 17U;
     channel.cqTail = 17U;
 
-    int32_t ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3>(
+    int32_t ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 18U);
@@ -367,7 +365,7 @@ TEST_F(asccomm_roce_test_suite, POST_SEND_REJECTS_OVERFLOW_SQ_AFTER_POLL_CQ)
 TEST_F(asccomm_roce_test_suite, POST_SEND_HANDLES_SQ_COUNTER_WRAP)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 1U;
     channel.sqTail = UINT16_MAX - 1U;
@@ -375,7 +373,7 @@ TEST_F(asccomm_roce_test_suite, POST_SEND_HANDLES_SQ_COUNTER_WRAP)
     channel.cqTail = 1U;
 
     EXPECT_EQ(
-        (asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3>(
+        (asccomm.write_nbi<false, PIPE_S, PIPE_MTE3>(
             channel_handle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10)),
         ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 2U);
@@ -384,28 +382,28 @@ TEST_F(asccomm_roce_test_suite, POST_SEND_HANDLES_SQ_COUNTER_WRAP)
 TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_CHECKS_ACCUMULATED_SQ_CAPACITY)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 14U;
     channel.sqTail = 0;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 128, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<k_roce_no_cqe_cfg>(
+        asccomm.write_nbi<k_roce_no_cqe_cfg>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 15U);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<k_roce_no_cqe_cfg>(
+        asccomm.write_nbi<k_roce_no_cqe_cfg>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 16U);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 0U);
 }
@@ -414,7 +412,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_HANDLE_ACCEPTS32_BYTE_ALIGNED_BUFFER)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 32, 128,
         reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     EXPECT_NE(batch_handle.channel_handle, 0U);
@@ -430,16 +428,16 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_CQ_WHEN_SQ_IS_NEAR_FULL)
     channel.sqTail = 0U;
     channel.cqHead = 12U;
     channel.cqTail = 12U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 64, 64, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<k_roce_no_cqe_cfg>(
+        asccomm.write_nbi<k_roce_no_cqe_cfg>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 13U);
     EXPECT_EQ(channel.cqHead, 12U);
     EXPECT_EQ(channel.cqTail, 12U);
@@ -454,15 +452,15 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_CHECKS_SINGLE_SGE_SQ_CAPACITY)
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 15U;
     channel.sqTail = 0U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 128, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 16U);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 0U);
 }
@@ -477,16 +475,16 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_PRIOR_CQE_WHEN_NEAR_FULL)
     channel.sqTail = 0U;
     channel.cqHead = 12U;
     channel.cqTail = 11U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 64, 64, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
     set_cqe(11, 11);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 14U);
     EXPECT_EQ(channel.cqHead, 13U);
     EXPECT_EQ(channel.cqTail, 12U);
@@ -499,7 +497,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_CHECKS_MULTI_SGE_SQ_CAPACITY)
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 14U;
     channel.sqTail = 0U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 128, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
@@ -510,8 +508,8 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_CHECKS_MULTI_SGE_SQ_CAPACITY)
         {reinterpret_cast<GM_ADDR>(0x130), 12},
         {reinterpret_cast<GM_ADDR>(0x140), 13},
     };
-    ASSERT_EQ(asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), ASCCOMM_SUCCESS);
-    EXPECT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 16U);
     EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 0U);
 }
@@ -520,7 +518,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_HANDLE_KEEPS_DEBUG_TRAP_SEMANTICS_FOR_MISA
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 1, 128, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     // This UT target compiles out ASCENDC_DEBUG, so ASCCOMM_DEBUG_TRAP_IF does not stop
@@ -533,7 +531,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_HANDLE_KEEPS_DEBUG_TRAP_SEMANTICS_FOR_MISA
 TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_CQ_THRESHOLD_WITHOUT_INIT)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         reinterpret_cast<ChannelHandle>(&channel), reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 64, 64,
         reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
@@ -542,13 +540,12 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_CQ_THRESHOLD_WITHOUT_INIT)
     for (uint32_t i = 0; i <= poll_count; ++i) {
         SCOPED_TRACE(i);
         ASSERT_EQ(
-            asccomm.asccomm_write_nbi(
-                batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+            asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
             ASCCOMM_SUCCESS);
         roce_wqe_entry expected_wqe;
         std::memcpy(&expected_wqe, batch_handle.buffer.raw_buffer, sizeof(expected_wqe));
         set_cqe(i, i);
-        ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+        ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
         EXPECT_EQ(std::memcmp(sq_va + i * ASCCOMM_ROCE_WQEBB_SIZE, &expected_wqe, sizeof(expected_wqe)), 0);
         EXPECT_EQ(batch_handle.cursor.pre_sq_cnt, 0U);
         if (i + 1U == poll_count) {
@@ -559,7 +556,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_CQ_THRESHOLD_WITHOUT_INIT)
         }
     }
 
-    EXPECT_EQ(asccomm.asccomm_drain(batch_handle), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm.drain(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.cqTail, poll_count + 1U);
     EXPECT_EQ(channel.sqTail, poll_count + 1U);
     EXPECT_EQ(batch_handle.cursor.sq_tail, channel.sqTail);
@@ -568,18 +565,18 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_POLLS_CQ_THRESHOLD_WITHOUT_INIT)
 TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_USES_WQEBB_STRIDE)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 128, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x120), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x120), 10),
         ASCCOMM_SUCCESS);
 
     auto* first_wqe = reinterpret_cast<roce_wqe_entry*>(batch_handle.buffer.raw_buffer);
@@ -591,22 +588,22 @@ TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_USES_WQEBB_STRIDE)
 TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_USES64_BIT_WQE_ENCODING)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 0;
     channel.sqTail = 0;
     channel.cqHead = 0;
     channel.cqTail = 0;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 256, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
     ASSERT_EQ(
-        asccomm.asccomm_read_nbi<k_roce_no_cqe_cfg>(
+        asccomm.read_nbi<k_roce_no_cqe_cfg>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x120), reinterpret_cast<GM_ADDR>(0x220), 11),
         ASCCOMM_SUCCESS);
 
@@ -631,9 +628,9 @@ TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_USES64_BIT_WQE_ENCODING)
 TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_SHARES_PUBLIC_HEADER_ACROSS_SGES)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 512), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 256, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
@@ -642,7 +639,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_SHARES_PUBLIC_HEADER_ACROSS_SGES
         {reinterpret_cast<GM_ADDR>(0x110), 10},
         {reinterpret_cast<GM_ADDR>(0x120), 11},
     };
-    ASSERT_EQ(asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), ASCCOMM_SUCCESS);
 
     auto* words = reinterpret_cast<uint64_t*>(batch_handle.buffer.raw_buffer);
     roce_wqe_entry expected{};
@@ -678,7 +675,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_MAINTAINS_WQEBB_CURSOR)
     // Leave enough room for one single-SGE WQE (1 WQEBB) plus one 4-SGE WQE (2 WQEBBs)
     // while still preserving one SQ slot for the invalid marker.
     channel.sqTail = 2U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), 256, reinterpret_cast<GM_ADDR>(0x200),
         reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
@@ -690,9 +687,9 @@ TEST_F(asccomm_roce_test_suite, BATCH_POST_SEND_MAINTAINS_WQEBB_CURSOR)
         {reinterpret_cast<GM_ADDR>(0x140), 13},
     };
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), ASCCOMM_SUCCESS);
 
     const auto* words = reinterpret_cast<const uint64_t*>(batch_handle.buffer.raw_buffer);
     constexpr uint32_t first_wqe_wqebb = 1;
@@ -709,7 +706,7 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_PRESERVES_WQEBB_COUNTER)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 128, 128,
         reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
@@ -718,22 +715,22 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_PRESERVES_WQEBB_COUNTER)
         {reinterpret_cast<GM_ADDR>(0x110), 10},
         {reinterpret_cast<GM_ADDR>(0x120), 11},
     };
-    ASSERT_EQ(asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 2U);
     set_cqe(0, 1);
-    ASSERT_EQ(asccomm.asccomm_drain(channel_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.drain(channel_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqTail, 2U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        asccomm.write_nbi(batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
     const auto* words = reinterpret_cast<const uint64_t*>(batch_handle.buffer.raw_buffer);
     EXPECT_EQ(batch_handle.cursor.sq_head, 2U);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqHead, 3U);
     set_cqe(1, 2);
-    ASSERT_EQ(asccomm.asccomm_drain(channel_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.drain(channel_handle), ASCCOMM_SUCCESS);
     EXPECT_EQ(channel.sqTail, 3U);
 }
 
@@ -743,16 +740,16 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_WRITES_NEXT_WQEBB_OWNER_MARKER)
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 0U;
     channel.sqTail = 0U;
-    auto batch_handle = asccomm.asccomm_make_batch_handle(
+    auto batch_handle = asccomm.make_batch_handle(
         channel_handle, reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf) + 128, 128,
         reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
     ASSERT_NE(batch_handle.channel_handle, 0U);
 
     ASSERT_EQ(
-        asccomm.asccomm_write_nbi<k_roce_no_cqe_cfg>(
+        asccomm.write_nbi<k_roce_no_cqe_cfg>(
             batch_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         ASCCOMM_SUCCESS);
-    ASSERT_EQ(asccomm.asccomm_batch_commit(batch_handle), ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.batch_commit(batch_handle), ASCCOMM_SUCCESS);
 
     EXPECT_EQ(sq_va[ASCCOMM_ROCE_WQEBB_SIZE], 0xffU);
     EXPECT_EQ(channel.sqHead, 1U);
@@ -761,14 +758,12 @@ TEST_F(asccomm_roce_test_suite, BATCH_COMMIT_WRITES_NEXT_WQEBB_OWNER_MARKER)
 TEST_F(asccomm_roce_test_suite, MAKE_WQE_WRITES_NEXT_WQEBB_OWNER_MARKER)
 {
     asccomm<COMM_PROTOCOL_ROCE> asccomm;
-    ASSERT_EQ(
-        asccomm.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), ASCCOMM_UB_BUF_SIZE),
-        ASCCOMM_SUCCESS);
+    ASSERT_EQ(asccomm.init(reinterpret_cast<__ubuf__ uint8_t*>(asccomm_tmp_buf), ASCCOMM_UB_BUF_SIZE), ASCCOMM_SUCCESS);
     ChannelHandle channel_handle = reinterpret_cast<ChannelHandle>(&channel);
     channel.sqHead = 0U;
     channel.sqTail = 0U;
 
-    int32_t ret = asccomm.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3>(
+    int32_t ret = asccomm.write_nbi<false, PIPE_S, PIPE_MTE3>(
         channel_handle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10);
     ASSERT_EQ(ret, ASCCOMM_SUCCESS);
 

@@ -1,4 +1,4 @@
-# asccomm Jetty Write Sample
+# Jetty Write Sample
 
 ## Overview
 
@@ -11,7 +11,7 @@ does not require Host involvement for each operation. Each rank then verifies th
 
 | Product | CANN Software Version |
 | --- | --- |
-| Ascend 950PR&950DT products | >= CANN 9.2.0 |
+| Ascend 950PR&950DT products | >= CANN 9.3.0 |
 
 ## Directory Structure
 
@@ -120,4 +120,4 @@ Follow the steps below in the root directory of this sample to compile and run i
 - Running the sample requires at least 2 NPUs; a single-card environment only supports compilation verification.
 - The rank count must not exceed the number of available NPUs, and the running user must have device access permission.
 - The sample only supports single-node multi-card execution; cross-node multi-machine execution is not supported.
-- Compilation depends on the CANN ASC CMake capability and links against the CANN `asccomm` library.
+- Compilation depends on the CANN ASC CMake capability and links against the CANN `hcomm` library.

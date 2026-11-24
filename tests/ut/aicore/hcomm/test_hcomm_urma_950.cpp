@@ -279,7 +279,7 @@ protected:
         ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
         EXPECT_EQ(channel.GetSqHead(), 1U);
 
-        const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl_.wqe_item);
+        const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl.wqe_item);
         EXPECT_EQ(sqeCtx->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
         EXPECT_EQ(sqeCtx->flag & asc::ASCCOMM_URMA_UDF_FLAG, asc::ASCCOMM_URMA_UDF_FLAG);
         EXPECT_EQ(sqeCtx->reduce_data_type, expectedDataType);

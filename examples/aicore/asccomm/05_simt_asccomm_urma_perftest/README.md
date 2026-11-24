@@ -1,9 +1,9 @@
-# asccomm SIMT URMA 性能样例
+# CommRW SIMT URMA 性能样例
 
 ## 概述
 
-本样例测量SIMT路径上五个点对点接口的发送性能：`asccomm_write_nbi`、`asccomm_write_value_nbi`、`asccomm_write_with_notify_nbi`、
-`asccomm_atomic_faa_nbi`和`asccomm_atomic_cas_nbi`，覆盖立即提交与延迟提交两种发布策略，分别统计WQE下发时延和完成带宽。
+本样例测量SIMT路径上五个点对点接口的发送性能：`write_nbi`、`write_value_nbi`、`write_with_notify_nbi`、
+`atomic_faa_nbi`和`atomic_cas_nbi`，覆盖立即提交与延迟提交两种发布策略，分别统计WQE下发时延和完成带宽。
 
 这是点对点基准测试：`<nranks>`可以 >= 2，但只有rank 0（发送方）和rank 1（接收方）建链并计时，
 其余rank打印`SKIP`后直接退出。只保留一个发送方是有意的——多方并发发送会互相争抢链路和SQ资源，
@@ -38,23 +38,23 @@
 
 | `api` | 说明 |
 | --- | --- |
-| `write` | `asccomm_write_nbi`，WQE通过SGE指向本地缓冲区，payload长度可变 |
-| `write_value` | `asccomm_write_value_nbi`，8字节payload内联在WQE中，不读本地缓冲区 |
-| `notify` | `asccomm_write_with_notify_nbi`，payload之后再写一个远端signal word，payload长度可变 |
-| `faa` | `asccomm_atomic_faa_nbi`，对同一个远端8字节word累加 |
-| `cas` | `asccomm_atomic_cas_nbi`，对同一个远端8字节word比较交换 |
+| `write` | `write_nbi`，WQE通过SGE指向本地缓冲区，payload长度可变 |
+| `write_value` | `write_value_nbi`，8字节payload内联在WQE中，不读本地缓冲区 |
+| `notify` | `write_with_notify_nbi`，payload之后再写一个远端signal word，payload长度可变 |
+| `faa` | `atomic_faa_nbi`，对同一个远端8字节word累加 |
+| `cas` | `atomic_cas_nbi`，对同一个远端8字节word比较交换 |
 
 | `commit-mode` | 说明 |
 | --- | --- |
 | `immediate` | 每条WQE都`commit=true`，各自敲一次doorbell |
 | `last` | 除最后一条外全部`commit=false`，由最后一条提交发布整批 |
 
-两种策略的SQ占用也不同：延迟提交的`asccomm_write_nbi`占1个basic block，立即提交的要把payload拆成两个SGE
+两种策略的SQ占用也不同：延迟提交的`write_nbi`占1个basic block，立即提交的要把payload拆成两个SGE
 以填满128字节DWQE窗口，占2个；其余四个接口无论哪种策略都是固定2 BB。日志中的`SqBlocksPerWqe`
 给出实际占用。
 
-计时流程为：warmup次接口下发后`asccomm_drain`（不计时），随后正式下发`iterations`次并记录`IssueTime`
-（只统计正式WQE下发，用于比较接口提交时延），`asccomm_drain`结束记录`CompletionTime`（仅用于计算
+计时流程为：`warmup`次接口下发后`drain`（不计时），随后正式下发`iterations`次并记录`IssueTime`
+（只统计正式WQE下发，用于比较接口提交时延），`drain`结束记录`CompletionTime`（仅用于计算
 `CompletionBandwidth`）。`DrainStatus`和`Completed`用于确认本次下发最终正确完成。
 
 连续的WQE轮转多个slot，避免都落在同一条cache line上——否则测到的是远端内存系统而不是下发路径。
@@ -76,7 +76,7 @@
    rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
    创建通信域；仅rank 0和rank 1加入通信域，其余rank直接退出。
 2. rank 0和rank 1各自注册内存、创建Channel并交换内存地址。
-3. rank 0下发warmup次接口后`asccomm_drain`，随后计时下发`iterations`次接口，再次`asccomm_drain`。
+3. rank 0下发`warmup`次接口后`drain`，随后计时下发`iterations`次接口，再次`drain`。
 4. rank 0记录`IssueTime`、`CompletionTime`和`Completed`，rank 1校验落地数据。
 5. 输出RESULT行。
 
@@ -143,16 +143,16 @@
   [rank 1] simt_urma_perftest write PASS
   ```
 
-  `DrainStatus=0`、`Completed`与`WqeCount`一致且rank 1输出PASS，表示样例执行成功。
+  `DrainStatus=0`、`Completed`与`WqeCount`一致且rank 1输出`PASS`，表示样例执行成功。
 
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- `--payload-bytes`最小为2：立即提交的`asccomm_write_nbi`把payload拆成两段SGE，1字节会让第一段长度为0，
+- `--payload-bytes`最小为2：立即提交的`write_nbi`把payload拆成两段SGE，1字节会让第一段长度为0，
   而URMA不接受长度为0的SGE。
 - 接收侧只校验`write`和`write_value`：`notify`的signal word与payload共用同一个slot，两个原子
   接口每次迭代都会改写目标word，落地镜像取决于迭代次数，没有稳定的期望值。这两类用例依赖
   `DrainStatus`和`Completed`判断是否正确完成。
 - 需要payload扫描时，在多个`--payload-bytes`取值（如`8 16 64 256 1024 4096 16384 65536`）上
   各运行一次可执行文件即可。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

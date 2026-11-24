@@ -409,8 +409,6 @@ is_allowed_path()
         asc/include/adv_api/*.h|asc/include/adv_api/*.hpp|\
         asc/include/adv_api/*/*.h|asc/include/adv_api/*/*.hpp|\
         asc/include/adv_api/*/*/*.h|asc/include/adv_api/*/*/*.hpp|\
-        asc/impl/adv_api/detail/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/impl/adv_api/detail/*/*/*.h|\
         asc/include/comm_api/*.h|asc/include/comm_api/*.hpp|\
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
@@ -438,7 +436,7 @@ is_allowed_directory_path()
 {
     local path=$1
     case "${path}" in
-        asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
+        asc/include/adv_api/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
         asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64|\
         lib64/cmake|lib64|opp|opp/*|"${ARCH_DIR}"|"${ARCH_DIR}"/*)
@@ -464,8 +462,6 @@ payload_file_mode()
         asc/include/adv_api/*.h|asc/include/adv_api/*.hpp|\
         asc/include/adv_api/*/*.h|asc/include/adv_api/*/*.hpp|\
         asc/include/adv_api/*/*/*.h|asc/include/adv_api/*/*/*.hpp|\
-        asc/impl/adv_api/detail/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/impl/adv_api/detail/*/*/*.h|\
         asc/include/comm_api/*.h|asc/include/comm_api/*.hpp|\
         asc/include/comm_api/*/*.h|asc/include/comm_api/*/*.hpp|\
         asc/include/comm_api/*/*/*.h|asc/include/comm_api/*/*/*.hpp|\
@@ -487,7 +483,7 @@ managed_directory_mode()
     local mode
 
     case "${path}" in
-        asc/include/adv_api/*|asc/impl/adv_api/detail/*)
+        asc/include/adv_api/*)
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
@@ -534,11 +530,6 @@ collect_managed_directories()
                 relative_path=${path#asc/include/adv_api/}
                 module=${relative_path%%/*}
                 managed_root="asc/include/adv_api/${module}"
-                ;;
-            asc/impl/adv_api/detail/*)
-                relative_path=${path#asc/impl/adv_api/detail/}
-                module=${relative_path%%/*}
-                managed_root="asc/impl/adv_api/detail/${module}"
                 ;;
             asc/lib64/*)
                 managed_root="asc/lib64"

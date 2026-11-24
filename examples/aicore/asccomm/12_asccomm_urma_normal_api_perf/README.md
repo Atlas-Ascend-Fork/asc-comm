@@ -1,9 +1,9 @@
-# asccomm URMA 普通接口性能样例
+# CommRW URMA 普通接口性能样例
 
 ## 概述
 
-本样例测量 URMA 路径（AIV Kernel 直驱）上三个点对点普通接口的发送性能：`asccomm_write_nbi`、
-`asccomm_read_nbi`和`asccomm_write_with_notify_nbi`，每种接口覆盖时延与带宽两个口径、立即提交与延迟提交
+本样例测量 URMA 路径（AIV Kernel 直驱）上三个点对点普通接口的发送性能：`write_nbi`、
+`read_nbi`和`write_with_notify_nbi`，每种接口覆盖时延与带宽两个口径、立即提交与延迟提交
 两种发布策略。
 
 两个 rank 对称收发：双方都向对端发起通信，各自校验本地落点。这是有意为之——两方
@@ -44,23 +44,23 @@
 
 | `api` | 说明 |
 | --- | --- |
-| `write` | `asccomm_write_nbi`，本卡 source 区 → 对端 write 区 |
-| `read` | `asccomm_read_nbi`，本卡 read 区 ← 对端 source 区 |
-| `notify` | `asccomm_write_with_notify_nbi`，本卡 source 区 → 对端 notify 区，payload 之后另写一个远端 flag word |
+| `write` | `write_nbi`，本卡 source 区 → 对端 write 区 |
+| `read` | `read_nbi`，本卡 read 区 ← 对端 source 区 |
+| `notify` | `write_with_notify_nbi`，本卡 source 区 → 对端 notify 区，payload 之后另写一个远端 flag word |
 
 | `metric` | 说明 |
 | --- | --- |
-| `lat` | 时延：计时段内只有发起循环，末尾不含asccomm_drain——纯提交路径时延（`final`方式的末尾asccomm_commit也在段外） |
-| `bw` | 带宽：发起全部完成后、末尾一次asccomm_drain等收尾完成才停表——端到端带宽 |
+| `lat` | 时延：计时段内只有发起循环，末尾不含drain——纯提交路径时延（`final`方式的末尾commit也在段外） |
+| `bw` | 带宽：发起全部完成后、末尾一次drain等收尾完成才停表——端到端带宽 |
 
 | `commit` | 说明 |
 | --- | --- |
 | `inline` | 接口模板入参 `commit=true`，每次发起即敲 doorbell |
-| `final` | 接口模板入参 `commit=false` 只写 SQE，每段计时结束后统一一次 `asccomm_commit`——时延口径里asccomm_commit在计时段外，带宽口径里末尾asccomm_commit + asccomm_drain在计时段内 |
+| `final` | 接口模板入参 `commit=false` 只写 SQE，每段计时结束后统一一次 `commit`——时延口径里commit在计时段外，带宽口径里末尾commit + drain在计时段内 |
 
-计时流程为：warmup 次（`min(100, rounds)`）发起后 `asccomm_drain`（不计时），随后正式发起
-`rounds` 次并记录计时段 cycles。时延口径计时段内只有发起（`final`方式的asccomm_commit在段外）；
-带宽口径计时段内含收尾（`final`方式为「末尾asccomm_commit + asccomm_drain」，`inline`方式为「末尾asccomm_drain」）。
+计时流程为：warmup 次（`min(100, rounds)`）发起后 `drain`（不计时），随后正式发起
+`rounds` 次并记录计时段 cycles。时延口径计时段内只有发起（`final`方式的commit在段外）；
+带宽口径计时段内含收尾（`final`方式为「末尾commit + drain」，`inline`方式为「末尾drain」）。
 
 计时窗口内不判错、不提前退出：返回码直接覆盖存（零比较零分支），出窗后统一判断上报，
 测量路径与错误路径彻底分离。计时值由 kernel 写入 context 回传 host，host 侧用全精度
@@ -76,10 +76,10 @@ cycles 重算均值与派生列：
 
 | 偏移 | 大小 | 区域 |
 | --- | --- | --- |
-| 0 | 256MB | source：本卡发送源 / 对端 `asccomm_read_nbi` 的读源 |
-| 256MB | 512MB | write：对端 `asccomm_write_nbi` 的落点（每轮复用同一个 `len` 窗口） |
-| 768MB | 512MB | read：本卡 `asccomm_read_nbi` 读回的落点（每轮复用同一个 `len` 窗口） |
-| 1280MB | 512MB | notify：对端 `asccomm_write_with_notify_nbi` 的落点（每轮复用同一个 `len` 窗口） |
+| 0 | 256MB | source：本卡发送源 / 对端 `read_nbi` 的读源 |
+| 256MB | 512MB | write：对端 `write_nbi` 的落点（每轮复用同一个 `len` 窗口） |
+| 768MB | 512MB | read：本卡 `read_nbi` 读回的落点（每轮复用同一个 `len` 窗口） |
+| 1280MB | 512MB | notify：对端 `write_with_notify_nbi` 的落点（每轮复用同一个 `len` 窗口） |
 | 1792MB | 8B | flag：notify flag **单槽**（固定地址） |
 
 要点：
@@ -170,7 +170,7 @@ source，校验时用它分片把落点区拷回来比。每档校验（一律�
   | `--exponent` | 无 | 单个幂数（等价 `--exponent-range exp exp`，只跑一档） |
   | `--api` | `all` | 测哪些接口：`all`或`write`/`read`/`notify`逗号分隔 |
   | `--metric` | `all` | 时延/带宽口径：`all`或`lat`/`bw`逗号分隔 |
-  | `--commit` | `inline` | `inline`（每发起一次即asccomm_commit）/ `final`（commit=false + 每段末尾统一一次asccomm_commit；asccomm_commit不计入时延、计入带宽） |
+  | `--commit` | `inline` | `inline`（每发起一次即commit）/ `final`（commit=false + 每段末尾统一一次commit；commit不计入时延、计入带宽） |
   | `--rounds` | `1000` | 每档计时轮数（warmup 固定 `min(100, rounds)`，不对外开放） |
 
 - 编译选项说明
@@ -183,7 +183,7 @@ source，校验时用它分片把落点区拷回来比。每档校验（一律�
 - 执行结果
 
   ```text
-  PERF_DATA | Rank=0 | API=asccomm_write_nbi | DataSize/B=4096 | Commit=inline | Topology=p2p | Metric=lat | Rounds=1000 | Cycles=145000 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
+  PERF_DATA | Rank=0 | API=write_nbi | DataSize/B=4096 | Commit=inline | Topology=p2p | Metric=lat | Rounds=1000 | Cycles=145000 | AvgCycles=145.0000 | SingleCoreTime/us=0.145000 | Bandwidth/GB/s=28.1375
   [rank 0] case=4096B validation: PASS (checked 3MB per region)
   RESULT | Example=urma_normal_api_perf | Status=PASS
   ```
@@ -195,7 +195,7 @@ source，校验时用它分片把落点区拷回来比。每档校验（一律�
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- 幂数支持 `3~28`，即 8B~256MB；`rounds` 只要求为正整数，不设静态上限。
-- 时延口径计时段内不 asccomm_drain，`rounds` 个任务须一次性驻留 SQ；SQ 深度超限时靠
-  Post 返回码在出计时窗后报错（`asccomm_write_with_notify_nbi` 占 2 WQEBB、其余占 1）。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 幂数支持 `3~28`，即 8B~256MB；`--rounds` 只要求为正整数，不设静态上限。
+- 时延口径计时段内不 drain，`rounds` 个任务须一次性驻留 SQ；SQ 深度超限时靠
+  Post 返回码在出计时窗后报错（`write_with_notify_nbi` 占 2 WQEBB、其余占 1）。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

@@ -73,7 +73,7 @@ private:
     template <uint32_t api>
     __aicore__ inline void RunBatchMode()
     {
-        auto batchHandle = asccomm_.asccomm_make_batch_handle(
+        auto batchHandle = asccomm_.make_batch_handle(
             static_cast<AscendC::ChannelHandle>(context_->channelHandle),
             reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), BATCH_BUFFER_BYTES,
             api == PERF_API_WRITE ? remoteRecvBuffer_ : remoteSendBuffer_, localSendBuffer_);
@@ -92,14 +92,14 @@ private:
 
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t commitStart = AscendC::GetSystemCycle();
-            (void)asccomm_.asccomm_batch_commit(batchHandle);
+            (void)asccomm_.batch_commit(batchHandle);
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t commitElapsed = AscendC::GetSystemCycle() - commitStart;
             const uint64_t issueCommitElapsed = AscendC::GetSystemCycle() - runStart;
 
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t drainStart = AscendC::GetSystemCycle();
-            (void)asccomm_.asccomm_drain(batchHandle);
+            (void)asccomm_.drain(batchHandle);
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t drainElapsed = AscendC::GetSystemCycle() - drainStart;
 
@@ -122,7 +122,7 @@ private:
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t runStart = AscendC::GetSystemCycle();
 
-            (void)asccomm_.asccomm_init(
+            (void)asccomm_.init(
                 reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), asc::ASCCOMM_UB_BUF_SIZE);
             AscendC::PipeBarrier<PIPE_ALL>();
 
@@ -133,7 +133,7 @@ private:
 
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t drainStart = AscendC::GetSystemCycle();
-            (void)asccomm_.asccomm_drain(static_cast<AscendC::ChannelHandle>(context_->channelHandle));
+            (void)asccomm_.drain(static_cast<AscendC::ChannelHandle>(context_->channelHandle));
             AscendC::PipeBarrier<PIPE_ALL>();
             const uint64_t drainElapsed = AscendC::GetSystemCycle() - drainStart;
 
@@ -153,22 +153,22 @@ private:
         for (uint32_t i = 0U; i + 1U < NORMAL_RUN_LOOP; ++i) {
             const uint64_t slotOffset = static_cast<uint64_t>(i) * slotStride;
             if constexpr (api == PERF_API_WRITE) {
-                (void)asccomm_.asccomm_write_nbi<false, PIPE_S, PIPE_MTE3, ROCE_BATCH_NO_CQE_CFG>(
+                (void)asccomm_.write_nbi<false, PIPE_S, PIPE_MTE3, ROCE_BATCH_NO_CQE_CFG>(
                     static_cast<AscendC::ChannelHandle>(context_->channelHandle), remoteRecvBuffer_ + slotOffset,
                     localSendBuffer_ + slotOffset, context_->dataSize);
             } else {
-                (void)asccomm_.asccomm_read_nbi<false, PIPE_S, PIPE_MTE3, ROCE_BATCH_NO_CQE_CFG>(
+                (void)asccomm_.read_nbi<false, PIPE_S, PIPE_MTE3, ROCE_BATCH_NO_CQE_CFG>(
                     static_cast<AscendC::ChannelHandle>(context_->channelHandle), localRecvBuffer_ + slotOffset,
                     remoteSendBuffer_ + slotOffset, context_->dataSize);
             }
         }
         const uint64_t lastSlotOffset = static_cast<uint64_t>(NORMAL_RUN_LOOP - 1U) * slotStride;
         if constexpr (api == PERF_API_WRITE) {
-            (void)asccomm_.asccomm_write_nbi<true, PIPE_S, PIPE_MTE3>(
+            (void)asccomm_.write_nbi<true, PIPE_S, PIPE_MTE3>(
                 static_cast<AscendC::ChannelHandle>(context_->channelHandle), remoteRecvBuffer_ + lastSlotOffset,
                 localSendBuffer_ + lastSlotOffset, context_->dataSize);
         } else {
-            (void)asccomm_.asccomm_read_nbi<true, PIPE_S, PIPE_MTE3>(
+            (void)asccomm_.read_nbi<true, PIPE_S, PIPE_MTE3>(
                 static_cast<AscendC::ChannelHandle>(context_->channelHandle), localRecvBuffer_ + lastSlotOffset,
                 remoteSendBuffer_ + lastSlotOffset, context_->dataSize);
         }
@@ -181,10 +181,10 @@ private:
         for (uint32_t i = 0U; i + 1U < context_->batchSize; ++i) {
             const uint64_t slotOffset = static_cast<uint64_t>(i) * slotStride;
             if constexpr (api == PERF_API_WRITE) {
-                (void)asccomm_.asccomm_write_nbi<ROCE_BATCH_NO_CQE_CFG>(
+                (void)asccomm_.write_nbi<ROCE_BATCH_NO_CQE_CFG>(
                     batchHandle, remoteRecvBuffer_ + slotOffset, localSendBuffer_ + slotOffset, context_->dataSize);
             } else {
-                (void)asccomm_.asccomm_read_nbi<ROCE_BATCH_NO_CQE_CFG>(
+                (void)asccomm_.read_nbi<ROCE_BATCH_NO_CQE_CFG>(
                     batchHandle, localRecvBuffer_ + slotOffset, remoteSendBuffer_ + slotOffset, context_->dataSize);
             }
         }
@@ -192,10 +192,10 @@ private:
         // The final request in the batch generates the only CQE, so Drain can wait for all requests.
         const uint64_t lastSlotOffset = static_cast<uint64_t>(context_->batchSize - 1U) * slotStride;
         if constexpr (api == PERF_API_WRITE) {
-            (void)asccomm_.asccomm_write_nbi(
+            (void)asccomm_.write_nbi(
                 batchHandle, remoteRecvBuffer_ + lastSlotOffset, localSendBuffer_ + lastSlotOffset, context_->dataSize);
         } else {
-            (void)asccomm_.asccomm_read_nbi(
+            (void)asccomm_.read_nbi(
                 batchHandle, localRecvBuffer_ + lastSlotOffset, remoteSendBuffer_ + lastSlotOffset, context_->dataSize);
         }
         return asc::ASCCOMM_SUCCESS;

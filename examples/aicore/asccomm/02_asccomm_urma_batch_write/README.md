@@ -1,9 +1,9 @@
-# asccomm Batch Write样例
+# CommRW Batch Write样例
 
 ## 概述
 
-本样例演示如何使用asccomm批量写接口，在单机多卡环境中由rank 0向其他rank批量写入数据。多个URMA
-Channel共享同一个Jetty，通过`asccomm_make_batch_handle`、`asccomm_get_handle_ref`、`asccomm_batch_commit`和`asccomm_drain`批量提交
+本样例演示如何使用CommRW批量写接口，在单机多卡环境中由rank 0向其他rank批量写入数据。多个URMA
+Channel共享同一个Jetty，通过`make_batch_handle`、`get_handle_ref`、`batch_commit`和`drain`批量提交
 跨peer写任务。程序会准备待发送数据，提交一批写操作并等待完成；接收rank随后校验收到的数据，主进程
 最后汇总所有rank的执行结果。
 
@@ -11,7 +11,7 @@ Channel共享同一个Jetty，通过`asccomm_make_batch_handle`、`asccomm_get_h
 
 | 产品 | CANN软件版本 |
 | --- | --- |
-| Ascend 950PR&950DT系列产品 | >= CANN 9.2.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 
@@ -30,7 +30,7 @@ Channel共享同一个Jetty，通过`asccomm_make_batch_handle`、`asccomm_get_h
 ### 功能说明
 
 rank 0将一段本端数据通过批量写接口同时写入其他所有rank的接收缓冲区。批量提交将多个写任务打包为
-一个batch handle，通过一次`asccomm_batch_commit`统一下发，减少提交次数；`asccomm_drain`等待整批任务完成后，各
+一个batch handle，通过一次`batch_commit`统一下发，减少提交次数；`drain`等待整批任务完成后，各
 接收rank校验落地的数据是否与本端发送数据一致。
 
 ### 样例规格
@@ -38,7 +38,7 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
 | 项目 | 说明 |
 | --- | --- |
 | 通信模式 | rank 0到其他所有rank的一对多批量写 |
-| 调用方式 | AIV Kernel内`asccomm_make_batch_handle`/`asccomm_get_handle_ref`/`asccomm_batch_commit`/`asccomm_drain` |
+| 调用方式 | AIV Kernel内`make_batch_handle`/`get_handle_ref`/`batch_commit`/`drain` |
 | 数据校验 | 每个接收rank校验落地数据 |
 | 支持rank数 | 2至16，且不超过本机可用NPU数量 |
 
@@ -48,8 +48,8 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
    rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
    创建通信域，rank 0准备待发送数据。
 2. 各rank注册通信内存并通过控制通道交换缓冲区地址，rank 0与每个peer建立共享Jetty的URMA Channel。
-3. Kernel侧构造batch handle，为每个peer填充一个写任务引用后统一`asccomm_batch_commit`。
-4. `asccomm_drain`等待整批任务完成。
+3. Kernel侧构造batch handle，为每个peer填充一个写任务引用后统一`batch_commit`。
+4. `drain`等待整批任务完成。
 5. 各接收rank校验落地数据，主进程汇总所有rank的执行结果。
 
 ## 编译运行
@@ -109,4 +109,4 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - rank数量不能超过本机可用NPU数量，且运行用户需具备设备访问权限。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

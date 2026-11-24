@@ -16,6 +16,10 @@ Host 使用 HCCL 建域和对称 window/team 资源接口，数据面由 AIV 提
 CANN开发套件需要提供AIN、HCCL team/window接口及对应运行库，并支持ASC编译。
 依赖与构建环境说明参见[三方依赖与兼容性](../../../../docs/zh/compilation/dependencies.md)。
 
+| 产品 | CANN软件版本 |
+|------|-------------|
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
+
 ## 目录结构
 
 ```text

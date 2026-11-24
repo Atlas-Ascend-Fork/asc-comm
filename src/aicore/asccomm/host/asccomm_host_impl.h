@@ -101,7 +101,7 @@ static inline HcclResult hccl_acquire_shared_channels_with_comm(
     return destroy_channel_config(config, dl_hcomm_api::hccl_channel_config_destroy, "HcclChannelConfigDestroy");
 }
 
-static inline HcommResult asccomm_create_shared_channels(
+static inline HcommResult create_shared_channels(
     EndpointHandle endpoint_handle, HcommChannelDesc* channel_descs, uint32_t channel_num, ChannelHandle* channels)
 {
     HcommChannelConfig config = NULL;
@@ -142,7 +142,7 @@ static inline HcommResult asccomm_create_shared_channels(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult asccomm_wait_channels_ready(const ChannelHandle* channels, uint32_t channel_num)
+static inline HcommResult wait_channels_ready(const ChannelHandle* channels, uint32_t channel_num)
 {
     int32_t* statuses = NULL;
     aclError acl_ret = aclrtMallocHost((void**)&statuses, (size_t)channel_num * sizeof(int32_t));
@@ -191,7 +191,7 @@ static inline HcommResult asccomm_wait_channels_ready(const ChannelHandle* chann
     return HCCL_E_TIMEOUT;
 }
 
-static inline int32_t asccomm_copy_from_device(
+static inline int32_t copy_from_device(
     void* dst, size_t size, const void* src, uint32_t channel_index, const char* data_name)
 {
     aclError acl_ret = aclrtMemcpy(dst, size, src, size, ACL_MEMCPY_DEVICE_TO_HOST);
@@ -204,13 +204,13 @@ static inline int32_t asccomm_copy_from_device(
     return HCCL_SUCCESS;
 }
 
-static inline int32_t asccomm_extract_channel_metadata(
+static inline int32_t extract_channel_metadata(
     ChannelHandle channel, uint32_t channel_index, channel_metadata* metadata)
 {
     ChannelEntity channel_entity;
     int32_t ret;
 
-    ret = asccomm_copy_from_device(
+    ret = copy_from_device(
         &channel_entity, sizeof(channel_entity), (const void*)(uintptr_t)channel, channel_index, "ChannelEntity");
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -222,7 +222,7 @@ static inline int32_t asccomm_extract_channel_metadata(
         return HCCL_E_NOT_SUPPORT;
     }
 
-    ret = asccomm_copy_from_device(
+    ret = copy_from_device(
         &metadata->sq_context, sizeof(metadata->sq_context), channel_entity.sqContextAddr, channel_index, "SqContext");
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -245,7 +245,7 @@ static inline int32_t asccomm_extract_channel_metadata(
     return HCCL_SUCCESS;
 }
 
-static inline int32_t asccomm_prepare_multi_channel_entity(
+static inline int32_t prepare_multi_channel_entity(
     const ChannelHandle* channels, uint32_t channel_num, int owns_channels, void** host_memory, size_t* total_size)
 {
     channel_metadata current_metadata;
@@ -282,7 +282,7 @@ static inline int32_t asccomm_prepare_multi_channel_entity(
     entity = (multi_channel_entity*)*host_memory;
     channel_infos = (multi_channel_remote_info*)((uint8_t*)*host_memory + sizeof(multi_channel_entity));
     for (uint32_t i = 0U; i < channel_num; ++i) {
-        ret = asccomm_extract_channel_metadata(channels[i], i, &current_metadata);
+        ret = extract_channel_metadata(channels[i], i, &current_metadata);
         if (ret != HCCL_SUCCESS) {
             (void)aclrtFreeHost(*host_memory);
             *host_memory = NULL;
@@ -314,7 +314,7 @@ static inline HcclResult hccl_build_multi_channel_entity_with_comm(
 {
     void* host_memory = NULL;
     size_t total_size = 0U;
-    int32_t prepare_ret = asccomm_prepare_multi_channel_entity(channels, channel_num, 0, &host_memory, &total_size);
+    int32_t prepare_ret = prepare_multi_channel_entity(channels, channel_num, 0, &host_memory, &total_size);
     if (prepare_ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(prepare_ret);
     }
@@ -338,12 +338,12 @@ static inline HcclResult hccl_build_multi_channel_entity_with_comm(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult asccomm_build_multi_channel_entity(
+static inline HcommResult build_multi_channel_entity(
     const ChannelHandle* channels, uint32_t channel_num, void** device_memory)
 {
     void* host_memory = NULL;
     size_t total_size = 0U;
-    int32_t prepare_ret = asccomm_prepare_multi_channel_entity(channels, channel_num, 1, &host_memory, &total_size);
+    int32_t prepare_ret = prepare_multi_channel_entity(channels, channel_num, 1, &host_memory, &total_size);
     if (prepare_ret != HCCL_SUCCESS) {
         return static_cast<HcommResult>(prepare_ret);
     }
@@ -370,7 +370,7 @@ static inline HcommResult asccomm_build_multi_channel_entity(
     return HCCL_SUCCESS;
 }
 
-static inline HcclResult asccomm_host_make_multi_channel_handle(
+static inline HcclResult make_multi_channel_handle(
     HcclComm comm, const char* shared_queue_tag, const HcclChannelDesc* channel_descs, uint32_t channel_num,
     multi_channel_handle* multi_channel)
 {
@@ -421,7 +421,7 @@ static inline HcclResult asccomm_host_make_multi_channel_handle(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult asccomm_host_make_multi_channel_handle(
+static inline HcommResult make_multi_channel_handle(
     EndpointHandle endpoint_handle, HcommChannelDesc* channel_descs, uint32_t channel_num,
     multi_channel_handle* multi_channel)
 {
@@ -455,15 +455,15 @@ static inline HcommResult asccomm_host_make_multi_channel_handle(
         (void)aclrtFreeHost(channels);
         return ret;
     }
-    ret = asccomm_create_shared_channels(endpoint_handle, channel_descs, channel_num, channels);
+    ret = create_shared_channels(endpoint_handle, channel_descs, channel_num, channels);
     if (ret != HCCL_SUCCESS) {
         (void)aclrtFreeHost(channels);
         return ret;
     }
 
-    ret = asccomm_wait_channels_ready(channels, channel_num);
+    ret = wait_channels_ready(channels, channel_num);
     if (ret == HCCL_SUCCESS) {
-        ret = asccomm_build_multi_channel_entity(channels, channel_num, &device_memory);
+        ret = build_multi_channel_entity(channels, channel_num, &device_memory);
     }
     if (ret != HCCL_SUCCESS) {
         HcommResult destroy_ret = dl_hcomm_api::hcomm_channel_destroy(channels, channel_num);
@@ -486,7 +486,7 @@ static inline HcommResult asccomm_host_make_multi_channel_handle(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult asccomm_host_destroy_multi_channel_handle(multi_channel_handle multi_channel)
+static inline HcommResult destroy_multi_channel_handle(multi_channel_handle multi_channel)
 {
     multi_channel_entity entity;
     ChannelHandle* channels = NULL;

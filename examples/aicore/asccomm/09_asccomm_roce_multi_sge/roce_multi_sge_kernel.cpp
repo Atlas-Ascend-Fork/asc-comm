@@ -46,7 +46,7 @@ public:
         context_->hcommResult = asc::ASCCOMM_SUCCESS;
 
         context_->hcommResult =
-            asccomm_.asccomm_init(reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), BATCH_BUFFER_SIZE);
+            asccomm_.init(reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), BATCH_BUFFER_SIZE);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_INIT_FAILED;
             return;
@@ -97,7 +97,7 @@ private:
 
     __aicore__ inline void RunBatch()
     {
-        auto batchHandle = asccomm_.asccomm_make_batch_handle(
+        auto batchHandle = asccomm_.make_batch_handle(
             static_cast<AscendC::ChannelHandle>(context_->channel),
             reinterpret_cast<__ubuf__ uint8_t*>(batchTensor_.GetPhyAddr()), BATCH_BUFFER_SIZE, remoteBuffer_,
             localBuffer_);
@@ -115,13 +115,13 @@ private:
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_batch_commit(batchHandle);
+        context_->hcommResult = asccomm_.batch_commit(batchHandle);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_drain(batchHandle);
+        context_->hcommResult = asccomm_.drain(batchHandle);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }
@@ -138,13 +138,13 @@ private:
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_commit(static_cast<AscendC::ChannelHandle>(context_->channel));
+        context_->hcommResult = asccomm_.commit(static_cast<AscendC::ChannelHandle>(context_->channel));
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
 
-        context_->hcommResult = asccomm_.asccomm_drain(static_cast<AscendC::ChannelHandle>(context_->channel));
+        context_->hcommResult = asccomm_.drain(static_cast<AscendC::ChannelHandle>(context_->channel));
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }
@@ -154,7 +154,7 @@ private:
     {
         asc::buf_desc srcDescs[SGE_COUNT];
         FillWriteDescs(NORMAL_CALL_INDEX, srcDescs);
-        context_->hcommResult = asccomm_.asccomm_write_nbi<false>(
+        context_->hcommResult = asccomm_.write_nbi<false>(
             static_cast<AscendC::ChannelHandle>(context_->channel), WriteDestination(NORMAL_CALL_INDEX), srcDescs,
             SGE_COUNT);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
@@ -166,7 +166,7 @@ private:
     {
         asc::buf_desc dstDescs[SGE_COUNT];
         FillReadDescs(NORMAL_CALL_INDEX, dstDescs);
-        context_->hcommResult = asccomm_.asccomm_read_nbi<false>(
+        context_->hcommResult = asccomm_.read_nbi<false>(
             static_cast<AscendC::ChannelHandle>(context_->channel), dstDescs, SGE_COUNT, ReadSource(NORMAL_CALL_INDEX));
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_READ_FAILED;
@@ -178,8 +178,8 @@ private:
         asc::buf_desc srcDescs[SGE_COUNT];
         for (uint32_t call = 0U; call + 1U < CALL_COUNT; ++call) {
             FillWriteDescs(call, srcDescs);
-            context_->hcommResult = asccomm_.asccomm_write_nbi<ROCE_MULTI_SGE_NO_CQE_CFG>(
-                batchHandle, WriteDestination(call), srcDescs, SGE_COUNT);
+            context_->hcommResult =
+                asccomm_.write_nbi<ROCE_MULTI_SGE_NO_CQE_CFG>(batchHandle, WriteDestination(call), srcDescs, SGE_COUNT);
             if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
                 context_->result = KERNEL_WRITE_FAILED;
                 return;
@@ -189,7 +189,7 @@ private:
         const uint64_t lastCall = CALL_COUNT - 1U;
         FillWriteDescs(static_cast<uint32_t>(lastCall), srcDescs);
         GM_ADDR dst = WriteDestination(static_cast<uint32_t>(lastCall));
-        context_->hcommResult = asccomm_.asccomm_write_nbi(batchHandle, dst, srcDescs, SGE_COUNT);
+        context_->hcommResult = asccomm_.write_nbi(batchHandle, dst, srcDescs, SGE_COUNT);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_WRITE_FAILED;
         }
@@ -200,8 +200,8 @@ private:
         asc::buf_desc dstDescs[SGE_COUNT];
         for (uint32_t call = 0U; call + 1U < CALL_COUNT; ++call) {
             FillReadDescs(call, dstDescs);
-            context_->hcommResult = asccomm_.asccomm_read_nbi<ROCE_MULTI_SGE_NO_CQE_CFG>(
-                batchHandle, dstDescs, SGE_COUNT, ReadSource(call));
+            context_->hcommResult =
+                asccomm_.read_nbi<ROCE_MULTI_SGE_NO_CQE_CFG>(batchHandle, dstDescs, SGE_COUNT, ReadSource(call));
             if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
                 context_->result = KERNEL_READ_FAILED;
                 return;
@@ -211,7 +211,7 @@ private:
         const uint64_t lastCall = CALL_COUNT - 1U;
         FillReadDescs(static_cast<uint32_t>(lastCall), dstDescs);
         GM_ADDR src = ReadSource(static_cast<uint32_t>(lastCall));
-        context_->hcommResult = asccomm_.asccomm_read_nbi(batchHandle, dstDescs, SGE_COUNT, src);
+        context_->hcommResult = asccomm_.read_nbi(batchHandle, dstDescs, SGE_COUNT, src);
         if (context_->hcommResult != asc::ASCCOMM_SUCCESS) {
             context_->result = KERNEL_READ_FAILED;
         }

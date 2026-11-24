@@ -24,7 +24,7 @@
 namespace urma_normal_api_perf_example {
 
 // ---------------- 注册内存布局（2GB，各档共用，每档重铺初值） ----------------
-//   [0, 256MB)       source —— 本卡发送源 / 对端asccomm_read_nbi的读源
+//   [0, 256MB)       source —— 本卡发送源 / 对端read_nbi的读源
 //   之后每 512MB 依次为 write / read / notify 三个落点区，末尾 8B 为 notify flag
 constexpr uint64_t MIB = 1ULL << 20;
 constexpr uint64_t SOURCE_BASE = 0;
@@ -37,9 +37,9 @@ constexpr uint64_t FLAG_BASE = NOTIFY_BASE + REGION_BYTES;
 constexpr uint64_t BUFFER_BYTES = FLAG_BASE + sizeof(uint64_t);
 
 // ---------------- 接口选择（api_mask 位）与计时槽 ----------------
-constexpr uint32_t API_WRITE = 1U << 0;  // asccomm_write_nbi
-constexpr uint32_t API_READ = 1U << 1;   // asccomm_read_nbi
-constexpr uint32_t API_NOTIFY = 1U << 2; // asccomm_write_with_notify_nbi
+constexpr uint32_t API_WRITE = 1U << 0;  // write_nbi
+constexpr uint32_t API_READ = 1U << 1;   // read_nbi
+constexpr uint32_t API_NOTIFY = 1U << 2; // write_with_notify_nbi
 constexpr uint32_t API_ALL = API_WRITE | API_READ | API_NOTIFY;
 // API 位 → timing 第一维下标：--api all 时各接口的计时写各自的槽，互不覆盖
 constexpr uint32_t API_WRITE_IDX = 0U;
@@ -48,8 +48,8 @@ constexpr uint32_t API_NOTIFY_IDX = 2U;
 constexpr uint32_t API_IDX_COUNT = 3U;
 
 // ---------------- 性能口径（metric_mask 位） ----------------
-constexpr uint32_t METRIC_LAT = 1U << 0; // 时延：计时段内不asccomm_drain
-constexpr uint32_t METRIC_BW = 1U << 1;  // 带宽：计时段内含asccomm_drain（端到端）
+constexpr uint32_t METRIC_LAT = 1U << 0; // 时延：计时段内不drain
+constexpr uint32_t METRIC_BW = 1U << 1;  // 带宽：计时段内含drain（端到端）
 constexpr uint32_t METRIC_ALL = METRIC_LAT | METRIC_BW;
 
 // ---------------- 运行期维度默认值（命令行可覆盖） ----------------
@@ -83,10 +83,10 @@ struct kernel_context {
     uint64_t msg_bytes;
     uint32_t rounds;
     uint32_t api_mask;
-    uint32_t commit_inline; // 1=inline（commit=true）/ 0=final（commit=false + 末尾统一asccomm_commit）
+    uint32_t commit_inline; // 1=inline（commit=true）/ 0=final（commit=false + 末尾统一commit）
     uint32_t metric_mask;
     uint64_t timing[API_IDX_COUNT][TIMING_WORDS]; // [api_idx][0]=失败码 [1]=lat cycles [2]=bw cycles
-    uint32_t drain_ret;                           // 最后一次asccomm_drain返回码（0=成功）
+    uint32_t drain_ret;                           // 最后一次drain返回码（0=成功）
     uint32_t result;                              // kernel_result
 };
 
@@ -111,22 +111,22 @@ inline const char* kernel_result_name(kernel_result result)
         case KERNEL_INVALID_ARGS:
             return "invalid kernel args";
         case KERNEL_INIT_FAILED:
-            return "asccomm_init failed";
+            return "init failed";
         case KERNEL_WARMUP_FAILED:
             return "warmup failed";
         case KERNEL_LAT_POST_FAILED:
-            // 典型原因：时延档计时段内不asccomm_drain，rounds 个请求须全部驻留 SQ，超深度即 Post 失败
+            // 典型原因：时延档计时段内不drain，rounds 个请求须全部驻留 SQ，超深度即 Post 失败
             return "latency-window post failed (SQ may be full: reduce --rounds)";
         case KERNEL_LAT_COMMIT_FAILED:
-            return "latency-window asccomm_commit failed";
+            return "latency-window commit failed";
         case KERNEL_LAT_DRAIN_FAILED:
-            return "latency-window asccomm_drain failed";
+            return "latency-window drain failed";
         case KERNEL_BW_POST_FAILED:
             return "bandwidth-window post failed";
         case KERNEL_BW_COMMIT_FAILED:
-            return "bandwidth-window asccomm_commit failed";
+            return "bandwidth-window commit failed";
         case KERNEL_BW_DRAIN_FAILED:
-            return "bandwidth-window asccomm_drain failed";
+            return "bandwidth-window drain failed";
         default:
             return "unknown kernel error";
     }

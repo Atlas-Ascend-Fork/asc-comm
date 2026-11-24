@@ -367,17 +367,9 @@ build_package()
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/legacy/hcomm" \
         "${STAGING_DIR}/payload/asc/include/adv_api/hcomm" \
-        550 \
-        impl \
-        host
+        550
     [[ -f "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/hcomm_host.h" ]] || \
         fail "shared Jetty Host API was not staged: hcomm_host.h"
-    # Legacy Hcomm adapters are staged inside the asccomm impl payload; the legacy and asccomm
-    # public headers resolve them (and the engine) through comm_api relative include paths.
-    copy_headers \
-        "${PROJECT_ROOT}/src/aicore/legacy/hcomm/impl" \
-        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore/asccomm/impl" \
-        550
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/legacy/jetty" \
         "${STAGING_DIR}/payload/asc/include/comm_api/aicore/jetty" \

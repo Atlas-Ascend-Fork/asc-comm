@@ -10,11 +10,11 @@
 
 /*!
  * \file asccomm_utils.h
- * \brief Hcomm utils
+ * \brief asccomm utils
  */
 
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_UTILS_H
 #endif

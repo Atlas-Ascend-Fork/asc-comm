@@ -35,14 +35,14 @@ public:
     __simt_callee__ inline asccomm_impl() {}
     __simt_callee__ inline ~asccomm_impl() {}
 
-    __simt_callee__ inline int32_t asccomm_init(__ubuf__ uint8_t* buff, uint32_t len)
+    __simt_callee__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len)
     {
         (void)buff;
         (void)len;
         return ASCCOMM_FAILED;
     }
 
-    __simt_callee__ inline ubc_ctp_batch_handle asccomm_make_batch_handle(
+    __simt_callee__ inline ubc_ctp_batch_handle make_batch_handle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len)
     {
         (void)channel;
@@ -52,8 +52,7 @@ public:
     }
 
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    __simt_callee__ inline int32_t write_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         (void)channel;
         (void)dst;
@@ -63,7 +62,7 @@ public:
     }
 
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value)
+    __simt_callee__ inline int32_t write_value_nbi(ChannelHandle channel, __gm__ void* dst, T value)
     {
         (void)channel;
         (void)dst;
@@ -72,7 +71,7 @@ public:
     }
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_nbi(
+    __simt_callee__ inline int32_t write_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         (void)batch_handle;
@@ -83,8 +82,7 @@ public:
     }
 
     template <typename T, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t asccomm_write_value_nbi(
-        ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value)
+    __simt_callee__ inline int32_t write_value_nbi(ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, T value)
     {
         (void)batch_handle;
         (void)dst;
@@ -93,8 +91,7 @@ public:
     }
 
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    __simt_callee__ inline int32_t read_nbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         (void)channel;
         (void)dst;
@@ -104,7 +101,7 @@ public:
     }
 
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val)
     {
@@ -118,7 +115,7 @@ public:
     }
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_read_nbi(
+    __simt_callee__ inline int32_t read_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         (void)batch_handle;
@@ -129,7 +126,7 @@ public:
     }
 
     template <auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_write_with_notify_nbi(
+    __simt_callee__ inline int32_t write_with_notify_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
         uint64_t notify_val)
     {
@@ -143,7 +140,7 @@ public:
     }
 
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T add_val)
     {
         (void)channel;
@@ -154,7 +151,7 @@ public:
     }
 
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val)
     {
         (void)channel;
@@ -166,14 +163,14 @@ public:
     }
 
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ChannelHandle channel)
+    __simt_callee__ inline int32_t drain(ChannelHandle channel)
     {
         (void)channel;
         return ASCCOMM_FAILED;
     }
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_faa_nbi(
+    __simt_callee__ inline int32_t atomic_faa_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T add_val)
     {
         (void)batch_handle;
@@ -184,7 +181,7 @@ public:
     }
 
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t asccomm_atomic_cas_nbi(
+    __simt_callee__ inline int32_t atomic_cas_nbi(
         ubc_ctp_batch_handle& batch_handle, __gm__ void* dst, __gm__ void* fetch_addr, T compare_val, T swap_val)
     {
         (void)batch_handle;
@@ -195,23 +192,23 @@ public:
         return ASCCOMM_FAILED;
     }
 
-    __simt_callee__ inline int32_t asccomm_batch_commit(ubc_ctp_batch_handle& batch_handle)
+    __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle)
     {
         (void)batch_handle;
         return ASCCOMM_FAILED;
     }
 
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t asccomm_drain(ubc_ctp_batch_handle& batch_handle)
+    __simt_callee__ inline int32_t drain(ubc_ctp_batch_handle& batch_handle)
     {
         (void)batch_handle;
         return ASCCOMM_FAILED;
     }
 };
 
-// Backward-compatibility alias: the legacy public hcomm/hcomm_simt.h header declares its impl
-// member as HcommImpl. The legacy adapters and the new asccomm* interfaces share the same
-// underlying asccomm_impl implementation.
+// Backward-compatibility alias: the legacy public hcomm/hcomm_simt.h header used to declare its
+// impl member as HcommImpl; it now holds an asc::simt::asccomm member whose interfaces forward to
+// the same underlying asccomm_impl implementation.
 
 } // namespace asc::simt
 

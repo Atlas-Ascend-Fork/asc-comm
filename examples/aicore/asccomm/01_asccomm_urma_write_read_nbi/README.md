@@ -1,9 +1,9 @@
-# asccomm AIV直驱URMA asccomm_write_nbi/asccomm_read_nbi点对点通信样例
+# CommRW AIV直驱URMA write_nbi/read_nbi点对点通信样例
 
 ## 概述
 
-本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`asc::asccomm`类的`asccomm_write_nbi`和
-`asccomm_read_nbi`接口实现NPU间低时延的点对点（P2P）通信。样例采用多rank环形拓扑：每个rank与前后相邻rank
+本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`asc::asccomm`类的`write_nbi`和
+`read_nbi`接口实现NPU间低时延的点对点（P2P）通信。样例采用多rank环形拓扑：每个rank与前后相邻rank
 建立P2P通道，通过地址偏移区分数据段，Kernel侧直接提交通信任务，最后在Host侧校验通信结果。
 
 Host侧只负责创建通信域、注册通信内存和建立通道；通信任务由AIV Kernel直接提交，数据面执行期间
@@ -13,15 +13,15 @@ Host侧只负责创建通信域、注册通信内存和建立通道；通信任�
 
 | 产品 | CANN软件版本 |
 |------|-------------|
-| Ascend 950PR&950DT系列产品 | >= CANN 9.1.0 |
+| Ascend 950PR&950DT系列产品 | >= CANN 9.3.0 |
 
 ## 目录结构介绍
 
 ```text
 01_asccomm_urma_write_read_nbi
 ├── CMakeLists.txt              // 编译工程文件
-├── asccomm_write_read_nbi.asc    // Host侧资源准备与Kernel调用
-├── asccomm_write_read_nbi_kernel.cpp // AIV Kernel侧asccomm调用
+├── write_read_nbi.asc    // Host侧资源准备与Kernel调用
+├── write_read_nbi_kernel.cpp // AIV Kernel侧CommRW调用
 ├── asccomm_rw_def.h              // Host与Kernel共享定义
 ├── README.md                   // 中文样例说明
 └── README_en.md                // 英文样例说明
@@ -33,14 +33,14 @@ Host侧只负责创建通信域、注册通信内存和建立通道；通信任�
 
 | API | 数据流向 | 语义说明（AIV直驱URMA） |
 |------|---------|------|
-| `asccomm_write_nbi` | 本地GM → 远端GM | AIV直驱URMA写接口：将本地Global Memory数据直接写入远端NPU指定地址，无需远端CPU介入。 |
-| `asccomm_read_nbi` | 远端GM → 本地GM | AIV直驱URMA读接口：直接从远端NPU指定地址读取数据到本地Global Memory，无需远端CPU介入。 |
+| `write_nbi` | 本地GM → 远端GM | AIV直驱URMA写接口：将本地Global Memory数据直接写入远端NPU指定地址，无需远端CPU介入。 |
+| `read_nbi` | 远端GM → 本地GM | AIV直驱URMA读接口：直接从远端NPU指定地址读取数据到本地Global Memory，无需远端CPU介入。 |
 
 每个rank的通信缓冲区划分为三段，通过地址偏移区分：
 
 - **seg0** `[0, DATA_SIZE)`：本卡pattern（Host侧以`rank + index`模式预初始化，首字节为rank号，确保不同rank的数据来源可区分）
-- **seg1** `[DATA_SIZE, 2*DATA_SIZE)`：接收`prev`通过`asccomm_write_nbi`写入的数据
-- **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`：接收本卡通过`asccomm_read_nbi`从`next`读回的数据
+- **seg1** `[DATA_SIZE, 2*DATA_SIZE)`：接收`prev`通过`write_nbi`写入的数据
+- **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`：接收本卡通过`read_nbi`从`next`读回的数据
 
 Kernel执行完毕后，Host侧回读结果并校验seg1和seg2是否与对端pattern完全一致。
 
@@ -49,7 +49,7 @@ Kernel执行完毕后，Host侧回读结果并校验seg1和seg2是否与对端pa
 | 项目 | 说明 |
 |------|------|
 | 通信模式 | 环形拓扑AIV直驱URMA点对点通信 |
-| 调用方式 | AIV Kernel内`asccomm::asccomm_write_nbi`/`asccomm_read_nbi` |
+| 调用方式 | AIV Kernel内`asccomm::write_nbi`/`read_nbi` |
 | 进程启动 | 可执行文件直接拉起，内部fork多rank |
 | 支持rank数 | >= 2，且不超过当前可用NPU数量 |
 
@@ -61,22 +61,22 @@ Kernel执行完毕后，Host侧回读结果并校验seg1和seg2是否与对端pa
 2. 调用`HcclCommMemReg`向通信域注册本卡通信buffer，Channel创建时内存信息自动交换给对端。
 3. 通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`获取到`prev`和`next`的链路Endpoint。
 4. 调用`HcclChannelAcquire`创建P2P通道，指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UB_CTP`（URMA协议）。
-5. 调用`HcclChannelGetRemoteMems`获取对端注册内存地址，作为Kernel侧`asccomm_write_nbi`/`asccomm_read_nbi`的远端目标地址。
+5. 调用`HcclChannelGetRemoteMems`获取对端注册内存地址，作为Kernel侧`write_nbi`/`read_nbi`的远端目标地址。
 6. Host预初始化seg0，将`ChannelHandle`和buffer地址封装到`comm_context`下发到各卡GM。
-7. Kernel侧执行`asccomm_init()`分配UB工作空间后提交通信任务：将本卡seg0通过`asccomm_write_nbi`写入`next`的
-   seg1，并通过`asccomm_read_nbi`从`next`的seg0读到本卡seg2，最后`asccomm_drain()`等待通信任务完成。
+7. Kernel侧执行`init()`分配UB工作空间后提交通信任务：将本卡seg0通过`write_nbi`写入`next`的
+   seg1，并通过`read_nbi`从`next`的seg0读到本卡seg2，最后`drain()`等待通信任务完成。
 8. Host侧通过控制通道barrier同步后，回读结果并校验seg1和seg2的pattern。
 
 ```cpp
 // 单个rank上的AIV直驱URMA通信操作示例：
-// 1. 本卡seg0 → 对端seg1 (asccomm_write_nbi)
-asccomm.asccomm_write_nbi(channel, remote_buf + DATA_SIZE, local_buf, DATA_SIZE);
+// 1. 本卡seg0 → 对端seg1 (write_nbi)
+asccomm.write_nbi(channel, remote_buf + DATA_SIZE, local_buf, DATA_SIZE);
 
-// 2. 对端seg0 → 本卡seg2 (asccomm_read_nbi)
-asccomm.asccomm_read_nbi(channel, local_buf + 2 * DATA_SIZE, remote_buf, DATA_SIZE);
+// 2. 对端seg0 → 本卡seg2 (read_nbi)
+asccomm.read_nbi(channel, local_buf + 2 * DATA_SIZE, remote_buf, DATA_SIZE);
 
 // 3. 等待AIV硬件通信任务完成
-asccomm.asccomm_drain(channel);
+asccomm.drain(channel);
 ```
 
 ## 编译运行
@@ -102,7 +102,7 @@ asccomm.asccomm_drain(channel);
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  ./asccomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
+  ./write_read_nbi tcp://127.0.0.1:29623 <nranks>
   ```
 
 - 启动参数说明
@@ -124,9 +124,9 @@ asccomm.asccomm_drain(channel);
   多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 
   ```text
-  [rank 0] asccomm_write_read_nbi | sent to rank 1, received from rank 1 | PASS
-  [rank 1] asccomm_write_read_nbi | sent to rank 0, received from rank 0 | PASS
-  RESULT | Example=asccomm_write_read_nbi | Status=PASS
+  [rank 0] write_read_nbi | sent to rank 1, received from rank 1 | PASS
+  [rank 1] write_read_nbi | sent to rank 0, received from rank 0 | PASS
+  RESULT | Example=write_read_nbi | Status=PASS
   ```
 
 ## 常见运行期失败排查
@@ -139,7 +139,7 @@ asccomm.asccomm_drain(channel);
 | `listen <ip>:<port> failed: Address already in use` | 端口被其他进程占用 | 用`ss -ltnp`或`lsof -i:<port>`找到占用进程，或换一个端口 |
 | `connect <ip>:<port> failed after N attempts` | rank 0未启动，或端口被防火墙拦截 | 确认rank 0进程已启动；检查防火墙/安全组已放行该端口 |
 | `hccl call failed, ret=N` | HCCL运行时错误（如对端未就绪、网络不通） | 确认全部rank进程正常；结合`hint`提示与plog设备日志定位错误码含义 |
-| kernel侧报`asccomm_init failed` | UB工作空间不足（需 >= 512字节） | 增大`ASCCOMM_WORKSPACE_SIZE`（见`asccomm_rw_def.h`） |
+| kernel侧报`init failed` | UB工作空间不足（需 >= 512字节） | 增大`ASCCOMM_WORKSPACE_SIZE`（见`asccomm_rw_def.h`） |
 | `channels not ready after N retries` | 通道建链超时 | 确认对端rank进程存活、网络连通；查看HCCL/HCOMM设备日志 |
 
 > **说明：** `ret=N`错误码的具体语义以CANN对应版本的HCCL/ACL错误码文档为准，本文档不逐一展开。
@@ -147,12 +147,12 @@ asccomm.asccomm_drain(channel);
 ## 注意事项
 
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
-- Kernel侧`asccomm_init()`分配的UB工作空间需 >= 512字节，用于存放asccomm内部WQE/CQE等状态。
-- `asccomm_write_nbi`/`asccomm_read_nbi`默认`commit=true`，入队后立即触发doorbell；如需批量优化，可改用
-  `commit=false`多次入队后统一调用`asccomm_commit()`。`asccomm_drain()`返回后数据可见性才有保证。
+- Kernel侧`init()`分配的UB工作空间需 >= 512字节，用于存放asccomm内部WQE/CQE等状态。
+- `write_nbi`/`read_nbi`默认`commit=true`，入队后立即触发doorbell；如需批量优化，可改用
+  `commit=false`多次入队后统一调用`commit()`。`drain()`返回后数据可见性才有保证。
 - 当`nranks == 2`时，`prev`和`next`指向同一个对端rank，seg1和seg2会校验同一个对端pattern。
 - 当前样例已建立`prev`和`next`两个方向的P2P通道，但默认只执行`next`方向的数据面操作。若要
   扩展为完整的all-to-neighbor通信，可复用已建立的`prev`通道：执行两次Kernel，第一次使用`prev`
-  通道执行`asccomm_read_nbi`从`prev`的seg0读到本卡seg2，第二次使用`next`通道执行`asccomm_write_nbi`将本卡seg0
+  通道执行`read_nbi`从`prev`的seg0读到本卡seg2，第二次使用`next`通道执行`write_nbi`将本卡seg0
   写入`next`的seg1，使每个rank的seg1和seg2都匹配`prev`的pattern。扩展时需保留Kernel前后的
   Host侧barrier；若调整数据段偏移，需同步更新Host侧pattern校验的期望rank和offset。

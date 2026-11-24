@@ -10,8 +10,8 @@
 
 /*!
  * \file op_kernel.cpp
- * \brief Asccomm SIMT URMA功能样例Kernel侧实现，覆盖asccomm_write_nbi/asccomm_write_value_nbi/
- *        asccomm_write_with_notify_nbi/asccomm_atomic_faa_nbi/asccomm_atomic_cas_nbi
+ * \brief Asccomm SIMT URMA功能样例Kernel侧实现，覆盖write_nbi/write_value_nbi/
+ *        write_with_notify_nbi/atomic_faa_nbi/atomic_cas_nbi
  *
  * 每个kernel都由单个lane发起：一个channel必须由一个lane驱动，延迟WQE要等后续
  * commit=true的提交发布覆盖整批的PI，而该PI无法区分是哪个lane写了哪个basic block。
@@ -47,18 +47,17 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_write_single_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local_addr = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote_addr = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local_addr = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote_addr = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < WRITE_SLOT_COUNT; ++i) {
-        (void)asccomm.asccomm_write_nbi<true>(
-            channel, remote_addr + i * SLOT_BYTES, local_addr + i * SLOT_BYTES, SLOT_BYTES);
+        (void)asccomm.write_nbi<true>(channel, remote_addr + i * SLOT_BYTES, local_addr + i * SLOT_BYTES, SLOT_BYTES);
     }
-    (void)asccomm.asccomm_drain(channel);
+    (void)asccomm.drain(channel);
 }
 
 // 最后一次立即提交的门铃发布覆盖整批的 PI，把前面的延迟 WQE 一并带出。单 lane 不会观察到自己
@@ -69,21 +68,20 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_write_batch_last_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local_addr = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote_addr = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local_addr = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote_addr = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < WRITE_SLOT_COUNT - 1U; ++i) {
-        (void)asccomm.asccomm_write_nbi<false>(
-            channel, remote_addr + i * SLOT_BYTES, local_addr + i * SLOT_BYTES, SLOT_BYTES);
+        (void)asccomm.write_nbi<false>(channel, remote_addr + i * SLOT_BYTES, local_addr + i * SLOT_BYTES, SLOT_BYTES);
     }
-    (void)asccomm.asccomm_write_nbi(
+    (void)asccomm.write_nbi(
         channel, remote_addr + (WRITE_SLOT_COUNT - 1U) * SLOT_BYTES, local_addr + (WRITE_SLOT_COUNT - 1U) * SLOT_BYTES,
         SLOT_BYTES);
-    (void)asccomm.asccomm_drain(channel);
+    (void)asccomm.drain(channel);
 }
 
 // 值内联在 WQE 中，因此不传本地地址、完全不读发送缓冲区。写入值仍取 slot_value(i)，
@@ -93,16 +91,16 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_write_value_single_vf(uint6
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* remote_addr = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* remote_addr = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < WRITE_SLOT_COUNT; ++i) {
-        (void)asccomm.asccomm_write_value_nbi<uint64_t, true>(channel, remote_addr + i * SLOT_BYTES, slot_value(i));
+        (void)asccomm.write_value_nbi<uint64_t, true>(channel, remote_addr + i * SLOT_BYTES, slot_value(i));
     }
-    (void)asccomm.asccomm_drain(channel);
+    (void)asccomm.drain(channel);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void simt_write_value_batch_last_vf(uint64_t channel, uint32_t recv_buf_idx)
@@ -110,18 +108,18 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_write_value_batch_last_vf(u
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* remote_addr = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* remote_addr = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    if (asccomm.asccomm_init(nullptr, 0) != 0) {
+    if (asccomm.init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < WRITE_SLOT_COUNT - 1U; ++i) {
-        (void)asccomm.asccomm_write_value_nbi<uint64_t, false>(channel, remote_addr + i * SLOT_BYTES, slot_value(i));
+        (void)asccomm.write_value_nbi<uint64_t, false>(channel, remote_addr + i * SLOT_BYTES, slot_value(i));
     }
-    (void)asccomm.asccomm_write_value_nbi<uint64_t, true>(
+    (void)asccomm.write_value_nbi<uint64_t, true>(
         channel, remote_addr + (WRITE_SLOT_COUNT - 1U) * SLOT_BYTES, slot_value(WRITE_SLOT_COUNT - 1U));
-    (void)asccomm.asccomm_drain(channel);
+    (void)asccomm.drain(channel);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -133,16 +131,15 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_notify_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
-    (void)asccomm.asccomm_write_with_notify_nbi(
+    (void)asccomm.init(nullptr, 0);
+    (void)asccomm.write_with_notify_nbi(
         channel, remote + NOTIFY_DATA_SLOT * SLOT_BYTES, local, SLOT_BYTES, remote + NOTIFY_SIGNAL_SLOT * SLOT_BYTES,
         NOTIFY_SIGNAL);
-    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] =
-        static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 // 每个 2BB Notify WQE 各敲一次 DWQE 门铃，整批发完才 Drain。
@@ -152,18 +149,17 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_notify_immediate_repeat_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
+    (void)asccomm.init(nullptr, 0);
     for (uint32_t i = 0; i < NOTIFY_IMMEDIATE_REPEAT_COUNT; ++i) {
-        (void)asccomm.asccomm_write_with_notify_nbi<true>(
+        (void)asccomm.write_with_notify_nbi<true>(
             channel, remote + NOTIFY_DATA_SLOT * SLOT_BYTES, local, SLOT_BYTES,
             remote + NOTIFY_SIGNAL_SLOT * SLOT_BYTES, NOTIFY_SIGNAL);
     }
-    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] =
-        static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void simt_faa_vf(
@@ -172,14 +168,14 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_faa_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
-    (void)asccomm.asccomm_atomic_faa_nbi<uint64_t>(
+    (void)asccomm.init(nullptr, 0);
+    (void)asccomm.atomic_faa_nbi<uint64_t>(
         channel, remote + FAA_TARGET_SLOT * SLOT_BYTES, local + FAA_FETCH_SLOT * SLOT_BYTES, FAA_ADD);
-    reinterpret_cast<__gm__ uint64_t*>(local)[FAA_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[FAA_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void simt_cas_vf(
@@ -188,14 +184,14 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_cas_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
-    (void)asccomm.asccomm_atomic_cas_nbi<uint64_t>(
+    (void)asccomm.init(nullptr, 0);
+    (void)asccomm.atomic_cas_nbi<uint64_t>(
         channel, remote + CAS_TARGET_SLOT * SLOT_BYTES, local + CAS_FETCH_SLOT * SLOT_BYTES, CAS_INITIAL, CAS_SWAP);
-    reinterpret_cast<__gm__ uint64_t*>(local)[CAS_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[CAS_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 // 逐个操作等 CQE 返回后再复用 DWQE 窗口。Drain 返回值写进发送侧空闲 slot，便于定位失败环节。
@@ -205,22 +201,21 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_notify_atomic_single_vf(
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
-    (void)asccomm.asccomm_write_with_notify_nbi(
+    (void)asccomm.init(nullptr, 0);
+    (void)asccomm.write_with_notify_nbi(
         channel, remote + NOTIFY_DATA_SLOT * SLOT_BYTES, local, SLOT_BYTES, remote + NOTIFY_SIGNAL_SLOT * SLOT_BYTES,
         NOTIFY_SIGNAL);
-    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] =
-        static_cast<uint64_t>(asccomm.asccomm_drain(channel));
-    (void)asccomm.asccomm_atomic_faa_nbi<uint64_t>(
+    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
+    (void)asccomm.atomic_faa_nbi<uint64_t>(
         channel, remote + FAA_TARGET_SLOT * SLOT_BYTES, local + FAA_FETCH_SLOT * SLOT_BYTES, FAA_ADD);
-    reinterpret_cast<__gm__ uint64_t*>(local)[FAA_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.asccomm_drain(channel));
-    (void)asccomm.asccomm_atomic_cas_nbi<uint64_t>(
+    reinterpret_cast<__gm__ uint64_t*>(local)[FAA_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
+    (void)asccomm.atomic_cas_nbi<uint64_t>(
         channel, remote + CAS_TARGET_SLOT * SLOT_BYTES, local + CAS_FETCH_SLOT * SLOT_BYTES, CAS_INITIAL, CAS_SWAP);
-    reinterpret_cast<__gm__ uint64_t*>(local)[CAS_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[CAS_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 // One lane defers Notify and FAA, then CAS with commit=true publishes the batch.
@@ -230,25 +225,24 @@ __simt_vf__ __launch_bounds__(1024) inline void simt_notify_atomic_batch_last_vf
     if (!is_driving_lane()) {
         return;
     }
-    __gm__ uint8_t* local = asc::simt::asccomm_local_buffer_addr(channel, send_buf_idx);
-    __gm__ uint8_t* remote = asc::simt::asccomm_remote_buffer_addr(channel, recv_buf_idx);
+    __gm__ uint8_t* local = asc::simt::get_local_buffer_addr(channel, send_buf_idx);
+    __gm__ uint8_t* remote = asc::simt::get_remote_buffer_addr(channel, recv_buf_idx);
 
     asc::simt::asccomm<> asccomm;
-    (void)asccomm.asccomm_init(nullptr, 0);
-    (void)asccomm.asccomm_write_with_notify_nbi<false>(
+    (void)asccomm.init(nullptr, 0);
+    (void)asccomm.write_with_notify_nbi<false>(
         channel, remote + NOTIFY_DATA_SLOT * SLOT_BYTES, local, SLOT_BYTES, remote + NOTIFY_SIGNAL_SLOT * SLOT_BYTES,
         NOTIFY_SIGNAL);
-    (void)asccomm.asccomm_atomic_faa_nbi<uint64_t, false>(
+    (void)asccomm.atomic_faa_nbi<uint64_t, false>(
         channel, remote + FAA_TARGET_SLOT * SLOT_BYTES, local + FAA_FETCH_SLOT * SLOT_BYTES, FAA_ADD);
-    (void)asccomm.asccomm_atomic_cas_nbi<uint64_t>(
+    (void)asccomm.atomic_cas_nbi<uint64_t>(
         channel, remote + CAS_TARGET_SLOT * SLOT_BYTES, local + CAS_FETCH_SLOT * SLOT_BYTES, CAS_INITIAL, CAS_SWAP);
-    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] =
-        static_cast<uint64_t>(asccomm.asccomm_drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[NOTIFY_DRAIN_SLOT] = static_cast<uint64_t>(asccomm.drain(channel));
 }
 
 } // namespace
 
-// 写-立即提交：逐笔asccomm_write_nbi并提交。
+// 写-立即提交：逐笔write_nbi并提交。
 extern "C" __global__ __vector__ void simt_write_single(uint64_t channel, uint32_t send_buf_idx, uint32_t recv_buf_idx)
 {
     asc_vf_call<simt_write_single_vf>(dim3(1), channel, send_buf_idx, recv_buf_idx);
