@@ -11,11 +11,11 @@
 # -----------------------------------------------------------------------------------------------------------
 """提取CCU样例列表：样例名(case)、路径(path)、场景(scenario)。
 
-读取examples/ccu下每个样例目录的README.md：
+读取各--examples-dir下每个样例目录的README.md：
 - 无`SCENARIO_NUM`表格行：单场景样例，scenario为"-"，样例名为<目录名>-<样例目录>；
 - 有`SCENARIO_NUM`表格行：多场景样例，取值单元格中`N`/`M`表示场景N和M、`N`~`M`表示场景N到M，
   每个场景单独一行，样例名为<目录名>-<样例目录>-SC<N>。
-<目录名>取examples目录的basename（如ccu_direct、ccu_builtin）。
+<目录名>取--examples-dir目录的basename（如ccu_direct、ccu_builtin）。
 结果输出为JSON数组（每行一个dict），供run_presmoke.sh使用。
 """
 
@@ -26,7 +26,6 @@ from pathlib import Path
 
 SCENARIO_CELL = "`SCENARIO_NUM`"
 RANGE_SEPARATORS = ("~", "～")
-DEFAULT_EXAMPLE_KINDS = ("ccu_direct", "ccu_builtin")
 
 
 def parse_scenario_cell(readme_path):
@@ -85,8 +84,11 @@ def collect_cases(examples_dir, repo_root, prefix):
 
 
 def default_examples_dirs(repo_root):
-    """默认样例目录：examples/ccu下各样例类别目录。"""
-    return [repo_root / "examples" / "ccu" / kind for kind in DEFAULT_EXAMPLE_KINDS]
+    """默认样例目录：ccu_direct位于examples/ccu，ccu_builtin位于examples/aicore/cc。"""
+    return [
+        repo_root / "examples" / "ccu" / "ccu_direct",
+        repo_root / "examples" / "aicore" / "cc" / "ccu_builtin",
+    ]
 
 
 def parse_args():
@@ -98,7 +100,7 @@ def parse_args():
         type=Path,
         action="append",
         default=None,
-        help="CCU样例根目录，可指定多次；默认为examples/ccu/ccu_direct与examples/ccu/ccu_builtin",
+        help="CCU样例根目录，可指定多次；默认为examples/ccu/ccu_direct与examples/aicore/cc/ccu_builtin",
     )
     parser.add_argument(
         "--output",

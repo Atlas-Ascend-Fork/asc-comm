@@ -12,7 +12,7 @@
 | CCU Buffer | CCU片内 | 远端写时可作为本端源，远端读时可作为本端目的。 | 不支持作为远端读写的操作数。 |
 | CCU寄存器 | CCU片内 | 可通过Channel向对端写入地址、`Token`、数据长度等通信参数，或发送同步通知。 | 可通过Channel接收对端写入的通信参数或同步通知。 |
 
-- GM按主要用途可以分为计算内存和通信内存。计算内存保存计算的输入、输出和中间结果；通信内存承载跨端传输的源数据和目的数据。远端写请求通过访问校验后，写入目标GM地址对应的L2 Cache，L2 Cache与GM之间的数据一致性由硬件维护。
+- GM按主要用途可以分为计算内存和通信内存。计算内存保存计算的输入、输出和中间结果；通信内存承载跨端传输的源数据和目的数据。远端写请求通过访问校验后，直接写入目标GM地址。
 - Unified Buffer位于AI Core内部。在通算融合过程中，计算数据通过Unified Buffer在计算单元与GM之间搬运；计算结果需要参与通信时，先从Unified Buffer搬到GM中的通信内存，通信数据到达本端GM后也可以搬入Unified Buffer继续计算。
 - CCU Buffer是CCU内部的片上存储资源，用于暂存、中转和归约通信数据。
 - CCU寄存器位于CCU内部，用于保存访问地址、`Token`、数据长度等通信参数和同步状态。
@@ -23,7 +23,7 @@
 
 ![内存层级和通信能力](./figures/memory_model.svg "内存层级和通信能力")
 
-[图1](#fig-memory-hierarchy-communication-capability)从上到下展示GM、L2 Cache和执行引擎片内资源之间的层级关系，本端和远端分别拥有各自的GM、L2 Cache和片内资源。
+[图1](#fig-memory-hierarchy-communication-capability)从上到下展示GM和执行引擎片内资源之间的层级关系，本端和远端分别拥有各自的GM和片内资源。
 [图1](#fig-memory-hierarchy-communication-capability)中的箭头仅表示通信相关的数据通路，不展开AI Core内部Unified Buffer、SIMD/SIMT寄存器与计算单元之间的计算数据流。[图1](#fig-memory-hierarchy-communication-capability)只绘制了从本端到远端的写入方向；从远端到本端的读取或写入通路与之对称。
 
 在这些资源中，通信内存和CCU片上资源能够直接参与跨端通信：通信内存可以作为远端读的源范围或远端写的目的范围；CCU的CCU Buffer可以在本端CCU发起的传输中与对端GM搬运数据，CCU寄存器可以通过Channel与对端传递通信参数和同步通知。Unified Buffer和AI Core寄存器主要承担本端缓存、数据暂存和计算。基于这种能力差异，下文重点说明通信内存的组织与访问机制，以及CCU片上资源的通信方式。

@@ -10,7 +10,7 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
-project(hccl_examples_custom_ops_allgather_ccu_direct LANGUAGES CXX ASC)
+project(hccl_examples_custom_ops_allgather_add_ccu_builtin LANGUAGES CXX ASC)
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})

@@ -2,13 +2,12 @@
 
 English | [简体中文](./README.md)
 
-This directory provides AICPU_TS communication samples, covering AICPU_TS MC2 builtin integration and custom AICPU_TS communication ops.
+This directory provides AICPU_TS-side communication samples, covering custom AICPU_TS communication op development.
 
 ## Sample List
 
 | Directory | Description |
 | --- | --- |
-| [aicpu_ts_builtin](./aicpu_ts_builtin/README_en.md) | AICPU_TS MC2 builtin integration samples. The host acquires AICPU_TS communication resources and starts an AICPU Server, while the AICore kernel submits communication tasks through high-level HCCL APIs. These samples cover AllGather, AllGatherAdd, AllReduce, ReduceScatter, AlltoAll, and AlltoAllV. |
 | [aicpu_ts_direct](./aicpu_ts_direct/README_en.md) | Custom AICPU_TS communication op samples. The host acquires resources through HCCL communication APIs, and AICPU kernels implement collectives with the asc-comm AICPU_TS dataplane primitives. |
 
 ## Runtime Constraints

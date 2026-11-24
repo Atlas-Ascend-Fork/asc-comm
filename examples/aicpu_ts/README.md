@@ -2,13 +2,12 @@
 
 简体中文 | [English](./README_en.md)
 
-本目录提供AICPU_TS通信样例，覆盖AICPU_TS MC2 builtin接入和自定义AICPU_TS通信算子两类开发方式。
+本目录提供AICPU_TS侧通信样例，覆盖自定义AICPU_TS通信算子开发方式。
 
 ## 样例列表
 
 | 目录名称 | 内容说明 |
 | --- | --- |
-| [aicpu_ts_builtin](./aicpu_ts_builtin/README.md) | AICPU_TS MC2 builtin接入样例。Host侧申请AICPU_TS通信资源并启动AICPU Server，AICore Kernel通过HCCL高阶API提交通信任务，覆盖AllGather、AllGatherAdd、AllReduce、ReduceScatter、AlltoAll和AlltoAllV。 |
 | [aicpu_ts_direct](./aicpu_ts_direct/README.md) | 自定义AICPU_TS通信算子样例。Host侧通过HCCL通信编程接口申请资源，AICPU Kernel通过asc-comm AICPU_TS数据面原语实现集合通信。 |
 
 ## 运行约束

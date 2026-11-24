@@ -8,9 +8,9 @@ This directory provides usage samples for asc-comm APIs. The README at each dire
 
 | Directory | Description |
 | --- | --- |
-| [aicore](./aicore/README_en.md) | AICore communication samples, including Hcomm point-to-point communication samples (AIV direct-driven URMA, SIMT URMA, and RoCE paths), Ain one-sided communication samples, and Jetty communication samples. |
-| [aicpu_ts](./aicpu_ts/README_en.md) | AICPU_TS communication samples, covering AICPU_TS MC2 builtin integration and custom AICPU_TS communication ops. |
-| [ccu](./ccu/README_en.md) | CCU communication and dataplane samples, including direct (custom operator) and builtin (MC2) samples, covering AllGather, AllReduce, ReduceScatter, AlltoAll, and other collective communication as well as AllGather+Add communication-computation fusion. |
+| [aicore](./aicore/README_en.md) | AICore communication samples, including CommRW point-to-point communication samples (AIV direct-driven URMA, SIMT URMA, and RoCE paths), AIN one-sided communication samples, Jetty communication samples, and AICore-initiated AICPU_TS/CCU collective communication builtin samples (cc). |
+| [aicpu_ts](./aicpu_ts/README_en.md) | AICPU_TS communication samples, covering custom AICPU_TS communication op development. |
+| [ccu](./ccu/README_en.md) | CCU communication and dataplane samples, covering custom CCU communication op development. |
 
 ## Runtime Constraints
 

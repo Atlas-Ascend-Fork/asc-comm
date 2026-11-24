@@ -130,6 +130,7 @@ Ain Kernel侧使用时包含如下头文件：
 │   ├── aicore/hcomm              # AICore侧Hcomm点对点通信样例
 │   ├── aicore/ain                # AICore侧Ain单边通信样例
 │   ├── aicore/jetty              # AICore侧Jetty通信样例
+│   ├── aicore/cc                 # AICore发起的AICPU_TS/CCU集合通信builtin样例
 │   ├── aicore/utils              # AICore样例共享Host侧工具
 │   ├── aicpu_ts                  # AICPU_TS通信样例
 │   ├── ccu                       # CCU通信和数据面开发样例
