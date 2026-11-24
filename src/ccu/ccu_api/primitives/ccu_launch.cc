@@ -62,6 +62,13 @@ ccu_result asccomm_ccu_kernel_register_start(void* ins_handle)
     CCU_CHK_RET_ASC(ccu_prepare_instance(instanceHandle, ccu_ins, dev_logic_id));
     CCU_CHK_RET_ASC(ccu_ins->begin_register());
 
+    ccu_result reset_ret = ccu_ins->reset();
+    if (reset_ret != ccu_result::CCU_SUCCESS) {
+        (void)ccu_ins->end_register();
+        HCCL_ERROR("[%s] failed to reset instance res pool, ret[%d].", __func__, static_cast<ccu_result>(reset_ret));
+        return static_cast<ccu_result>(reset_ret);
+    }
+
     auto* res_snapshot = ccu_ins->get_res_snapshot();
     CCU_CHK_PTR_NULL_ASC(res_snapshot);
     ccu_result ret = asc::ccu_kernel_mgr::get_instance(dev_logic_id).configure(*res_snapshot);
