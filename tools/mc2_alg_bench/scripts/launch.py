@@ -52,9 +52,6 @@ ENVIRONMENT_KEYS = (
     "ASCEND_GLOBAL_LOG_LEVEL",
     "ASCEND_RT_VISIBLE_DEVICES",
     "ASCEND_VISIBLE_DEVICES",
-    "ASCEND_CCU_ALGORITHM_PROBES",
-    "ASCEND_CCU_PROBE_COUNT",
-    "ASCEND_CCU_PROBE_ID_DELTAS",
     "PROFILING_MODE",
     "PROFILING_OPTIONS",
 )
@@ -97,11 +94,10 @@ def log_benchmark_exit(args, status):
     phase = getattr(args, "benchmark_phase", None)
     if phase is not None:
         print(
-            "Benchmark exit: status={} phase={} profile=ccu profiling={} probes={}".format(
+            "Benchmark exit: status={} phase={} profile=ccu profiling={}".format(
                 status,
                 phase,
                 "on" if args.native_profiling else "off",
-                "on" if args.ccu_probes else "off",
             ),
             file=sys.stdout if status == 0 else sys.stderr,
             flush=True,
@@ -171,153 +167,212 @@ def parse_arguments(argv):
         launcher_args, backend_args = argv[:index], argv[index + 1 :]
     else:
         launcher_args, backend_args = argv, []
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-n", "--ranks", type=positive_integer, default=8)
-    parser.add_argument("-p", "--devices-per-node", type=positive_integer, default=8)
-    parser.add_argument("--hostfile", type=Path)
+    parser = argparse.ArgumentParser(
+        prog="bash run_alg_bench.sh",
+        usage="%(prog)s [launcher arguments] -- [test arguments]",
+        description="Build, run and report MC2 algorithm benchmarks.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Test arguments (after --):\n"
+            "  --op allgather|allreduce|reducescatter|alltoall|alltoallv|alltoallvwrite (required)\n"
+            "  -a aicpu_ts|ccu_sched (default: aicpu_ts)\n"
+            "  -d fp32 (default: fp32)\n"
+            "  -o sum|prod|max|min (default: sum; SDK support required)\n"
+            "  -b BEGIN -e END (default: 32K to 256M)\n"
+            "  -f FACTOR (default: 2) or -i BYTE_STEP; mutually exclusive\n"
+            "  --alg 'complete-candidate-name' (repeatable; omit to test all candidates)\n\n"
+            "Example:\n"
+            "  bash run_alg_bench.sh -n 2 -p 2 -- --op allreduce -b 32K -e 32K"
+        ),
+    )
+    parser.add_argument(
+        "-n",
+        "--ranks",
+        type=positive_integer,
+        default=8,
+        help="total ranks (default: 8)",
+    )
+    parser.add_argument(
+        "-p",
+        "--devices-per-node",
+        type=positive_integer,
+        default=8,
+        help="devices per node (default: 8)",
+    )
+    parser.add_argument(
+        "--hostfile", type=Path, help="host list for multi-node execution"
+    )
     parser.add_argument(
         "--query-only",
         action="store_true",
         help="query candidate algorithms without operator packages, measurements or profiling",
     )
-    parser.add_argument("--mpirun", default="mpirun", help="MPICH-compatible launcher")
-    parser.add_argument(
-        "--python", default="python3", help="Python >=3.9 command on every node"
-    )
-    parser.add_argument("--ssh-user")
+    parser.add_argument("--mpirun", default="mpirun", help=argparse.SUPPRESS)
+    parser.add_argument("--python", default="python3", help=argparse.SUPPRESS)
+    parser.add_argument("--ssh-user", help=argparse.SUPPRESS)
     parser.add_argument(
         "--output-dir",
         type=Path,
         help="new run directory; native mode allocates one under build_out/runs",
     )
-    parser.add_argument("--env", action="append", default=[], metavar="KEY=VALUE")
-    parser.add_argument("--timeout", type=positive_seconds, default=600)
-    parser.add_argument("--transport-timeout", type=positive_seconds, default=60)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--timeout", type=positive_seconds, default=600, help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        "--transport-timeout", type=positive_seconds, default=60, help=argparse.SUPPRESS
+    )
+    parser.add_argument("--dry-run", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--prepare-aicpu",
         action="store_true",
-        help="prepare the operator package; enabled automatically in native mode",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--prepare-ccu",
         action="store_true",
-        help="prepare the isolated CCU package; automatic for native CCU mode",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--ccu-package-source", type=Path, default=TOOL_ROOT / "custom_op_ccu"
+        "--ccu-package-source",
+        type=Path,
+        default=TOOL_ROOT / "custom_op_ccu",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--package-source",
         type=Path,
         default=Path(__file__).resolve().parents[1] / "custom_op_aicpu",
+        help=argparse.SUPPRESS,
     )
-    parser.add_argument("--cann-root", type=Path)
-    parser.add_argument("--vendor-root", type=Path)
+    parser.add_argument(
+        "--cann-root",
+        type=Path,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument("--vendor-root", type=Path, help=argparse.SUPPRESS)
     measurement = parser.add_mutually_exclusive_group()
     measurement.add_argument(
-        "--measurement-mode", choices=("full", "comm_only"), help="default: full"
+        "--measurement-mode", choices=("full", "comm_only"), help=argparse.SUPPRESS
     )
     measurement.add_argument(
         "--comm-only",
         action="store_const",
         dest="measurement_mode",
         const="comm_only",
-        help="AICPU only: delay Commit; expansion/kernel report columns are NA",
+        help=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--ccu-probes",
-        action="store_true",
-        help="CCU only: enable SDK KFC boundary probes and five optional profiling metrics",
-    )
+    parser.add_argument("--ccu-probes", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--skip-build",
         action="store_true",
-        help="reuse the verified operator package and, in native mode, backend cache",
+        help=argparse.SUPPRESS,
     )
-    parser.add_argument("--cmake", default="cmake")
-    parser.add_argument("--makeself")
-    parser.add_argument("--ascendc-util-dir", type=Path)
-    parser.add_argument("--package-build-timeout", type=positive_seconds, default=1800)
+    parser.add_argument("--cmake", default="cmake", help=argparse.SUPPRESS)
+    parser.add_argument("--makeself", help=argparse.SUPPRESS)
+    parser.add_argument("--ascendc-util-dir", type=Path, help=argparse.SUPPRESS)
     parser.add_argument(
-        "--mpi-root", type=Path, help="native-mode MPI installation root"
+        "--package-build-timeout",
+        type=positive_seconds,
+        default=1800,
+        help=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--hccl-root", type=Path, help="native-mode Host HCCL root (defaults to CANN)"
-    )
+    parser.add_argument("--mpi-root", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--hccl-root", type=Path, help=argparse.SUPPRESS)
     parser.add_argument(
         "--query-library",
         type=Path,
-        help="formal MC2 query library (default: selected CANN lib64/libmc2_client.so)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--cxx11-abi",
         choices=("0", "1"),
         default=os.environ.get("MC2_BENCH_CXX11_ABI", "0"),
-        help="native backend C++ ABI (default: MC2_BENCH_CXX11_ABI or 0)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--backend-extra-include",
         action="append",
         default=[],
-        help="additional native backend include directory; repeatable",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--backend-extra-library",
         action="append",
         default=[],
-        help="additional native backend library file; repeatable",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--backend-build-timeout",
         type=positive_seconds,
         default=1800,
-        help="native backend build timeout in seconds (default: 1800)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--analyze",
         action="store_true",
-        help="decode collected profiling and render a report (automatic in native mode)",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--no-profiling",
         action="store_true",
-        help="native mode: collect only whole-operator ACL Events; skip profiling analysis",
+        help=argparse.SUPPRESS,
     )
-    parser.add_argument(
-        "--records", type=Path, help="whole-job rank-zero JSONL records"
-    )
-    parser.add_argument("--msprof", help="SDK msprof command for raw profiling export")
+    parser.add_argument("--records", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--msprof", help=argparse.SUPPRESS)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--native-backend",
         action="store_true",
-        help="build and run the bundled AICPU or CCU backend (default)",
+        help=argparse.SUPPRESS,
     )
     mode.add_argument(
         "--check-topology",
         action="store_true",
-        help="validate MPI placement only; no NPU operation",
+        help=argparse.SUPPRESS,
     )
     mode.add_argument(
         "--executable",
         type=Path,
-        help="use a prebuilt external backend instead of the bundled workflow",
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args(launcher_args)
-    if args.measurement_mode is None:
-        args.measurement_mode = "full"
     args.native_backend = args.native_backend or not (
         args.check_topology or args.executable
     )
+    # PR42's CCU --comm-only enables probes. AICPU retains its measurement mode.
+    if "--comm-only" in launcher_args and backend_option(
+        backend_args, "-a", "aicpu_ts"
+    ) in {"ccu_sched", "ccu_ms"}:
+        args.ccu_probes = True
+        args.measurement_mode = "full"
+    if args.measurement_mode is None:
+        args.measurement_mode = (
+            "comm_only"
+            if args.native_backend
+            and not args.query_only
+            and backend_option(backend_args, "-a", "aicpu_ts") == "aicpu_ts"
+            else "full"
+        )
     args.native_profile = None
     if args.query_only and not args.native_backend:
         raise ValueError("--query-only requires the bundled query backend")
     args.native_profiling = (
         args.native_backend and not args.no_profiling and not args.query_only
     )
+    if (
+        args.native_profiling
+        and backend_option(backend_args, "-a", "aicpu_ts") == "ccu_sched"
+    ):
+        args.ccu_probes = True
     if args.ccu_probes and not args.native_profiling:
-        raise ValueError("--ccu-probes requires a native CCU benchmark with profiling")
+        raise ValueError("CCU probes require a native CCU benchmark with profiling")
     if args.no_profiling and not args.native_backend:
         raise ValueError("--no-profiling requires the bundled native backend")
     if args.no_profiling and args.analyze:
@@ -408,10 +463,10 @@ def configure_native(args, environment, backend_args):
         raise ValueError("the bundled backend requires -a aicpu_ts|ccu_sched")
     args.native_profile = "aicpu" if engine == "aicpu_ts" else "ccu"
     if args.ccu_probes and engine != "ccu_sched":
-        raise ValueError("--ccu-probes requires -a ccu_sched")
+        raise ValueError("CCU probes require -a ccu_sched")
     if args.native_profile == "ccu":
-        # The SDK caches this switch when it first generates KFC instructions.
-        # Send an explicit value to every rank, including the disabled case.
+        # Match PR42's enabled configuration; keep the default deterministic
+        # even when a caller or SDK setup script has enabled probes elsewhere.
         environment["PROFILING_MODE"] = "true" if args.ccu_probes else "false"
         environment["PROFILING_OPTIONS"] = (
             '{"task_time":"l1"}' if args.ccu_probes else ""
@@ -1248,11 +1303,12 @@ def launch(
         "created_utc": datetime.now(timezone.utc).isoformat(),
     }
     if args.native_profile == "ccu":
-        from profiling.kfc_markers import PROBE_GAPS, SOURCE_COMMIT
+        from profiling.ccu_probe_markers import PROBE_GAPS, SOURCE_COMMIT
 
         plan["ccu_probes"] = {
             "requested": args.ccu_probes,
             "source_commit": SOURCE_COMMIT,
+            "source_pr": 42,
             "default_gaps": PROBE_GAPS,
             "profiling_mode": environment["PROFILING_MODE"],
             "profiling_options": environment["PROFILING_OPTIONS"],
@@ -1274,11 +1330,6 @@ def launch(
     args.output_dir.mkdir(parents=True, exist_ok=False)
     if args.native_backend:
         print("Run directory: " + str(args.output_dir), flush=True)
-        if args.native_profile == "ccu":
-            print(
-                "CCU KFC probes: " + ("enabled" if args.ccu_probes else "disabled"),
-                flush=True,
-            )
     atomic_json(args.output_dir / "run_owner.json", {"run_id": run_id})
     atomic_json(args.output_dir / "launch_manifest.json", plan)
     payload.mkdir()

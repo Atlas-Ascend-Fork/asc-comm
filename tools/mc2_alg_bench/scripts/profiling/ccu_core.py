@@ -12,7 +12,6 @@
 """CCU extraction from hccl_api_test 138ac18b6c496ca3faebab0fa8e8038757ec19a7."""
 
 from __future__ import annotations
-from bisect import bisect_right
 import os
 import re
 import shutil
@@ -22,15 +21,26 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from . import api_core as common
-from . import kfc_markers as markers
+from . import ccu_probe_markers as markers
 
-# Probe fields and pairing copied from hccl_api_test PR37, commit 9ff8914c.
+
+# Probe pairing follows hccl_api_test PR43 (3c699a8); summaries retain PR42's rules.
 API_PROBE_COLUMNS = (
     ("api_algorithm_us", "api纯算法耗时(us)"),
     ("api_kfc_head_us", "api KFC head耗时(us)"),
     ("api_kfc_load_us", "api KFC 参数加载及判定耗时(us)"),
     ("api_kfc_signal_us", "api KFC 完成信号段耗时(us)"),
     ("api_kfc_tail_us", "api KFC 队列收尾耗时(us)"),
+)
+API_PROBE_COVERAGE_HEADERS = (
+    "api探针完整样本数(卡×轮)",
+    "api探针预期样本数(卡×轮)",
+    "api探针完整率(%)",
+)
+API_PROBE_COVERAGE_FIELDS = (
+    "api_probe_complete_samples",
+    "api_probe_expected_samples",
+    "api_probe_complete_pct",
 )
 
 _common_should_retain = common.should_retain_complete_event
@@ -342,6 +352,9 @@ def is_hccl_launcher(trace: Any, event: Any, operator: str) -> bool:
 def probe_times_by_launcher(
     trace: Any, launchers: Sequence[Any]
 ) -> dict[int, dict[str, Decimal]]:
+    ccu_launches = [
+        event for event in trace.events if CCU_LAUNCH_RE.fullmatch(event.name)
+    ]
     waits_by_lane: dict[tuple[Any, ...], list[tuple[int, Decimal, Decimal]]] = {}
     for event in trace.events:
         if event.name != "Wait":
@@ -369,25 +382,42 @@ def probe_times_by_launcher(
             (int(instruction), event.start, event.end)
         )
 
-    launcher_starts = [launcher.start for launcher in launchers]
-    matches: dict[int, list[dict[str, Decimal]]] = {}
-    for waits in waits_by_lane.values():
+    matches: dict[int, dict[str, Decimal]] = {}
+    for lane, waits in waits_by_lane.items():
         groups: dict[int, list[tuple[Decimal, Decimal]]] = {}
         for kind, start, end in markers.find_probes(waits):
             groups.setdefault(kind, []).append((start, end))
         if len(groups.get(0, [])) != 1 or len(groups.get(1, [])) != 1:
             continue
         begin, finish = groups[0][0], groups[1][0]
-        index = bisect_right(launcher_starts, begin[0]) - 1
-        if (
-            index < 0
-            or not begin[0]
+        identity = (str(lane[2]), str(lane[3]))
+        # Probe IDs belong to the CCU task, not the AIV client on another stream.
+        owners = [
+            event
+            for event in ccu_launches
+            if identity in launch_task_ids([event])
+            and event.start
+            <= begin[0]
             <= begin[1]
             <= finish[0]
             <= finish[1]
-            <= launchers[index].end
-        ):
+            <= event.end
+        ]
+        if len(owners) != 1:
             continue
+        candidates = [
+            i
+            for i, launcher in enumerate(launchers)
+            if launcher.start
+            <= begin[0]
+            <= begin[1]
+            <= finish[0]
+            <= finish[1]
+            <= launcher.end
+        ]
+        if len(candidates) != 1:
+            continue
+        index = candidates[0]
         values = {"api_algorithm_us": finish[0] - begin[1]}
         # Finalize also loads parameters. Use the preceding load from this turn.
         load = [mark for mark in groups.get(4, []) if mark[1] <= begin[0]]
@@ -404,8 +434,13 @@ def probe_times_by_launcher(
             values["api_kfc_signal_us"] = signal[0][0] - finish[1]
             if len(tail) == 1 and signal[0][1] <= tail[0][0]:
                 values["api_kfc_tail_us"] = tail[0][0] - signal[0][1]
-        matches.setdefault(index, []).append(values)
-    return {index: values[0] for index, values in matches.items() if len(values) == 1}
+        # Missions can overlap. Take each stage's longest measured duration,
+        # without pairing marker endpoints from different lanes.
+        stages = matches.setdefault(index, {})
+        for field, duration in values.items():
+            if field not in stages or duration > stages[field]:
+                stages[field] = duration
+    return matches
 
 
 @dataclass(frozen=True)
@@ -415,10 +450,22 @@ class CcuLaunchWindow:
     start: Decimal
     end: Decimal
     source: str
+    task_ids: frozenset[tuple[str, str]] = frozenset()
 
     @property
     def duration(self) -> Decimal:
         return self.end - self.start
+
+
+def launch_task_ids(events: Sequence[Any]) -> frozenset[tuple[str, str]]:
+    identities = set()
+    for event in events:
+        args = event.args
+        stream = args.get("Physic Stream Id", args.get("Stream Id"))
+        task = args.get("Task Id")
+        if stream is not None and task is not None:
+            identities.add((str(stream), str(task)))
+    return frozenset(identities)
 
 
 def merge_ccu_launches_by_connection(
@@ -454,6 +501,7 @@ def merge_ccu_launches_by_connection(
                 start=sorted_events[0].start,
                 end=sorted_events[-1].end,
                 source="merged-ccu-launch",
+                task_ids=launch_task_ids(sorted_events),
             )
         )
     for launcher in deduplicate_launchers(no_connection):
@@ -462,6 +510,7 @@ def merge_ccu_launches_by_connection(
                 start=launcher.start,
                 end=launcher.end,
                 source="outer-launcher",
+                task_ids=launch_task_ids([launcher]),
             )
         )
     if len(windows) < len(candidates):
@@ -496,6 +545,7 @@ def explicit_ccu_launch_windows(
                     start=launcher.start,
                     end=launcher.end,
                     source="outer-launcher",
+                    task_ids=launch_task_ids([launcher]),
                 )
             )
         return windows
@@ -603,6 +653,23 @@ def parse_ccu_profile(
             if profile.path_type == "api"
             else {}
         )
+        if profile.path_type == "api" and probe_times:
+            complete = sum(
+                len(values) == len(API_PROBE_COLUMNS) for values in probe_times.values()
+            )
+            if complete != len(launchers):
+                common.log_message(
+                    "WARNING",
+                    f"api device {profile.device_id}: incomplete KFC probes: "
+                    f"{complete}/{len(launchers)} launch windows have all stages; "
+                    "missing stages remain blank, not zero",
+                )
+        # All five means use exactly the same complete rank/iteration samples.
+        probe_times = {
+            index: values
+            for index, values in probe_times.items()
+            if all(field in values for field, _ in API_PROBE_COLUMNS)
+        }
         for size_index, data_size in enumerate(sizes[:mapped_size_count]):
             base = size_index * calls_per_size
             kernel_windows[data_size] = (
@@ -692,3 +759,144 @@ def parse_ccu_profile(
         status=status,
     )
     return samples, kernel_windows, audit
+
+
+# Keep the upstream summary builder intact; the adapter below selects API probe fields.
+CCU_SUMMARY_HEADERS = [
+    "算子类型",
+    "数据类型",
+    "数据量",
+    "卡数",
+    "hccl通信耗时(us)",
+    "hccl通信带宽(GB/s)",
+    "hccl首通信任务启动偏差p95(us)",
+    "hccl首通信任务启动偏差max(us)",
+    "hccl loopgroup耗时(us)",
+    "api通信耗时(us)",
+    "api框架耗时(us)",
+    "api通信带宽(GB/s)",
+    "api loopgroup耗时(us)",
+    *(header for _, header in API_PROBE_COLUMNS),
+    *API_PROBE_COVERAGE_HEADERS,
+    "api kernel启动偏差p95(us)",
+    "api kernel启动偏差max(us)",
+    "api算法",
+    "hccl算法",
+]
+
+
+def ccu_build_summary_rows(
+    aggregates: Mapping[tuple[Any, ...], Any],
+    algorithms: Mapping[tuple[Any, ...], str],
+    hccl_print_results: Mapping[tuple[str, str, int], tuple[float, float]],
+    start_skews: Mapping[tuple[str, str, str, int, int], Any],
+    sizes: Sequence[int],
+    operator: str,
+    dtype: str,
+    ranks: int,
+    iters: int,
+    multi_node: bool,
+) -> list[list[Any]]:
+    expected = ranks * iters
+    rows: list[list[Any]] = []
+    for data_size in sizes:
+        hccl_group = aggregates.get((operator, dtype, "hccl", data_size, ranks))
+        api_group = aggregates.get((operator, dtype, "api", data_size, ranks))
+        hccl_valid = hccl_group is not None and hccl_group.sample_count == expected
+        api_valid = api_group is not None and api_group.sample_count == expected
+        hccl_print = hccl_print_results.get((operator, dtype, data_size))
+        hccl_communication = hccl_print[0] if hccl_print is not None else None
+        hccl_bandwidth = hccl_print[1] if hccl_print is not None else None
+        hccl_start_skew = start_skews.get((operator, dtype, "hccl", data_size, ranks))
+        api_start_skew = start_skews.get((operator, dtype, "api", data_size, ranks))
+        hccl_loopgroup = hccl_group.mean("hccl_loopgroup_us") if hccl_valid else None
+        api_communication = (
+            api_group.mean("api_communication_us") if api_valid else None
+        )
+        api_loopgroup = api_group.mean("api_loopgroup_us") if api_valid else None
+        probe_means = [
+            api_group.mean(field) if api_valid else None
+            for field, _ in API_PROBE_COLUMNS
+        ]
+        probe_count = api_group.counts.get("api_algorithm_us", 0) if api_valid else 0
+        row = [
+            operator,
+            dtype,
+            data_size,
+            ranks,
+            hccl_communication,
+            hccl_bandwidth,
+            hccl_start_skew.node_local_p95_us if hccl_start_skew is not None else None,
+            hccl_start_skew.node_local_max_us if hccl_start_skew is not None else None,
+        ]
+        if multi_node:
+            row.extend(
+                [
+                    hccl_start_skew.cross_node_residual_p95_us
+                    if hccl_start_skew is not None
+                    else None,
+                    hccl_start_skew.cross_node_residual_max_us
+                    if hccl_start_skew is not None
+                    else None,
+                ]
+            )
+        row.extend(
+            [
+                hccl_loopgroup,
+                api_communication,
+                # api框架耗时(us): patched from the printed api_framework_time
+                # column (original ACL-Event time minus hccl.Wait time).
+                None,
+                data_size / api_communication * 1e-3 if api_communication else None,
+                api_loopgroup,
+                *probe_means,
+                probe_count if api_group is not None else None,
+                expected if api_group is not None else None,
+                100.0 * probe_count / expected
+                if api_group is not None and expected
+                else None,
+                api_start_skew.node_local_p95_us
+                if api_start_skew is not None
+                else None,
+                api_start_skew.node_local_max_us
+                if api_start_skew is not None
+                else None,
+            ]
+        )
+        if multi_node:
+            row.extend(
+                [
+                    api_start_skew.cross_node_residual_p95_us
+                    if api_start_skew is not None
+                    else None,
+                    api_start_skew.cross_node_residual_max_us
+                    if api_start_skew is not None
+                    else None,
+                ]
+            )
+        row.append(algorithms.get((operator, dtype, "api", data_size, ranks)))
+        row.append(algorithms.get((operator, dtype, "hccl", data_size, ranks)))
+        rows.append(row)
+    return rows
+
+
+def probe_summary_metrics(accumulator, operator, dtype, data_size, ranks, iters):
+    """Adapt PR42's summary row to the framework's structured metric keys."""
+    rows = ccu_build_summary_rows(
+        {(operator, dtype, "api", data_size, ranks): accumulator},
+        {},
+        {},
+        {},
+        [data_size],
+        operator,
+        dtype,
+        ranks,
+        iters,
+        False,
+    )
+    row = dict(zip(CCU_SUMMARY_HEADERS, rows[0]))
+    fields = (
+        *API_PROBE_COLUMNS,
+        *zip(API_PROBE_COVERAGE_FIELDS, API_PROBE_COVERAGE_HEADERS),
+    )
+    return {field: row[title] for field, title in fields if row[title] is not None}

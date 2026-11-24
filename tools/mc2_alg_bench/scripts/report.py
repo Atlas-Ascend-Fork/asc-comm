@@ -49,6 +49,9 @@ COLUMN_LABELS = {
     "api_kfc_load_us": "api KFC 参数加载及判定耗时(us)",
     "api_kfc_signal_us": "api KFC 完成信号段耗时(us)",
     "api_kfc_tail_us": "api KFC 队列收尾耗时(us)",
+    "api_probe_complete_samples": "api探针完整样本数(卡×轮)",
+    "api_probe_expected_samples": "api探针预期样本数(卡×轮)",
+    "api_probe_complete_pct": "api探针完整率(%)",
 }
 
 AICPU_METRICS = (
@@ -73,6 +76,12 @@ CCU_METRICS = (
     "api_kfc_tail_us",
     "api_kernel_skew_p95_us",
     "api_kernel_skew_max_us",
+)
+# Coverage stays in structured diagnostics, outside CSV and terminal columns.
+CCU_AUDIT_METRICS = (
+    "api_probe_complete_samples",
+    "api_probe_expected_samples",
+    "api_probe_complete_pct",
 )
 SUCCESS = {"hit", "fallback", "algorithm_unconfirmed"}
 FAILURES = {
@@ -592,15 +601,17 @@ def build_report(records):
             "custom_op_event_max_of_rank_means",  # Previously recorded runs.
         }
     )
-    if native_ccu_event:
-        # Preserve the profiling columns but keep the whole-operator Event in
-        # its own column. It cannot be reported as pure communication time.
-        metric_names += ("api_kernel_us",)
-    allowed_metrics = (
-        ("api_kernel_us",)
-        if native_ccu_event and metadata.get("timing_source") == "acl_event"
-        else metric_names
+    allowed_metrics = metric_names + (
+        CCU_AUDIT_METRICS if options["engine"] != "aicpu_ts" else ()
     )
+    if native_ccu_event:
+        # Keep the whole-operator Event in structured diagnostics, outside
+        # the CCU CSV columns. Event-only captures still accept only this metric.
+        allowed_metrics = (
+            ("api_kernel_us",)
+            if metadata.get("timing_source") == "acl_event"
+            else allowed_metrics + ("api_kernel_us",)
+        )
     queries, plans, results, phases, failures = {}, {}, {}, [], []
     comm_engine = {"aicpu_ts": 2, "ccu_sched": 6, "ccu_ms": 5}[options["engine"]]
     cc_types = set()

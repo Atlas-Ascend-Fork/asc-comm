@@ -33,7 +33,7 @@ bash run_alg_bench.sh -n 2 -p 2 -- \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
-This command queries candidates for 32KiB and benchmarks each one automatically. No separate query or algorithm name is required. Omit `--skip-build` on the first run; the tool handles building, installation, execution, and reporting.
+This command queries candidates for 32KiB and benchmarks each one automatically. No separate query or algorithm name is required. The tool handles building, installation, execution, and reporting.
 
 ## Results
 
@@ -57,7 +57,7 @@ This mode saves candidates to `query_summary.json` and does not generate a perfo
 
 To select an algorithm, append `--alg 'complete-candidate-name'` after `--` in the benchmark command. Copy the name from query results for the same operation and engine. Unmatched names are skipped. See the [Usage Guide](./docs/en/usage.md#query-and-select-algorithms) for a complete example.
 
-For CCU, replace `-a aicpu_ts` with `-a ccu_sched`. Add `--skip-build` before `--` to repeat a matching configuration. Build normally after changing engines, source, SDK, or measurement mode.
+For CCU, replace `-a aicpu_ts` with `-a ccu_sched`. The launcher prepares the package for that engine and runs the benchmark.
 
 ## Documentation
 

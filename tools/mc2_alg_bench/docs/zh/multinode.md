@@ -16,6 +16,8 @@
 
 只在第一台机器执行启动命令。工具分发测试程序、部署对应算子包并回收结果，不负责安装CANN、MPI或配置设备网络。
 
+工具在启动节点读取`ASCEND_HOME_PATH`、`MPI_HOME`及按需设置的`HCCL_DIR`，将选定的安装路径统一传给各节点；各节点须安装在相同绝对路径。
+
 ## 创建Hostfile
 
 在工具目录创建文件，将`server-a`和`server-b`替换为实际主机名或IP，第一项必须是启动节点：
@@ -28,17 +30,6 @@ HOSTS
 ```
 
 两行各表示该节点启动8个进程。所有节点的设备数须与`-p 8`一致。
-
-## 检查进程启动
-
-先检查MPI启动与结果归集，不执行NPU通信：
-
-```bash
-bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 \
-  --check-topology --output-dir /data/mc2_runs/topology_2x8_01
-```
-
-将输出路径改为可写的新目录。预期16个Rank全部成功并归集完整；失败时先处理SSH、MPI、路径或权限问题。该检查通过不代表设备通信网络已通过验证。
 
 ## 查询跨机候选
 
@@ -69,7 +60,7 @@ bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 -- \
   --op allreduce -a ccu_sched -b 32K -e 32K --alg 'sole[mesh]'
 ```
 
-默认流程自动构建、分发、安装算子包，执行测量并汇总各节点数据。仅在两端已有匹配包和测试程序缓存时，在`--`前加`--skip-build`；更新SDK、源码或测量模式后先正常构建。切换到CCU也须先构建其独立包。
+默认流程自动构建、分发、安装对应引擎的算子包，执行测量并汇总各节点数据。
 
 指定算法未命中时跳过，省略`--alg`则测试候选并集。不要把AllToAllVWrite直接套用到该16Rank示例，须先核对安装SDK的支持条件。
 
@@ -84,4 +75,4 @@ bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 -- \
 | 一侧包部署或加载失败 | 安装目录权限、动态库、包模式及构建日志 |
 | 缺Rank或性能解析失败 | `cluster_summary.json`、各Rank日志及`profile_analysis/profiling_audit.json` |
 
-启动器默认执行超时为600秒，可在`--`前用`--timeout`调整。失败时保留整轮目录，先定位首条错误再重试。
+失败时保留整轮目录，先定位首条错误再重试。

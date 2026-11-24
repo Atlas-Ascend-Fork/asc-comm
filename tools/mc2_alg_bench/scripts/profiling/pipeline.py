@@ -897,20 +897,15 @@ def analyze_run(run_dir, records_path, output_dir, *, msprof=None):
         audit["inputs"][str(records_path)] = sha256(records_path)
         audit["inputs"][str(owner_path)] = sha256(owner_path)
         if engine != "aicpu_ts":
-            probe_configuration = owner.get("ccu_probes", {})
-            require(
-                isinstance(probe_configuration, dict), "invalid CCU probe configuration"
-            )
-            probe_requested = probe_configuration.get("requested")
-            require(
-                probe_requested is None or type(probe_requested) is bool,
-                "invalid CCU probe request flag",
-            )
+            configuration = owner.get("ccu_probes", {})
+            require(isinstance(configuration, dict), "invalid CCU probe configuration")
+            requested = configuration.get("requested", False)
+            require(type(requested) is bool, "invalid CCU probe request flag")
             audit["ccu_probes"] = {
-                "requested": probe_requested,
+                "requested": requested,
                 "source_commit": ccu.markers.SOURCE_COMMIT,
-                "default_gaps": ccu.markers.PROBE_GAPS,
-                "configuration": probe_configuration,
+                "source_pr": 42,
+                "configuration": configuration,
                 "entries": [],
             }
             job.setdefault("metadata", {})["ccu_probes"] = audit["ccu_probes"]
@@ -1510,47 +1505,51 @@ def analyze_run(run_dir, records_path, output_dir, *, msprof=None):
                         metrics[target] = accumulator.mean(field)
                 else:
                     metrics["api_loopgroup_us"] = accumulator.mean("api_loopgroup_us")
-                    # Match PR37's benchmark summary: each probe field requires
-                    # every rank/formal sample. Never average a partial subset.
-                    probe_counts = {
-                        field: accumulator.counts.get(field, 0)
-                        for field, _header in ccu.API_PROBE_COLUMNS
-                    }
-                    for field, count in probe_counts.items():
-                        if count == len(values):
-                            metrics[field] = accumulator.mean(field)
-                    missing_probe_ranks = {
-                        field: [
-                            rank
-                            for rank, rank_samples in parsed[key].items()
-                            if any(
-                                getattr(sample, field) is None
-                                for sample in rank_samples
-                            )
-                        ]
-                        for field, _header in ccu.API_PROBE_COLUMNS
-                        if probe_counts[field] != len(values)
-                    }
-                    probe_coverage = {
+                    # Use PR42's summary builder, including its partial-sample
+                    # means and denominator, rather than a separate statistic.
+                    probe_metrics = ccu.probe_summary_metrics(
+                        accumulator,
+                        operator,
+                        dtype,
+                        selected[key[0]]["entry"]["requested_bytes"],
+                        ranks,
+                        len(parsed[key][0]),
+                    )
+                    metrics.update(probe_metrics)
+                    complete = probe_metrics["api_probe_complete_samples"]
+                    expected = probe_metrics["api_probe_expected_samples"]
+                    coverage = {
                         "entry_id": key[0],
                         "batch": key[1],
-                        "expected_samples": len(values),
-                        "matched_samples": probe_counts,
-                        "missing_ranks": missing_probe_ranks,
+                        "complete_samples": complete,
+                        "expected_samples": expected,
+                        "excluded_samples": expected - complete,
+                        "complete_pct": probe_metrics["api_probe_complete_pct"],
                         "status": "complete"
-                        if not missing_probe_ranks
-                        else "incomplete",
+                        if complete == expected
+                        else "partial"
+                        if complete
+                        else "unavailable",
                     }
-                    audit["ccu_probes"]["entries"].append(probe_coverage)
-                    if audit["ccu_probes"]["requested"] and missing_probe_ranks:
+                    audit["ccu_probes"]["entries"].append(coverage)
+                    if audit["ccu_probes"]["requested"] and complete != expected:
                         audit.setdefault("warnings", []).append(
-                            {
-                                "entry_id": key[0],
-                                "batch": key[1],
-                                "warning": "CCU probe coverage incomplete; affected metrics left unavailable",
-                                "missing_ranks": missing_probe_ranks,
-                            }
+                            dict(
+                                coverage,
+                                warning="CCU probe means use complete five-stage samples only",
+                            )
                         )
+                        if complete == 0:
+                            # Match PR42's enabled-path summary check: an empty
+                            # probe result is an issue, but preserve base timings.
+                            audit["issues"].append(
+                                dict(
+                                    entry_id=key[0],
+                                    batch=key[1],
+                                    stage="ccu_probes",
+                                    error="CCU profiling has no complete five-stage samples",
+                                )
+                            )
                     try:
                         # The original tool's printed Event/Wait aggregate belongs
                         # to rank zero; report that scope explicitly, not as an

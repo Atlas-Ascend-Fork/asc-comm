@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 import unicodedata
 
-from report import COLUMN_LABELS
+from report import CCU_AUDIT_METRICS, COLUMN_LABELS
 
 
 def _cell(value):
@@ -158,21 +158,6 @@ def print_native_report(report_dir, summary, *, stream=None):
         file=output,
     )
     metadata = summary.get("metadata", {})
-    probes = metadata.get("ccu_probes", {})
-    if probes.get("requested"):
-        entries = probes.get("entries", [])
-        complete = sum(entry.get("status") == "complete" for entry in entries)
-        print(
-            "CCU probes: {}/{} entries have all five metrics; incomplete columns show '-'.".format(
-                complete, len(entries)
-            ),
-            file=output,
-        )
-    if metadata.get("measurement_mode") == "comm_only":
-        print(
-            "测量模式：comm_only（延迟Commit）；有效行的展开/kernel列为NA，原始Event包含人为延迟。",
-            file=output,
-        )
     profiling = metadata.get("timing_source") == "profiling" or bool(
         summary.get("profiling_analysis_requested")
     )
@@ -189,9 +174,16 @@ def print_native_report(report_dir, summary, *, stream=None):
             file=output,
         )
     if rows:
+        hidden_fields = set(CCU_AUDIT_METRICS)
+        if options.get("engine") in {"ccu_sched", "ccu_ms"}:
+            hidden_fields.add("api_kernel_us")
         if profiling:
             names = {label: name for name, label in COLUMN_LABELS.items()}
-            fields = [names.get(name, name) for name in rows[0]]
+            fields = [
+                names.get(name, name)
+                for name in rows[0]
+                if names.get(name, name) not in hidden_fields
+            ]
             fields.insert(fields.index("op") + 1, "engine")
         else:
             fields = (
@@ -204,6 +196,7 @@ def print_native_report(report_dir, summary, *, stream=None):
                 "api_kernel_us",
                 "status",
             )
+            fields = tuple(field for field in fields if field not in hidden_fields)
         columns = tuple(COLUMN_LABELS[name] for name in fields)
         values = [
             [
@@ -230,10 +223,16 @@ def print_native_report(report_dir, summary, *, stream=None):
             if index == 0:
                 print("  ".join("-" * width for width in widths), file=output)
     if measured:
-        if metadata.get("timing_source") == "acl_event" or options.get("engine") in {
+        if options.get("engine") in {
             "ccu_sched",
             "ccu_ms",
         }:
+            if not profiling:
+                print(
+                    "Raw ACL Event measurements are retained in diagnostics.json.",
+                    file=output,
+                )
+        elif metadata.get("timing_source") == "acl_event":
             print(
                 COLUMN_LABELS["api_kernel_us"]
                 + ": whole custom-op ACL Event in us, rank 0 iteration mean; "

@@ -640,22 +640,20 @@ int main(int argc, char** argv)
         if (argc == 2 && std::string(argv[1]) == "--help") {
             if (coordinator.Rank() == 0) {
 #ifdef MC2_BENCH_QUERY_ONLY
-                std::cout << "mc2_alg_bench_query [--query-stub SCENARIO] [--records PATH]\n"
+                std::cout << "mc2_alg_bench_query\n"
                           << Usage()
                           << "Query only: requires the SDK/communicator for native queries; no operator execution, "
                              "warmup or profiling.\n";
 #else
-                std::cout
-                    << "mc2_alg_bench_backend [--query-stub basic|by-size|empty|query-error|rank-mismatch]\n"
-                       "  [--warmup 10] [--iterations 20] [--records PATH]\n"
-                    << Usage()
+                std::cout << "mc2_alg_bench_backend\n"
+                          << Usage()
 #ifdef MC2_BENCH_CCU_BACKEND
-                    << "Device backend: CCU_SCHED, fp32, six operators; requires a real SDK/NPU.\n"
+                          << "Device backend: CCU_SCHED, fp32, six operators; requires a real SDK/NPU.\n"
 #else
-                    << "Device backend: AICPU_TS, fp32, five operators; requires a real SDK/NPU.\n"
+                          << "Device backend: AICPU_TS, fp32, five operators; requires a real SDK/NPU.\n"
 #endif
-                       "Queries use the formal MC2 API by default; --query-stub explicitly selects a query fixture.\n"
-                       "No simulated performance or algorithm-hit evidence.\n";
+                             "Queries use the formal MC2 API by default.\n"
+                             "No simulated performance or algorithm-hit evidence.\n";
 #endif
             }
             return MPI_Finalize() == MPI_SUCCESS ? 0 : 1;

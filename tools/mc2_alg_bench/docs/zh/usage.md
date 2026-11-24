@@ -10,23 +10,23 @@
 
 CANN开发包须包含正式查询接口`Mc2GetSupportAlgList`、`Mc2SetCcDataLenRange`及匹配的`libmc2_client.so`。默认profiling（设备性能数据采集）需要SDK提供ACL采集接口和`libmsprofiler.so`；CCU原始数据导出还需要匹配SDK的`msprof`。AICPU直接分析原始采集数据，无需导出时间轴。
 
-在Bash中执行，只需把`CANN_ROOT`、`MPI_HOME`和最后一行的源码路径替换为实际位置。已有这些依赖时不需要重新安装：
+在Bash中设置安装路径，并进入工具目录。将下面的CANN、MPI和源码路径替换为实际位置；已有这些依赖时不需要重新安装：
 
 ```bash
-export CANN_ROOT=/usr/local/Ascend/cann
+export ASCEND_HOME_PATH=/usr/local/Ascend/cann
 export MPI_HOME=/usr/local/mpi/mpich
-if [ -f "${CANN_ROOT}/set_env.sh" ]; then
-    source "${CANN_ROOT}/set_env.sh"
-else
-    source "${CANN_ROOT}/../set_env.sh"
-fi
-export ASCEND_HOME_PATH="${CANN_ROOT}"
-export ASCEND_CANN_PACKAGE_PATH="${CANN_ROOT}"
-export PATH="${MPI_HOME}/bin:${PATH}"
 cd /path/to/asc-comm/tools/mc2_alg_bench
 ```
 
-构建优先使用CANN自带的makeself打包工具，再查系统PATH，通常无需单独配置。Host HCCL独立安装时，在启动命令的`--`前增加`--hccl-root /实际安装目录`。标准布局下，CCU所需的`libhcomm.so`会自动链接。
+工具在构建和设备进程启动时加载所选CANN的环境，并补充MPI的可执行文件和动态库搜索路径。变量名区分大小写；已有正确的环境变量时，可直接使用。
+
+Host HCCL是主机侧集合通信库，默认使用所选CANN目录中的头文件和动态库。仅在Host HCCL独立安装时，额外设置其安装根目录：
+
+```bash
+export HCCL_DIR=/实际/HostHCCL安装目录
+```
+
+构建优先使用CANN自带的makeself打包工具，再查系统PATH，通常无需单独配置。标准布局下，CCU所需的`libhcomm.so`会自动链接。
 
 首次使用可直接跳到《[执行单机测试](#执行单机测试)》，先运行AICPU例子并《[查看性能结果](#查看性能结果)》；下方参数和查询说明按需查阅。
 
@@ -42,12 +42,7 @@ bash run_alg_bench.sh [启动器参数] -- [测试参数]
 | --- | --- | --- |
 | `--`前 | `-n`、`-p` | 总Rank数、每节点设备数，均默认8；Rank是参与通信的进程 |
 | `--`前 | `--query-only` | 只查询候选，不运行性能测试 |
-| `--`前 | `--comm-only` | AICPU延迟提交诊断模式，默认关闭 |
-| `--`前 | `--ccu-probes` | CCU边界插针采集，默认关闭，需SDK支持 |
-| `--`前 | `--skip-build` | 校验并复用已安装包及编译缓存，默认正常构建 |
 | `--`前 | `--output-dir` | 新结果目录，省略时自动创建，不能覆盖已有作业 |
-| `--`前 | `--no-profiling` | 关闭性能采集解析，仅保留整算子计时和输出校验 |
-| `--`前 | `--cann-root`、`--mpi-root`、`--hccl-root` | 显式选择安装目录，否则使用对应环境配置 |
 | `--`后 | `--op` | 算子名称，必须指定 |
 | `--`后 | `-a` | 引擎：`aicpu_ts`或`ccu_sched`，默认`aicpu_ts` |
 | `--`后 | `-d` | 数据类型，内置实测使用`fp32`（32位浮点），默认`fp32` |
@@ -55,7 +50,6 @@ bash run_alg_bench.sh [启动器参数] -- [测试参数]
 | `--`后 | `-b`、`-e` | 起始和目标结束字节数，默认32KiB和256MiB |
 | `--`后 | `-f`或`-i` | 倍增因子或线性字节步长，二者互斥，默认`-f 2` |
 | `--`后 | `--alg` | 查询返回的完整算法名，省略时测试全部候选，可重复指定 |
-| `--`后 | `--warmup`、`--iterations` | 预热和正式轮数，默认10和20，仅性能测试使用 |
 
 长度支持`B`、`K`、`KB`、`KiB`、`M`、`MB`、`MiB`等后缀，按1024倍数计算。单点须同时设置`-b/-e`；只设置一个端点时，另一个仍使用默认值。倍增扫描包含首个不小于目标结束值的点，线性扫描不超过结束值。默认范围共14个点。
 
@@ -79,7 +73,7 @@ bash run_alg_bench.sh -n 2 -p 2 --query-only -- \
 | 不指定算法，指定单点 | 将该点字节数传给查询接口 |
 | 不指定算法，指定范围 | 按步长逐点查询，算法名去重取并集 |
 
-仅查询仍需要真实设备和通信域，但不构建算子包、不预热、不计时，也不生成性能CSV。结果打印到终端并写入本轮`query_summary.json`。它不能与`--comm-only`、`--analyze`或预热/测量次数参数混用。
+仅查询仍需要真实设备和通信域，但不构建算子包、不预热、不计时，也不生成性能CSV。结果打印到终端并写入本轮`query_summary.json`。
 
 性能测试会重新查询，命中才进入实测；未命中提示不支持并跳过，不在工具侧另行兜底。范围查询得到的候选并集在完整测量长度序列上测试，不能把查询返回理解为每个长度都保证执行成功。
 
@@ -92,7 +86,7 @@ bash run_alg_bench.sh -n 2 -p 2 -- \
 
 ## 执行单机测试
 
-下面命令均使用两张设备和32KiB单点，不指定算法，由工具自动查询并测试该条件下的候选。首次运行不加`--skip-build`，无需先执行仅查询命令。
+下面命令均使用两张设备和32KiB单点，不指定算法，由工具自动查询并测试该条件下的候选。无需先执行仅查询命令。
 
 AICPU AllReduce：
 
@@ -119,33 +113,7 @@ AllToAllVWrite的输入、输出及查询类型均为`fp32`，通信窗口由SDK
 
 其他常规算子只需替换`--op`。入口自动准备对应引擎的算子包、编译测试程序、查询、预热、测量、校验并生成报告，无需额外构建或解析命令。每个测试项在正式轮结束后校验末次输出。
 
-重复运行会创建新的结果目录，无需删除之前的记录。相同配置可在`--`前加`--skip-build`；源码、SDK、算子包、测量模式或采集开关变化后，先正常重建。
-
-## 使用可选诊断模式
-
-AICPU延迟提交诊断，在`--`前加`--comm-only`：
-
-```bash
-bash run_alg_bench.sh -n 2 -p 2 --comm-only -- \
-  --op allreduce -a aicpu_ts -b 32K -e 32K
-```
-
-该参数等价于`--measurement-mode comm_only`，不能同时指定。工具自动构建匹配模式的包；有效结果的展开和kernel列显示`NA`，通信和带宽仍有实测值。此模式含人工延迟，不代表严格剥离框架开销；CCU不支持。
-
-CCU边界插针采集，在`--`前加`--ccu-probes`：
-
-```bash
-bash run_alg_bench.sh -n 2 -p 2 --ccu-probes -- \
-  --op allreduce -a ccu_sched -b 32K -e 32K
-```
-
-需要支持KFC（Kernel Function Call，核间调用框架）边界探针的配套SDK。工具在各Rank启动前设置采集开关，新增纯算法、队列头、参数加载及判定、完成信号和队列收尾五列。“纯算法”区间包含mission（CCU通信任务）的同步；这些指标不替换原有Event、Wait和带宽。插针会影响执行时序，与默认关闭的结果分别比较。
-
-每个新增指标覆盖全部Rank和正式轮后才输出均值，否则该列显示`-`，原因见`profile_analysis/profiling_audit.json`。基础采集完整时，缺少探针不会使原有指标失效。该选项不能与仅查询、关闭profiling或AICPU延迟提交模式混用，也不会改变算子包的测量模式。
-
-只验证设备执行和结果正确时，在`--`前加`--no-profiling`。该模式只报告整算子计时，其他阶段列为空，不能用于验收完整性能数据。
-
-查询接口尚不可用时，可在`--`后加`--query-stub basic`。它只模拟查询候选，后续仍执行真实NPU算子；模拟候选不能证明当前拓扑的实际支持能力。切换查询来源后先正常构建。
+重复运行会创建新的结果目录，无需删除之前的记录。
 
 ## 查看性能结果
 
@@ -161,31 +129,30 @@ CCU性能测试额外打印`Benchmark phase:`阶段进度和`Benchmark exit:`退
 | `profile_analysis/profiling_audit.json` | 性能数据关联与解析检查结果 |
 | `collected/ranks/rank_*/stdout.log`、`stderr.log` | 各Rank的原始运行日志 |
 
-`Cluster PASS`仅表示进程完成；还需确认`measured > 0`、适用指标有数值且默认采集解析成功。`NO MEASUREMENTS`表示没有性能值。`algorithm_unconfirmed`表示已有真实执行，但实际算法缺少确认依据，不等于没有性能数据。未实测或缺失指标显示`-`，解析失败项的指标显示`PARSE_FAIL`。
+`Cluster PASS`仅表示进程完成；还需确认`measured > 0`、适用指标有数值且默认采集解析成功。`NO MEASUREMENTS`表示没有性能值。`algorithm_unconfirmed`表示已有真实执行，但实际算法缺少确认依据，不等于没有性能数据。未实测或缺失指标显示`-`，不适用指标显示`NA`，解析失败项的指标显示`PARSE_FAIL`。
 
 主要指标均以微秒为时间单位，含义如下：
 
 | 指标 | 含义 |
 | --- | --- |
-| AICPU头、展开、通信、尾及kernel耗时 | 根据设备采集的阶段边界统计，kernel列为服务端执行区间 |
+| AICPU头、通信、尾耗时 | 根据设备采集的阶段边界统计 |
 | CCU通信耗时 | Rank 0正式轮的Wait均值，即调用方等待完成的时间 |
 | CCU框架耗时 | 同轮整算子Event减Wait的均值，是Wait外残差，不能严格解释为纯框架成本 |
-| CCU kernel耗时 | Rank 0的整算子Event均值；Event是设备计时区间，Write还包含接收结果复制 |
-| CCU LoopGroup耗时 | 设备通信指令事件持续时间累计，不是算法起止插针时间；窗口内没有完整事件时按0计入，不证明实际通信为0 |
-| CCU五项插针耗时 | 默认留空；开启边界采集且标记完整后统计，均排除边界标记本身的持续时间 |
+| CCU LoopGroup耗时 | 设备通信指令事件持续时间累计；窗口内没有完整事件时按0计入，不证明实际通信为0 |
 | 通信带宽 | 按实际测试形状的带宽字节数及通信耗时计算，单位GB/s |
 | kernel启动偏差p95/max | 先求每轮最差节点内各Rank开始时刻的极差，再求正式轮的p95和最大值；不表示绝对跨机时钟偏差 |
+
+CCU性能表共17列，包含算法与KFC阶段耗时，各阶段的均值使用同一批完整样本。整算子Event计时保存在`report/diagnostics.json`中，不单独作为CCU性能列展示。采样完整性记录在`profile_analysis/profiling_audit.json`中，不作为CSV列展示。没有完整样本时相关计时显示`-`，本轮报告失败，已取得的常规性能值仍保留。
 
 ## 排查常见问题
 
 | 现象 | 处理 |
 | --- | --- |
 | 查询头文件或接口缺失 | 核对安装SDK的头文件和查询库是否配套，查看后端构建目录的`query_probe.log`；仅更新源码不会更新安装包 |
-| makeself未找到 | 核对所选CANN和PATH；非标准位置可设置`MC2_BENCH_MAKESELF`，脚本须保留配套header |
+| makeself未找到 | 核对所选CANN的安装是否完整，以及PATH是否正确 |
 | 算子包或测试程序构建失败 | 按首条错误检查对应`build.log`，核对SDK、Host HCCL和编译依赖 |
-| `--skip-build`校验失败 | 去掉该参数正常重建，不必删除历史结果 |
 | 查询无候选或算法未命中 | 先用`--query-only`核对拓扑、引擎和候选，不能把跳过作为性能通过 |
-| 性能列为空或解析失败 | 检查是否使用`--no-profiling`，再查看解析审计及各Rank采集文件 |
-| CCU导出失败 | 核对SDK的msprof；非标准位置在`--`前加`--msprof /实际路径/msprof` |
+| 性能列为空或解析失败 | 查看解析审计及各Rank采集文件，核对采集数据是否完整 |
+| CCU导出失败 | 核对SDK的msprof及其依赖是否配套 |
 
-更多启动参数可执行`bash run_alg_bench.sh --help`查看。
+命令参数可执行`bash run_alg_bench.sh --help`查看。

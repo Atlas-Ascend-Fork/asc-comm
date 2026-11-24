@@ -16,6 +16,8 @@ Complete a single-host test first, then verify the following on both hosts:
 
 Run the launcher only on the first host. The tool distributes the benchmark, deploys operator packages, and collects results. It does not install CANN/MPI or configure device networks.
 
+The launcher reads `ASCEND_HOME_PATH`, `MPI_HOME`, and the optional `HCCL_DIR` on the launch host and sends the selected installation paths to all hosts. Installations must use the same absolute paths on every host.
+
 ## Create a Hostfile
 
 Create the file in the tool directory. Replace `server-a` and `server-b` with actual hostnames or IP addresses; the first entry must be the launch host:
@@ -28,17 +30,6 @@ HOSTS
 ```
 
 Each line requests eight processes on that host. Every host's device count must match `-p 8`.
-
-## Check Process Launch
-
-Check MPI launch and result collection before running NPU communication:
-
-```bash
-bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 \
-  --check-topology --output-dir /data/mc2_runs/topology_2x8_01
-```
-
-Use a writable, new output directory. All 16 ranks should succeed with complete result collection. Resolve SSH, MPI, path, or permission failures first. Passing this check does not validate the device communication network.
 
 ## Query Multi-node Candidates
 
@@ -69,7 +60,7 @@ bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 -- \
   --op allreduce -a ccu_sched -b 32K -e 32K --alg 'sole[mesh]'
 ```
 
-The default workflow builds, distributes, and installs operator packages, measures, and aggregates captures from both hosts. Add `--skip-build` before `--` only when matching packages and cached binaries are available for both hosts. Rebuild normally after SDK, source, or measurement-mode changes. The first CCU run also requires its separate package build.
+The default workflow builds, distributes, and installs the package for the selected engine, measures, and aggregates captures from both hosts.
 
 Unmatched algorithm names are skipped. Omit `--alg` to test the candidate union. Do not directly apply this 16-rank example to AllToAllVWrite; check the installed SDK's support conditions first.
 
@@ -84,4 +75,4 @@ The terminal prints the run directory. First verify `Cluster PASS: 16/16 success
 | Package deployment or loading failure on one host | Installation directory permissions, shared libraries, package mode, and build logs |
 | Missing ranks or profiling analysis failure | `cluster_summary.json`, per-rank logs, and `profile_analysis/profiling_audit.json` |
 
-The default execution timeout is 600 seconds. Adjust it with `--timeout` before `--`. On failure, retain the complete run directory and find the first error before retrying.
+On failure, retain the complete run directory and find the first error before retrying.
