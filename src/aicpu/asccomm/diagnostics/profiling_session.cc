@@ -180,7 +180,7 @@ struct Session {
     uint32_t mask = 0;
     uint64_t generation = 0;
     uint64_t group = 0, tag = 0;
-    AsccommProfOpV1 op{};
+    AsccommProfOp op{};
     int error = 0;
     std::unordered_map<uint64_t, Channel> channels;
     std::unordered_map<uint64_t, uint64_t> jettyChannel;
@@ -302,7 +302,7 @@ void Append(MsprofAicpuHcclTaskInfo& record, AscProf::TaskName name, uint32_t sq
     }
 }
 constexpr int PROFILING_INACTIVE = 1;
-int BeginOperation(const AsccommProfOpV1* op)
+int BeginOperation(const AsccommProfOp* op)
 {
     try {
         std::call_once(init, Init);
@@ -348,6 +348,7 @@ int BeginOperation(const AsccommProfOpV1* op)
         state.tag = nameCache.tag;
         state.op.comm = nullptr;
         state.op.op = nullptr;
+        state.op.algorithm = nullptr;
         state.active = true;
         AscProf::enabled = (state.mask & Asc::ProfilingControl::L1) != 0;
         return 0;
@@ -356,25 +357,16 @@ int BeginOperation(const AsccommProfOpV1* op)
     }
 }
 } // namespace
-extern "C" __attribute__((visibility("default"))) int asccomm_prof_begin_v1(const AsccommProfOpV1* op)
+extern "C" __attribute__((visibility("default"))) int asccomm_prof_begin(const AsccommProfOp* op)
 {
-    if (!op || op->size != sizeof(*op) || op->version != 1 || !op->comm || !op->op) {
+    if (!op || op->size != sizeof(*op) || !op->comm || !op->op) {
         return -1;
     }
     const int status = BeginOperation(op);
-    return status == PROFILING_INACTIVE ? 0 : status;
-}
-extern "C" __attribute__((visibility("default"))) int asccomm_prof_begin_v2(const AsccommProfOpV2* op)
-{
-    if (!op || op->base.size != sizeof(*op) || op->base.version != 2 || !op->algorithm || !op->base.comm ||
-        !op->base.op) {
-        return -1;
-    }
-    const int status = BeginOperation(&op->base);
     if (status != 0) {
         return status == PROFILING_INACTIVE ? 0 : status;
     }
-    if (!(session.mask & Asc::ProfilingControl::L0)) {
+    if (!op->algorithm || !(session.mask & Asc::ProfilingControl::L0)) {
         return 0;
     }
     try {
@@ -393,7 +385,7 @@ extern "C" __attribute__((visibility("default"))) int asccomm_prof_begin_v2(cons
         return -6;
     }
 }
-extern "C" __attribute__((visibility("default"))) int asccomm_prof_bind_channel_v1(uint64_t handle, uint32_t peer)
+extern "C" __attribute__((visibility("default"))) int asccomm_prof_bind_channel(uint64_t handle, uint32_t peer)
 {
     if (!AscProf::Enabled()) {
         return 0;
@@ -468,7 +460,7 @@ extern "C" __attribute__((visibility("default"))) int asccomm_prof_bind_channel_
         return -6;
     }
 }
-extern "C" __attribute__((visibility("default"))) int asccomm_prof_end_v1(int)
+extern "C" __attribute__((visibility("default"))) int asccomm_prof_end(int)
 {
     if (!session.active) {
         return 0;
