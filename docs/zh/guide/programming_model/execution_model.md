@@ -193,7 +193,7 @@ Order标志可以指定以下两种完成序：
 
 > [!NOTE]说明
 >
-> 本章节代码以Ain接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。Ain接口的使用方法可参考[《基于Ain的通信算子开发指南》](../communication_op_dev/ain_operator_impl.md)。
+> 本章节代码以AIN接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。AIN接口的使用方法可参考[《基于AIN的通信算子开发指南》](../communication_op_dev/ain_operator_impl.md)。
 
 ### 本端同步
 
@@ -203,25 +203,25 @@ Order标志可以指定以下两种完成序：
 
 ```cpp
 // 初始化UBuf工作区大小：不得小于512B
-constexpr uint32_t HCOMM_BUF_SIZE = 512U;
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
 extern "C" __global__ __aicore__ void local_sync_kernel(
     __gm__ void* team,
-    __gm__ void* dstWin, // 目的对称window
-    __gm__ void* srcWin, // 源对称window
+    __gm__ void* dst_win, // 目的对称window
+    __gm__ void* src_win, // 源对称window
     uint32_t peer)       // 对端Rank ID
 {
-    __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
-    AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
-    AscendC::Ain ain(0);
+    __ubuf__ uint8_t asccomm_ubuf_data[ASCCOMM_BUF_SIZE];
+    asc::ain_descriptor_ubuf asccomm_ubuf{asccomm_ubuf_data, ASCCOMM_BUF_SIZE, 0U};
+    asc::ain ain(0);
 
-    // 单边读（非阻塞）：将对端srcWin偏移0起的4字节数据读入本端dstWin偏移0起的位置。
-    ain.Get(team, peer, dstWin, 0, srcWin, 0, sizeof(uint32_t), hcommUbuf);
+    // 单边读（非阻塞）：将对端src_win偏移0起的4字节数据读入本端dst_win偏移0起的位置。
+    ain.get(team, peer, dst_win, 0, src_win, 0, sizeof(uint32_t), asccomm_ubuf);
     // 本端同步（阻塞）：等待team内所有peer通道上已提交的通信任务完成，确保本次读取已完成。
-    ain.Flush(team);
-    // 本端同步完成，读取结果已写入dstWin注册的本端缓冲区，可安全访问。
-    Process(dstWin);
+    ain.flush(team);
+    // 本端同步完成，读取结果已写入dst_win注册的本端缓冲区，可安全访问。
+    process(dst_win);
 }
 ```
 
@@ -237,31 +237,31 @@ extern "C" __global__ __aicore__ void local_sync_kernel(
 
 ```cpp
 // 初始化UBuf工作区大小：不得小于512B
-constexpr uint32_t HCOMM_BUF_SIZE = 512U;
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
 extern "C" __global__ __aicore__ void p2p_sync_kernel(
     __gm__ void* team,
-    __gm__ void* sendWin,   // 发送数据所在对称window
-    __gm__ void* recvWin,   // 接收数据所在对称window
-    __gm__ void* signalWin, // 同步signal所在对称window
-    uint32_t rankId,        // 本端Rank ID
-    uint64_t signalVal)     // 同步signal初始值
+    __gm__ void* send_win,   // 发送数据所在对称window
+    __gm__ void* recv_win,   // 接收数据所在对称window
+    __gm__ void* signal_win, // 同步signal所在对称window
+    uint32_t rank_id,        // 本端Rank ID
+    uint64_t signal_val)     // 同步signal初始值
 {
-    __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
-    AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
-    AscendC::Ain ain(0);
+    __ubuf__ uint8_t asccomm_ubuf_data[ASCCOMM_BUF_SIZE];
+    asc::ain_descriptor_ubuf asccomm_ubuf{asccomm_ubuf_data, ASCCOMM_BUF_SIZE, 0U};
+    asc::ain ain(0);
 
-    if (rankId == 0) {
-        // Rank 0写任务之后追加一次远端signal原子加操作：对Rank 1的signalWin偏移0处signal计数值加1。
-        ain.Put(team, 1, recvWin, 0, sendWin, 0, sizeof(uint32_t), AscendC::AinSignalInc{signalWin, 0}, hcommUbuf);
+    if (rank_id == 0) {
+        // Rank 0写任务之后追加一次远端signal原子加操作：对Rank 1的signal_win偏移0处signal计数值加1。
+        ain.put(team, 1, recv_win, 0, send_win, 0, sizeof(uint32_t), asc::ain_signal_inc{signal_win, 0}, asccomm_ubuf);
         // 本端同步：等待已提交的写任务完成
-        ain.Flush(team);
-    } else if (rankId == 1) {
+        ain.flush(team);
+    } else if (rank_id == 1) {
         // 点对点同步：Rank 1阻塞等待signal计数值加1，确保Rank 0的数据已完整写入。
-        ain.WaitSignal(team, signalWin, 0, signalVal + 1);
-        // 点对点同步完成，后续Process可安全访问。
-        Process(recvWin);
+        ain.wait_signal(team, signal_win, 0, signal_val + 1);
+        // 点对点同步完成，后续process可安全访问。
+        process(recv_win);
     }
 }
 ```
@@ -274,29 +274,29 @@ extern "C" __global__ __aicore__ void p2p_sync_kernel(
 
 ```cpp
 // 初始化UBuf工作区大小：不得小于512B
-constexpr uint32_t HCOMM_BUF_SIZE = 512U;
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于Ain的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
 extern "C" __global__ __aicore__ void barrier_sync_kernel(
     __gm__ void* team,
-    __gm__ void* sendWin, // 发送数据所在对称window
-    __gm__ void* recvWin) // 接收数据所在对称window
+    __gm__ void* send_win, // 发送数据所在对称window
+    __gm__ void* recv_win) // 接收数据所在对称window
 {
-    __ubuf__ uint8_t hcommLocal[HCOMM_BUF_SIZE];
-    AscendC::AinDescriptorUbuf hcommUbuf{hcommLocal, HCOMM_BUF_SIZE, 0U};
-    AscendC::Ain ain(0);
-    // 创建屏障会话：第3个参数为barrier资源索引，需与Ain构造时的contextIndex（0）保持一致
-    AscendC::AinBarrierSession ainBarrier(&ain, team, 0);
+    __ubuf__ uint8_t asccomm_ubuf_data[ASCCOMM_BUF_SIZE];
+    asc::ain_descriptor_ubuf asccomm_ubuf{asccomm_ubuf_data, ASCCOMM_BUF_SIZE, 0U};
+    asc::ain ain(0);
+    // 创建屏障会话：第3个参数为barrier资源索引，需与AIN构造时的context_index（0）保持一致
+    asc::ain_barrier_session ain_barrier(&ain, team, 0);
     // 预处理发送数据
-    PreProcess(sendWin);
+    pre_process(send_win);
     // 前屏障（阻塞）：阻塞等待直至所有Rank抵达同步点，确保所有Rank的发送数据就绪
-    ainBarrier.Sync(AscendC::AinMemoryOrder::AIN_MEMORY_ORDER_RELAX, hcommUbuf);
+    ain_barrier.sync(asc::AIN_MEMORY_ORDER_RELAX, asccomm_ubuf);
     // 通信组内所有Rank聚合数据
-    AllGather(team, sendWin, recvWin);
+    all_gather(team, send_win, recv_win);
     // 后屏障（阻塞）：阻塞等待直至所有Rank抵达同步点，确保所有Rank聚合数据完成
-    ainBarrier.Sync(AscendC::AinMemoryOrder::AIN_MEMORY_ORDER_RELAX, hcommUbuf);
+    ain_barrier.sync(asc::AIN_MEMORY_ORDER_RELAX, asccomm_ubuf);
     // 后处理发送数据和接收数据
-    PostProcess(sendWin, recvWin);
+    post_process(send_win, recv_win);
 }
 ```
 

@@ -1,0 +1,100 @@
+# commit
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件路径：`"asccomm/asccomm.h"`。
+
+通知指定普通通道上已准备的通信任务可以开始执行。通常在调用普通`read_nbi`、`write_nbi`、`write_value_nbi`、`write_with_notify_nbi`、`write_reduce_nbi`、`atomic_faa_nbi`或`atomic_cas_nbi`时将`commit`设置为`false`后显式调用。
+
+该接口只接受`ChannelHandle`。batch_handle中的任务需要通过[batch_commit](./batch_commit.md)提交。
+
+## 函数原型
+
+```cpp
+template <pipe_t pipe = PIPE_S>
+__aicore__ inline int32_t commit(ChannelHandle channel);
+```
+
+## 参数说明
+
+**表1** 模板参数说明
+
+| 参数名 | 描述 |
+| --- | --- |
+| `pipe` | commit使用的pipe，默认`PIPE_S`。 |
+
+**表2** 接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| `channel` | 输入 | 普通通信通道句柄。 |
+
+## 返回值说明
+
+**表3** 返回值说明
+
+| 返回值 | 说明 |
+| --- | --- |
+| `0` | 提交成功。 |
+
+接口约束不满足时通过调试期断言（Trap）报告错误，不返回错误码。
+
+## 约束说明
+
+- 支持`COMM_PROTOCOL_UB_CTP`与`COMM_PROTOCOL_ROCE`协议。
+- 调用前需要通过`init`为普通接口提供临时工作区。
+- 若`commit`模板参数设为`false`，积攒的延迟提交任务占用的槽位数之和不得超过`sqDepth`；需在SQ耗尽前通过`commit`或自动commit提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
+- 延迟提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录。对于`COMM_PROTOCOL_UB_CTP`任务，`config`是传入各通信接口的任务配置，其`cqe`字段用于控制该任务是否生成完成记录。中间任务的`config.cqe`设为0，最后一个任务设为1。
+- batch_handle中的任务只能通过[batch_commit](./batch_commit.md)提交，不能在同一通道上混用普通`commit`和`batch_commit`。
+
+## 调用示例
+
+commit接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[07_asccomm_roce_normal_write_read](../../../../../examples/aicore/asccomm/07_asccomm_roce_normal_write_read/README.md)。
+
+```cpp
+// 单次通信数据传输大小
+constexpr uint64_t BYTES = 1024U;
+// 初始化UB临时工作区大小：不得小于512字节
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
+
+extern "C" __vector__ __global__ __aicore__ void commit_kernel(
+    uint64_t channel, GM_ADDR local_buffer, GM_ADDR remote_buffer)
+{
+    // 准备UB临时工作区；alignas(32)保证起始地址按32字节对齐
+    alignas(32) __ubuf__ uint8_t asccomm_local[ASCCOMM_BUF_SIZE];
+
+    // 创建asccomm对象并初始化UB临时工作区
+    asc::asccomm<asc::COMM_PROTOCOL_UB_CTP> asccomm;
+    asccomm.init(asccomm_local, ASCCOMM_BUF_SIZE);
+
+    // 提交任务时设置commit = false，只组装任务不立即提交
+    asccomm.write_nbi<false>(channel, remote_buffer, local_buffer, BYTES);
+
+    // 显式提交通道上已积攒的任务
+    asccomm.commit(channel);
+
+    // 阻塞等待已提交任务完成
+    asccomm.drain(channel);
+}
+```

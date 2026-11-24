@@ -1,0 +1,93 @@
+# ain_barrier_session
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件路径：`"ain/ain.h"`。
+
+`asc::ain_barrier_session`是AI Core侧的通信组team内barrier（屏障）同步会话。构造时绑定[ain](./ain.md)实例、通信组team和barrier资源索引；调用[sync](./sync.md)时实现通信组team内的barrier同步。
+
+## 函数原型
+
+```cpp
+template <unsigned comm_engine_mask = AIN_MASK_DEFAULT>
+class ain_barrier_session;
+```
+
+构造函数：
+
+```cpp
+__aicore__ inline ain_barrier_session(
+    asc::ain<comm_engine_mask>* ain,
+    HcommTeamHandle team,
+    uint32_t index);
+```
+
+## 参数说明
+
+**表1** 模板参数说明
+
+| 参数名 | 描述 |
+| --- | --- |
+| `comm_engine_mask` | 通信引擎选择掩码，默认值为`AIN_MASK_DEFAULT`，对应通信引擎为AIV（AI Vector，向量核）。 |
+
+**表2** 接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| `ain` | 输入 | `ain`实例指针。 |
+| `team` | 输入 | 通信组team句柄。 |
+| `index` | 输入 | barrier资源索引，不同索引用于隔离不同barrier会话。 |
+
+## 约束说明
+
+- 调用前Host侧需完成team创建，并准备barrier使用的同步内存。
+- `ain`不能为nullptr；`team`需要是有效的device侧句柄。
+- `index`需要对应可用的barrier资源，不同并发barrier应使用不同`index`隔离。
+- `ain_barrier_session`构造时的`index`必须与入参`ain`的`context_index`保持一致，确保barrier会话使用对应的通信上下文资源。
+- 当前只支持`COMM_PROTOCOL_UB_CTP`协议。
+
+## 调用示例
+
+AinBarrierSession接口的调用示例如下，完整样例参见[01_basic_ring](../../../../../examples/aicore/ain/01_basic_ring/README.md)。
+
+```cpp
+// 初始化UBuf（Unified Buffer，统一缓冲区）工作区大小：不得小于512B
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
+
+extern "C" __vector__ __global__ __aicore__ void ain_barrier_sync_kernel(GM_ADDR team)
+{
+    // 准备UBuf工作区；alignas(32)保证起始地址按32字节对齐
+    alignas(32) __ubuf__ uint8_t asccomm_local[ASCCOMM_BUF_SIZE];
+    ain_descriptor_ubuf ubuf{asccomm_local, ASCCOMM_BUF_SIZE, 0U};
+
+    // Ain和AinBarrierSession的资源索引
+    uint32_t index = 0U;
+    // 创建Ain对象
+    asc::ain ain(index);
+    // 创建AinBarrierSession对象
+    asc::ain_barrier_session barrier_session(&ain, team, index);
+    // 执行team内barrier同步
+    barrier_session.sync(AIN_MEMORY_ORDER_RELAX, ubuf);
+}
+```

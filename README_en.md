@@ -41,6 +41,26 @@ asc-comm is an open-source repository targeting communication scenarios on Huawe
 
 The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`; the Ascend 950 UB_CTP path can also use a BatchHandle to add multiple communication tasks and submit them together through `BatchCommit`. The corresponding `Drain` overload manages completion for each workflow. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
 
+### Layered Architecture
+
+asc-comm follows the communication programming paradigm of "control-plane and data-plane division of labor" and builds a three-layer API system with Ranks, Channels, and underlying resources as the core communication objects. Developers can flexibly choose development interfaces based on service scenarios, networking conditions, and performance targets.
+
+asc-comm has three programming layers from top to bottom: Rank-oriented programming, Channel-oriented programming, and low-level resource-oriented programming:
+
+- **Rank-oriented programming (AIN, collective communication APIs)**: Takes communication entities (Ranks) as the core communication objects and provides two programming entries, one-sided communication and collective communication:
+  - **AIN one-sided communication**: Built on symmetric windows and communication teams, automatically resolves communication channels and communication memory addresses based on the peer Rank ID, and provides remote read/write, local synchronization, point-to-point synchronization, and barrier synchronization capabilities. Currently, only the AIV engine with direct-drive URMA is supported.
+  - **Collective communication APIs**: Provides collective communication APIs such as AllGather, AllReduce, ReduceScatter, AlltoAll, and AlltoAllV, covering general collective communication scenarios.
+- **Channel-oriented programming (CommRW)**: Takes communication channels (Channels) as the core communication objects and provides programming interfaces with unified semantics: CommRW communication primitives with unified semantics, covering remote read/write, notification synchronization, atomic operations, batch submission, completion waiting, and asynchronous execution. Currently covers the AIV and AI CPU+TS engines: the AIV engine provides C++ interfaces supporting both SIMD and SIMT programming models, and the AI CPU+TS engine provides C interfaces.
+- **Low-level resource-oriented programming (Jetty)**: Opens up lower-level hardware capabilities for more flexible control than the unified-semantics interfaces: the low-level interfaces open up control over queues, resources, and execution flows, allowing scenario-specific customization of communication behaviors to fully unleash the hardware communication potential.
+
+The dataplane interface positioning of each communication engine is as follows:
+
+| Engine | Language | Key Features | Key Value |
+|---------|----------|----------|----------|
+| **AIV engine** | C++ | Provides CommRW point-to-point communication primitives, covering remote read/write, multi-SGE scattered read/write, remote write-with-reduce, atomic operations, notification synchronization, and batch submission, with both SIMD and SIMT programming models; provides AIN one-sided communication interfaces built on symmetric windows and communication teams, covering remote read/write and signal synchronization. | Short initiation path and low latency; autonomous control over task submission and completion waiting; supports fine-grained parallel orchestration of communication and computation. |
+| **AI CPU+TS engine** | C | Provides CommRW point-to-point communication primitives, covering local/remote read/write and reduce, notification synchronization, barriers, and batch transfer. | Communication does not occupy compute cores, suitable for high-bandwidth large-data scenarios; complements AIV direct drive and the CCU path. |
+| **CCU engine** | C++ | Provides resource abstractions such as variables, events, addresses, and buffers, together with data movement, reduction, synchronization, and flow control primitives, which are compiled and translated for execution by CCU hardware. | Communication and computation are fused on the CCU, reducing memory-access bandwidth and compute core usage; supports high-bandwidth, low-latency communication scenarios. |
+
 ### Delivery and Build Method
 
 The asc-comm data plane artifacts are jointly compiled and delivered through the asc-devkit run package. This repository becomes a build subproject of asc-devkit through build hooking (the source repositories are independent and placed at the same level). Compilation does not depend on the hcomm source tree or installed hcomm headers. Cross-SO ABI headers are preserved as-is under `include/hcomm`. This repository also provides a development header hotfix package (`build.sh --pkg`, aicore headers only, without SO).

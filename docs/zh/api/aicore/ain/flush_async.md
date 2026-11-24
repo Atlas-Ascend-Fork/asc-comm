@@ -1,0 +1,93 @@
+# flush_async
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件路径：`"ain/ain.h"`。
+
+获取指定对端rank ID对应的通信通道句柄，用于后续调用`wait`等待该通道上的通信任务完成。
+
+`flush_async`本身不阻塞等待通信任务完成，只根据`team`、`peer`和`ain`实例的`context_index`解析通道句柄并写入`out_channel_handle`。
+
+## 函数原型
+
+```cpp
+__aicore__ inline void flush_async(
+    HcommTeamHandle team,
+    uint32_t peer,
+    ChannelHandle* out_channel_handle);
+```
+
+## 参数说明
+
+**表1** 接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| `team` | 输入 | 通信组team句柄。 |
+| `peer` | 输入 | team内的对端rank ID。 |
+| `out_channel_handle` | 输出 | 返回解析出的通信通道句柄。 |
+
+## 返回值说明
+
+无返回值。
+
+## 约束说明
+
+- 调用前Host侧需完成team创建。
+- `team`需要是有效的device侧句柄；`peer`需要是team内有效rank ID。
+- `out_channel_handle`需要指向有效可写地址。
+- `flush_async`不会等待任务完成，调用方需要继续调用[wait](./wait.md)等待`out_channel_handle`对应通道上的任务完成。
+- 当前只支持`COMM_PROTOCOL_UB_CTP`协议。
+
+## 调用示例
+
+FlushAsync接口的调用示例如下。
+
+```cpp
+// 单次通信数据传输大小
+constexpr uint64_t BYTES = 1024U;
+// 初始化UBuf（Unified Buffer，统一缓冲区）工作区大小：不得小于512B
+constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
+
+extern "C" __vector__ __global__ __aicore__ void ain_flush_async_kernel(
+    GM_ADDR team, GM_ADDR dst_win, GM_ADDR src_win,
+    uint32_t rank_num, uint32_t rank_id)
+{
+    // 准备UBuf工作区；alignas(32)保证起始地址按32字节对齐
+    alignas(32) __ubuf__ uint8_t asccomm_local[ASCCOMM_BUF_SIZE];
+    ain_descriptor_ubuf ubuf{asccomm_local, ASCCOMM_BUF_SIZE, 0U};
+    // 创建Ain对象
+    asc::ain ain;
+    // 对端rank_id
+    uint32_t peer = (rank_id + 1) % rank_num;
+    // 提交单边写任务
+    ain.put(team, peer, dst_win, rank_id * BYTES, src_win, 0U, BYTES,
+            ain_remote_none{}, ubuf);
+    ChannelHandle channel_handle{0U};
+    // 获取指定对端rank ID对应的通信通道句柄
+    ain.flush_async(team, peer, &channel_handle);
+    // 等待该通道上的通信任务完成
+    ain.wait(channel_handle);
+}
+```

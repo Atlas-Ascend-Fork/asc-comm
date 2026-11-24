@@ -1,0 +1,66 @@
+# init
+
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
+## 功能说明
+
+头文件路径：`"asccomm/asccomm_simt.h"`。
+
+初始化接口。`COMM_PROTOCOL_UB_CTP`协议下SIMT接口不需要临时工作区，`buff`传入`nullptr`、`len`传入0即可。
+
+## 函数原型
+
+```cpp
+__simt_callee__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
+```
+
+## 参数说明
+
+**表1** 接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| `buff` | 输入 | 临时工作区指针。`COMM_PROTOCOL_UB_CTP`协议下传入`nullptr`。 |
+| `len` | 输入 | 临时工作区长度，单位为字节。`COMM_PROTOCOL_UB_CTP`协议下传入0。 |
+
+## 返回值说明
+
+**表2** 返回值说明
+
+| 返回值 | 说明 |
+| --- | --- |
+| `0` | 初始化成功。 |
+| `-1` | 初始化失败。 |
+
+## 约束说明
+
+- 提交通信任务前需要完成初始化。
+- Group批量协作使用的共享UB（Unified Buffer，统一缓冲区）工作区通过[make_batch_handle](./simt_make_batch_handle.md)的`buff`参数传入，不通过本接口传入。
+
+## 调用示例
+
+init接口的调用示例如下。为聚焦调用流程，示例省略返回值检查与错误处理，完整样例参见[04_simt_asccomm_urma](../../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md)。
+
+```cpp
+asc::simt::asccomm<> asccomm;
+asccomm.init(nullptr, 0);
+```
