@@ -4,26 +4,26 @@
 
 运行CCU程序需要：
 
-1. 已安装的开发环境，能够找到`ccuc`、`ccu_runtime.h`、`ccu_intrinsics.h`和
-   `libccu_runtime.so`。
-2. 与目标设备匹配的CANN/HCOMM部署包。
-3. 可用的设备、通信域和stream。
+1. 安装与目标设备匹配的CANN包，并加载CANN环境。
+2. 确认`ccuc`命令可用，且CCU编译所需的头文件和运行时库已随CANN环境安装。
+3. 准备可用的设备和通信域。多rank样例需要对应数量的可见设备。
 
 ## 第一个kernel
 
-以下示例声明kernel仅支持`rankSize`为2的通信域。示例使用变量、令牌、地址和事件资源，
-分别见[变量](../api/resource_allocation_operation/variable.md)、[令牌](../api/host/instance.md)、[地址](../api/resource_allocation_operation/address.md)和[事件](../api/resource_allocation_operation/event.md)。
+以下片段声明kernel仅支持`rankSize`为2的通信域，并将输入拷贝到输出。完整的Host控制面
+和运行脚本见下方单文件样例。
 
 ```cpp
 __ccu_rank_sizes__(2)
-__global__ __ccu__ void copy_kernel(__ccu_var_t input,
-                                    __ccu_var_t output,
+__global__ __ccu__ void copy_kernel(__ccu_var_t input_address,
+                                    __ccu_var_t output_address,
                                     __ccu_token_t token,
                                     __ccu_var_t bytes) {
   __ccu_event_t done;
-  __ccu_local_copy_nb(__ccu_addr(output, token),
-                      __ccu_addr(input, token), bytes, done, 1);
-  __ccu_event_wait(done, 1);
+  __ccu_addr_t input = __ccu_addr(input_address, token);
+  __ccu_addr_t output = __ccu_addr(output_address, token);
+  __ccu_local_copy_nb(output, input, bytes, done);
+  __ccu_event_wait(done);
 }
 ```
 
@@ -36,42 +36,20 @@ Host侧需要完成以下步骤：
 5. 调用`ccu_synchronize`设置有限超时时间，检查结果。
 6. 逆序释放设备内存、stream和通信域。
 
-## 编译
+## 编译和运行
 
-以`copy_kernel.cc`和`copy_host.cc`为例，kernel源文件由`ccuc`编译，Host源文件使用
-g++编译，最后链接为可执行程序。路径按实际开发环境调整：
+将Host代码和上述kernel写在同一个`copy.cc`中，并在Host代码里完成通信域、内存、
+instance和stream的准备，以及kernel启动与结果检查。上面的kernel片段不能单独运行。
+使用`ccuc`编译并链接该文件：
 
 ```bash
-ccuc -std=c++17 \
-  -I"${CCUC_HOME}/include" \
-  -I"${ASCEND_HOME_PATH}/include" \
-  -I"${ASCEND_HOME_PATH}/include/ccu" \
-  -I"${ASCEND_HOME_PATH}/include/hcomm" \
-  -I"${ASCEND_HOME_PATH}/include/hcomm/ccu" \
-  -I"${ASCEND_HOME_PATH}/include/hccl" \
-  -c copy_kernel.cc -o copy_kernel.o
-g++ -std=c++17 \
-  -I"${CCUC_HOME}/include" \
-  -I"${ASCEND_HOME_PATH}/include" \
-  -I"${ASCEND_HOME_PATH}/include/ccu" \
-  -I"${ASCEND_HOME_PATH}/include/hcomm" \
-  -I"${ASCEND_HOME_PATH}/include/hcomm/ccu" \
-  -I"${ASCEND_HOME_PATH}/include/hccl" \
-  -c copy_host.cc -o copy_host.o
-g++ copy_host.o copy_kernel.o \
-  -L"${CCUC_RUNTIME_DIR}" \
-  -L"${ASCEND_HOME_PATH}/lib64" \
-  -lccu_runtime -lhcomm -lascendcl -lc_sec -pthread \
-  -Wl,-rpath,"${CCUC_RUNTIME_DIR}" \
-  -Wl,-rpath,"${ASCEND_HOME_PATH}/lib64" \
-  -o copy
+source /实际安装路径/cann/set_env.sh
+ccuc -std=c++17 copy.cc -o copy
 ```
 
-| 环境变量 | 说明 |
-| --- | --- |
-| `CCUC_HOME` | CCU开发环境目录，`include`目录位于该路径下 |
-| `CCUC_RUNTIME_DIR` | `libccu_runtime.so`所在目录 |
-| `ASCEND_HOME_PATH` | CANN安装目录 |
+生成的`copy`按Host代码定义的参数启动；多rank程序须为每个rank准备对应进程和设备。
+编译命令无需另行指定CCU头文件目录或手写CCU运行时链接参数。分文件编译见
+[编译接口](../api/compiler.md)。
 
 ## 运行前检查
 

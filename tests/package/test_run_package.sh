@@ -38,10 +38,12 @@ trap cleanup_test_root EXIT
 
 if [[ $(id -u) -eq 0 ]]; then
     EXPECTED_FILE_MODE=555
+    EXPECTED_ARCHIVE_MODE=444
     EXPECTED_HCOMM_DIR_MODE=755
     EXPECTED_COMM_API_DIR_MODE=555
 else
     EXPECTED_FILE_MODE=550
+    EXPECTED_ARCHIVE_MODE=440
     EXPECTED_HCOMM_DIR_MODE=750
     EXPECTED_COMM_API_DIR_MODE=550
 fi
@@ -202,7 +204,7 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu/asccomm" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_ccu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_cpu.so" ]]
-[[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.so" ]]
+[[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.a" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
 if [[ -e "${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}" ]]; then
     [[ -f "${AICPU_LIBRARY}" ]]
@@ -279,7 +281,11 @@ run_package --full --install-path="${FAKE_CANN}"
 
 while read -r _ path; do
     cmp "${EXTRACT_DIR}/payload/${path}" "${FAKE_CANN}/${path}"
-    [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "${EXPECTED_FILE_MODE}" ]]
+    expected_mode=${EXPECTED_FILE_MODE}
+    if [[ "${path}" == lib64/libccu_runtime.a ]]; then
+        expected_mode=${EXPECTED_ARCHIVE_MODE}
+    fi
+    [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "${expected_mode}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/asccomm/common")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
@@ -294,7 +300,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm")" == "../../adv_api/hcomm" ]]
 [[ ! -e "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
-[[ -f "${FAKE_CANN}/lib64/libccu_runtime.so" ]]
+[[ -f "${FAKE_CANN}/lib64/libccu_runtime.a" ]]
 [[ -f "${FAKE_CANN}/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/cmake/asccomm-config.cmake" ]]
@@ -408,7 +414,11 @@ chmod 755 "${INSTALL_FOR_ALL_CANN}"
 write_dependency_versions "${INSTALL_FOR_ALL_CANN}"
 run_package --full --install-for-all --install-path="${INSTALL_FOR_ALL_CANN}"
 while read -r _ path; do
-    [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/${path}")" == "555" ]]
+    expected_mode=555
+    if [[ "${path}" == lib64/libccu_runtime.a ]]; then
+        expected_mode=444
+    fi
+    [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/${path}")" == "${expected_mode}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/adv_api/hcomm")" == "755" ]]
 [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/comm_api")" == "555" ]]

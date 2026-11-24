@@ -72,12 +72,6 @@ typedef enum ccu_status_t {
     CCU_STATUS_CONTEXT_POISONED = 11
 } ccu_status_t;
 
-typedef struct ccu_buffer_view_t {
-    uint64_t address;
-    uint64_t size;
-    uint64_t token;
-} ccu_buffer_view_t;
-
 /* Synchronize the mission submitted for this HComm instance on stream. */
 ccu_status_t ccu_synchronize(ccu_instance_t instance, void* stream, uint64_t timeout_ms);
 

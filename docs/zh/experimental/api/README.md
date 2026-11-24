@@ -38,19 +38,7 @@ CCU API分为Host控制面和CCU kernel数据面两类。控制面负责通信�
 
 ## 头文件
 
-Host侧使用`<ccu_runtime.h>`：
-
-```cpp
-#include <ccu_runtime.h>
-```
-
-CCU kernel侧使用`<ccu_intrinsics.h>`：
-
-```cpp
-#include <ccu_intrinsics.h>
-```
-
-以上头文件随CCU开发环境发布，安装后位于`tools/ccuc/include`目录。
+Host侧声明位于`ccu_runtime.h`；CCU kernel侧声明位于`ccu_intrinsics.h`。以上头文件随CCU开发环境发布，安装后位于`tools/ccuc/include`目录。使用`ccuc`编译时可省略显式包含。
 
 ## 版本与容量
 

@@ -19,8 +19,8 @@ Host侧需要：
 7. 将输出从设备内存复制回Host并按rank顺序校验。
 
 AllGather的rank特例化由[`__ccu_rank_sizes__`](../api/compiler.md#声明ranksize特例化)声明，Host只需传入当前通信域的rankSize。示例中，
-`input`和`output`为Host侧准备好的`ccu_buffer_view_t`，`slice_bytes`表示每个rank
-输入数据的字节数：
+`input_address`、`output_address`和`token`由Host从通信内存管理接口获取，
+`slice_bytes`表示每个rank输入数据的字节数：
 
 ```cpp
 HcomCcuSchd schd = {};
@@ -30,7 +30,7 @@ schd.rankId = rank;
 schd.rankSize = rankSize;
 
 status = allgather_kernel<<<schd, instance, stream>>>(
-    input.address, output.address, input.token, slice_bytes);
+    input_address, output_address, token, slice_bytes);
 if (status == CCU_STATUS_SUCCESS)
   status = ccu_synchronize(instance, stream, 30000);
 ```

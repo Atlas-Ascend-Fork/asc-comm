@@ -123,7 +123,7 @@ schd.rankSize = world;
 
 // 2. 异步启动 kernel。
 ccu_status_t status = my_kernel<<<schd, instance, stream>>>(
-    input.address, output.address, input.token, bytes);
+    input_address, output_address, input_token, bytes);
 
 // 3. 启动成功后，在stream上等待完成。
 if (status == CCU_STATUS_SUCCESS)

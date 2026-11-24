@@ -148,7 +148,7 @@ find_ccu_libraries()
 {
     local build_dir="${PROJECT_ROOT}/build/package-ccu"
     local library="${build_dir}/libasccomm_ccu.so"
-    local runtime_library="${build_dir}/src/ccu/experimental/libccu_runtime.so"
+    local runtime_library="${build_dir}/src/ccu/experimental/libccu_runtime.a"
 
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
@@ -287,7 +287,7 @@ write_manifest()
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
         done < <(find "${roots[@]}" -type f \
-            \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' -o -name '*.cmake' -o -name '*.tar.gz' \) -print0 | sort -z)
+            \( -name '*.h' -o -name '*.hpp' -o -name '*.so' -o -name '*.so.*' -o -name '*.a' -o -name '*.cmake' -o -name '*.tar.gz' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -398,8 +398,8 @@ build_package()
         "${STAGING_DIR}/payload/lib64/libasccomm_ccu.so"
     install -D -m 550 "${CPU_TS_LIBRARY}" \
         "${STAGING_DIR}/payload/lib64/libasccomm_cpu.so"
-    install -D -m 550 "${CCU_RUNTIME_LIBRARY}" \
-        "${STAGING_DIR}/payload/lib64/libccu_runtime.so"
+    install -D -m 440 "${CCU_RUNTIME_LIBRARY}" \
+        "${STAGING_DIR}/payload/lib64/libccu_runtime.a"
     install -D -m 550 "${PROJECT_ROOT}/cmake/asccomm-config.cmake" \
         "${STAGING_DIR}/payload/lib64/cmake/asccomm-config.cmake"
     if [[ -n "${AICPU_LIBRARY}" ]]; then

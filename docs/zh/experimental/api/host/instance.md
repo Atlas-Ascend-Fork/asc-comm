@@ -23,8 +23,7 @@
 
 ## 功能说明
 
-描述CCU运行时使用的实例对象（`ccu_instance_t`）和内存描述（`ccu_buffer_view_t`）。
-`ccu_buffer_view_t`用于在Host侧向kernel任务传递通信内存的地址（address）、大小（size）和令牌（token）。
+描述CCU运行时使用的实例对象（`ccu_instance_t`）。
 
 ## Instance
 
@@ -42,18 +41,6 @@ if (instance == 0) {
   // 获取失败，按应用错误处理流程释放已创建的资源。
 }
 ```
-
-## 内存描述
-
-```cpp
-typedef struct ccu_buffer_view_t {
-  uint64_t address;
-  uint64_t size;
-  uint64_t token;
-} ccu_buffer_view_t;
-```
-
-`address`、`size`和`token`必须来自同一段通信内存。
 
 ## 约束说明
 

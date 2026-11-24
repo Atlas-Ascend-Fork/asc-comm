@@ -19,8 +19,8 @@
 
 ## 适用范围
 
-- Host控制面使用`<ccu_runtime.h>`。
-- CCU数据面使用`<ccu_intrinsics.h>`和`ccuc`编译器。
+- Host控制面与CCU数据面均由`ccuc`编译；源码可分别包含`<ccu_runtime.h>`和
+  `<ccu_intrinsics.h>`，可省略显式包含。
 - 通信域、通信channel、通信Buffer和内存token由HCOMM接口管理。
 - CCU位于一个设备的IO Die上，不能跨Die使用另一个IO Die的网络设备进行通信。
 - 当前单个Die仅支持一个任务，kernel启动时`HcomCcuSchd.missionNum`仅支持1。
