@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_AIV_URMA_JETTY_H
-#define IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_AIV_URMA_JETTY_H
+#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_AIV_URMA_WORK_QUEUE_H
+#define IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_AIV_URMA_WORK_QUEUE_H
 
 // Requires CANN 9.2.0 or later (excluding 9.2.0 beta releases):
 // c_api/utils/sys_var.h and ReadGmBypassDCache/WriteGmBypassDCache are SDK dependencies.
@@ -41,40 +41,40 @@ __aicore__ inline uint32_t asccomm_jetty_pack_sqe_flag(const config_type& config
            ((config.cqe & 0x1U) << 5U) | ((asccomm_config_inline_en(config) & 0x1U) << 6U);
 }
 
-__aicore__ inline asccomm_peer::asccomm_peer(
-    __ubuf__ asccomm_jetty_peer_info* peer_info, GM_ADDR jetty_table, uint32_t jetty_idx)
-    : peer_info(peer_info)
+__aicore__ inline asccomm_peer<COMM_PROTOCOL_UB_CTP>::asccomm_peer(
+    __ubuf__ asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>* entity, GM_ADDR channels, uint32_t channel_idx)
+    : entity(entity)
 {
-    ASCCOMM_DEBUG_TRAP_IF(peer_info == nullptr || jetty_table == nullptr, "peer_info or jetty_table is nullptr\n");
-    auto* table = reinterpret_cast<__gm__ uint64_t*>(jetty_table);
-    uint64_t jetty_value = ReadGmByPassDCache(table + jetty_idx);
-    ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "jetty_table[%u] is 0\n", jetty_idx);
+    ASCCOMM_DEBUG_TRAP_IF(entity == nullptr || channels == nullptr, "entity or channels is nullptr\n");
+    auto* table = reinterpret_cast<__gm__ uint64_t*>(channels);
+    uint64_t jetty_value = ReadGmByPassDCache(table + channel_idx);
+    ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "channels[%u] is 0\n", channel_idx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
     ASCCOMM_DEBUG_TRAP_IF(
         jetty->remoteBufferNum == 0U || jetty->remoteBufferAddr == nullptr || jetty->sqContextAddr == nullptr,
         "jetty info is nullptr\n");
     // The last registered buffer carries the shared remote token metadata.
     auto* remote_buffer = jetty->remoteBufferAddr + (jetty->remoteBufferNum - 1U);
-    peer_info->remote_token_value_udf = remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    entity->remote_token_value_udf = remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     auto* sq_context = jetty->sqContextAddr + ASCCOMM_URMA_DEFAULT_QP_IDX;
     // tpId occupies bits [23:0] and remoteTokenId bits [51:32]; numSges is OR-ed in per post.
-    peer_info->tp_id_num_sges_remote_token_id =
+    entity->tp_id_num_sges_remote_token_id =
         static_cast<uint64_t>(sq_context->contextInfo.ubJfs.tpID) |
         (static_cast<uint64_t>(remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
     auto* remote_eid = reinterpret_cast<const uint32_t*>(sq_context->contextInfo.ubJfs.remoteEID);
-    peer_info->remote_eid[0] = static_cast<uint64_t>(remote_eid[0]) | (static_cast<uint64_t>(remote_eid[1]) << 32U);
-    peer_info->remote_eid[1] = static_cast<uint64_t>(remote_eid[2]) | (static_cast<uint64_t>(remote_eid[3]) << 32U);
+    entity->remote_eid[0] = static_cast<uint64_t>(remote_eid[0]) | (static_cast<uint64_t>(remote_eid[1]) << 32U);
+    entity->remote_eid[1] = static_cast<uint64_t>(remote_eid[2]) | (static_cast<uint64_t>(remote_eid[3]) << 32U);
     valid = true;
 }
 
-__aicore__ inline asccomm_jetty_impl::asccomm_jetty_impl(
-    __ubuf__ asccomm_jetty_info* jetty_info, __ubuf__ uint8_t* ubuf_sqe, GM_ADDR jetty_table, uint32_t jetty_idx)
-    : jetty_info(jetty_info), ubuf_sqe(ubuf_sqe)
+__aicore__ inline asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::asccomm_work_queue_impl(
+    __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, GM_ADDR channels, uint32_t channel_idx)
+    : jetty_info(wq_buff), ubuf_wqe(wqe_buff)
 {
-    ASCCOMM_DEBUG_TRAP_IF(jetty_info == nullptr || jetty_table == nullptr, "jetty_info or jetty_table is nullptr\n");
-    auto* table = reinterpret_cast<__gm__ uint64_t*>(jetty_table);
-    uint64_t jetty_value = ReadGmByPassDCache(table + jetty_idx);
-    ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "jetty_table[%u] is 0\n", jetty_idx);
+    ASCCOMM_DEBUG_TRAP_IF(wq_buff == nullptr || channels == nullptr, "wq_buff or channels is nullptr\n");
+    auto* table = reinterpret_cast<__gm__ uint64_t*>(channels);
+    uint64_t jetty_value = ReadGmByPassDCache(table + channel_idx);
+    ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "channels[%u] is 0\n", channel_idx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
     ASCCOMM_DEBUG_TRAP_IF(
         jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr, "jetty info is nullptr\n");
@@ -96,13 +96,13 @@ __aicore__ inline asccomm_jetty_impl::asccomm_jetty_impl(
 }
 
 template <asccomm_urma_op_code op_code, auto const& config>
-__aicore__ inline void asccomm_jetty_impl::fill_write_sqe_header(
-    const asccomm_peer& peer, GM_ADDR dst_addr, uint32_t inline_msg_len, uint32_t sge_num)
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::fill_write_sqe_header(
+    const asccomm_peer<COMM_PROTOCOL_UB_CTP>& peer, GM_ADDR dst_addr, uint32_t inline_msg_len, uint32_t sge_num)
 {
-    auto* info = peer.peer_info;
+    auto* info = peer.entity;
     const uint32_t owner = (static_cast<uint32_t>(jetty_info->packed_head) & jetty_info->sq_depth) == 0U ? 1U : 0U;
     // Fill asccomm_urma_sqe_ctx with one 64-bit store per word: word0/1 pack the bitfields, word5 is rmtAddr.
-    __ubuf__ uint64_t* sqe_words = reinterpret_cast<__ubuf__ uint64_t*>(ubuf_sqe);
+    __ubuf__ uint64_t* sqe_words = reinterpret_cast<__ubuf__ uint64_t*>(ubuf_wqe);
     sqe_words[0] = (static_cast<uint64_t>(asccomm_jetty_pack_sqe_flag(config) & 0xFFU) << 16U) | (1U << 28U) |
                    (1U << 29U) | (static_cast<uint64_t>(owner) << 31U) | (static_cast<uint64_t>(op_code) << 40U) |
                    (static_cast<uint64_t>(inline_msg_len) << 54U);
@@ -116,18 +116,18 @@ __aicore__ inline void asccomm_jetty_impl::fill_write_sqe_header(
 }
 
 template <bool with_notify>
-__aicore__ inline void asccomm_jetty_impl::build_write_sqe(
-    const asccomm_peer& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes, GM_ADDR notify_addr,
-    uint64_t notify_value)
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::build_write_sqe(
+    const asccomm_peer<COMM_PROTOCOL_UB_CTP>& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes,
+    GM_ADDR notify_addr, uint64_t notify_value)
 {
     constexpr asccomm_urma_op_code op_code =
         with_notify ? asccomm_urma_op_code::WRITE_WITH_NOTIFY : asccomm_urma_op_code::WRITE;
     fill_write_sqe_header<op_code, URMA_DEFAULT_CFG>(peer, dst_addr, 0U, 1U);
-    __ubuf__ uint64_t* sge_words = reinterpret_cast<__ubuf__ uint64_t*>(ubuf_sqe + sizeof(asccomm_urma_sqe_ctx));
+    __ubuf__ uint64_t* sge_words = reinterpret_cast<__ubuf__ uint64_t*>(ubuf_wqe + sizeof(asccomm_urma_sqe_ctx));
     if constexpr (with_notify) {
         // Fill asccomm_urma_notify_ctx with one 64-bit store per word: word1 is notify_addr, word2 is notifyData.
-        sge_words[0] = ((peer.peer_info->tp_id_num_sges_remote_token_id >> 32U) & 0xFFFFFU) |
-                       ((peer.peer_info->remote_token_value_udf & 0xFFFFFFFFULL) << 32U);
+        sge_words[0] = ((peer.entity->tp_id_num_sges_remote_token_id >> 32U) & 0xFFFFFU) |
+                       ((peer.entity->remote_token_value_udf & 0xFFFFFFFFULL) << 32U);
         sge_words[1] = reinterpret_cast<uint64_t>(notify_addr);
         sge_words[2] = notify_value;
         sge_words[3] = 0U;
@@ -139,14 +139,16 @@ __aicore__ inline void asccomm_jetty_impl::build_write_sqe(
 }
 
 template <typename T>
-__aicore__ inline void asccomm_jetty_impl::build_write_value_sqe(const asccomm_peer& peer, GM_ADDR dst_addr, T value)
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::build_write_value_sqe(
+    const asccomm_peer<COMM_PROTOCOL_UB_CTP>& peer, GM_ADDR dst_addr, T value)
 {
     fill_write_sqe_header<asccomm_urma_op_code::WRITE, URMA_INLINE_CFG>(
         peer, dst_addr, static_cast<uint32_t>(sizeof(T)), 0U);
-    *reinterpret_cast<__ubuf__ T*>(ubuf_sqe + sizeof(asccomm_urma_sqe_ctx)) = value;
+    *reinterpret_cast<__ubuf__ T*>(ubuf_wqe + sizeof(asccomm_urma_sqe_ctx)) = value;
 }
 
-__aicore__ inline void asccomm_jetty_impl::copy_wqe_to_sq(uint32_t current_head, uint32_t num_wqebbs)
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::copy_wqe_to_sq(
+    uint32_t current_head, uint32_t num_wqebbs)
 {
     uint32_t sq_idx = current_head & (jetty_info->sq_depth - 1U);
     uint32_t first = num_wqebbs < jetty_info->sq_depth - sq_idx ? num_wqebbs : jetty_info->sq_depth - sq_idx;
@@ -155,17 +157,17 @@ __aicore__ inline void asccomm_jetty_impl::copy_wqe_to_sq(uint32_t current_head,
     asc_copy_ub2gm_align(
         reinterpret_cast<__gm__ uint8_t*>(
             jetty_info->sq_base_addr + static_cast<uint64_t>(jetty_info->num_wqebb_bytes) * sq_idx),
-        ubuf_sqe, 1, jetty_info->num_wqebb_bytes * first, asc_store_l2_cache_mode::NOTALLOC_CLEAN, 0, 0);
+        ubuf_wqe, 1, jetty_info->num_wqebb_bytes * first, asc_store_l2_cache_mode::NOTALLOC_CLEAN, 0, 0);
     if (first < num_wqebbs) {
         asc_copy_ub2gm_align(
-            reinterpret_cast<__gm__ uint8_t*>(jetty_info->sq_base_addr), ubuf_sqe + jetty_info->num_wqebb_bytes * first,
+            reinterpret_cast<__gm__ uint8_t*>(jetty_info->sq_base_addr), ubuf_wqe + jetty_info->num_wqebb_bytes * first,
             1, jetty_info->num_wqebb_bytes * (num_wqebbs - first), asc_store_l2_cache_mode::NOTALLOC_CLEAN, 0, 0);
     }
     asc_sync_notify(PIPE_MTE3, PIPE_S, EVENT_ID0);
     asc_sync_wait(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
-__aicore__ inline void asccomm_jetty_impl::asccomm_jetty_advance_sq(uint32_t num_wqebbs)
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::advance_sq(uint32_t num_wqebbs)
 {
     // packed_head keeps the head in its low 32 bits and the expected CQE count in the high 32.
     // The two counters wrap independently, so they cannot be advanced with one 64-bit add: a
@@ -177,7 +179,7 @@ __aicore__ inline void asccomm_jetty_impl::asccomm_jetty_advance_sq(uint32_t num
     asc_sync_data_barrier(mem_dsb_t::DSB_DDR);
 }
 
-__aicore__ inline void asccomm_jetty_impl::asccomm_jetty_ring_doorbell()
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::ring_doorbell()
 {
     // The doorbell only takes the head, which lives in the low 32 bits of packed_head.
     WriteGmByPassDCache(
@@ -186,7 +188,7 @@ __aicore__ inline void asccomm_jetty_impl::asccomm_jetty_ring_doorbell()
 }
 
 template <int64_t timeout_cycles>
-__aicore__ inline void asccomm_jetty_impl::poll_cq_when_sq_overflow()
+__aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_when_sq_overflow()
 {
     // Poll once the outstanding CQEs (expected minus completed) come within the threshold of
     // cq_depth. Use >= instead of ==: multiple WQEs may be posted between two checks, so the
@@ -201,7 +203,7 @@ __aicore__ inline void asccomm_jetty_impl::poll_cq_when_sq_overflow()
 }
 
 template <int64_t timeout_cycles>
-__aicore__ inline int32_t asccomm_jetty_impl::poll_cq(uint32_t expected_tail)
+__aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq(uint32_t expected_tail)
 {
     uint32_t current_tail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr));
     while (current_tail != expected_tail) {
@@ -218,7 +220,7 @@ __aicore__ inline int32_t asccomm_jetty_impl::poll_cq(uint32_t expected_tail)
             }
             if (static_cast<uint64_t>(asc_get_system_cycle()) - start >= static_cast<uint64_t>(timeout_cycles)) {
                 ASCCOMM_KERNEL_LOG(
-                    KERNEL_ERROR, "asccomm_jetty poll_cq timeout, cqTail=%u, expectedTail=%u, cqe phase=%u\n",
+                    KERNEL_ERROR, "asccomm_work_queue poll_cq timeout, cqTail=%u, expectedTail=%u, cqe phase=%u\n",
                     current_tail, expected_tail, phase);
                 trap();
             }
@@ -239,48 +241,49 @@ __aicore__ inline int32_t asccomm_jetty_impl::poll_cq(uint32_t expected_tail)
     return ASCCOMM_SUCCESS;
 }
 
-__aicore__ inline bool asccomm_jetty_impl::ready()
+__aicore__ inline bool asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::ready()
 {
-    return valid && jetty_info != nullptr && ubuf_sqe != nullptr && jetty_info->sq_depth != 0U &&
+    return valid && jetty_info != nullptr && ubuf_wqe != nullptr && jetty_info->sq_depth != 0U &&
            jetty_info->cq_depth != 0U;
 }
 
 template <int64_t timeout_cycles, bool do_commit>
-__aicore__ inline int32_t asccomm_jetty_impl::post_sqe(uint32_t num_wqebbs)
+__aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::post_sqe(uint32_t num_wqebbs)
 {
     uint32_t head = static_cast<uint32_t>(jetty_info->packed_head);
     poll_cq_when_sq_overflow<timeout_cycles>();
-    asccomm_jetty_advance_sq(num_wqebbs);
+    advance_sq(num_wqebbs);
     copy_wqe_to_sq(head, num_wqebbs);
     if constexpr (do_commit) {
-        asccomm_jetty_ring_doorbell();
+        ring_doorbell();
     }
     return ASCCOMM_SUCCESS;
 }
 
 template <int64_t timeout_cycles, bool with_notify, bool do_commit>
-__aicore__ inline int32_t asccomm_jetty_impl::post_write(
-    const asccomm_peer& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes, GM_ADDR notify_addr,
-    uint64_t notify_value, uint32_t num_wqebbs)
+__aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::post_write(
+    const asccomm_peer<COMM_PROTOCOL_UB_CTP>& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes,
+    GM_ADDR notify_addr, uint64_t notify_value, uint32_t num_wqebbs)
 {
-    ASCCOMM_DEBUG_TRAP_IF(!ready(), "asccomm_jetty post_write on an unready jetty\n");
+    ASCCOMM_DEBUG_TRAP_IF(!ready(), "asccomm_work_queue write on an unready work queue\n");
     build_write_sqe<with_notify>(peer, dst_addr, src_addr, num_bytes, notify_addr, notify_value);
     return post_sqe<timeout_cycles, do_commit>(num_wqebbs);
 }
 
 template <int64_t timeout_cycles, typename T, bool do_commit>
-__aicore__ inline int32_t asccomm_jetty_impl::post_write_value(
-    const asccomm_peer& peer, GM_ADDR dst_addr, T value, uint32_t num_wqebbs)
+__aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::post_write_value(
+    const asccomm_peer<COMM_PROTOCOL_UB_CTP>& peer, GM_ADDR dst_addr, T value, uint32_t num_wqebbs)
 {
-    ASCCOMM_DEBUG_TRAP_IF(!ready(), "asccomm_jetty post_write_value on an unready jetty\n");
+    ASCCOMM_DEBUG_TRAP_IF(!ready(), "asccomm_work_queue write_value on an unready work queue\n");
     build_write_value_sqe<T>(peer, dst_addr, value);
     return post_sqe<timeout_cycles, do_commit>(num_wqebbs);
 }
 
 template <int64_t timeout_cycles>
-__aicore__ inline int32_t asccomm_jetty_impl::asccomm_jetty_drain()
+__aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::drain()
 {
-    ASCCOMM_DEBUG_TRAP_IF(!ready() || jetty_info->num_cqe_bytes == 0U, "asccomm_jetty drain on an unready jetty\n");
+    ASCCOMM_DEBUG_TRAP_IF(
+        !ready() || jetty_info->num_cqe_bytes == 0U, "asccomm_work_queue drain on an unready work queue\n");
     uint64_t packed_head = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
     return poll_cq<timeout_cycles>(static_cast<uint32_t>(packed_head >> 32U));
 }

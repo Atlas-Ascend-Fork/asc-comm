@@ -84,13 +84,15 @@ public:
 
     __simt_callee__ __forceinline__ jetty_impl() = default;
 
-    __simt_callee__ __forceinline__
-    jetty_impl(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
+    __simt_callee__ __forceinline__ jetty_impl(
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+        uint32_t index);
 
-    __simt_callee__ __forceinline__
-    jetty_impl(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr);
+    __simt_callee__ __forceinline__ jetty_impl(
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage,
+        uint64_t channel_addr);
 
-    __simt_callee__ __forceinline__ __ubuf__ asccomm_jetty_info* info() const;
+    __simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info() const;
 
     template <uint32_t sge_num, bool do_commit = true, typename coop_group = asccomm_coop_thread>
     __simt_callee__ __forceinline__ int32_t asccomm_jetty_write_nbi(
@@ -128,7 +130,8 @@ public:
     __simt_callee__ __forceinline__ int32_t asccomm_jetty_drain(const coop_group& group) const;
 
     __simt_callee__ __forceinline__ void asccomm_jetty_attach(
-        __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr);
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage,
+        uint64_t channel_addr);
 
 private:
     struct batch_state {
@@ -138,7 +141,8 @@ private:
     };
 
     __simt_callee__ __forceinline__ void init(
-        __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+        uint32_t index);
 
     __simt_callee__ __forceinline__ __ubuf__ batch_state* batch() const;
 

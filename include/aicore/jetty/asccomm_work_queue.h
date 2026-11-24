@@ -9,13 +9,13 @@
  */
 
 /*!
- * \file asccomm_jetty.h
- * \brief Low-level AIV Jetty primitives for URMA point-to-point writes.
- * \note asccomm_peer and asccomm_jetty require CANN 9.2.0 or later.
+ * \file asccomm_work_queue.h
+ * \brief Low-level AIV work-queue primitives for point-to-point writes.
+ * \note asccomm_peer and asccomm_work_queue require CANN 9.2.0 or later.
  *       CANN 9.2.0 beta releases are not supported. SIMT Jetty requires CANN 9.3.0 or later.
  */
-#ifndef INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_JETTY_H
-#define INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_JETTY_H
+#ifndef INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_WORK_QUEUE_H
+#define INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_WORK_QUEUE_H
 
 #include <cstddef>
 
@@ -24,10 +24,13 @@
 
 namespace asc {
 
-// Shared Jetty metadata. Both execution models describe the same hardware queues and
-// exchange these descriptors through UB, so the layout is defined once here and the
-// SIMT implementation reuses it through asccomm_jetty_simt.h.
-struct alignas(8) asccomm_jetty_peer_info {
+// Protocol-specific peer metadata. The primary templates are intentionally undefined so an
+// unsupported protocol fails at compile time. UB_CTP currently describes the remote Jetty peer.
+template <CommProtocol comm_protocol>
+struct asccomm_peer_entity;
+
+template <>
+struct alignas(8) asccomm_peer_entity<COMM_PROTOCOL_UB_CTP> {
     // Packed to match the SQE wire layout so building a WQE header is a single 64-bit read:
     // tpId in bits [23:0], num_sges in bits [31:24] (filled per-post, not stored here) and
     // remoteTokenId in bits [51:32].
@@ -37,13 +40,19 @@ struct alignas(8) asccomm_jetty_peer_info {
     uint64_t remote_base_addr;
     uint64_t remote_buffer_size;
 };
-static_assert(sizeof(asccomm_jetty_peer_info) == 48U, "asccomm_jetty_peer_info must be 48 bytes");
-static_assert(offsetof(asccomm_jetty_peer_info, remote_eid) == sizeof(uint64_t), "unexpected peer metadata layout");
+static_assert(sizeof(asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>) == 48U, "UB_CTP peer entity must be 48 bytes");
 static_assert(
-    offsetof(asccomm_jetty_peer_info, remote_token_value_udf) == 3U * sizeof(uint64_t),
-    "unexpected peer metadata layout");
+    offsetof(asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>, remote_eid) == sizeof(uint64_t),
+    "unexpected UB_CTP peer entity layout");
+static_assert(
+    offsetof(asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>, remote_token_value_udf) == 3U * sizeof(uint64_t),
+    "unexpected UB_CTP peer entity layout");
 
-struct alignas(8) asccomm_jetty_info {
+template <CommProtocol comm_protocol>
+struct asccomm_work_queue_info;
+
+template <>
+struct alignas(8) asccomm_work_queue_info<COMM_PROTOCOL_UB_CTP> {
     uint64_t sq_base_addr;         // SQ base address in device memory.
     uint64_t sq_head_addr;         // Address of the packed 64-bit SQ head in GM.
     uint64_t completion_tail_addr; // Address of the 32-bit SQ completion tail published by the hardware.
@@ -59,62 +68,69 @@ struct alignas(8) asccomm_jetty_info {
     uint32_t sq_depth;             // SQ depth in WQEBBs.
     uint32_t cq_depth;             // CQ depth in CQEs.
 };
-static_assert(sizeof(asccomm_jetty_info) == 80U, "asccomm_jetty_info must be 80 bytes");
-static_assert(offsetof(asccomm_jetty_info, packed_head) == 56U, "SIMT/SIMD packed head offset mismatch");
-static_assert(offsetof(asccomm_jetty_info, num_wqebb_bytes) == 64U, "asccomm_jetty_info scalar fields offset mismatch");
+static_assert(sizeof(asccomm_work_queue_info<COMM_PROTOCOL_UB_CTP>) == 80U, "UB_CTP work-queue info must be 80 bytes");
+static_assert(
+    offsetof(asccomm_work_queue_info<COMM_PROTOCOL_UB_CTP>, packed_head) == 56U,
+    "SIMT/SIMD packed head offset mismatch");
+static_assert(
+    offsetof(asccomm_work_queue_info<COMM_PROTOCOL_UB_CTP>, num_wqebb_bytes) == 64U,
+    "UB_CTP work-queue scalar fields offset mismatch");
 
-struct asccomm_peer {
-    __ubuf__ asccomm_jetty_peer_info* peer_info = nullptr;
+template <CommProtocol comm_protocol>
+struct asccomm_peer;
+
+template <>
+struct asccomm_peer<COMM_PROTOCOL_UB_CTP> {
+    static constexpr CommProtocol protocol = COMM_PROTOCOL_UB_CTP;
+    using peer_entity = asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>;
+
+    __ubuf__ peer_entity* entity = nullptr;
     bool valid = false;
 
     /*!
      * @brief Resolve the remote jetty metadata of a peer into user-allocated UB memory.
-     * @param [out] peer_info: The user-allocated 48-byte peer descriptor in UB.
-     * @param [in] jetty_table: The device-side jetty table published by the host.
-     * @param [in] jetty_idx: The index of the jetty in the table.
+     * @param [out] entity: The user-allocated 48-byte UB_CTP peer descriptor in UB.
+     * @param [in] channels: The device-side channel table published by the host.
+     * @param [in] channel_idx: The index of the channel in the table.
      * @note Must be called after the jetty is initialized; violations trap in debug builds.
      */
-    __aicore__ inline asccomm_peer(
-        __ubuf__ asccomm_jetty_peer_info* peer_info, GM_ADDR jetty_table, uint32_t jetty_idx);
+    __aicore__ inline asccomm_peer(__ubuf__ peer_entity* entity, GM_ADDR channels, uint32_t channel_idx);
 };
 
 // Compatibility aliases for the pre-rename spellings.
 
 } // namespace asc
 
-// asccomm_jetty holds asccomm_jetty_impl by value, so the impl declaration must come after the public
-// structs it depends on and before class asccomm_jetty; its definitions follow at the bottom of
-// this file, like hcomm.h does.
+// asccomm_work_queue holds its protocol impl by value, so the impl declaration must come after
+// the public structs it depends on and before class asccomm_work_queue; its definitions follow below.
 #if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
-#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_JETTY_H
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_WORK_QUEUE_H
 #endif
-#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_jetty_impl_def.h"
+#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_work_queue_impl_def.h"
 
 namespace asc {
 
-class asccomm_jetty {
+template <CommProtocol comm_protocol = COMM_PROTOCOL_UB_CTP>
+class asccomm_work_queue {
 public:
-    // Number of WQEBBs occupied by a write / write_value WQE.
-    static constexpr uint32_t num_write_wqebbs = 1U;
-    // Number of WQEBBs occupied by a write_with_notify WQE.
-    static constexpr uint32_t num_write_with_notify_wqebbs = 2U;
-    // Size in bytes of the ubuf_sqe buffer that callers must allocate to hold the largest WQE.
-    static constexpr uint32_t num_max_sqe_bytes = num_write_with_notify_wqebbs * 64U;
+    static constexpr CommProtocol protocol = comm_protocol;
+    using peer_info = asccomm_peer<comm_protocol>;
+    using work_queue = asccomm_work_queue_info<comm_protocol>;
 
     /*!
-     * @brief Bind a jetty to user-allocated UB bookkeeping and WQE staging buffers.
-     * @param [out] jetty_info: The user-allocated 80-byte jetty descriptor in UB.
-     * @param [out] ubuf_sqe: The user-allocated WQE staging buffer in UB, at least num_max_sqe_bytes.
-     * @param [in] jetty_table: The device-side jetty table published by the host.
-     * @param [in] jetty_idx: The index of the jetty in the table.
-     * @note Must be called after the jetty is initialized; violations trap in debug builds.
+     * @brief Bind a work queue to user-allocated UB bookkeeping and WQE staging buffers.
+     * @param [out] wq_buff: The user-allocated 80-byte work-queue descriptor in UB.
+     * @param [out] wqe_buff: The user-allocated WQE staging buffer in UB, at least 128 bytes.
+     * @param [in] channels: The device-side jetty table published by the host.
+     * @param [in] channel_idx: The index of the channel in the table.
+     * @note Must be called after the work queue is initialized; violations trap in debug builds.
      */
-    __aicore__ inline asccomm_jetty(
-        __ubuf__ asccomm_jetty_info* jetty_info, __ubuf__ uint8_t* ubuf_sqe, GM_ADDR jetty_table, uint32_t jetty_idx);
+    __aicore__ inline asccomm_work_queue(
+        __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, GM_ADDR channels, uint32_t channel_idx);
 
     /*!
-     * @brief Enqueue a URMA write WQE on the jetty SQ without waiting for completion.
+     * @brief Enqueue a write WQE on the work-queue SQ without waiting for completion.
      * @tparam timeout_cycles: Cycles to wait before trapping while polling CQEs.
      * @tparam do_commit: Set false to enqueue the WQE without ringing the SQ doorbell; a later
      *                    write<..., true> or ring_doorbell publishes the accumulated SQ entries.
@@ -125,8 +141,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <int64_t timeout_cycles, bool do_commit = true>
-    __aicore__ inline int32_t asccomm_jetty_write_nbi(
-        const asccomm_peer& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes);
+    __aicore__ inline int32_t write_nbi(const peer_info& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes);
 
     /*!
      * @brief Enqueue a URMA write WQE that carries the value inline in a single WQEBB.
@@ -139,11 +154,14 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <int64_t timeout_cycles, typename T, bool do_commit = true>
-    __aicore__ inline int32_t asccomm_jetty_write_value_nbi(const asccomm_peer& peer, GM_ADDR dst_addr, T value);
+    __aicore__ inline int32_t write_value_nbi(const peer_info& peer, GM_ADDR dst_addr, T value);
 
     /*!
      * @brief Enqueue a URMA write WQE and notify the remote side once it completes.
      * @tparam timeout_cycles: Cycles to wait before trapping while polling CQEs.
+     * @tparam do_commit: Set false to enqueue the WQE without ringing the SQ doorbell; a later
+     *                    write<..., true>, write_with_notify_nbi<..., true> or ring_doorbell
+     *                    publishes the accumulated SQ entries.
      * @param [in] peer: The remote peer resolved by asccomm_peer.
      * @param [out] dst_addr: The externally supplied remote device address.
      * @param [in] src_addr: The local source device address.
@@ -152,9 +170,9 @@ public:
      * @param [in] notify_value: The 64-bit value written to notify_addr on completion.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <int64_t timeout_cycles>
-    __aicore__ inline int32_t asccomm_jetty_write_with_notify_nbi(
-        const asccomm_peer& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes, GM_ADDR notify_addr,
+    template <int64_t timeout_cycles, bool do_commit = true>
+    __aicore__ inline int32_t write_with_notify_nbi(
+        const peer_info& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes, GM_ADDR notify_addr,
         uint64_t notify_value);
 
     /*!
@@ -163,7 +181,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <int64_t timeout_cycles>
-    __aicore__ inline int32_t asccomm_jetty_drain();
+    __aicore__ inline int32_t drain();
 
     /*!
      * @brief Advance the SQ head by num_wqebbs and publish it to the device-side head address.
@@ -171,7 +189,7 @@ public:
      * @note The built-in write path synchronizes the WQE data to device memory before advancing;
      *       external callers must ensure their WQE writes are visible before calling this.
      */
-    __aicore__ inline void asccomm_jetty_advance_sq(uint32_t num_wqebbs);
+    __aicore__ inline void advance_sq(uint32_t num_wqebbs);
 
     /*!
      * @brief Ring the SQ doorbell to publish all SQ entries enqueued so far.
@@ -179,20 +197,20 @@ public:
      *       side must complete its WQE writes before the SIMD side rings the doorbell, since the
      *       doorbell write from this core cannot order writes issued by another core.
      */
-    __aicore__ inline void asccomm_jetty_ring_doorbell();
+    __aicore__ inline void ring_doorbell();
 
 private:
-    asccomm_jetty_impl impl;
+    asccomm_work_queue_impl<comm_protocol> impl;
 };
 
 } // namespace asc
 
-// Must stay after class asccomm_jetty: it defines the member functions declared above.
-#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_jetty_impl.h"
+// Must stay after class asccomm_work_queue: it defines the member functions declared above.
+#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_work_queue_impl.h"
 
-#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_JETTY_H)
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_WORK_QUEUE_H)
 #undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
-#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_JETTY_H
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_WORK_QUEUE_H
 #endif
 
-#endif // INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_JETTY_H
+#endif // INCLUDE_COMM_API_AICORE_JETTY_ASCCOMM_WORK_QUEUE_H

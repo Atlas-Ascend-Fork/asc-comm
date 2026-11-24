@@ -8,10 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_ASCCOMM_JETTY_IMPL_DEF_H
-#define IMPL_COMM_API_AICORE_JETTY_IMPL_ASCCOMM_JETTY_IMPL_DEF_H
+#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_ASCCOMM_WORK_QUEUE_IMPL_DEF_H
+#define IMPL_COMM_API_AICORE_JETTY_IMPL_ASCCOMM_WORK_QUEUE_IMPL_DEF_H
 
 #include "../../asccomm/common/asccomm_inner_def.h"
-#include "platform_v310/asccomm_aiv_urma_jetty_def.h"
+#include "platform_v310/asccomm_aiv_urma_work_queue_def.h"
 
 #endif

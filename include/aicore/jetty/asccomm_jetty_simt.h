@@ -20,12 +20,12 @@
 
 // The Jetty metadata structs are defined once in the SIMD public header and shared by
 // both execution models; including it first makes them visible to the SIMT impl chain.
-#include "asccomm_jetty.h"
+#include "asccomm_work_queue.h"
 #include "../../../impl/comm_api/aicore/jetty/impl/asccomm_jetty_simt_impl_def.h"
 
 namespace asc::simt {
 
-using asccomm_peer_info = asc::asccomm_jetty_peer_info;
+using asccomm_peer_info = asc::asccomm_peer_entity<asc::COMM_PROTOCOL_UB_CTP>;
 using asccomm_sge = jetty_sge;
 
 /**
@@ -52,15 +52,17 @@ public:
     static constexpr uint32_t num_dwqe_words = jetty_impl::num_dwqe_words;
 
     __simt_callee__ __forceinline__ asccomm_jetty();
-    __simt_callee__ __forceinline__
-    asccomm_jetty(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
-    __simt_callee__ __forceinline__
-    asccomm_jetty(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr);
+    __simt_callee__ __forceinline__ asccomm_jetty(
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+        uint32_t index);
+    __simt_callee__ __forceinline__ asccomm_jetty(
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage,
+        uint64_t channel_addr);
 
-    __simt_callee__ __forceinline__ __ubuf__ asccomm_jetty_info* info() const;
+    __simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info() const;
 
     __simt_callee__ __forceinline__ void asccomm_jetty_attach(
-        __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel);
+        __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel);
 
     template <uint32_t sge_num, bool do_commit = true, typename coop_group = asccomm_coop_thread>
     __simt_callee__ __forceinline__ int32_t asccomm_jetty_write_nbi(

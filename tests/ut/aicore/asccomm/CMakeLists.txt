@@ -107,6 +107,7 @@ function(add_asccomm_ut target_name product_type tikicpu_product_dir)
             asccomm_jetty_test_suite.AIV_JETTY_INFO_SPLITS_PACKED_HEAD
             asccomm_jetty_test_suite.AIV_JETTY_ADVANCE_SQ_AND_RING_DOORBELL
             asccomm_jetty_test_suite.AIV_JETTY_ADVANCE_SQ_WRAPS_HEAD
+            asccomm_jetty_test_suite.AIV_JETTY_WRITE_WITH_NOTIFY_DELAYED_COMMIT
             asccomm_jetty_test_suite.AIV_JETTY_DRAIN_NO_PENDING_COMPLETIONS
         )
     elseif(target_name MATCHES "urma")

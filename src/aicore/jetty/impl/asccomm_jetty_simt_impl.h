@@ -33,19 +33,23 @@ namespace asc::simt {
 __simt_callee__ __forceinline__ asccomm_jetty::asccomm_jetty() = default;
 
 __simt_callee__ __forceinline__ asccomm_jetty::asccomm_jetty(
-    __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+    uint32_t index)
     : impl(info, stage, table, index)
 {}
 
-__simt_callee__ __forceinline__
-asccomm_jetty::asccomm_jetty(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
+__simt_callee__ __forceinline__ asccomm_jetty::asccomm_jetty(
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
     : impl(info, stage, channel_addr)
 {}
 
-__simt_callee__ __forceinline__ __ubuf__ asccomm_jetty_info* asccomm_jetty::info() const { return impl.info(); }
+__simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* asccomm_jetty::info() const
+{
+    return impl.info();
+}
 
 __simt_callee__ __forceinline__ void asccomm_jetty::asccomm_jetty_attach(
-    __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel)
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel)
 {
     impl.asccomm_jetty_attach(info, stage, channel);
 }

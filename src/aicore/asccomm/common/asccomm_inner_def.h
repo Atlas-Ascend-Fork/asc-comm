@@ -27,9 +27,11 @@
 #include <type_traits>
 
 // The shared communication types are provided by the including public header chain (either
-// asccomm/asccomm_common.h or the legacy hcomm_common.h forwarder resolves first). Best-effort
-// self-sufficiency for internal-only inclusion paths:
-#if __has_include("asccomm/asccomm_common.h")
+// asccomm/asccomm_common.h or the legacy hcomm_common.h forwarder resolves first). The guard
+// prevents a second, legacy definition when the public asccomm header was reached through its
+// package-relative include while an hcomm directory is also visible on the include path.
+#if defined(INCLUDE_COMM_API_AICORE_ASCCOMM_ASCCOMM_COMMON_H)
+#elif __has_include("asccomm/asccomm_common.h")
 #include "asccomm/asccomm_common.h"
 #elif __has_include("hcomm/hcomm_common.h")
 #include "hcomm/hcomm_common.h"

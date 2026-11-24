@@ -78,11 +78,15 @@ public:
      */
     __simt_callee__ __forceinline__
     HcommJetty(__ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
-        : impl(reinterpret_cast<__ubuf__ asc::asccomm_jetty_info*>(jettyInfo), stage, table, index)
+        : impl(
+              reinterpret_cast<__ubuf__ asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(jettyInfo), stage,
+              table, index)
     {}
     __simt_callee__ __forceinline__
     HcommJetty(__ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* stage, uint64_t channelAddr)
-        : impl(reinterpret_cast<__ubuf__ asc::asccomm_jetty_info*>(jettyInfo), stage, channelAddr)
+        : impl(
+              reinterpret_cast<__ubuf__ asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(jettyInfo), stage,
+              channelAddr)
     {}
 
     // Deprecated PascalCase spellings of the snake_case class constants.
@@ -205,7 +209,8 @@ public:
     __simt_callee__ __forceinline__ void Attach(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channel)
     {
-        impl.asccomm_jetty_attach(reinterpret_cast<__ubuf__ asc::asccomm_jetty_info*>(info), stage, channel);
+        impl.asccomm_jetty_attach(
+            reinterpret_cast<__ubuf__ asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(info), stage, channel);
     }
 
 private:

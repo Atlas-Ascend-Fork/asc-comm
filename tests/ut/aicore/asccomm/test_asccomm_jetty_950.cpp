@@ -14,7 +14,7 @@
 #include <vector>
 #define private public
 #include "kernel_operator.h"
-#include "jetty/asccomm_jetty.h"
+#include "jetty/asccomm_work_queue.h"
 
 using namespace asc;
 
@@ -96,17 +96,20 @@ private:
 class asccomm_jetty_test_suite : public testing::Test {
 protected:
     jetty_channel_resource channel;
-    alignas(8) std::array<uint8_t, asccomm_jetty::num_max_sqe_bytes> ubuf_sqe = {};
-    alignas(8) asccomm_jetty_peer_info peer_info = {};
-    alignas(8) asccomm_jetty_info jetty_info = {};
+    alignas(8) std::array<uint8_t, 128U> ubuf_sqe = {};
+    alignas(8) asccomm_peer_entity<asc::COMM_PROTOCOL_UB_CTP> peer_info = {};
+    alignas(8) asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP> jetty_info = {};
 
-    asccomm_jetty make_jetty() { return asccomm_jetty(&jetty_info, ubuf_sqe.data(), channel.get_jetty_table(), 0U); }
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> make_work_queue()
+    {
+        return asccomm_work_queue<COMM_PROTOCOL_UB_CTP>(&jetty_info, ubuf_sqe.data(), channel.get_jetty_table(), 0U);
+    }
 };
 
 TEST_F(asccomm_jetty_test_suite, AIV_JETTY_PEER_RESOLVES_REMOTE_METADATA)
 {
     channel.set_packed_head(0U, 0U);
-    asccomm_peer peer(&peer_info, channel.get_jetty_table(), 0U);
+    asccomm_peer<COMM_PROTOCOL_UB_CTP> peer(&peer_info, channel.get_jetty_table(), 0U);
 
     EXPECT_TRUE(peer.valid);
     // tp_id occupies bits [23:0] and remote_token_id bits [51:32] of the packed word.
@@ -120,7 +123,7 @@ TEST_F(asccomm_jetty_test_suite, AIV_JETTY_PEER_RESOLVES_REMOTE_METADATA)
 TEST_F(asccomm_jetty_test_suite, AIV_JETTY_INFO_SPLITS_PACKED_HEAD)
 {
     channel.set_packed_head(5U, 9U);
-    asccomm_jetty jetty = make_jetty();
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> workQueue = make_work_queue();
 
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head), 5U);
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head >> 32U), 9U);
@@ -137,36 +140,67 @@ TEST_F(asccomm_jetty_test_suite, AIV_JETTY_INFO_SPLITS_PACKED_HEAD)
 TEST_F(asccomm_jetty_test_suite, AIV_JETTY_ADVANCE_SQ_AND_RING_DOORBELL)
 {
     channel.set_packed_head(3U, 7U);
-    asccomm_jetty jetty = make_jetty();
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> workQueue = make_work_queue();
 
-    jetty.asccomm_jetty_advance_sq(2U);
+    workQueue.advance_sq(2U);
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head), 5U);
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head >> 32U), 8U);
     EXPECT_EQ(channel.get_packed_head(), (5U | (8ULL << 32U)));
 
-    jetty.asccomm_jetty_ring_doorbell();
+    workQueue.ring_doorbell();
     EXPECT_EQ(channel.get_sq_doorbell(), 5U);
 }
 
 TEST_F(asccomm_jetty_test_suite, AIV_JETTY_ADVANCE_SQ_WRAPS_HEAD)
 {
     channel.set_packed_head(0xFFFFFFFFU, 1U);
-    asccomm_jetty jetty = make_jetty();
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> workQueue = make_work_queue();
 
-    jetty.asccomm_jetty_advance_sq(1U);
+    workQueue.advance_sq(1U);
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head), 0U);
     EXPECT_EQ(static_cast<uint32_t>(jetty_info.packed_head >> 32U), 2U);
     EXPECT_EQ(channel.get_packed_head(), (0U | (2ULL << 32U)));
 }
 
+TEST_F(asccomm_jetty_test_suite, AIV_JETTY_WRITE_WITH_NOTIFY_DELAYED_COMMIT)
+{
+    channel.set_packed_head(3U, 7U);
+    channel.set_completion_tail(7U);
+    channel.set_cq_tail(7U);
+    asccomm_peer<COMM_PROTOCOL_UB_CTP> peer(&peer_info, channel.get_jetty_table(), 0U);
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> workQueue = make_work_queue();
+
+    int32_t ret = workQueue.template write_with_notify_nbi<1000, false>(
+        peer, reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8U,
+        reinterpret_cast<GM_ADDR>(0x1038), 1U);
+    EXPECT_EQ(ret, ASCCOMM_SUCCESS);
+    EXPECT_EQ(jetty_info.packed_head, (5U | (8ULL << 32U)));
+    EXPECT_EQ(channel.get_sq_doorbell(), 0U);
+
+    // The test queue has only 10 CQEs, while the implementation polls once the near-full
+    // threshold (10) is reached. Model hardware progress before the second post so the test
+    // exercises submission and commit accounting without CQ polling.
+    channel.set_completion_tail(8U);
+    channel.set_cq_tail(8U);
+
+    // The omitted do_commit argument keeps the original auto-commit behavior and publishes
+    // both WQEs accumulated in the SQ.
+    ret = workQueue.template write_with_notify_nbi<1000>(
+        peer, reinterpret_cast<GM_ADDR>(0x1018), reinterpret_cast<GM_ADDR>(0x2018), 8U,
+        reinterpret_cast<GM_ADDR>(0x1048), 2U);
+    EXPECT_EQ(ret, ASCCOMM_SUCCESS);
+    EXPECT_EQ(jetty_info.packed_head, (7U | (9ULL << 32U)));
+    EXPECT_EQ(channel.get_sq_doorbell(), 7U);
+}
+
 TEST_F(asccomm_jetty_test_suite, AIV_JETTY_DRAIN_NO_PENDING_COMPLETIONS)
 {
     channel.set_packed_head(2U, 4U);
-    asccomm_jetty jetty = make_jetty();
+    asccomm_work_queue<COMM_PROTOCOL_UB_CTP> workQueue = make_work_queue();
     // Set the hardware completion tail so no CQE needs to be polled.
     channel.set_cq_tail(4U);
 
-    int32_t ret = jetty.asccomm_jetty_drain<1000>();
+    int32_t ret = workQueue.template drain<1000>();
     EXPECT_EQ(ret, ASCCOMM_SUCCESS);
 }
 

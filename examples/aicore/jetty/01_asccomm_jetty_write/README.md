@@ -3,8 +3,8 @@
 ## 概述
 
 本样例演示如何在AIV Kernel中直接向Jetty SQ提交WQE，完成多卡间的点对点单边通信。样例采用多rank
-对称执行方式：每个rank向其余所有rank各执行一次`asccomm_jetty::write`和一次`asccomm_jetty::write_value`，
-再通过`asccomm_jetty::drain`等待整批WQE完成。Host侧准备通信域、注册内存并建立URMA Channel，数据面
+对称执行方式：每个rank向其余所有rank各执行一次`asccomm_work_queue::write_nbi`和一次
+`asccomm_work_queue::write_value_nbi`，再通过`asccomm_work_queue::drain`等待整批WQE完成。Host侧准备通信域、注册内存并建立URMA Channel，数据面
 执行期间不需要Host逐次参与；各rank随后校验收到的数据与marker，主进程最后汇总所有rank的执行结果。
 
 ## 本样例支持的产品及CANN软件版本
@@ -28,9 +28,9 @@
 ### 功能说明
 
 每个rank把本端一段数据写入其余所有rank的接收槽位，并向独立的marker地址写入一个标识值。Kernel侧
-用`asccomm_peer`和`asccomm_jetty`直接构造并提交WQE：`write`搬运256字节数据，`write_value`写入8字节
-marker，`drain`等待本rank提交的全部WQE完成。所有rank的写入落地后，各rank校验来自每个peer的数据
-槽与marker是否与约定值一致。
+用`asccomm_peer<COMM_PROTOCOL_UB_CTP>`和`asccomm_work_queue<COMM_PROTOCOL_UB_CTP>`直接构造并提交WQE：
+`write_nbi`搬运256字节数据，`write_value_nbi`写入8字节marker，`drain`等待本rank提交的全部WQE完成。
+所有rank的写入落地后，各rank校验来自每个peer的数据槽与marker是否与约定值一致。
 
 ### 样例规格
 
@@ -39,7 +39,7 @@ marker，`drain`等待本rank提交的全部WQE完成。所有rank的写入落�
 | 通信模式 | 全体rank两两互写的多对多点对点通信 |
 | 通信协议 | `COMM_PROTOCOL_UBC_CTP` |
 | 通信引擎 | `COMM_ENGINE_AIV` |
-| 调用方式 | AIV Kernel内`asccomm_jetty::write`/`write_value`/`drain` |
+| 调用方式 | AIV Kernel内`asccomm_work_queue::write_nbi`/`write_value_nbi`/`drain` |
 | 数据校验 | 每个rank校验来自所有peer的数据槽与WriteValue marker |
 | 支持rank数 | 2至16，且不超过本机可用NPU数量 |
 
@@ -52,7 +52,7 @@ marker，`drain`等待本rank提交的全部WQE完成。所有rank的写入落�
    建立Channel。
 3. 各rank把全部Jetty handle写入一张device侧表，并按peer下发context：本端buffer地址、远端数据
    槽地址、远端marker地址与marker值。
-4. 全体建链完成后下发kernel，Kernel侧逐个peer调用`write`、`write_value`，并用`drain`等待完成。
+4. 全体建链完成后下发kernel，Kernel侧逐个peer调用`write_nbi`、`write_value_nbi`，并用`drain`等待完成。
 5. 各rank回读通信buffer，校验所有peer写入的数据槽与marker，主进程汇总所有rank的执行结果。
 
 ## 编译运行

@@ -3,8 +3,8 @@
 ## Overview
 
 This sample demonstrates how to submit WQEs directly to the Jetty SQ from an AIV Kernel to perform point-to-point one-sided communication between multiple NPUs. The sample adopts a multi-rank
-symmetric execution model: each rank calls `asccomm_jetty::write` and `asccomm_jetty::write_value` once for each of the other ranks,
-then waits for the whole batch of WQEs with `asccomm_jetty::drain`. The Host side prepares the communication domain, registers memory, and creates the URMA channels; the data plane
+symmetric execution model: each rank calls `asccomm_work_queue::write_nbi` and `asccomm_work_queue::write_value_nbi` once for each of the other ranks,
+then waits for the whole batch of WQEs with `asccomm_work_queue::drain`. The Host side prepares the communication domain, registers memory, and creates the URMA channels; the data plane
 does not require Host involvement for each operation. Each rank then verifies the received data and markers, and the parent process finally aggregates the results of all ranks.
 
 ## Supported Products and CANN Software Versions
@@ -28,7 +28,7 @@ does not require Host involvement for each operation. Each rank then verifies th
 ### Functionality Description
 
 Each rank writes a block of local data into the receive slot of every other rank, and writes an identifier value to a separate marker address. On the Kernel side,
-`asccomm_peer` and `asccomm_jetty` are used to build and submit WQEs directly: `write` moves 256 bytes of data, `write_value` writes an 8-byte
+`asccomm_peer<COMM_PROTOCOL_UB_CTP>` and `asccomm_work_queue<COMM_PROTOCOL_UB_CTP>` are used to build and submit WQEs directly: `write_nbi` moves 256 bytes of data, `write_value_nbi` writes an 8-byte
 marker, and `drain` waits for all WQEs submitted by this rank. After all ranks' writes land, each rank checks the data
 slot and marker from every peer against the agreed values.
 
@@ -39,7 +39,7 @@ slot and marker from every peer against the agreed values.
 | Communication Mode | Many-to-many point-to-point communication in which all ranks write to each other |
 | Communication Protocol | `COMM_PROTOCOL_UBC_CTP` |
 | Communication Engine | `COMM_ENGINE_AIV` |
-| Invocation Method | `asccomm_jetty::write`/`write_value`/`drain` within an AIV Kernel |
+| Invocation Method | `asccomm_work_queue::write_nbi`/`write_value_nbi`/`drain` within an AIV Kernel |
 | Data Verification | Each rank verifies data slots and WriteValue markers from all peers |
 | Supported Rank Count | 2 to 16, not exceeding the number of available NPUs |
 
@@ -52,7 +52,7 @@ slot and marker from every peer against the agreed values.
    creates the channels.
 3. Each rank writes all Jetty handles into a device-side table and downloads a per-peer context: the local buffer address, the remote data
    slot address, the remote marker address, and the marker value.
-4. After all channels are established, the kernel is launched; on the Kernel side it calls `write` and `write_value` for each peer in turn, and waits for completion with `drain`.
+4. After all channels are established, the kernel is launched; on the Kernel side it calls `write_nbi` and `write_value_nbi` for each peer in turn, and waits for completion with `drain`.
 5. Each rank reads back the communication buffer, verifies the data slots and markers written by all peers, and the parent process reports the overall result.
 
 ## Compilation and Execution

@@ -14,7 +14,7 @@
 #include "simt_api/asc_simt.h"
 
 #include "asccomm/asccomm_simt.h"
-#include "jetty/asccomm_jetty.h"
+#include "jetty/asccomm_work_queue.h"
 #include "jetty/asccomm_jetty_simt.h"
 
 #include "simt_jetty_common.h"
@@ -24,20 +24,17 @@ namespace {
 using namespace simt_jetty;
 
 struct alignas(16) simt_jetty_ub_layout {
-    asc::asccomm_jetty_info jetty_info;
+    asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP> jetty_info;
     asc::simt::asccomm_peer_info peer_info;
     alignas(16) uint64_t dwqe_stage[2 * asc::simt::asccomm_jetty::num_wqebb_lanes] = {};
     uint32_t mixed_ready = 0U;
 };
 
 static_assert(
-    sizeof(asc::asccomm_jetty_info) == sizeof(asc::asccomm_jetty_info),
-    "SIMT and SIMD Jetty metadata must share an ABI");
-static_assert(
-    offsetof(asc::asccomm_jetty_info, packed_head) == offsetof(asc::asccomm_jetty_info, packed_head),
+    offsetof(asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>, packed_head) == 56U,
     "SIMT/SIMD packed head offset mismatch");
 static_assert(
-    sizeof(asc::simt::asccomm_peer_info) == sizeof(asc::asccomm_jetty_peer_info),
+    sizeof(asc::simt::asccomm_peer_info) == sizeof(asc::asccomm_peer_entity<asc::COMM_PROTOCOL_UB_CTP>),
     "SIMT and SIMD peer metadata must share an ABI");
 
 __simt_callee__ __forceinline__ __ubuf__ simt_jetty_ub_layout* get_simt_jetty_ub_layout()
@@ -479,10 +476,10 @@ extern "C" __global__ __mix__(1, 1) void simt_jetty_write_mixed(
         asm volatile("nop");
     }
 
-    asc::asccomm_jetty simd_jetty(
-        reinterpret_cast<__ubuf__ asc::asccomm_jetty_info*>(&ub_layout->jetty_info), nullptr,
-        reinterpret_cast<__gm__ uint8_t*>(jetty_ptr_table), 0);
-    simd_jetty.asccomm_jetty_ring_doorbell();
+    asc::asccomm_work_queue<asc::COMM_PROTOCOL_UB_CTP> simd_jetty(
+        reinterpret_cast<__ubuf__ asc::asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(&ub_layout->jetty_info),
+        nullptr, reinterpret_cast<__gm__ uint8_t*>(jetty_ptr_table), 0);
+    simd_jetty.ring_doorbell();
 }
 
 void launch_simt_jetty(

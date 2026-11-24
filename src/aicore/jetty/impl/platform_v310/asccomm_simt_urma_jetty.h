@@ -64,8 +64,6 @@ __simt_callee__ constexpr uint32_t post_send_payload_wqebbs()
 // SIMD and SIMT describe the same hardware queues and exchange these descriptors through UB,
 // so both use the single definition in jetty/common. asccomm_peer_info keeps the SIMT-side spelling
 // of the peer descriptor; the layout and the size/offset asserts live with the definition.
-using asc::asccomm_jetty_info;
-using asccomm_peer_info = asc::asccomm_jetty_peer_info;
 
 namespace detail {
 
@@ -169,21 +167,22 @@ private:
     uint64_t info_addr = 0U;
 };
 
-__simt_callee__ __forceinline__
-jetty_impl::jetty_impl(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+__simt_callee__ __forceinline__ jetty_impl::jetty_impl(
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+    uint32_t index)
 {
     init(info, stage, table, index);
 }
 
-__simt_callee__ __forceinline__
-jetty_impl::jetty_impl(__ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
+__simt_callee__ __forceinline__ jetty_impl::jetty_impl(
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
 {
     asccomm_jetty_attach(info, stage, channel_addr);
 }
 
-__simt_callee__ __forceinline__ __ubuf__ asccomm_jetty_info* jetty_impl::info() const
+__simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* jetty_impl::info() const
 {
-    return reinterpret_cast<__ubuf__ asccomm_jetty_info*>(info_addr);
+    return reinterpret_cast<__ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(info_addr);
 }
 
 template <uint32_t sge_num, bool do_commit, typename coop_group>
@@ -358,7 +357,7 @@ __simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_drain(const co
 }
 
 __simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_attach(
-    __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
 {
     info_addr = reinterpret_cast<uint64_t>(info);
     stage_addr = reinterpret_cast<uint64_t>(stage);
@@ -366,7 +365,8 @@ __simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_attach(
 }
 
 __simt_callee__ __forceinline__ void jetty_impl::init(
-    __ubuf__ asccomm_jetty_info* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
+    uint32_t index)
 {
     const uint64_t table_addr = reinterpret_cast<uint64_t>(table);
     ASCCOMM_SIMT_DEBUG_TRAP_IF(table_addr == 0U || info == nullptr, "invalid SIMT asccomm_jetty initialization\n");
