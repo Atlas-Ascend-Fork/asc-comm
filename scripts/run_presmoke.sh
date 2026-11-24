@@ -18,9 +18,10 @@
 #   通配符        '*allreduce*'                 按glob匹配样例名
 # 结果输出到asc-comm/presmoke_reports/：
 #   case_list.json   样例列表（样例名/路径/场景）
-#   build_log/       每个样例的编译日志和编译状态
-#   log/             每个样例的执行日志与退出码（仅写文件不打屏，匹配"test pass"判定通过；失败时打屏日志尾部）
-#   data/            有scripts目录样例的输入和golden数据（避免写入样例目录）
+#   log/             每个样例一个子目录，归档该样例全部材料：console.txt（执行打屏与退出码，
+#                    匹配"test pass"判定通过，失败时打屏尾部）、build.txt与build.status（编译日志
+#                    与状态）、plog/（该样例的plog与device日志）、data/（有scripts目录样例的输入
+#                    与golden数据）
 #   result.txt       汇总结果
 set -euo pipefail
 
@@ -33,8 +34,6 @@ EXAMPLES_DIRS=(
 )
 REPORT_DIR="${REPO_ROOT}/presmoke_reports"
 LOG_DIR="${REPORT_DIR}/log"
-BUILD_LOG_DIR="${REPORT_DIR}/build_log"
-DATA_DIR="${REPORT_DIR}/data"
 CASE_LIST="${REPORT_DIR}/case_list.json"
 RESULT_FILE="${REPORT_DIR}/result.txt"
 
@@ -134,9 +133,9 @@ EXEC_TIMEOUT="${EXEC_TIMEOUT:-600}"
 ERROR_LOG_LINES="${ERROR_LOG_LINES:-50}"
 
 # 样例提取
-rm -rf "${LOG_DIR}" "${BUILD_LOG_DIR}" "${DATA_DIR}"
+rm -rf "${LOG_DIR}"
 rm -f "${CASE_LIST}" "${RESULT_FILE}"
-mkdir -p "${LOG_DIR}" "${BUILD_LOG_DIR}" "${DATA_DIR}"
+mkdir -p "${LOG_DIR}"
 python3 "${SCRIPT_DIR}/parse_cases.py" "${EXAMPLES_ARGS[@]}" --output "${CASE_LIST}"
 
 CASE_TABLE="$(python3 - "${CASE_LIST}" <<'PYEOF'
@@ -200,9 +199,11 @@ build_one() {
     local case_name="$1"
     local path="$2"
     local scenario="$3"
-    local log_file="${BUILD_LOG_DIR}/build_${case_name}.txt"
-    local status_file="${BUILD_LOG_DIR}/build_${case_name}.status"
+    local case_dir="${LOG_DIR}/${case_name}"
+    local log_file="${case_dir}/build.txt"
+    local status_file="${case_dir}/build.status"
     local rc=0
+    mkdir -p "${case_dir}"
     if [[ "${scenario}" == "-" ]]; then
         BUILD_ONLY=1 bash "${REPO_ROOT}/${path}/run.sh" >"${log_file}" 2>&1 || rc=$?
     else
@@ -213,7 +214,7 @@ build_one() {
     return 0
 }
 export -f build_one
-export REPO_ROOT BUILD_LOG_DIR PIPE_FILE
+export REPO_ROOT LOG_DIR PIPE_FILE
 
 # 样例失败时打屏日志尾部，便于在CI控制台快速定位报错原因
 print_failed_log_tail() {
@@ -233,24 +234,29 @@ run_case() {
     local path="$2"
     local scenario="$3"
     local sample_dir="${REPO_ROOT}/${path}"
-    local log_file="${LOG_DIR}/${case_name}.txt"
-    local rc_file="${LOG_DIR}/${case_name}.rc"
-    local status_file="${BUILD_LOG_DIR}/build_${case_name}.status"
+    local case_dir="${LOG_DIR}/${case_name}"
+    local log_file="${case_dir}/console.txt"
+    local rc_file="${case_dir}/exit_code"
+    local status_file="${case_dir}/build.status"
     local rc=0
 
+    mkdir -p "${case_dir}"
     : >"${log_file}"
     echo "[presmoke] run ${case_name}"
 
     if [[ ! -f "${status_file}" || "$(cat "${status_file}")" != "0" ]]; then
-        echo "[presmoke] build failed or missing, skip exec; see build_log/build_${case_name}.txt" | tee -a "${log_file}"
+        echo "[presmoke] build failed or missing, skip exec; see log/${case_name}/build.txt" | tee -a "${log_file}"
         echo "1" >"${rc_file}"
-        print_failed_log_tail "${case_name} build" "${BUILD_LOG_DIR}/build_${case_name}.txt"
+        print_failed_log_tail "${case_name} build" "${case_dir}/build.txt"
         return 1
     fi
 
-    # 有scripts目录的样例：输入和golden数据统一放在presmoke_reports/data下，不写入样例目录
-    local input_dir="${DATA_DIR}/${case_name}/input"
-    local output_dir="${DATA_DIR}/${case_name}/output"
+    # 有scripts目录的样例：输入和golden数据放在该样例目录的data下，不写入样例源码目录
+    local input_dir="${case_dir}/data/input"
+    local output_dir="${case_dir}/data/output"
+    # 该样例的plog/device日志路由到自己的目录，slog归档时可与打屏一一对应
+    local plog_dir="${case_dir}/plog"
+    mkdir -p "${plog_dir}"
 
     if [[ -f "${sample_dir}/scripts/gen_data.py" ]]; then
         (cd "${sample_dir}" && python3 scripts/gen_data.py --rank-size "${RANK_SIZE}" --count "${COUNT}" \
@@ -259,7 +265,7 @@ run_case() {
     fi
 
     if [[ "${rc}" == "0" ]]; then
-        local env_args=(EXEC_ONLY=1 DEVICES="${DEVICES}" COUNT="${COUNT}" INPUT_DIR="${input_dir}" OUTPUT_DIR="${output_dir}")
+        local env_args=(EXEC_ONLY=1 DEVICES="${DEVICES}" COUNT="${COUNT}" INPUT_DIR="${input_dir}" OUTPUT_DIR="${output_dir}" ASCEND_PROCESS_LOG_PATH="${plog_dir}")
         if [[ "${scenario}" != "-" ]]; then
             env_args+=("SCENARIO_NUM=${scenario}")
         fi
@@ -324,10 +330,10 @@ summarize() {
         while IFS='|' read -r case_name path scenario; do
             total=$((total + 1))
             local case_rc="1"
-            if [[ -f "${LOG_DIR}/${case_name}.rc" ]]; then
-                case_rc="$(cat "${LOG_DIR}/${case_name}.rc")"
+            if [[ -f "${LOG_DIR}/${case_name}/exit_code" ]]; then
+                case_rc="$(cat "${LOG_DIR}/${case_name}/exit_code")"
             fi
-            if [[ "${case_rc}" == "0" ]] && grep -q "test pass" "${LOG_DIR}/${case_name}.txt" 2>/dev/null; then
+            if [[ "${case_rc}" == "0" ]] && grep -q "test pass" "${LOG_DIR}/${case_name}/console.txt" 2>/dev/null; then
                 pass_count=$((pass_count + 1))
                 printf '%-50s %s\n' "${case_name}" "PASS"
             else
@@ -337,7 +343,7 @@ summarize() {
         done <<<"${CASE_TABLE}"
         echo "--------------------------------------------------------"
         echo "total: ${total}, pass: ${pass_count}, fail: ${fail_count}"
-        echo "logs: ${LOG_DIR}, build logs: ${BUILD_LOG_DIR}"
+        echo "logs: per case under ${LOG_DIR}/<case_name>/"
     } >"${RESULT_FILE}"
     cat "${RESULT_FILE}"
     [[ "${fail_count}" == "0" ]]

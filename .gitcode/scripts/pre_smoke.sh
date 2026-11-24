@@ -98,11 +98,8 @@ if [ -d "presmoke_reports" ]; then
   mv presmoke_reports /root/ascend/log
 fi
 
-# 打包plog与冒烟报告
-tar -zcf "${WORKSPACE}/slog.tar.gz" -C /root/ascend log
-
 # ==============================
-# 检查 NPU 状态
+# 检查 NPU 状态（失败不立即退出，先完成归档再判定）
 # ==============================
 log "checking NPU status ..."
 mkdir -p "${WORKSPACE}/npu_log"
@@ -111,6 +108,19 @@ if grep "dcmi module initialize failed" "${WORKSPACE}/npu_log/npu_info.log"; the
   date_time=$(date '+%Y%m%d.%H%M%S')
   echo "$date_time : ${repo_name}_${pr_id} dcmi module initialize failed" >> "${WORKSPACE}/npu_log/`date +%Y%m%d`.log"
   python3 /home/aa/check_npu.py $repo_name $pr_id `cat /home/aa/hostname`
+  npu_check_failed=1
+else
+  npu_check_failed=0
+fi
+
+# ==============================
+# 打包plog与冒烟报告（presmoke_reports + 样例plog + run_test.log + npu_log）
+# ==============================
+cp -f "${WORKSPACE}/run_test.log" /root/ascend/log/ 2>/dev/null
+cp -r "${WORKSPACE}/npu_log" /root/ascend/log/ 2>/dev/null
+tar -zcf "${WORKSPACE}/slog.tar.gz" -C /root/ascend log
+
+if [ "${npu_check_failed}" = "1" ]; then
   exit 1
 fi
 
