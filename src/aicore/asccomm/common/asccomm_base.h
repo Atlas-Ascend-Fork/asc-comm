@@ -111,7 +111,7 @@ public:
 namespace AscendC {
 using asc::asccomm_impl;
 template <asc::CommProtocol comm_protocol>
-using HcommImpl = asc::asccomm_impl<comm_protocol>;
+using HcommImpl = asc::asccomm_impl<asc::protocol_traits<comm_protocol>::backend>;
 } // namespace AscendC
 
 #endif // IMPL_COMM_API_AICORE_ASCCOMM_COMMON_ASCCOMM_BASE_H

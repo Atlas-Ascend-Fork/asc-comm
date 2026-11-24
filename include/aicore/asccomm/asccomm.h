@@ -476,7 +476,7 @@ public:
     __aicore__ inline int32_t asccomm_unlock(ChannelHandle channel);
 
 private:
-    asccomm_impl<comm_protocol> impl;
+    asccomm_impl<protocol_traits<comm_protocol>::backend> impl;
 };
 
 } // namespace asc

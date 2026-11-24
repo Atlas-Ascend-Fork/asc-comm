@@ -112,12 +112,12 @@ __aicore__ inline __gm__ uint32_t* asccomm_get_lock_addr(__gm__ ChannelEntity* c
     __gm__ CqContext* cq_context = reinterpret_cast<__gm__ CqContext*>(cq_contexts_addr) + ASCCOMM_DEFAULT_QP_IDX;
     if constexpr (protocol == COMM_PROTOCOL_ROCE) {
         lock_addr_value = cq_context->contextInfo.roceCq.headAddr;
-    } else if constexpr (protocol == COMM_PROTOCOL_UB_CTP) {
+    } else if constexpr (protocol_traits<protocol>::uses_urma_backend) {
         lock_addr_value = cq_context->contextInfo.ubJfc.headAddr;
     } else {
         static_assert(
-            protocol == COMM_PROTOCOL_ROCE || protocol == COMM_PROTOCOL_UB_CTP,
-            "Invalid CommProtocol, it must be COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+            protocol == COMM_PROTOCOL_ROCE || protocol_traits<protocol>::uses_urma_backend,
+            "Invalid CommProtocol, it must be RoCE, UB_CTP, UBOE or UB_RTP");
     }
     return reinterpret_cast<__gm__ uint32_t*>(lock_addr_value);
 }

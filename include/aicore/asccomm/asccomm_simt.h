@@ -299,7 +299,7 @@ public:
     __simt_callee__ inline int32_t asccomm_drain(ubc_ctp_batch_handle& batch_handle);
 
 private:
-    asccomm_impl<comm_protocol> impl;
+    asccomm_impl<protocol_traits<comm_protocol>::backend> impl;
 };
 
 /*!

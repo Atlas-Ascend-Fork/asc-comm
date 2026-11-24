@@ -40,6 +40,32 @@
 namespace asc {
 using namespace AscendC;
 
+// Internal protocol-family mapping.  Public callers still select one protocol enum;
+// aliases that share the UB_CTP device backend are routed to that implementation here.
+template <CommProtocol protocol>
+struct protocol_traits {
+    static constexpr CommProtocol backend = protocol;
+    static constexpr bool uses_urma_backend = false;
+};
+
+template <>
+struct protocol_traits<COMM_PROTOCOL_UB_CTP> {
+    static constexpr CommProtocol backend = COMM_PROTOCOL_UB_CTP;
+    static constexpr bool uses_urma_backend = true;
+};
+
+template <>
+struct protocol_traits<COMM_PROTOCOL_UBOE> {
+    static constexpr CommProtocol backend = COMM_PROTOCOL_UB_CTP;
+    static constexpr bool uses_urma_backend = true;
+};
+
+template <>
+struct protocol_traits<COMM_PROTOCOL_UB_RTP> {
+    static constexpr CommProtocol backend = COMM_PROTOCOL_UB_CTP;
+    static constexpr bool uses_urma_backend = true;
+};
+
 enum class multi_channel_handle : uint64_t {};
 
 constexpr int32_t ASCCOMM_FAILED = -1;

@@ -51,7 +51,8 @@ template <CommProtocol commProtocol>
 __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    static_assert(
+        asc::protocol_traits<commProtocol>::uses_urma_backend, "SIMT batch only supports UB_CTP, UBOE or UB_RTP");
     return impl_.asccomm_make_batch_handle(channel, buff, buffLen);
 }
 
@@ -60,7 +61,8 @@ template <typename Group>
 __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, const Group& group)
 {
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    static_assert(
+        asc::protocol_traits<commProtocol>::uses_urma_backend, "SIMT batch only supports UB_CTP, UBOE or UB_RTP");
     return impl_.asccomm_make_batch_handle(channel, buff, buffLen, group);
 }
 

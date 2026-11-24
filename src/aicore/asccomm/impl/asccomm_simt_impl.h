@@ -50,7 +50,7 @@ template <CommProtocol comm_protocol>
 __simt_callee__ inline batch_handle<ChannelHandle> asccomm<comm_protocol>::asccomm_make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len)
 {
-    static_assert(comm_protocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    static_assert(protocol_traits<comm_protocol>::uses_urma_backend, "SIMT batch only supports UB_CTP, UBOE or UB_RTP");
     return impl.asccomm_make_batch_handle(channel, buff, buff_len);
 }
 
@@ -59,7 +59,7 @@ template <typename coop_group>
 __simt_callee__ inline batch_handle<ChannelHandle> asccomm<comm_protocol>::asccomm_make_batch_handle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buff_len, const coop_group& group)
 {
-    static_assert(comm_protocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
+    static_assert(protocol_traits<comm_protocol>::uses_urma_backend, "SIMT batch only supports UB_CTP, UBOE or UB_RTP");
     return impl.asccomm_make_batch_handle(channel, buff, buff_len, group);
 }
 

@@ -51,8 +51,9 @@ __aicore__ inline batch_handle<T> asccomm<comm_protocol>::asccomm_make_batch_han
     T channel, __ubuf__ uint8_t* buff, uint32_t buff_len, GM_ADDR remote_addr, GM_ADDR local_addr)
 {
     static_assert(
-        comm_protocol == COMM_PROTOCOL_UB_CTP || comm_protocol == COMM_PROTOCOL_ROCE,
-        "batch_handle only supports COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE");
+        protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_UB_CTP ||
+            protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE,
+        "batch_handle only supports UB_CTP, UBOE, UB_RTP and RoCE");
     auto handle = impl.asccomm_make_batch_handle(channel, buff, buff_len, remote_addr, local_addr);
     using ExpectedType = batch_handle<T>;
     static_assert(IsSameType<decltype(handle), ExpectedType>::value, "Channel type and batch_handle type do not match");
@@ -234,8 +235,9 @@ template <CommProtocol comm_protocol>
 __aicore__ inline int32_t asccomm<comm_protocol>::asccomm_lock(ChannelHandle channel)
 {
     static_assert(
-        comm_protocol == COMM_PROTOCOL_ROCE || comm_protocol == COMM_PROTOCOL_UB_CTP,
-        "asccomm_lock only supports COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+        protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE ||
+            protocol_traits<comm_protocol>::uses_urma_backend,
+        "asccomm_lock only supports RoCE, UB_CTP, UBOE or UB_RTP");
     return impl.asccomm_lock(channel);
 }
 
@@ -243,8 +245,9 @@ template <CommProtocol comm_protocol>
 __aicore__ inline int32_t asccomm<comm_protocol>::asccomm_unlock(ChannelHandle channel)
 {
     static_assert(
-        comm_protocol == COMM_PROTOCOL_ROCE || comm_protocol == COMM_PROTOCOL_UB_CTP,
-        "asccomm_unlock only supports COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+        protocol_traits<comm_protocol>::backend == COMM_PROTOCOL_ROCE ||
+            protocol_traits<comm_protocol>::uses_urma_backend,
+        "asccomm_unlock only supports RoCE, UB_CTP, UBOE or UB_RTP");
     return impl.asccomm_unlock(channel);
 }
 } // namespace asc

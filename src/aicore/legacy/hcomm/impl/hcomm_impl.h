@@ -54,8 +54,9 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     static_assert(
-        commProtocol == COMM_PROTOCOL_UB_CTP || commProtocol == COMM_PROTOCOL_ROCE,
-        "BatchHandle only supports COMM_PROTOCOL_UB_CTP and COMM_PROTOCOL_ROCE");
+        asc::protocol_traits<commProtocol>::backend == COMM_PROTOCOL_UB_CTP ||
+            asc::protocol_traits<commProtocol>::backend == COMM_PROTOCOL_ROCE,
+        "BatchHandle only supports RoCE, UB_CTP, UBOE or UB_RTP");
     auto batchHandle = impl_.asccomm_make_batch_handle(channel, buff, buffLen, remoteAddr, localAddr);
     using ExpectedType = BatchHandle<T>;
     static_assert(
@@ -207,8 +208,9 @@ template <CommProtocol commProtocol>
 __aicore__ inline int32_t Hcomm<commProtocol>::Lock(ChannelHandle channel)
 {
     static_assert(
-        commProtocol == COMM_PROTOCOL_ROCE || commProtocol == COMM_PROTOCOL_UB_CTP,
-        "Lock only supports COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+        asc::protocol_traits<commProtocol>::backend == COMM_PROTOCOL_ROCE ||
+            asc::protocol_traits<commProtocol>::uses_urma_backend,
+        "Lock only supports RoCE, UB_CTP, UBOE or UB_RTP");
     return impl_.asccomm_lock(channel);
 }
 
@@ -216,8 +218,9 @@ template <CommProtocol commProtocol>
 __aicore__ inline int32_t Hcomm<commProtocol>::Unlock(ChannelHandle channel)
 {
     static_assert(
-        commProtocol == COMM_PROTOCOL_ROCE || commProtocol == COMM_PROTOCOL_UB_CTP,
-        "Unlock only supports COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+        asc::protocol_traits<commProtocol>::backend == COMM_PROTOCOL_ROCE ||
+            asc::protocol_traits<commProtocol>::uses_urma_backend,
+        "Unlock only supports RoCE, UB_CTP, UBOE or UB_RTP");
     return impl_.asccomm_unlock(channel);
 }
 } // namespace AscendC

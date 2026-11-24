@@ -220,7 +220,7 @@ public:
 namespace AscendC::simt {
 using asc::simt::ubc_ctp_batch_handle;
 template <asc::CommProtocol comm_protocol>
-using HcommImpl = asc::simt::asccomm_impl<comm_protocol>;
+using HcommImpl = asc::simt::asccomm_impl<asc::protocol_traits<comm_protocol>::backend>;
 } // namespace AscendC::simt
 
 #endif // IMPL_COMM_API_AICORE_ASCCOMM_COMMON_ASCCOMM_SIMT_BASE_H
