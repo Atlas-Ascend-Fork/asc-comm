@@ -542,7 +542,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitPollsCqThresholdWithoutInit)
             hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
             HCOMM_SUCCESS);
         RoceWqeEntry expectedWqe;
-        std::memcpy(&expectedWqe, batchHandle.buffer.buffer.GetPhyAddr(), sizeof(expectedWqe));
+        std::memcpy(&expectedWqe, batchHandle.buffer.raw_buffer, sizeof(expectedWqe));
         SetCqe(i, i);
         ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
         EXPECT_EQ(std::memcmp(sqVa_ + i * asc::ASCCOMM_ROCE_WQEBB_SIZE, &expectedWqe, sizeof(expectedWqe)), 0);
@@ -577,7 +577,7 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUsesWqebbStride)
         hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x120), 10),
         HCOMM_SUCCESS);
 
-    auto* firstWqe = reinterpret_cast<RoceWqeEntry*>(batchHandle.buffer.buffer.GetPhyAddr());
+    auto* firstWqe = reinterpret_cast<RoceWqeEntry*>(batchHandle.buffer.raw_buffer);
     auto* secondWqe = firstWqe + 1;
     EXPECT_EQ(secondWqe->task.data_len, firstWqe->task.data_len);
     EXPECT_NE(secondWqe->data.va_local, firstWqe->data.va_local);
@@ -615,7 +615,7 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
         &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, batchHandle.mr_key.r_key, batchHandle.mr_key.l_key);
     hcomm.impl_.fill_data_seg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mr_key.l_key);
 
-    auto* actualWords = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    auto* actualWords = reinterpret_cast<uint64_t*>(batchHandle.buffer.raw_buffer);
     auto* expectedWords = reinterpret_cast<uint64_t*>(expected);
     for (uint32_t i = 0; i < 2 * asc::ASCCOMM_ROCE_WQEBB_U64_NUM; ++i) {
         EXPECT_EQ(actualWords[i], expectedWords[i]) << "word=" << i;
@@ -637,7 +637,7 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
     };
     ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), HCOMM_SUCCESS);
 
-    auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.raw_buffer);
     RoceWqeEntry expected{};
     hcomm.impl_.fill_ctrl_seg<ROCE_DEFAULT_CFG>(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth);
     expected.ctrl.wf_bdsl &= ~asc::hto_ns(
@@ -686,7 +686,7 @@ TEST_F(HcommRoCETestSuite, BatchPostSendMaintainsWqebbCursor)
         HCOMM_SUCCESS);
     ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), HCOMM_SUCCESS);
 
-    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.raw_buffer);
     constexpr uint32_t firstWqeWqebb = 1;
     constexpr uint32_t multiWqeWqebb = 2;
     constexpr uint64_t ownerMask = 1ULL << asc::ROCE_1825_WQE_OWNER_SHIFT;
@@ -719,7 +719,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitPreservesWqebbCounter)
     ASSERT_EQ(
         hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         HCOMM_SUCCESS);
-    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.raw_buffer);
     EXPECT_EQ(batchHandle.cursor.sq_head, 2U);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqHead, 3U);

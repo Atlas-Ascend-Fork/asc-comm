@@ -114,9 +114,10 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::fill_data_seg(
 __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::write_invalid_wqebb(
     __gm__ uint8_t* sq_addr, uint32_t sq_head, uint32_t sq_depth)
 {
-    __gm__ roce_wqe_ctrl_seg* ctrl = (__gm__ roce_wqe_ctrl_seg*)sq_addr;
-    ctrl->owner_sl = ((sq_head & sq_depth) == 0) ? 0xff : 0x7f;
-    cache_write_through<uint8_t>(sq_addr, 1);
+    const uint8_t owner_sl = ((sq_head & sq_depth) == 0) ? 0xff : 0x7f;
+    // A device store bypasses the scalar cache and avoids a full cache-line
+    // clean/invalidation for this one-byte producer marker.
+    st_dev(owner_sl, sq_addr, 0);
 }
 
 template <auto const& config, asccomm_roce_op_type op_type>
@@ -141,11 +142,13 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::make_wqe(
     fill_ctrl_seg<config>(wqe_ptr, sq_head, sq_depth);
     fill_task_seg<config, op_type>(wqe_ptr, dst, len, r_key, l_key);
     fill_data_seg(wqe_ptr, src, len, l_key);
-    write_invalid_wqebb(sq_addr_next, next_wqebb_index, sq_depth);
     sync_action<PIPE_S, PIPE_MTE3>(EVENT_ID7);
     asc_copy_ub2gm_align(
         sq_addr, reinterpret_cast<__ubuf__ uint8_t*>(wqe_ub), 1, sizeof(roce_wqe_entry),
         asc_store_l2_cache_mode::NOTALLOC_CLEAN, 0, 0);
+    // The next-slot marker only needs to be visible before the eventual doorbell. Issue it after the
+    // WQE copy so the device store overlaps MTE3 instead of blocking the scalar pipe first.
+    write_invalid_wqebb(sq_addr_next, next_wqebb_index, sq_depth);
     // Wait until MTE3 has finished reading wqe_ub before Scalar can reuse it.
     sync_action<PIPE_MTE3, PIPE_S>(EVENT_ID7);
     ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm make_wqe: set wqe to qp ok.\n");
@@ -304,6 +307,8 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
         chnl_ptr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
     __gm__ uint64_t* db_hw_addr =
         reinterpret_cast<__gm__ uint64_t*>(chnl_ptr->sqContextAddr->contextInfo.roceSq.dbHwVa);
+    // SQ WQEBBs and the invalid owner marker must reach DDR before the doorbell notifies the NIC.
+    asc_sync_data_barrier(DSB_DDR);
     st_dev(db_value, db_hw_addr + (sq_head & 0xff), 0);
     ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm knock_door_bell: write hw db ok, hw_db_val = %llu\n", db_value);
 
@@ -507,15 +512,6 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
         local_idx < 0, "Hcomm asccomm_make_batch_handle: failed with invalid local addr %llu.\n", local_addr);
     auto sq_ctx = chnl_ptr->sqContextAddr[ASCCOMM_DEFAULT_QP_IDX];
     auto cq_ctx = chnl_ptr->cqContextAddr[ASCCOMM_DEFAULT_QP_IDX];
-    TBuffAddr addr;
-    addr.logicPos = static_cast<uint8_t>(TPosition::VECOUT);
-    addr.dataLen = buff_len;
-    addr.bufferAddr = static_cast<uint32_t>(buffer_addr);
-#if defined(UT_TEST)
-    addr.absAddr = reinterpret_cast<uint8_t*>(buff);
-#endif
-    LocalTensor<uint32_t> wqe_buffer;
-    wqe_buffer.SetAddr(addr);
     batch_handle.channel_handle = channel;
     batch_handle.sq_context = sq_ctx;
     batch_handle.cq_context = cq_ctx;
@@ -524,7 +520,6 @@ __aicore__ inline roce_batch_handle asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_ma
     batch_handle.cursor.cq_head = chnl_ptr->cqHead;
     batch_handle.cursor.cq_tail = chnl_ptr->cqTail;
     batch_handle.cursor.pre_sq_cnt = 0U;
-    batch_handle.buffer.buffer = wqe_buffer;
     batch_handle.buffer.raw_buffer = reinterpret_cast<__ubuf__ uint32_t*>(buff);
     batch_handle.buffer.buffer_capacity = buff_len / ASCCOMM_ROCE_WQEBB_SIZE;
     batch_handle.mr_key.l_key = chnl_ptr->localBufferAddr[local_idx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
@@ -641,8 +636,8 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_post_send(
         pre_sq_cnt >= batch_handle.buffer.buffer_capacity, "Hcomm batch_post_send: failed with insufficient buffer\n");
     constexpr uint16_t single_sge_bdsl_be = hto_ns(static_cast<uint16_t>(
         static_cast<uint32_t>(1) << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
-    LocalTensor<uint32_t> current_wqe = batch_handle.buffer.buffer[pre_sq_cnt * ASCCOMM_ROCE_WQEBB_U32_NUM];
-    __ubuf__ uint64_t* wqe_ptr = reinterpret_cast<__ubuf__ uint64_t*>(current_wqe.GetPhyAddr());
+    __ubuf__ uint64_t* wqe_ptr =
+        reinterpret_cast<__ubuf__ uint64_t*>(batch_handle.buffer.raw_buffer + pre_sq_cnt * ASCCOMM_ROCE_WQEBB_U32_NUM);
     uint32_t sq_depth = batch_handle.sq_context.contextInfo.roceSq.depth;
     uint32_t base_wqebb_index = (batch_handle.cursor.sq_head + batch_handle.cursor.pre_sq_cnt) & ROCE_SQ_INDEX_MASK;
     const uint32_t data_key_be =
@@ -682,8 +677,8 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_post_send(
         pre_sq_cnt >= batch_handle.buffer.buffer_capacity ||
             wqebb_num > batch_handle.buffer.buffer_capacity - pre_sq_cnt,
         "Hcomm batch_post_send: failed with insufficient buffer\n");
-    LocalTensor<uint32_t> current_wqe = batch_handle.buffer.buffer[pre_sq_cnt * ASCCOMM_ROCE_WQEBB_U32_NUM];
-    __ubuf__ uint64_t* wqe = reinterpret_cast<__ubuf__ uint64_t*>(current_wqe.GetPhyAddr());
+    __ubuf__ uint64_t* wqe =
+        reinterpret_cast<__ubuf__ uint64_t*>(batch_handle.buffer.raw_buffer + pre_sq_cnt * ASCCOMM_ROCE_WQEBB_U32_NUM);
     uint32_t sq_depth = batch_handle.sq_context.contextInfo.roceSq.depth;
     uint32_t base_wqebb_index = (batch_handle.cursor.sq_head + batch_handle.cursor.pre_sq_cnt) & ROCE_SQ_INDEX_MASK;
 
@@ -755,9 +750,6 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_batch_commit
     uint32_t new_sq_head = (start_wqebb_index + pre_sq_cnt) & ROCE_SQ_INDEX_MASK;
     uint32_t sq_head = start_wqebb_index;
     uint64_t sq_base_addr = batch_handle.sq_context.contextInfo.roceSq.sqVa;
-    __gm__ uint8_t* sq_addr_next =
-        (__gm__ uint8_t*)(sq_base_addr + ((new_sq_head) & (sq_depth - 1)) * ASCCOMM_ROCE_WQEBB_SIZE);
-    write_invalid_wqebb(sq_addr_next, new_sq_head, sq_depth);
 
     uint32_t start_slot = sq_head % sq_depth;
     uint32_t tail_wqebb_count = sq_depth - start_slot;
@@ -779,6 +771,9 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::asccomm_batch_commit
                 batch_handle.buffer.raw_buffer + first_wqebb_count * ASCCOMM_ROCE_WQEBB_U32_NUM),
             1, second_wqebb_count * ASCCOMM_ROCE_WQEBB_SIZE, asc_store_l2_cache_mode::NOTALLOC_CLEAN, 0, 0);
     }
+    __gm__ uint8_t* sq_addr_next =
+        (__gm__ uint8_t*)(sq_base_addr + ((new_sq_head) & (sq_depth - 1)) * ASCCOMM_ROCE_WQEBB_SIZE);
+    write_invalid_wqebb(sq_addr_next, new_sq_head, sq_depth);
     sync_action<PIPE_MTE3, PIPE_S>(EVENT_ID7);
     chnl_ptr->sqHead = new_sq_head;
     chnl_ptr->cqHead = batch_handle.cursor.cq_head;
