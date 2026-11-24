@@ -198,6 +198,7 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/cpu_ts/asccomm_cpu_primitives.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_primitives.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_res_defs.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/experimental/asccomm_experimental_primitives.h" ]]

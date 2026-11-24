@@ -18,6 +18,18 @@ set(ASCEND_CANN_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}" CACHE PATH "CANN tool
 
 # 引入CANN/cmake库
 include(cmake/fetch_cann_cmake.cmake)
+
+if(KERNEL_MODE)
+    cmake_host_system_information(RESULT _host_arch QUERY OS_PLATFORM)
+    if(_host_arch MATCHES "x86_64|amd64")
+        set(TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+        if(NOT EXISTS "${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
+            message(FATAL_ERROR "AICPU cross toolchain not found: ${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
+        endif()
+        set(CMAKE_TOOLCHAIN_FILE "${CANN_CMAKE_DIR}/toolchain/aarch64-hcc-toolchain.cmake" CACHE FILEPATH "AICPU cross toolchain" FORCE)
+    endif()
+endif()
+
 project(hccl)
 
 # 初始化 CANN 项目配置

@@ -24,6 +24,7 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/aicpu_ts
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/cpu_ts
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base  # log_weak.h 内部以 "dlog_pub.h" 引用
 )
@@ -61,6 +62,7 @@ target_link_directories(hccl_custom_alltoallv_aicpu PRIVATE
 )
 target_link_libraries(hccl_custom_alltoallv_aicpu PRIVATE
     hcomm
+    ${ASCCOMM_CPU_LIBRARY}
     c_sec
     unified_dlog
 

@@ -121,6 +121,24 @@ if(NOT HCOMM_DEVICE_LIBRARY AND HCOMM_SOURCE_DIR)
     endforeach()
 endif()
 
+set(_asccomm_cpu_hint "${ASCCOMM_CPU_LIBRARY}")
+if(NOT _asccomm_cpu_hint)
+    set(_asccomm_cpu_hint "$ENV{ASCCOMM_CPU_LIBRARY}")
+endif()
+if(NOT _asccomm_cpu_hint AND ASCEND_CANN_PACKAGE_PATH)
+    set(_asccomm_cpu_hint "${ASCEND_CANN_PACKAGE_PATH}/lib64/libasccomm_cpu.so")
+endif()
+if(NOT EXISTS "${_asccomm_cpu_hint}" AND ASC_COMM_SOURCE_DIR)
+    set(_asccomm_cpu_hint "${ASC_COMM_SOURCE_DIR}/build/package-cpuTs/src/cpu/libasccomm_cpu.so")
+endif()
+if(NOT EXISTS "${_asccomm_cpu_hint}")
+    message(FATAL_ERROR
+        "未找到配套构建的libasccomm_cpu.so(ASCCOMM_CPU_LIBRARY/CANN安装包/asc-comm默认构建产物均未命中)。"
+        "请先在配套asc-comm源码执行bash build.sh，或设置ASCCOMM_CPU_LIBRARY指向libasccomm_cpu.so。")
+endif()
+set(ASCCOMM_CPU_LIBRARY "${_asccomm_cpu_hint}" CACHE FILEPATH
+    "asc-comm CPU TS synchronization library" FORCE)
+
 set(ASCCOMM_DEVICE_LIBRARY "$ENV{ASCCOMM_DEVICE_LIBRARY}" CACHE FILEPATH
     "asc-comm AICPU data-plane library")
 # runtime PR 4842 owns the asc-comm delivery.  Prefer the runtime-installed

@@ -11,6 +11,7 @@
 #include <hccl/hccl_res_expt.h>
 #include <hccl/hccl_rank_graph.h>
 #include <hcomm/hcomm_res.h>
+#include "asccomm_cpu_primitives.h"
 #include "log.h"
 #include "common.h"
 #include "device_type.h"
@@ -295,7 +296,8 @@ HcclResult AlltoAllVCustom(
     // STEP 4: 下发 AICPU Kernel
     // ==============================================
     CHK_RET(LoadAICPUKernel("libcustom_alltoallv_aicpu_kernel.json", g_binKernelHandle));
-    CHK_RET(HcommThreadNotifyRecordOnThread(param.cpuThread, param.aicpuThreadOnCpu, param.aicpuRecordCpuIdx));
+    CHK_RET(
+        asccomm_cpu_thread_notify_record_on_thread(param.cpuThread, param.aicpuThreadOnCpu, param.aicpuRecordCpuIdx));
 
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
@@ -315,7 +317,7 @@ HcclResult AlltoAllVCustom(
     constexpr uint32_t numBlocks = 1;
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, numBlocks, stream, &cfg, argsHandle, nullptr));
 
-    CHK_RET(HcommThreadNotifyWaitOnThread(param.cpuThread, 0, CUSTOM_TIMEOUT));
+    CHK_RET(asccomm_cpu_thread_notify_wait_on_thread(param.cpuThread, 0, CUSTOM_TIMEOUT));
     return HCCL_SUCCESS;
 
     return HCCL_SUCCESS;

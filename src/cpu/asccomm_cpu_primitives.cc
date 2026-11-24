@@ -44,18 +44,23 @@ const RuntimeNotifyApi& GetRuntimeNotifyApi()
     return api;
 }
 
-// The offsets mirror hccl::CpuTsThread and hccl::AicpuTsThread in CANN 9.2.0.
-// hcomm owns these layouts; asc-comm intentionally consumes existing ThreadHandles
-// without an adapter.
-constexpr size_t CPU_THREAD_NOTIFY_NUM_OFFSET = 120;
-constexpr size_t CPU_THREAD_STREAM_OFFSET = 136;
-constexpr size_t CPU_THREAD_NOTIFYS_OFFSET = 144;
-constexpr size_t AICPU_THREAD_NOTIFY_NUM_OFFSET = 108;
-constexpr size_t AICPU_THREAD_DEV_ID_OFFSET = 116;
-constexpr size_t AICPU_THREAD_NOTIFYS_OFFSET = 128;
+struct ThreadLayout {
+    size_t notifyNumOffset;
+    size_t streamOffset;
+    size_t notifysOffset;
+};
+
+constexpr ThreadLayout CPU_THREAD_LAYOUTS[] = {
+    {136, 152, 160},
+    {120, 136, 144},
+};
+constexpr ThreadLayout AICPU_THREAD_LAYOUTS[] = {
+    {120, 136, 144},
+    {108, 124, 128},
+};
+
 constexpr size_t LOCAL_NOTIFY_PTR_OFFSET = 24;
 constexpr size_t STREAM_PTR_OFFSET = 8;
-constexpr size_t VECTOR_DATA_OFFSET = 0;
 constexpr size_t VECTOR_SIZE_OFFSET = 8;
 
 // Reject corrupted object layouts where the notify vector reports an implausible size.
@@ -73,49 +78,47 @@ struct CpuThreadView {
     uint64_t notifyNum;
 };
 
-bool GetCpuThreadView(uint64_t thread, CpuThreadView& view)
+bool GetNotifyObjects(uint64_t thread, const ThreadLayout& layout, void**& notifyObjects, uint64_t& notifyNum)
 {
     if (thread == 0) {
         return false;
     }
-    const uint32_t notifyNum = ReadField<uint32_t>(thread, CPU_THREAD_NOTIFY_NUM_OFFSET);
-    if (notifyNum == 0 || notifyNum > MAX_THREAD_NOTIFY_NUM) {
-        return false;
-    }
-
-    const uintptr_t streamObject = ReadField<uintptr_t>(thread, CPU_THREAD_STREAM_OFFSET);
-    if (streamObject == 0) {
-        return false;
-    }
-    void* stream = reinterpret_cast<void*>(ReadField<uintptr_t>(streamObject, STREAM_PTR_OFFSET));
-
-    void** notifyObjects = reinterpret_cast<void**>(ReadField<uintptr_t>(thread, CPU_THREAD_NOTIFYS_OFFSET));
-    if (stream == nullptr || notifyObjects == nullptr) {
-        return false;
-    }
-
-    view.stream = stream;
-    view.notifyObjects = notifyObjects;
-    view.notifyNum = notifyNum;
-    return true;
-}
-
-bool GetNotifyObjects(
-    uint64_t thread, size_t notifyNumOffset, size_t notifysOffset, void**& notifyObjects, uint64_t& notifyNum)
-{
-    if (thread == 0) {
-        return false;
-    }
-    const uint32_t count = ReadField<uint32_t>(thread, notifyNumOffset);
+    const uint32_t count = ReadField<uint32_t>(thread, layout.notifyNumOffset);
     if (count == 0 || count > MAX_THREAD_NOTIFY_NUM) {
         return false;
     }
-    notifyObjects = reinterpret_cast<void**>(ReadField<uintptr_t>(thread, notifysOffset));
-    if (notifyObjects == nullptr) {
+    const uintptr_t begin = ReadField<uintptr_t>(thread, layout.notifysOffset);
+    const uintptr_t end = ReadField<uintptr_t>(thread, layout.notifysOffset + VECTOR_SIZE_OFFSET);
+    if (begin == 0 || end < begin || (end - begin) != static_cast<uintptr_t>(count) * sizeof(void*)) {
         return false;
     }
+    notifyObjects = reinterpret_cast<void**>(begin);
     notifyNum = count;
     return true;
+}
+
+bool GetCpuThreadView(uint64_t thread, CpuThreadView& view)
+{
+    for (const auto& layout : CPU_THREAD_LAYOUTS) {
+        void** notifyObjects = nullptr;
+        uint64_t notifyNum = 0;
+        if (!GetNotifyObjects(thread, layout, notifyObjects, notifyNum)) {
+            continue;
+        }
+        const uintptr_t streamObject = ReadField<uintptr_t>(thread, layout.streamOffset);
+        if (streamObject == 0) {
+            continue;
+        }
+        void* stream = reinterpret_cast<void*>(ReadField<uintptr_t>(streamObject, STREAM_PTR_OFFSET));
+        if (stream == nullptr) {
+            continue;
+        }
+        view.stream = stream;
+        view.notifyObjects = notifyObjects;
+        view.notifyNum = notifyNum;
+        return true;
+    }
+    return false;
 }
 
 void* GetCpuNotify(uint64_t thread, uint32_t notifyIdx)
@@ -133,18 +136,19 @@ void* GetCpuNotify(uint64_t thread, uint32_t notifyIdx)
 
 void* GetAicpuNotify(uint64_t thread, uint32_t notifyIdx)
 {
-    void** notifyObjects = nullptr;
-    uint64_t notifyNum = 0;
-    if (!GetNotifyObjects(
-            thread, AICPU_THREAD_NOTIFY_NUM_OFFSET, AICPU_THREAD_NOTIFYS_OFFSET, notifyObjects, notifyNum) ||
-        notifyIdx >= notifyNum) {
-        return nullptr;
+    for (const auto& layout : AICPU_THREAD_LAYOUTS) {
+        void** notifyObjects = nullptr;
+        uint64_t notifyNum = 0;
+        if (!GetNotifyObjects(thread, layout, notifyObjects, notifyNum) || notifyIdx >= notifyNum) {
+            continue;
+        }
+        const uintptr_t notifyObject = reinterpret_cast<uintptr_t>(notifyObjects[notifyIdx]);
+        if (notifyObject == 0) {
+            continue;
+        }
+        return reinterpret_cast<void*>(ReadField<uintptr_t>(notifyObject, LOCAL_NOTIFY_PTR_OFFSET));
     }
-    const uintptr_t notifyObject = reinterpret_cast<uintptr_t>(notifyObjects[notifyIdx]);
-    if (notifyObject == 0) {
-        return nullptr;
-    }
-    return reinterpret_cast<void*>(ReadField<uintptr_t>(notifyObject, LOCAL_NOTIFY_PTR_OFFSET));
+    return nullptr;
 }
 
 } // namespace
