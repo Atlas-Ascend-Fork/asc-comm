@@ -13,35 +13,35 @@ cmake_minimum_required(VERSION 3.16)
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510")
 
 find_package(ASC REQUIRED)
-project(simt_jetty LANGUAGES ASC CXX)
+project(simt_work_queue LANGUAGES ASC CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(HCOMM_CCE_RES_USAGE "Print CCE stack and register usage" OFF)
-set(SIMT_JETTY_SGE_NUM "12" CACHE STRING "Compile-time SGE count for warp/group/dispatch/mixed modes (1 to 12)")
-if(NOT SIMT_JETTY_SGE_NUM MATCHES "^[1-9]$|^1[0-2]$")
-    message(FATAL_ERROR "SIMT_JETTY_SGE_NUM must be an integer in [1, 12]")
+set(SIMT_WORK_QUEUE_SGE_NUM "12" CACHE STRING "Compile-time SGE count for warp/group/dispatch/mixed modes (1 to 12)")
+if(NOT SIMT_WORK_QUEUE_SGE_NUM MATCHES "^[1-9]$|^1[0-2]$")
+    message(FATAL_ERROR "SIMT_WORK_QUEUE_SGE_NUM must be an integer in [1, 12]")
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
-add_executable(simt_jetty
-    simt_jetty.asc
+add_executable(simt_work_queue
+    simt_work_queue.asc
     op_kernel.cpp
 )
 
-target_compile_definitions(simt_jetty PRIVATE
+target_compile_definitions(simt_work_queue PRIVATE
     USE_SIMT
-    SIMT_JETTY_SGE_NUM=${SIMT_JETTY_SGE_NUM}
+    SIMT_WORK_QUEUE_SGE_NUM=${SIMT_WORK_QUEUE_SGE_NUM}
 )
 
-set_target_properties(simt_jetty PROPERTIES
+set_target_properties(simt_work_queue PROPERTIES
     LINKER_LANGUAGE ASC
 )
 
-target_include_directories(simt_jetty PRIVATE
+target_include_directories(simt_work_queue PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     $ENV{ASCEND_HOME_PATH}/include
@@ -49,12 +49,12 @@ target_include_directories(simt_jetty PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore>
 )
 
-target_link_directories(simt_jetty PRIVATE
+target_link_directories(simt_work_queue PRIVATE
     $ENV{ASCEND_HOME_PATH}/lib64
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
 )
 
-target_link_libraries(simt_jetty PRIVATE
+target_link_libraries(simt_work_queue PRIVATE
     hcomm
     hccl
     ascendcl
@@ -65,7 +65,7 @@ target_link_libraries(simt_jetty PRIVATE
     pthread
 )
 
-target_compile_options(simt_jetty PRIVATE
+target_compile_options(simt_work_queue PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
     $<$<COMPILE_LANGUAGE:ASC>:--cce-auto-infer-kernel-type=false>
     $<$<AND:$<COMPILE_LANGUAGE:ASC>,$<BOOL:${HCOMM_CCE_RES_USAGE}>>:--cce-res-usage>

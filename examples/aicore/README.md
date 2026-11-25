@@ -10,7 +10,7 @@
 | --- | --- |
 | [ain](./ain/README.md) | AIN单边通信样例。演示基于对称窗口的`put`/`get`单边通信与集合同步。 |
 | [asccomm](./asccomm/README.md) | CommRW点对点通信样例。覆盖AIV直驱URMA、RoCE协议的普通接口、批量接口，以及功能验证与性能测试。 |
-| [jetty](./jetty/README.md) | Jetty通信样例。演示AIV Kernel直驱和SIMT Kernel直接向Jetty SQ构造并提交WQE。 |
+| [asccomm_work_queue](./asccomm_work_queue/README.md) | Work queue通信样例。演示AIV Kernel直驱和SIMT Kernel直接向Jetty SQ构造并提交WQE。 |
 | [cc](./cc/README.md) | AICore发起的集合通信样例。按通信引擎分为AICPU_TS和CCU两类MC2 builtin接入样例，由AICore Kernel通过HCCL高阶API提交通信任务。 |
 
 ## 使用说明

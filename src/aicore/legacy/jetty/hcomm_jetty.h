@@ -19,7 +19,7 @@
 
 #include <cstddef>
 
-#include "asccomm_work_queue.h"
+#include "../asccomm_work_queue/asccomm_work_queue.h"
 
 namespace AscendC {
 

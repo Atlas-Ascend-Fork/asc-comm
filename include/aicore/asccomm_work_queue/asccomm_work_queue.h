@@ -107,7 +107,7 @@ struct asccomm_peer<COMM_PROTOCOL_UB_CTP> {
 #define ASCCOMM_INCLUDE_INTERNAL_HEADERS
 #define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_WORK_QUEUE_H
 #endif
-#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_work_queue_impl_def.h"
+#include "../../../impl/comm_api/aicore/asccomm_work_queue/impl/asccomm_work_queue_impl_def.h"
 
 namespace asc {
 
@@ -206,7 +206,7 @@ private:
 } // namespace asc
 
 // Must stay after class asccomm_work_queue: it defines the member functions declared above.
-#include "../../../impl/comm_api/aicore/jetty/impl/asccomm_work_queue_impl.h"
+#include "../../../impl/comm_api/aicore/asccomm_work_queue/impl/asccomm_work_queue_impl.h"
 
 #if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_ASCCOMM_WORK_QUEUE_H)
 #undef ASCCOMM_INCLUDE_INTERNAL_HEADERS

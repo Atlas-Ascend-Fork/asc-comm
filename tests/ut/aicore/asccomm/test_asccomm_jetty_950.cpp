@@ -14,7 +14,7 @@
 #include <vector>
 #define private public
 #include "kernel_operator.h"
-#include "jetty/asccomm_work_queue.h"
+#include "asccomm_work_queue/asccomm_work_queue.h"
 
 using namespace asc;
 

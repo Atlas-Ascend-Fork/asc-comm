@@ -10,7 +10,7 @@ This directory provides usage samples for AI Core-side communication APIs, group
 | --- | --- |
 | [ain](./ain/README_en.md) | AIN one-sided communication samples. Demonstrates `put`/`get` one-sided operations and collective synchronization over symmetric windows. |
 | [asccomm](./asccomm/README_en.md) | CommRW point-to-point communication samples. Covers ordinary interfaces, batch interfaces, and functional and performance tests over the AIV direct-driven URMA and RoCE protocol. |
-| [jetty](./jetty/README_en.md) | Jetty communication samples. Demonstrates AIV Kernel direct-drive and SIMT Kernel flows that build and submit WQEs directly to the Jetty SQ. |
+| [asccomm_work_queue](./asccomm_work_queue/README_en.md) | Work-queue communication samples. Demonstrates AIV Kernel direct-drive and SIMT Kernel flows that build and submit WQEs directly to the Jetty SQ. |
 | [cc](./cc/README_en.md) | Collective communication samples initiated by AICore. MC2 builtin integration samples grouped by communication engine (AICPU_TS and CCU), where the AICore kernel submits communication tasks through high-level HCCL APIs. |
 
 ## Usage Notes
