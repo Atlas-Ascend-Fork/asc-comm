@@ -151,6 +151,7 @@ public:
                 std::chrono::steady_clock::time_point::max() :
                 std::chrono::steady_clock::now() + std::chrono::seconds(launch_options.timeout_seconds);
         const bool all_passed = wait_and_reap(deadline);
+        interrupted_flag = interrupted_flag || signal_flag != 0;
         return all_passed && !interrupted_flag;
     }
 
@@ -177,13 +178,12 @@ private:
 
     // 每个rank的等待策略，见collect_one：
     enum class wait_mode {
-        BLOCKING,      // 无限期阻塞等一个子进程
-        NON_BLOCKING,  // 只收割已退出的
-        WITH_DEADLINE, // 阻塞但每POLL_INTERVAL醒来检查deadline/信号
+        BLOCKING,     // 无限期阻塞等一个子进程
+        NON_BLOCKING, // 只收割已退出的
     };
 
     // 等待并收割全部子进程。返回true当且仅当全部正常退出且退出码为0。
-    // deadline为time_point::max()时表示不限时（wait_mode::BLOCKING路径）。
+    // deadline为time_point::max()时表示不限时；两种路径均轮询，以持续检查信号。
     bool wait_and_reap(std::chrono::steady_clock::time_point deadline)
     {
         const bool has_deadline = deadline != std::chrono::steady_clock::time_point::max();
@@ -202,9 +202,12 @@ private:
                 terminate_all();
                 return false;
             }
-            const bool round_passed = collect_one(has_deadline ? wait_mode::WITH_DEADLINE : wait_mode::BLOCKING);
+            const bool round_passed = collect_one(wait_mode::NON_BLOCKING);
             if (!round_passed) {
                 all_passed = false;
+            }
+            if (has_running_child()) {
+                std::this_thread::sleep_for(POLL_INTERVAL);
             }
         }
         // 终止路径（terminate_all -> reap_all）已写过rank_exit_codes，这里不再覆盖。
@@ -237,9 +240,6 @@ private:
             }
             if (mode == wait_mode::NON_BLOCKING) {
                 continue; // 宽限期轮询路径：继续收割其余已退出的。
-            }
-            if (mode == wait_mode::WITH_DEADLINE) {
-                continue; // 超时路径：waitpid不带WNOHANG最多阻塞一个子进程退出，继续。
             }
             // BLOCKING路径同样继续，直到waitpid返回<=0。
         }
