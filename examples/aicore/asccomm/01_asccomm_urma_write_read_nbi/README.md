@@ -156,3 +156,25 @@ asccomm.drain(channel);
   通道执行`read_nbi`从`prev`的seg0读到本卡seg2，第二次使用`next`通道执行`write_nbi`将本卡seg0
   写入`next`的seg1，使每个rank的seg1和seg2都匹配`prev`的pattern。扩展时需保留Kernel前后的
   Host侧barrier；若调整数据段偏移，需同步更新Host侧pattern校验的期望rank和offset。
+
+## 开启 CommRW 调试日志
+
+CommRW调试日志通过编译宏`ASCENDC_DEBUG`控制，属于编译期选项，默认关闭。配置并重新编译时开启：
+
+```bash
+rm -rf build
+mkdir -p build
+cd build
+cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON ..
+make -j
+```
+
+开启后，运行日志中会输出 CommRW 的 `PostSend`、WQE、CQE 和 `PollCq` 等调试信息，例如：
+
+```text
+[AIV Block 0/1] ASCCOMM URMA PostSend ...
+[AIV Block 0/1] ASCCOMM URMA WQE: ...
+[AIV Block 0/1] ASCCOMM URMA CQE: ...
+```
+
+调试日志只能在编译时开启，不能在运行时切换；关闭时重新配置并编译即可。

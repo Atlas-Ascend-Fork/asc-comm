@@ -214,7 +214,7 @@ __aicore__ inline void asccomm_urma_dump_amo_ctx(__ubuf__ asccomm_urma_sqe_ctx* 
         uint64_t add_value = (atomic_len == sizeof(uint32_t)) ?
                                  static_cast<uint64_t>(*(__ubuf__ uint32_t*)amo_data_addr) :
                                  *(__ubuf__ uint64_t*)amo_data_addr;
-        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA SGE: add_value:0x%llx \n", add_value);
+        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM URMA SGE: add_value:0x%llx \n", add_value);
     } else if (opcode == static_cast<uint32_t>(asccomm_urma_op_code::CAS)) {
         __ubuf__ uint8_t* amo_data_addr =
             (__ubuf__ uint8_t*)sqe_ctx + sizeof(asccomm_urma_sqe_ctx) + sizeof(asccomm_urma_sge_ctx);
@@ -225,7 +225,7 @@ __aicore__ inline void asccomm_urma_dump_amo_ctx(__ubuf__ asccomm_urma_sqe_ctx* 
                                   static_cast<uint64_t>(*(__ubuf__ uint32_t*)(amo_data_addr + atomic_len)) :
                                   *(__ubuf__ uint64_t*)(amo_data_addr + atomic_len);
         ASCCOMM_KERNEL_LOG(
-            KERNEL_INFO, "Hcomm URMA SGE: cond_value:0x%llx, swap_value:0x%llx \n", cond_value, swap_value);
+            KERNEL_INFO, "ASCCOMM URMA SGE: cond_value:0x%llx, swap_value:0x%llx \n", cond_value, swap_value);
     }
 }
 
@@ -237,7 +237,8 @@ __aicore__ inline void asccomm_urma_dump_sge_ctx(
     for (uint32_t i = 0; i < sqe_ctx->sge_num; i++) {
         auto sge_len = sge_ctx->len;
         auto sge_rmt_addr = sge_ctx->va;
-        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA SGE: sge idx: %d, va: %p sge_len: %d \n", i, sge_rmt_addr, sge_len);
+        ASCCOMM_KERNEL_LOG(
+            KERNEL_INFO, "ASCCOMM URMA SGE: sge idx: %d, va: %p sge_len: %d \n", i, sge_rmt_addr, sge_len);
         sge_ctx++;
     }
     asccomm_urma_dump_amo_ctx(sqe_ctx, atomic_len);
@@ -253,7 +254,8 @@ __aicore__ inline void asccomm_urma_dump_notify_ctx(__ubuf__ asccomm_urma_notify
     auto notify_data_h = notify_ctx->notify_data_h;
     ASCCOMM_KERNEL_LOG(
         KERNEL_INFO,
-        "Hcomm URMA WQE: notify_token_id: %x notify_token_value: %x notify_addr_l: %x notify_addr_h: %x notify_data_l: "
+        "ASCCOMM URMA WQE: notify_token_id: %x notify_token_value: %x notify_addr_l: %x notify_addr_h: %x "
+        "notify_data_l: "
         "%x "
         "notify_data_h: %x \n",
         notify_token_id, notify_token_value, notify_addr_l, notify_addr_h, notify_data_l, notify_data_h);
@@ -269,7 +271,7 @@ __aicore__ inline void asccomm_urma_dump_wqe_ctx(__ubuf__ asccomm_urma_sqe_ctx* 
     auto token_en = sqe_ctx->token_en;
     auto rmt_jetty_type = sqe_ctx->rmt_jetty_type;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA WQE: sqe_bb_idx: %x flag: %x rsv0: %x nf: %x token_en: %x rmt_jetty_type: %x \n",
+        KERNEL_INFO, "ASCCOMM URMA WQE: sqe_bb_idx: %x flag: %x rsv0: %x nf: %x token_en: %x rmt_jetty_type: %x \n",
         sqe_bb_idx, flag, rsv0, nf, token_en, rmt_jetty_type);
     auto owner = sqe_ctx->owner;
     auto target_hint = sqe_ctx->target_hint;
@@ -278,26 +280,26 @@ __aicore__ inline void asccomm_urma_dump_wqe_ctx(__ubuf__ asccomm_urma_sqe_ctx* 
     auto inline_msg_len = sqe_ctx->inline_msg_len;
     auto tp_id = sqe_ctx->tp_id;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA WQE: owner: %x target_hint: %x opcode: %x rsv1: %x inline_msg_len: %x tp_id: %x \n",
+        KERNEL_INFO, "ASCCOMM URMA WQE: owner: %x target_hint: %x opcode: %x rsv1: %x inline_msg_len: %x tp_id: %x \n",
         owner, target_hint, opcode, rsv1, inline_msg_len, tp_id);
     auto sge_num = sqe_ctx->sge_num;
     auto rmt_jetty_or_seg_id = sqe_ctx->rmt_jetty_or_seg_id;
     auto rsv2 = sqe_ctx->rsv2;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA WQE: sge_num: %x rmt_jetty_or_seg_id: %x rsv2: %x \n", sge_num, rmt_jetty_or_seg_id,
+        KERNEL_INFO, "ASCCOMM URMA WQE: sge_num: %x rmt_jetty_or_seg_id: %x rsv2: %x \n", sge_num, rmt_jetty_or_seg_id,
         rsv2);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA WQE: rmt_eid: %x, %x \n", sqe_ctx->rmt_eid_l, sqe_ctx->rmt_eid_h);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM URMA WQE: rmt_eid: %x, %x \n", sqe_ctx->rmt_eid_l, sqe_ctx->rmt_eid_h);
     auto rmt_token_value = sqe_ctx->rmt_token_value;
     auto udf_type = sqe_ctx->udf_type;
     auto reduce_data_type = sqe_ctx->reduce_data_type;
     auto reduce_opcode = sqe_ctx->reduce_opcode;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA WQE: rmt_token_value: %x udf_type: %x reduce_data_type: %x reduce_opcode: %x \n",
+        KERNEL_INFO, "ASCCOMM URMA WQE: rmt_token_value: %x udf_type: %x reduce_data_type: %x reduce_opcode: %x \n",
         rmt_token_value, udf_type, reduce_data_type, reduce_opcode);
     auto rmt_addr_l_or_token_id = sqe_ctx->rmt_addr_l_or_token_id;
     auto rmt_addr_h_or_token_value = sqe_ctx->rmt_addr_h_or_token_value;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA WQE: rmt_addr_l_or_token_id: %x rmt_addr_h_or_token_value: %x \n",
+        KERNEL_INFO, "ASCCOMM URMA WQE: rmt_addr_l_or_token_id: %x rmt_addr_h_or_token_value: %x \n",
         rmt_addr_l_or_token_id, rmt_addr_h_or_token_value);
     __ubuf__ uint8_t* sge_addr = (__ubuf__ uint8_t*)sqe_ctx + sizeof(asccomm_urma_sqe_ctx);
     if (opcode == static_cast<uint32_t>(asccomm_urma_op_code::WRITE_WITH_NOTIFY)) {
@@ -317,27 +319,27 @@ __aicore__ inline void asccomm_urma_dump_cqe_ctx(__gm__ uint32_t* cqe_words)
     uint32_t dw3 = ld_dev(cqe_words + 3, 0);
     ASCCOMM_KERNEL_LOG(
         KERNEL_INFO,
-        "Hcomm URMA CQE: DW0 - s_r: %d, is_jetty: %d, owner: %d, inlineEn: %d, "
+        "ASCCOMM URMA CQE: DW0 - s_r: %d, is_jetty: %d, owner: %d, inlineEn: %d, "
         "opcode: %d, fd: %d, substatus: %d, status: %d \n",
         dw0 & 1U, (dw0 >> 1U) & 1U, (dw0 >> 2U) & 1U, (dw0 >> 3U) & 1U, (dw0 >> 4U) & 0x7U, (dw0 >> 7U) & 1U,
         (dw0 >> 16U) & 0xFFU, (dw0 >> 24U) & 0xFFU);
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW1 - entry_idx: %d, local_num_l: %d \n", dw1 & 0xFFFFU, dw1 >> 16U);
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW1 - entry_idx: %d, local_num_l: %d \n", dw1 & 0xFFFFU, dw1 >> 16U);
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW2 - local_num_h: %d, rmt_idx: %d \n", dw2 & 0xFU, (dw2 >> 4U) & 0xFFFFFU);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA CQE: DW3 - tpn: %d \n", dw3 & 0xFFFFFFU);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA CQE: DW4 - byte_cnt: %d \n", ld_dev(cqe_words + 4, 0));
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW2 - local_num_h: %d, rmt_idx: %d \n", dw2 & 0xFU, (dw2 >> 4U) & 0xFFFFFU);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM URMA CQE: DW3 - tpn: %d \n", dw3 & 0xFFFFFFU);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM URMA CQE: DW4 - byte_cnt: %d \n", ld_dev(cqe_words + 4, 0));
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW5-DW6 - user_data: 0x%x%x \n", ld_dev(cqe_words + 6, 0),
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW5-DW6 - user_data: 0x%x%x \n", ld_dev(cqe_words + 6, 0),
         ld_dev(cqe_words + 5, 0));
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW7-DW10 - rmt_eid: [0x%x, 0x%x, 0x%x, 0x%x] \n", ld_dev(cqe_words + 7, 0),
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW7-DW10 - rmt_eid: [0x%x, 0x%x, 0x%x, 0x%x] \n", ld_dev(cqe_words + 7, 0),
         ld_dev(cqe_words + 8, 0), ld_dev(cqe_words + 9, 0), ld_dev(cqe_words + 10, 0));
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW11-DW12 - data: 0x%x%x \n", ld_dev(cqe_words + 12, 0),
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW11-DW12 - data: 0x%x%x \n", ld_dev(cqe_words + 12, 0),
         ld_dev(cqe_words + 11, 0));
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA CQE: DW13-DW15 - inline_data: [0x%x, 0x%x, 0x%x] \n", ld_dev(cqe_words + 13, 0),
+        KERNEL_INFO, "ASCCOMM URMA CQE: DW13-DW15 - inline_data: [0x%x, 0x%x, 0x%x] \n", ld_dev(cqe_words + 13, 0),
         ld_dev(cqe_words + 14, 0), ld_dev(cqe_words + 15, 0));
 }
 
@@ -658,8 +660,9 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_when_cq_overf
     if (((cqe_cnt + POLL_CQ_THRESHOLD) & (cq_depth - 1U)) == (cq_tail & (cq_depth - 1U))) {
         uint32_t idx = (cq_tail + NUM_CQE_PER_POLL_CQ) > cqe_cnt ? cqe_cnt : cq_tail + NUM_CQE_PER_POLL_CQ;
         ASCCOMM_KERNEL_LOG(
-            KERNEL_INFO, "Hcomm URMA queue overflow sq_head=%u cqe_cnt=%u cq_tail=%u idx=%u sq_depth=%u cq_depth=%u \n",
-            sq_head, cqe_cnt, cq_tail, idx, sq_depth, cq_depth);
+            KERNEL_INFO,
+            "ASCCOMM URMA queue overflow sq_head=%u cqe_cnt=%u cq_tail=%u idx=%u sq_depth=%u cq_depth=%u \n", sq_head,
+            cqe_cnt, cq_tail, idx, sq_depth, cq_depth);
         (void)poll_cq(channel, idx);
     }
 }
@@ -701,7 +704,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::post_send(
     uint32_t cur_head = channel_entity->sqHead;
     uint32_t cqe_cnt = channel_entity->cqHead;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA post_send resolved remote buffer cur_head=%u sq_depth=%u \n", cur_head,
+        KERNEL_INFO, "ASCCOMM URMA post_send resolved remote buffer cur_head=%u sq_depth=%u \n", cur_head,
         sq_ctx.contextInfo.ubJfs.sqDepth);
     auto cq_ctx = channel_entity->cqContextAddr[ASCCOMM_URMA_DEFAULT_QP_IDX];
     poll_cq_when_sq_overflow(channel, sq_ctx, cur_head);
@@ -788,7 +791,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::post_send(
             ASCCOMM_URMA_BATCH_MIN_SGE_NUM, max_sge_num);
     }
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA post_send resolved remote buffer cur_head=%u sq_depth=%u \n", cur_head,
+        KERNEL_INFO, "ASCCOMM URMA post_send resolved remote buffer cur_head=%u sq_depth=%u \n", cur_head,
         sq_ctx.contextInfo.ubJfs.sqDepth);
     auto cq_ctx = channel_entity->cqContextAddr[ASCCOMM_URMA_DEFAULT_QP_IDX];
     poll_cq_when_sq_overflow(channel, sq_ctx, cur_head);
@@ -864,7 +867,7 @@ __aicore__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_impl(
     uint32_t& sq_tail, uint32_t sq_head, uint32_t sq_depth, uint32_t threshold)
 {
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA poll_cq enter expect_idx=%u cur_tail=%u cq_depth=%u \n", expect_idx, cur_tail,
+        KERNEL_INFO, "ASCCOMM URMA poll_cq enter expect_idx=%u cur_tail=%u cq_depth=%u \n", expect_idx, cur_tail,
         cq_depth);
 
 #if defined(UT_TEST)
@@ -897,8 +900,8 @@ __aicore__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_impl(
         while (((cqe_flags >> 2U) & 1U) == valid_owner && times < ASCCOMM_URMA_MAX_RETRY_TIMES) {
             if (times != 0 && times % ASCCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0) {
                 ASCCOMM_KERNEL_LOG(
-                    KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u cur_tail=%u expect_idx=%u \n", times, cur_tail,
-                    expect_idx);
+                    KERNEL_WARN, "ASCCOMM URMA Poll CQ heartbeat times=%u cur_tail=%u expect_idx=%u \n", times,
+                    cur_tail, expect_idx);
             }
             cqe_words = ld_dev(reinterpret_cast<__gm__ uint64_t*>(cqe), 0);
             cqe_flags = static_cast<uint32_t>(cqe_words);
@@ -906,7 +909,7 @@ __aicore__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_impl(
         }
         if (times >= ASCCOMM_URMA_MAX_RETRY_TIMES) {
             ASCCOMM_KERNEL_LOG(
-                KERNEL_ERROR, "Hcomm URMA Poll CQ timeout cur_tail=%u expect_idx=%u \n", cur_tail, expect_idx);
+                KERNEL_ERROR, "ASCCOMM URMA Poll CQ timeout cur_tail=%u expect_idx=%u \n", cur_tail, expect_idx);
             ASCCOMM_DEBUG_FUNC(asccomm_urma_dump_cqe_ctx, cqe);
             ret = 0xFFU;
         } else {
@@ -916,7 +919,7 @@ __aicore__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_impl(
             constexpr uint8_t status_shift = 8;
             if (status != 0 || sub_status != 0) {
                 ASCCOMM_KERNEL_LOG(
-                    KERNEL_ERROR, "Hcomm URMA CQE failed status=%u sub_status=%u \n", status, sub_status);
+                    KERNEL_ERROR, "ASCCOMM URMA CQE failed status=%u sub_status=%u \n", status, sub_status);
                 ASCCOMM_DEBUG_FUNC(asccomm_urma_dump_cqe_ctx, cqe);
                 ret = (status << status_shift) | sub_status;
             }
