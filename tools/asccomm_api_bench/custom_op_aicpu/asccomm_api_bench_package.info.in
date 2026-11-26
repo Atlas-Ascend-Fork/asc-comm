@@ -1,0 +1,10 @@
+package=asccomm_api_bench
+schema=1
+source_commit=493be569dcaa2d7a4c2cb8892e950c03588c7243
+measurement_mode=@MC2_BENCH_MEASUREMENT_MODE@
+commit_delay_nops=@MC2_BENCH_DELAY_NOPS@
+mode=aicpu_ts
+operator=all
+algorithm=runtime
+runtime_algorithm_attr=1
+kernel_iterations=1
