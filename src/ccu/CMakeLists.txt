@@ -35,6 +35,39 @@ if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
     set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 endif()
 
+set(ASCCOMM_DEVKIT_HEADER
+    "impl/adv_api/detail/hccl/cc/src/common/hcomm_dlsym/ccu/ccu_res_defs_dl.h")
+set(_ASCCOMM_DEVKIT_SOURCE_CANDIDATES
+    "${ASCCOMM_ROOT}/../asc-devkit"
+    "${ASCCOMM_ROOT}/../../asc-devkit"
+)
+set(_ASCCOMM_DEVKIT_INSTALLED_CANDIDATES
+    "${ASCCOMM_CANN_ARCH_DIR}/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/x86_64-linux/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/asc"
+)
+set(_ASCCOMM_DEVKIT_INCLUDE_DIR "")
+foreach(_ASCCOMM_DEVKIT_CANDIDATE
+        IN LISTS _ASCCOMM_DEVKIT_SOURCE_CANDIDATES _ASCCOMM_DEVKIT_INSTALLED_CANDIDATES)
+    if(EXISTS "${_ASCCOMM_DEVKIT_CANDIDATE}/${ASCCOMM_DEVKIT_HEADER}")
+        get_filename_component(_ASCCOMM_DEVKIT_INCLUDE_DIR "${_ASCCOMM_DEVKIT_CANDIDATE}" ABSOLUTE)
+        break()
+    endif()
+endforeach()
+if(NOT _ASCCOMM_DEVKIT_INCLUDE_DIR AND ASCCOMM_DEVKIT_INCLUDE_DIR)
+    get_filename_component(_ASCCOMM_DEVKIT_INCLUDE_DIR "${ASCCOMM_DEVKIT_INCLUDE_DIR}" ABSOLUTE)
+    if(NOT EXISTS "${_ASCCOMM_DEVKIT_INCLUDE_DIR}/${ASCCOMM_DEVKIT_HEADER}")
+        message(FATAL_ERROR
+            "Invalid ASCCOMM_DEVKIT_INCLUDE_DIR: ${ASCCOMM_DEVKIT_INCLUDE_DIR}")
+    endif()
+endif()
+if(NOT _ASCCOMM_DEVKIT_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "asc-devkit CCU header not found under source candidates or CANN package: ${ASCCOMM_DEVKIT_HEADER}")
+endif()
+set(ASCCOMM_DEVKIT_INCLUDE_DIR "${_ASCCOMM_DEVKIT_INCLUDE_DIR}")
+
 set(ASCCOMM_CANN_BASE_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
@@ -73,6 +106,7 @@ target_include_directories(asccomm_ccu_obj PRIVATE
     ${ASCCOMM_ROOT}/pkg_inc
 )
 target_include_directories(asccomm_ccu_obj SYSTEM PRIVATE
+    ${ASCCOMM_DEVKIT_INCLUDE_DIR}
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
     ${ASCCOMM_CANN_HEADER_DIRS}
 )
@@ -118,6 +152,7 @@ target_include_directories(asccomm_ccu_host_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
 )
 target_include_directories(asccomm_ccu_host_obj SYSTEM PRIVATE
+    ${ASCCOMM_DEVKIT_INCLUDE_DIR}
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
     ${ASCCOMM_CANN_HEADER_DIRS}
 )

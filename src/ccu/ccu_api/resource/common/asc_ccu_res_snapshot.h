@@ -33,7 +33,8 @@ enum HcommCcuControlSlot {
 /**
  * @note 职责：CCU Instance（Register Context）的 asc 侧本地快照。
  *
- * instance 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照，不持有任何跨 SO 句柄。
+ * 用户 instance 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照。
+ * 数据面内部 instance 是 per-device 进程级资源；本类只深拷贝其资源前缀，不持有跨 SO 句柄。
  * resRepo_ 是被 kernel 注册消耗的余量池（见 MoveResInfo）。
  *
  * 命名以 Asc 前缀区分：hcomm legacy 另有同名的 struct CcuResPack
@@ -42,12 +43,15 @@ enum HcommCcuControlSlot {
 class asc_ccu_res_snapshot {
 public:
     asc_ccu_res_snapshot() = default;
-    ~asc_ccu_res_snapshot() = default;
 
+    // 只解析并深拷贝 Instance POD；不触发跨模块回调。
     ccu_result load(const HcommCcuInstanceEntity& instance);
+    // 创建或复用数据面内部专用 instance，并深拷贝其资源前缀。
+    ccu_result load_data_plane_resources(int32_t deviceLogicId);
     ccu_result reset();
 
     asc_ccu_res_repository& get_ccu_res_repo();
+    const asc_ccu_res_repository& get_translator_res_repo() const;
     const HcommCcuDieMetadata* get_die_metadata(uint32_t die_id) const;
     ccu_result get_xn_base_addr(uint32_t die_id, uint64_t& address) const;
     ccu_result get_xn_base_addrs(uint64_t (&addresses)[HCOMM_CCU_MAX_DIE_NUM]) const;
@@ -65,7 +69,9 @@ private:
     uint32_t valid_die_mask_{0};
     uint64_t control_ops_[8]{};
     asc_ccu_res_repository initial_repo_{};
+    asc_ccu_res_repository res_base_repo_{};
     asc_ccu_res_repository res_repo_{};
+    asc_ccu_res_repository translator_repo_{};
     std::array<HcommCcuDieMetadata, HCOMM_CCU_MAX_DIE_NUM> die_metadata_{};
 };
 

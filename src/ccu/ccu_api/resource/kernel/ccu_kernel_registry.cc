@@ -68,6 +68,7 @@ ccu_result ccu_kernel_registry::load_register_context(const HcommCcuInstanceEnti
         CCU_CHK_PTR_NULL(res_snapshot_);
     }
     CCU_CHK_RET(res_snapshot_->load(instance));
+    CCU_CHK_RET(res_snapshot_->load_data_plane_resources(dev_logic_id_));
     context_loaded_ = true;
     CCU_EXCEPTION_HANDLE_END
     return ccu_result::CCU_SUCCESS;
