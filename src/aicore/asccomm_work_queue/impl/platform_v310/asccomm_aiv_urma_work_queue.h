@@ -47,7 +47,7 @@ __aicore__ inline asccomm_peer<COMM_PROTOCOL_UB_CTP>::asccomm_peer(
 {
     ASCCOMM_DEBUG_TRAP_IF(entity == nullptr || channels == nullptr, "entity or channels is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(channels);
-    uint64_t jetty_value = ReadGmByPassDCache(table + channel_idx);
+    uint64_t jetty_value = ReadGmBypassDCache(table + channel_idx);
     ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "channels[%u] is 0\n", channel_idx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
     ASCCOMM_DEBUG_TRAP_IF(
@@ -73,7 +73,7 @@ __aicore__ inline asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::asccomm_work_qu
 {
     ASCCOMM_DEBUG_TRAP_IF(wq_buff == nullptr || channels == nullptr, "wq_buff or channels is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(channels);
-    uint64_t jetty_value = ReadGmByPassDCache(table + channel_idx);
+    uint64_t jetty_value = ReadGmBypassDCache(table + channel_idx);
     ASCCOMM_DEBUG_TRAP_IF(jetty_value == 0U, "channels[%u] is 0\n", channel_idx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
     ASCCOMM_DEBUG_TRAP_IF(
@@ -87,7 +87,7 @@ __aicore__ inline asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::asccomm_work_qu
     jetty_info->cq_base_addr = cq_context->contextInfo.ubJfc.scqVa;
     jetty_info->cq_tail_addr = cq_context->contextInfo.ubJfc.tailAddr;
     jetty_info->cq_doorbell_addr = cq_context->contextInfo.ubJfc.dbVa;
-    jetty_info->packed_head = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
+    jetty_info->packed_head = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
     jetty_info->num_wqebb_bytes = sq_context->contextInfo.ubJfs.wqeSize;
     jetty_info->num_cqe_bytes = cq_context->contextInfo.ubJfc.cqeSize;
     jetty_info->sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
@@ -175,14 +175,14 @@ __aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::advance_sq
     const uint32_t head = static_cast<uint32_t>(jetty_info->packed_head) + num_wqebbs;
     const uint32_t expected_cqe_cnt = static_cast<uint32_t>(jetty_info->packed_head >> 32U) + 1U;
     jetty_info->packed_head = static_cast<uint64_t>(head) | (static_cast<uint64_t>(expected_cqe_cnt) << 32U);
-    WriteGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr), jetty_info->packed_head);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr), jetty_info->packed_head);
     asc_sync_data_barrier(mem_dsb_t::DSB_DDR);
 }
 
 __aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::ring_doorbell()
 {
     // The doorbell only takes the head, which lives in the low 32 bits of packed_head.
-    WriteGmByPassDCache(
+    WriteGmBypassDCache(
         reinterpret_cast<__gm__ uint32_t*>(jetty_info->sq_doorbell_addr),
         static_cast<uint32_t>(jetty_info->packed_head));
 }
@@ -196,7 +196,7 @@ __aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_wh
     constexpr uint32_t near_full_threshold = 10U;
     constexpr uint32_t reclaim_batch = 100U;
     uint32_t completions = static_cast<uint32_t>(jetty_info->packed_head >> 32U);
-    uint32_t tail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr));
+    uint32_t tail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr));
     if (completions - tail + near_full_threshold >= jetty_info->cq_depth) {
         poll_cq<timeout_cycles>(tail + reclaim_batch < completions ? tail + reclaim_batch : completions);
     }
@@ -205,7 +205,7 @@ __aicore__ inline void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_wh
 template <int64_t timeout_cycles>
 __aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq(uint32_t expected_tail)
 {
-    uint32_t current_tail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr));
+    uint32_t current_tail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr));
     while (current_tail != expected_tail) {
         auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
             jetty_info->cq_base_addr +
@@ -214,7 +214,7 @@ __aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq
         uint64_t start = static_cast<uint64_t>(asc_get_system_cycle());
         uint32_t header;
         do {
-            header = ReadGmByPassDCache(cqe);
+            header = ReadGmBypassDCache(cqe);
             if (((header >> ASCCOMM_JETTY_CQE_OWNER_BIT) & 1U) != phase) {
                 break;
             }
@@ -232,11 +232,11 @@ __aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq
         }
         ++current_tail;
     }
-    WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr), current_tail);
-    WriteGmByPassDCache(
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr), current_tail);
+    WriteGmBypassDCache(
         reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_doorbell_addr),
         current_tail & ASCCOMM_JETTY_CQ_DOORBELL_MASK);
-    WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr), current_tail);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr), current_tail);
     asc_sync_data_barrier(mem_dsb_t::DSB_DDR);
     return ASCCOMM_SUCCESS;
 }
@@ -284,7 +284,7 @@ __aicore__ inline int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::drain()
 {
     ASCCOMM_DEBUG_TRAP_IF(
         !ready() || jetty_info->num_cqe_bytes == 0U, "asccomm_work_queue drain on an unready work queue\n");
-    uint64_t packed_head = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
+    uint64_t packed_head = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
     return poll_cq<timeout_cycles>(static_cast<uint32_t>(packed_head >> 32U));
 }
 

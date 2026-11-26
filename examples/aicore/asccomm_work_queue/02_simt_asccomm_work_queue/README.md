@@ -2,13 +2,11 @@
 
 ## 概述
 
-本样例展示如何在AscendC SIMT Kernel中通过`jetty/asccomm_jetty_simt.h`接口使用Jetty点对点通信能力。样例覆盖`thread / warp / group`三种协作方式，以及多个warp并行生成WQE、group统一提交的dispatch模式和SIMT/SIMD混合发布的mixed模式。
+本样例展示如何在AscendC SIMT Kernel中通过`asccomm_work_queue/asccomm_work_queue_simt.h`接口使用Jetty点对点通信能力。样例只保留warp级别的写调用：`write`模式覆盖连续源内存的普通write接口，`write-sge`模式覆盖多个SGE的write接口。
 
-Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析队列与远端信息并提交数据面通信任务，不需要静态或动态UB workspace。固定SGE模板参数范围为2到12；地址或长度为0的SGE不计入WRITE，有效SGE自动压紧，未使用的WQEBB使用NOP对齐。
+Kernel侧通过`asccomm_peer`和`asccomm_work_queue`接口直接从GM Jetty表解析队列与远端信息并提交数据面通信任务。两个模式写入的长度均由编译期SGE数量决定，便于直接比较。
 
-延迟提交路径由`write<..., false>`、`advance_sq`和`publish_sq`组成：`advance_sq`完成SQ头推进与终止WQE标记，`publish_sq`写入128B DWQE窗口发布队列，二者缺一不可。立即提交路径`put`在单次调用内完成WQE构造、SQ写入与DWQE发布。同一个channel的并发`write`必须属于同一个batch，并在所有参与warp完成后由group leader统一提交；所有lane构造`asccomm_jetty`后、任一warp开始`write`前必须先做一次group同步。
-
-`mixed`模式使用`__global__ __mix__`入口：SIMT VF构造并提交SQ内容，AIV主体随后使用共享的80B Jetty元数据调用SIMD `RingDoorbell()`发布队列，保留SIMT/SIMD共享SQ的场景。mixed是correctness场景，不支持设备计时。
+两个模式都在单次`write`调用内完成WQE构造、SQ写入与DWQE发布，并在`write`返回后调用warp级`drain`等待完成。
 
 这是点对点验证：`<nranks>`可以 >= 2，但只有rank 0（发送方）和rank 1（接收方）建链并执行，其余rank打印`SKIP`后直接退出，不加入通信域。
 
@@ -21,11 +19,11 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
 ## 目录结构介绍
 
 ```text
-02_simt_asccomm_jetty
+02_simt_asccomm_work_queue
 ├── CMakeLists.txt          // 编译工程文件
-├── simt_jetty.asc          // Host侧通信域、内存注册和校验流程
+├── simt_work_queue.asc          // Host侧通信域、内存注册和校验流程
 ├── op_kernel.cpp           // SIMT Kernel侧Jetty接口调用
-├── simt_jetty_common.h     // Host与Kernel共享定义
+├── simt_work_queue_common.h     // Host与Kernel共享定义
 ├── README.md               // 中文样例说明
 └── README_en.md            // 英文样例说明
 ```
@@ -34,16 +32,12 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
 
 ### 功能说明
 
-样例提供六种测试模式，均可通过`all`（默认）顺序执行：
+样例提供两种warp级测试模式，均可通过`all`（默认）顺序执行：
 
 | 模式 | 说明 |
 | --- | --- |
-| `thread` | 单线程构造12个有效SGE的4BB WQE，按2-SGE分段独立发布，验证标量路径 |
-| `warp` | warp协作构造WQE，验证固定槽位预留的立即与延迟提交 |
-| `warp-pad` | 1个有效SGE加零长度SGE，验证`1BB WRITE + 1BB NOP`填充路径 |
-| `group` | 多warp共享batch状态，group leader统一提交 |
-| `dispatch` | 每个warp各预留一个WQE，block统一提交实际数量 |
-| `mixed` | SIMT VF构造SQ内容，AIV侧SIMD `RingDoorbell()`发布 |
+| `write` | warp调用连续源内存的普通write接口 |
+| `write-sge` | warp调用多SGE write接口，每个SGE写入一个slot |
 
 **正确性校验与压测**：每一轮rank 0下发一次kernel，接收侧校验全部槽位（写入范围之外的槽位应保持清零）后清零目标缓冲区，再进入下一轮。因此`--iterations N`同时也是同一个channel/SQ上的重复压测轮数，后一轮未实际下发时不会被前一轮结果掩盖。
 
@@ -56,7 +50,7 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
 | 通信模式 | 点对点SIMT Jetty通信，仅rank 0发送、rank 1接收 |
 | 通信协议 | `COMM_PROTOCOL_UBC_CTP` |
 | 调用方式 | SIMT Kernel内直接调用Jetty接口 |
-| 测试模式 | `thread`、`warp`、`warp-pad`、`group`、`dispatch`、`mixed`、`all`（默认） |
+| 测试模式 | `write`、`write-sge`、`all`（默认） |
 | 支持rank数 | 任意 >= 2（rank 2及以上不参与通信） |
 
 ### 实现流程
@@ -101,36 +95,36 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  ./simt_jetty tcp://127.0.0.1:29628 2
+  ./simt_work_queue tcp://127.0.0.1:29628 2
   ```
 
   只执行单个模式，避免失败用例污染后续SQ/CQ状态（每个模式使用独立的进程组，互不影响）：
 
   ```bash
-  ./simt_jetty tcp://127.0.0.1:29628 2 warp
-  ./simt_jetty tcp://127.0.0.1:29628 2 mixed
+  ./simt_work_queue tcp://127.0.0.1:29628 2 write
+  ./simt_work_queue tcp://127.0.0.1:29628 2 write-sge
   ```
 
   正确性压测与性能测试：
 
   ```bash
   # 同channel/SQ重复校验100轮
-  ./simt_jetty tcp://127.0.0.1:29628 2 warp-pad --iterations 100
+  ./simt_work_queue tcp://127.0.0.1:29628 2 write-sge --iterations 100
   # 设备侧计时：warmup 100轮、计时1000轮
-  ./simt_jetty tcp://127.0.0.1:29628 2 warp --timing --warmup 100 --iterations 1000
+  ./simt_work_queue tcp://127.0.0.1:29628 2 write --timing --warmup 100 --iterations 1000
   ```
 
 - 启动参数说明
 
   ```bash
-  ./simt_jetty <tcp://ip:port> <nranks> [all|thread|warp|warp-pad|group|dispatch|mixed] [options]
+  ./simt_work_queue <tcp://ip:port> <nranks> [all|write|write-sge] [options]
   ```
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
   | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
   | `<nranks>` | 无默认 | 拉起的rank进程数，必须为不小于2的整数（仅rank 0/1参与通信） |
-  | `[mode]` | `all` | 测试模式，取值见样例描述；`all`顺序执行全部模式，计时模式下自动排除`mixed`；无法识别的mode会直接报错，不会静默回退 |
+  | `[mode]` | `all` | 测试模式，取值见样例描述；`all`顺序执行两个write模式；无法识别的mode会直接报错，不会静默回退 |
   | `--iterations` | `1` | 每个模式的正确性校验轮数 |
   | `--warmup` | `0` | 计时模式的预热轮数，必须与`--timing`同时使用 |
   | `--timing` | 关闭 | 设备侧计时模式：全部轮次在单次kernel内完成并输出各阶段周期 |
@@ -141,23 +135,23 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
   | --- | --- | --- |
   | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
   | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR&950DT系列产品 |
-  | `SIMT_JETTY_SGE_NUM` | `12` | warp/group/dispatch/mixed模式的编译期SGE数量，范围1到12 |
+  | `SIMT_WORK_QUEUE_SGE_NUM` | `12` | `write-sge`模式的编译期SGE数量；`write`模式按相同数量传输连续源内存，范围1到12 |
   | `HCOMM_CCE_RES_USAGE` | `OFF` | 开启后在编译阶段打印SIMT VF的栈和寄存器占用，用于无硬件时检查资源占用 |
 
 - 执行结果
 
-  以2卡运行`warp`模式为例：
+  以2卡运行`write`模式为例：
 
   ```text
-  [rank 1] simt_jetty warp iterations 1 PASS
-  RESULT | Example=simt_jetty Mode=warp | Status=PASS
+  [rank 1] simt_work_queue write iterations 1 PASS
+  RESULT | Example=simt_work_queue Mode=write | Status=PASS
   ```
 
   计时模式额外输出各阶段设备周期：
 
   ```text
-  PERF | mode=warp | iterations=1000 | warmup=100 | write_cycles=... | average_write_cycles=... | average_write_us=... | commit_cycles=... | average_commit_cycles=... | average_commit_us=... | completion_cycles=... | average_completion_cycles=... | average_completion_us=... | completed=1000
-  RESULT | Example=simt_jetty Mode=warp | Status=PASS
+  PERF | mode=write | iterations=1000 | warmup=100 | write_cycles=... | average_write_cycles=... | average_write_us=... | commit_cycles=... | average_commit_cycles=... | average_commit_us=... | completion_cycles=... | average_completion_cycles=... | average_completion_us=... | completed=1000
+  RESULT | Example=simt_work_queue Mode=write | Status=PASS
   ```
 
   所有请求的模式均输出`PASS`且最终输出`Status=PASS`，表示样例执行成功。
@@ -170,5 +164,5 @@ Kernel侧通过`asccomm_peer`和`asccomm_jetty`接口直接从GM Jetty表解析�
 - Kernel侧通过`AscendC::simt::LocalBufferAddr`解析缓冲区基址时，传入的是通道缓冲区表的下标，而不是
   `memHandles`数组下标：本地表下标0由CCL buffer预留，第一个显式注册的缓冲区使用下标1；远端缓冲区
   下标通过`HcclChannelGetRemoteMems`按tag查找。
-- mixed模式不支持`--timing`；`--warmup`必须与`--timing`同时使用。
-- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
+- `--warmup`必须与`--timing`同时使用。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `asccomm`库。

@@ -16,9 +16,9 @@
 ## 目录结构介绍
 
 ```text
-01_asccomm_jetty_write
+01_asccomm_work_queue
 ├── CMakeLists.txt          // 编译工程文件
-├── asccomm_jetty_write.asc   // Host侧资源准备、AIV Kernel侧Jetty调用与共享定义
+├── asccomm_work_queue.asc   // Host侧资源准备、AIV Kernel侧Jetty调用与共享定义
 ├── README.md               // 中文样例说明
 └── README_en.md            // 英文样例说明
 ```
@@ -86,7 +86,7 @@
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  ./asccomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
+  ./asccomm_work_queue tcp://127.0.0.1:29627 <rank_num>
   ```
 
 - 启动参数说明
@@ -108,9 +108,9 @@
   2卡运行成功时，每个rank输出校验通过信息，主进程最终输出：
 
   ```text
-  [rank 0] asccomm_jetty_write | write and write_value verified for 1 peer(s) | PASS
-  [rank 1] asccomm_jetty_write | write and write_value verified for 1 peer(s) | PASS
-  RESULT | Example=asccomm_jetty_write | Status=PASS
+  [rank 0] asccomm_work_queue | write and write_value verified for 1 peer(s) | PASS
+  [rank 1] asccomm_work_queue | write and write_value verified for 1 peer(s) | PASS
+  RESULT | Example=asccomm_work_queue | Status=PASS
   ```
 
   主进程输出`Status=FAIL`或任一rank报错时，表示本次Jetty写入或数据校验未通过。

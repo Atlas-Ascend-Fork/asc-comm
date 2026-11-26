@@ -13,32 +13,32 @@ cmake_minimum_required(VERSION 3.16)
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510")
 
 find_package(ASC REQUIRED)
-project(asccomm_jetty_write LANGUAGES ASC CXX)
+project(asccomm_work_queue LANGUAGES ASC CXX)
 
-add_executable(asccomm_jetty_write
-    asccomm_jetty_write.asc
+add_executable(asccomm_work_queue
+    asccomm_work_queue.asc
 )
 
-set_target_properties(asccomm_jetty_write PROPERTIES
+set_target_properties(asccomm_work_queue PROPERTIES
     LINKER_LANGUAGE ASC
 )
 
-target_include_directories(asccomm_jetty_write PRIVATE
+target_include_directories(asccomm_work_queue PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore
 )
 
-target_link_directories(asccomm_jetty_write PRIVATE
+target_link_directories(asccomm_work_queue PRIVATE
     $ENV{ASCEND_HOME_PATH}/lib64
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
 )
 
-target_link_libraries(asccomm_jetty_write PRIVATE
+target_link_libraries(asccomm_work_queue PRIVATE
     hcomm
     hccl
 )
 
-target_compile_options(asccomm_jetty_write PRIVATE
+target_compile_options(asccomm_work_queue PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
 )

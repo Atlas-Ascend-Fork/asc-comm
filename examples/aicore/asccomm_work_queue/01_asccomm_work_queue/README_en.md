@@ -16,9 +16,9 @@ does not require Host involvement for each operation. Each rank then verifies th
 ## Directory Structure
 
 ```text
-01_asccomm_jetty_write
+01_asccomm_work_queue
 ├── CMakeLists.txt          // CMake build file
-├── asccomm_jetty_write.asc   // Host resource setup, AIV Kernel-side Jetty calls, and shared definitions
+├── asccomm_work_queue.asc   // Host resource setup, AIV Kernel-side Jetty calls, and shared definitions
 ├── README.md               // Chinese sample documentation
 └── README_en.md            // English sample documentation
 ```
@@ -86,7 +86,7 @@ Follow the steps below in the root directory of this sample to compile and run i
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  ./asccomm_jetty_write tcp://127.0.0.1:29627 <rank_num>
+  ./asccomm_work_queue tcp://127.0.0.1:29627 <rank_num>
   ```
 
 - Launch parameter description
@@ -108,9 +108,9 @@ Follow the steps below in the root directory of this sample to compile and run i
   After a successful two-card run, each rank prints a verification message and the parent process finally outputs:
 
   ```text
-  [rank 0] asccomm_jetty_write | write and write_value verified for 1 peer(s) | PASS
-  [rank 1] asccomm_jetty_write | write and write_value verified for 1 peer(s) | PASS
-  RESULT | Example=asccomm_jetty_write | Status=PASS
+  [rank 0] asccomm_work_queue | write and write_value verified for 1 peer(s) | PASS
+  [rank 1] asccomm_work_queue | write and write_value verified for 1 peer(s) | PASS
+  RESULT | Example=asccomm_work_queue | Status=PASS
   ```
 
   A `Status=FAIL` in the parent-process output or an error from any rank means that this Jetty write or data verification did not pass.

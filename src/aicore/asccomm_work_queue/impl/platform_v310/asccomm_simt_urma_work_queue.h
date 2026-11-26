@@ -9,15 +9,15 @@
  */
 
 /*!
- * \file asccomm_simt_urma_jetty.h
+ * \file asccomm_simt_urma_work_queue.h
  * \brief SIMT Jetty implementation.
  *
  * A WRITE occupies the WQEBBs required by its 48-byte header and active SGEs,
  * up to four WQEBBs for twelve SGEs. SIMT fills the SQ; publication can be
- * performed by SIMD through asccomm_jetty_publish_sq().
+ * finalized by ring_doorbell().
  */
-#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_SIMT_URMA_JETTY_H
-#define IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_SIMT_URMA_JETTY_H
+#ifndef IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_SIMT_URMA_WORK_QUEUE_H
+#define IMPL_COMM_API_AICORE_JETTY_IMPL_PLATFORM_V310_ASCCOMM_SIMT_URMA_WORK_QUEUE_H
 
 #include <cstddef>
 #include <cstdint>
@@ -26,10 +26,8 @@
 #include <simt_api/device_warp_functions.h>
 #include <simt_api/cooperative_groups.h>
 
-#include "asccomm_simt_urma_jetty_def.h"
-#include "../../../asccomm/common/asccomm_inner_def.h"
+#include "asccomm_simt_urma_work_queue_def.h"
 #include "../../../asccomm/common/asccomm_simt_utils.h"
-#include "../../../asccomm/impl/asccomm_simt_impl_def.h"
 #include "../../../utils/simt_utils.h"
 
 namespace asc::simt {
@@ -62,8 +60,8 @@ __simt_callee__ constexpr uint32_t post_send_payload_wqebbs()
 }
 
 // SIMD and SIMT describe the same hardware queues and exchange these descriptors through UB,
-// so both use the single definition in jetty/common. asccomm_peer_info keeps the SIMT-side spelling
-// of the peer descriptor; the layout and the size/offset asserts live with the definition.
+// so both use the single definition in jetty/common; the layout and the size/offset asserts
+// live with the definition.
 
 namespace detail {
 
@@ -72,8 +70,9 @@ __simt_callee__ __forceinline__ T load(const uint64_t addr, const uint32_t offse
 {
     return *reinterpret_cast<__gm__ T*>(addr + offset);
 }
-__simt_callee__ __forceinline__ uint64_t
-peer_word(__ubuf__ const asccomm_peer_info* p, const uint32_t word, const uint32_t sge_num, __gm__ void* dst)
+__simt_callee__ __forceinline__ uint64_t peer_word(
+    __ubuf__ const asccomm_peer_entity<COMM_PROTOCOL_UB_CTP>* p, const uint32_t word, const uint32_t sge_num,
+    GM_ADDR dst_addr)
 {
     auto* words = reinterpret_cast<__ubuf__ const uint64_t*>(p);
     const uint64_t cached = words[word - 1U];
@@ -81,148 +80,118 @@ peer_word(__ubuf__ const asccomm_peer_info* p, const uint32_t word, const uint32
     const uint64_t word1_mask = 0ULL - static_cast<uint64_t>(word == 1U);
     const uint64_t word5_mask = 0ULL - static_cast<uint64_t>(word == 5U);
     return (cached & ~(word1_mask | word5_mask)) | (word1 & word1_mask) |
-           (reinterpret_cast<uint64_t>(dst) & word5_mask);
+           (reinterpret_cast<uint64_t>(dst_addr) & word5_mask);
 }
 } // namespace detail
 
-class asccomm_peer {
-public:
-    __simt_callee__ __forceinline__ asccomm_peer() = default;
-    __simt_callee__ __forceinline__
-    asccomm_peer(__ubuf__ asccomm_peer_info* info, __gm__ void* jetty_table, uint32_t jetty_idx)
-    {
-        init(info, jetty_table, jetty_idx);
-    }
-    __simt_callee__ __forceinline__ asccomm_peer(__ubuf__ asccomm_peer_info* info, uint64_t channel_addr)
-    {
-        attach(info);
-    }
-    __simt_callee__ __forceinline__ __ubuf__ asccomm_peer_info* info() const
-    {
-        return reinterpret_cast<__ubuf__ asccomm_peer_info*>(info_addr);
-    }
-
-    // Keep the two-argument attach form used by existing SIMT kernels. The
-    // channel is already represented by the cached peer metadata.
-    __simt_callee__ __forceinline__ void attach(__ubuf__ asccomm_peer_info* info, uint64_t) { attach(info); }
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to info.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", info)
-    __simt_callee__ __forceinline__ __ubuf__ asccomm_peer_info* Info() const { return info(); }
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to attach.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", attach)
-    __simt_callee__ __forceinline__ void Attach(__ubuf__ asccomm_peer_info* info) { attach(info); }
-
-    /*!
-     * @brief Deprecated PascalCase alias. Forwards to attach.
-     */
-    ASC_DEPRECATED(9.3.0, "2027/12/31", attach)
-    __simt_callee__ __forceinline__ void Attach(__ubuf__ asccomm_peer_info* info, uint64_t channel)
-    {
-        attach(info, channel);
-    }
-
-private:
-    __simt_callee__ __forceinline__ void attach(__ubuf__ asccomm_peer_info* info)
-    {
-        info_addr = reinterpret_cast<uint64_t>(info);
-    }
-    __simt_callee__ __forceinline__ void init(
-        __ubuf__ asccomm_peer_info* info, __gm__ void* jetty_table, uint32_t jetty_idx)
-    {
-        const uint64_t table = reinterpret_cast<uint64_t>(jetty_table);
-        ASCCOMM_SIMT_DEBUG_TRAP_IF(table == 0U || info == nullptr, "invalid SIMT asccomm_peer initialization\n");
-        const uint64_t channel_addr = *reinterpret_cast<__gm__ uint64_t*>(table + jetty_idx * sizeof(uint64_t));
-        attach(info);
-        ASCCOMM_SIMT_DEBUG_TRAP_IF(channel_addr == 0U, "invalid SIMT asccomm_peer channel\n");
-        const uint64_t sq_ctx_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, sqContextAddr));
-        const uint64_t rb_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, remoteBufferAddr));
-        const uint32_t rb_num = detail::load<uint32_t>(channel_addr, offsetof(ChannelEntity, remoteBufferNum));
-        ASCCOMM_SIMT_DEBUG_TRAP_IF(
-            sq_ctx_addr == 0U || rb_addr == 0U || rb_num == 0U, "invalid SIMT asccomm_peer channel context\n");
-        auto* sq = reinterpret_cast<__gm__ SqContext*>(sq_ctx_addr) + ASCCOMM_URMA_DEFAULT_QP_IDX;
-        auto* rb = reinterpret_cast<__gm__ RegedBufferEntity*>(rb_addr) + rb_num - 1U;
-        info->tp_id_num_sges_remote_token_id =
-            static_cast<uint64_t>(sq->contextInfo.ubJfs.tpID) |
-            (static_cast<uint64_t>(rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
-        uint64_t remote_eid_l = 0U;
-        uint64_t remote_eid_h = 0U;
-        for (uint32_t i = 0U; i < 8U; ++i) {
-            remote_eid_l |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i]) << (i * 8U);
-            remote_eid_h |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i + 8U]) << (i * 8U);
-        }
-        info->remote_eid[0] = remote_eid_l;
-        info->remote_eid[1] = remote_eid_h;
-        info->remote_token_value_udf = rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-        info->remote_base_addr = rb->bufferInfo.rma.addr;
-        info->remote_buffer_size = rb->bufferInfo.rma.size;
-    }
-
-private:
-    uint64_t info_addr = 0U;
-};
-
-__simt_callee__ __forceinline__ jetty_impl::jetty_impl(
-    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
-    uint32_t index)
+__simt_callee__ __forceinline__
+asccomm_peer<COMM_PROTOCOL_UB_CTP>::asccomm_peer(__ubuf__ peer_entity* entity, GM_ADDR channels, uint32_t channel_idx)
 {
-    init(info, stage, table, index);
+    this->entity = entity;
+    const uint64_t channels_addr = reinterpret_cast<uint64_t>(channels);
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(channels_addr == 0U || entity == nullptr, "invalid SIMT asccomm_peer initialization\n");
+    const uint64_t channel_addr = *reinterpret_cast<__gm__ uint64_t*>(channels_addr + channel_idx * sizeof(uint64_t));
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(channel_addr == 0U, "invalid SIMT asccomm_peer channel\n");
+    const uint64_t sq_ctx_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, sqContextAddr));
+    const uint64_t rb_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, remoteBufferAddr));
+    const uint32_t rb_num = detail::load<uint32_t>(channel_addr, offsetof(ChannelEntity, remoteBufferNum));
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(
+        sq_ctx_addr == 0U || rb_addr == 0U || rb_num == 0U, "invalid SIMT asccomm_peer channel context\n");
+    auto* sq = reinterpret_cast<__gm__ SqContext*>(sq_ctx_addr) + ASCCOMM_URMA_DEFAULT_QP_IDX;
+    auto* rb = reinterpret_cast<__gm__ RegedBufferEntity*>(rb_addr) + rb_num - 1U;
+    entity->tp_id_num_sges_remote_token_id =
+        static_cast<uint64_t>(sq->contextInfo.ubJfs.tpID) |
+        (static_cast<uint64_t>(rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
+    uint64_t remote_eid_l = 0U;
+    uint64_t remote_eid_h = 0U;
+    for (uint32_t i = 0U; i < 8U; ++i) {
+        remote_eid_l |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i]) << (i * 8U);
+        remote_eid_h |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i + 8U]) << (i * 8U);
+    }
+    entity->remote_eid[0] = remote_eid_l;
+    entity->remote_eid[1] = remote_eid_h;
+    entity->remote_token_value_udf = rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    entity->remote_base_addr = rb->bufferInfo.rma.addr;
+    entity->remote_buffer_size = rb->bufferInfo.rma.size;
+    valid = true;
 }
 
-__simt_callee__ __forceinline__ jetty_impl::jetty_impl(
-    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
+__simt_callee__ __forceinline__ asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::asccomm_work_queue_impl(
+    __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, GM_ADDR channels, uint32_t channel_idx)
 {
-    asccomm_jetty_attach(info, stage, channel_addr);
+    init(wq_buff, wqe_buff, channels, channel_idx);
 }
 
-__simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* jetty_impl::info() const
+__simt_callee__ __forceinline__ asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::asccomm_work_queue_impl(
+    __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, uint64_t channel_addr)
 {
-    return reinterpret_cast<__ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>*>(info_addr);
+    attach(wq_buff, wqe_buff, channel_addr);
 }
 
-template <uint32_t sge_num, bool do_commit, typename coop_group>
-__simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_write_nbi(
-    const asccomm_peer& peer, __gm__ void* dst, const jetty_sge* sges, const coop_group& group) const
+__simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::work_queue*
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::wq_buff() const
 {
+    return reinterpret_cast<__ubuf__ work_queue*>(info_addr);
+}
+
+template <int64_t timeout_cycles, uint32_t sge_num, bool do_commit, typename coop_group>
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
+    const coop_group& group, const peer_info& peer, GM_ADDR dst_addr, const asccomm_sge* sges) const
+{
+    static_assert(asccomm_coop_traits<coop_group>::warp_capable, "multi-SGE write requires warp lanes");
     if constexpr (asccomm_coop_traits<coop_group>::warp_capable) {
-        const jetty_sge lane_sge = sges[0];
-        return post_send<sge_num, asccomm_post_opcode::WRITE, do_commit>(
-            group, peer, detail::post_send_args<>{dst, &lane_sge});
+        const uint32_t lane = static_cast<uint32_t>(group.thread_rank()) % ASCCOMM_SIMT_WARP_SIZE;
+        asccomm_sge lane_sge{};
+        if (lane < sge_num)
+            lane_sge = sges[lane];
+        return post_send<timeout_cycles, sge_num, asccomm_post_opcode::WRITE, do_commit>(
+            group, peer, detail::post_send_args<>{dst_addr, &lane_sge});
     } else {
-        return post_send<sge_num, asccomm_post_opcode::WRITE, do_commit>(
-            group, peer, detail::post_send_args<>{dst, sges});
+        return post_send<timeout_cycles, sge_num, asccomm_post_opcode::WRITE, do_commit>(
+            group, peer, detail::post_send_args<>{dst_addr, sges});
     }
 }
 
-template <int64_t, typename T, bool do_commit>
-__simt_callee__ __forceinline__ int32_t
-jetty_impl::asccomm_jetty_write_value_nbi(const asccomm_peer& peer, __gm__ void* dst, T value)
+template <int64_t timeout_cycles, bool do_commit, typename coop_group>
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::write_nbi(
+    const coop_group& group, const peer_info& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes) const
+{
+    if (num_bytes == 0U || num_bytes > 0xFFFFFFFFULL)
+        return -1;
+    if constexpr (asccomm_coop_traits<coop_group>::warp_capable) {
+        const asccomm_sge sges[] = {{reinterpret_cast<uint64_t>(src_addr), static_cast<uint32_t>(num_bytes)}};
+        return write_nbi<timeout_cycles, 1U, do_commit>(group, peer, dst_addr, sges);
+    } else {
+        const asccomm_sge sges[] = {{reinterpret_cast<uint64_t>(src_addr), static_cast<uint32_t>(num_bytes)}};
+        return post_send<timeout_cycles, 1U, asccomm_post_opcode::WRITE, do_commit>(
+            group, peer, detail::post_send_args<>{dst_addr, sges});
+    }
+}
+
+template <int64_t timeout_cycles, typename T, bool do_commit, typename coop_group>
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::write_value_nbi(
+    const coop_group& group, const peer_info& peer, GM_ADDR dst_addr, T value) const
 {
     static_assert(
         sizeof(T) <= ASCCOMM_URMA_WQE_BB_SIZE - ASCCOMM_SIMT_SQE_HEADER_WORDS * sizeof(uint64_t),
         "inline value does not fit in a URMA WQEBB");
-    asccomm_coop_thread thread;
-    return post_send<0U, asccomm_post_opcode::WRITE_VALUE, do_commit, sizeof(T)>(
-        thread, peer, detail::inline_post_send_args{dst, reinterpret_cast<const uint8_t*>(&value)});
+    return post_send<timeout_cycles, 0U, asccomm_post_opcode::WRITE_VALUE, do_commit, sizeof(T)>(
+        group, peer, detail::inline_post_send_args{dst_addr, reinterpret_cast<const uint8_t*>(&value)});
 }
 
-template <int64_t, bool do_commit>
-__simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_write_with_notify_nbi(
-    const asccomm_peer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
-    uint64_t notify_value)
+template <int64_t timeout_cycles, bool do_commit, typename coop_group>
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::write_with_notify_nbi(
+    const coop_group& group, const peer_info& peer, GM_ADDR dst_addr, GM_ADDR src_addr, uint64_t num_bytes,
+    GM_ADDR notify_addr, uint64_t notify_value) const
 {
-    asccomm_coop_thread thread;
-    const jetty_sge sges[] = {{reinterpret_cast<uint64_t>(src), static_cast<int>(len)}};
-    return post_send<1U, asccomm_post_opcode::WRITE_WITH_NOTIFY, do_commit>(
-        thread, peer, detail::post_send_args<true>{dst, sges, notify_addr, notify_value});
+    if (num_bytes == 0U || num_bytes > 0xFFFFFFFFULL)
+        return -1;
+    const asccomm_sge sges[] = {{reinterpret_cast<uint64_t>(src_addr), static_cast<uint32_t>(num_bytes)}};
+    return post_send<timeout_cycles, 1U, asccomm_post_opcode::WRITE_WITH_NOTIFY, do_commit>(
+        group, peer, detail::post_send_args<true>{dst_addr, sges, notify_addr, notify_value});
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_advance_sq() const
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::advance_sq() const
 {
     if (implicit_active && implicit_wqebbs != 0U) {
         advance_implicit_sq();
@@ -231,34 +200,18 @@ __simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_advance_sq() cons
     }
 }
 
-template <typename coop_group>
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_advance_sq(const coop_group& group) const
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::advance_implicit_sq() const
 {
-    group.sync();
-    if (group.thread_rank() == 0U)
-        asccomm_jetty_advance_sq();
-    group.sync();
-}
-
-template <typename coop_group>
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_advance_sq(
-    const coop_group& group, uint32_t, uint32_t) const
-{
-    asccomm_jetty_advance_sq(group);
-}
-
-__simt_callee__ __forceinline__ void jetty_impl::advance_implicit_sq() const
-{
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packed_head));
     const uint32_t begin = implicit_begin_head;
     const uint32_t submitted_wqebbs = implicit_wqebbs;
     ASCCOMM_SIMT_DEBUG_TRAP_IF(
         end <= begin || submitted_wqebbs > ASCCOMM_SIMT_SLOT_WQEBBS || submitted_wqebbs > end - begin,
-        "invalid SIMT asccomm_jetty advance range\n");
+        "invalid SIMT asccomm_work_queue advance range\n");
     const uint32_t last = end - submitted_wqebbs;
     const uint32_t payload_wqebbs = implicit_payload_wqebbs == 0U ? submitted_wqebbs : implicit_payload_wqebbs;
-    ASCCOMM_SIMT_DEBUG_TRAP_IF(payload_wqebbs > submitted_wqebbs, "invalid SIMT asccomm_jetty payload range\n");
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(payload_wqebbs > submitted_wqebbs, "invalid SIMT asccomm_work_queue payload range\n");
     auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sq_base_addr);
     const uint32_t idx = last & (info->sq_depth - 1U);
     uint64_t header = ASCCOMM_SIMT_WRITE_HEADER | idx;
@@ -280,12 +233,13 @@ __simt_callee__ __forceinline__ void jetty_impl::advance_implicit_sq() const
     implicit_payload_wqebbs = 0U;
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_publish_sq() const
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::ring_doorbell() const
 {
-    auto* info = this->info();
+    advance_sq();
+    auto* info = this->wq_buff();
     ASCCOMM_SIMT_DEBUG_TRAP_IF(
         info == nullptr || info->sq_head_addr == 0U || info->sq_doorbell_addr == 0U || info->sq_depth == 0U,
-        "invalid SIMT asccomm_jetty publish state\n");
+        "invalid SIMT asccomm_work_queue publish state\n");
     const uint64_t packed_head = *reinterpret_cast<__gm__ uint64_t*>(info->sq_head_addr);
     const uint32_t head = static_cast<uint32_t>(packed_head);
     // A publication DWQE consumes two BBs. Its NOP headers therefore encode
@@ -312,22 +266,23 @@ __simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_publish_sq() cons
 }
 
 template <typename coop_group>
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_publish_sq(const coop_group& group) const
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::ring_doorbell(
+    const coop_group& group) const
 {
     group.sync();
     if (group.thread_rank() == 0U)
-        asccomm_jetty_publish_sq();
+        ring_doorbell();
     group.sync();
 }
 
 template <int64_t timeout_cycles>
-__simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_drain() const
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::drain() const
 {
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     ASCCOMM_SIMT_DEBUG_TRAP_IF(
         info == nullptr || info->cq_tail_addr == 0U || info->cq_base_addr == 0U || info->cq_depth == 0U ||
             info->num_cqe_bytes == 0U || info->completion_tail_addr == 0U || info->cq_doorbell_addr == 0U,
-        "invalid SIMT asccomm_jetty CQ state\n");
+        "invalid SIMT asccomm_work_queue CQ state\n");
     const uint32_t expected = static_cast<uint32_t>(info->packed_head >> 32U);
     auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->cq_tail_addr);
     auto* sq_tail = reinterpret_cast<__gm__ uint32_t*>(info->completion_tail_addr);
@@ -345,68 +300,73 @@ __simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_drain() const
 }
 
 template <int64_t timeout_cycles, typename coop_group>
-__simt_callee__ __forceinline__ int32_t jetty_impl::asccomm_jetty_drain(const coop_group& group) const
+__simt_callee__ __forceinline__ int32_t
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::drain(const coop_group& group) const
 {
     group.sync();
     int32_t result = 0;
     if (group.thread_rank() == 0U)
-        result = asccomm_jetty_drain<timeout_cycles>();
+        result = drain<timeout_cycles>();
     result = asc_shfl(result, 0, ASCCOMM_SIMT_WARP_SIZE);
     group.sync();
     return result;
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::asccomm_jetty_attach(
-    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, uint64_t channel_addr)
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::attach(
+    __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, uint64_t channel_addr)
 {
-    info_addr = reinterpret_cast<uint64_t>(info);
-    stage_addr = reinterpret_cast<uint64_t>(stage);
+    info_addr = reinterpret_cast<uint64_t>(wq_buff);
+    stage_addr = reinterpret_cast<uint64_t>(wqe_buff);
     channel = channel_addr;
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::init(
-    __ubuf__ asccomm_work_queue_info<asc::COMM_PROTOCOL_UB_CTP>* info, __ubuf__ uint8_t* stage, __gm__ void* table,
-    uint32_t index)
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::init(
+    __ubuf__ work_queue* wq_buff, __ubuf__ uint8_t* wqe_buff, GM_ADDR channels, uint32_t channel_idx)
 {
-    const uint64_t table_addr = reinterpret_cast<uint64_t>(table);
-    ASCCOMM_SIMT_DEBUG_TRAP_IF(table_addr == 0U || info == nullptr, "invalid SIMT asccomm_jetty initialization\n");
-    const uint64_t channel_addr = *reinterpret_cast<__gm__ uint64_t*>(table_addr + index * sizeof(uint64_t));
-    asccomm_jetty_attach(info, stage, channel_addr);
-    if (stage != nullptr) {
-        auto* batch = reinterpret_cast<__ubuf__ batch_state*>(stage);
+    const uint64_t channels_addr = reinterpret_cast<uint64_t>(channels);
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(
+        channels_addr == 0U || wq_buff == nullptr, "invalid SIMT asccomm_work_queue initialization\n");
+    const uint64_t channel_addr = *reinterpret_cast<__gm__ uint64_t*>(channels_addr + channel_idx * sizeof(uint64_t));
+    attach(wq_buff, wqe_buff, channel_addr);
+    if (wqe_buff != nullptr) {
+        auto* batch = reinterpret_cast<__ubuf__ batch_state*>(wqe_buff);
         batch->wqebb_count = 0U;
         batch->last_offset = 0U;
         batch->failed = 0U;
     }
-    ASCCOMM_SIMT_DEBUG_TRAP_IF(channel_addr == 0U, "invalid SIMT asccomm_jetty channel\n");
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(channel_addr == 0U, "invalid SIMT asccomm_work_queue channel\n");
     const uint64_t sq_ctx_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, sqContextAddr));
     const uint64_t cq_ctx_addr = detail::load<uint64_t>(channel_addr, offsetof(ChannelEntity, cqContextAddr));
-    ASCCOMM_SIMT_DEBUG_TRAP_IF(sq_ctx_addr == 0U || cq_ctx_addr == 0U, "invalid SIMT asccomm_jetty channel context\n");
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(
+        sq_ctx_addr == 0U || cq_ctx_addr == 0U, "invalid SIMT asccomm_work_queue channel context\n");
     auto* sq = reinterpret_cast<__gm__ SqContext*>(sq_ctx_addr) + ASCCOMM_URMA_DEFAULT_QP_IDX;
     auto* cq = reinterpret_cast<__gm__ CqContext*>(cq_ctx_addr) + ASCCOMM_URMA_DEFAULT_QP_IDX;
-    info->sq_base_addr = sq->contextInfo.ubJfs.sqVa;
-    info->sq_head_addr = sq->contextInfo.ubJfs.headAddr;
-    info->completion_tail_addr = sq->contextInfo.ubJfs.tailAddr;
-    info->sq_doorbell_addr = sq->contextInfo.ubJfs.dbVa;
-    info->cq_base_addr = cq->contextInfo.ubJfc.scqVa;
-    info->cq_tail_addr = cq->contextInfo.ubJfc.tailAddr;
-    info->cq_doorbell_addr = cq->contextInfo.ubJfc.dbVa;
-    info->num_wqebb_bytes = sq->contextInfo.ubJfs.wqeSize;
-    info->num_cqe_bytes = cq->contextInfo.ubJfc.cqeSize;
-    info->sq_depth = sq->contextInfo.ubJfs.sqDepth;
-    info->cq_depth = cq->contextInfo.ubJfc.cqDepth;
-    ASCCOMM_SIMT_DEBUG_TRAP_IF(info->sq_head_addr == 0U, "invalid SIMT asccomm_jetty SQ head\n");
-    info->packed_head = *reinterpret_cast<__gm__ uint64_t*>(info->sq_head_addr);
+    wq_buff->sq_base_addr = sq->contextInfo.ubJfs.sqVa;
+    wq_buff->sq_head_addr = sq->contextInfo.ubJfs.headAddr;
+    wq_buff->completion_tail_addr = sq->contextInfo.ubJfs.tailAddr;
+    wq_buff->sq_doorbell_addr = sq->contextInfo.ubJfs.dbVa;
+    wq_buff->cq_base_addr = cq->contextInfo.ubJfc.scqVa;
+    wq_buff->cq_tail_addr = cq->contextInfo.ubJfc.tailAddr;
+    wq_buff->cq_doorbell_addr = cq->contextInfo.ubJfc.dbVa;
+    wq_buff->num_wqebb_bytes = sq->contextInfo.ubJfs.wqeSize;
+    wq_buff->num_cqe_bytes = cq->contextInfo.ubJfc.cqeSize;
+    wq_buff->sq_depth = sq->contextInfo.ubJfs.sqDepth;
+    wq_buff->cq_depth = cq->contextInfo.ubJfc.cqDepth;
+    ASCCOMM_SIMT_DEBUG_TRAP_IF(wq_buff->sq_head_addr == 0U, "invalid SIMT asccomm_work_queue SQ head\n");
+    wq_buff->packed_head = *reinterpret_cast<__gm__ uint64_t*>(wq_buff->sq_head_addr);
 }
 
-__simt_callee__ __forceinline__ __ubuf__ jetty_impl::batch_state* jetty_impl::batch() const
+__simt_callee__ __forceinline__ __ubuf__ asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::batch_state*
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::batch() const
 {
     return reinterpret_cast<__ubuf__ batch_state*>(stage_addr);
 }
 
-__simt_callee__ __forceinline__ uint32_t jetty_impl::reserve_implicit_sq(const uint32_t reserve_wqebbs) const
+template <int64_t timeout_cycles>
+__simt_callee__ __forceinline__ uint32_t
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::reserve_implicit_sq(const uint32_t reserve_wqebbs) const
 {
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     auto* sq_head = reinterpret_cast<__ubuf__ uint32_t*>(&info->packed_head);
     auto* sq_tail = reinterpret_cast<__gm__ uint32_t*>(info->completion_tail_addr);
     const uint32_t depth = info->sq_depth;
@@ -414,7 +374,7 @@ __simt_callee__ __forceinline__ uint32_t jetty_impl::reserve_implicit_sq(const u
     // Leave room for the two-BB publication DWQE.
     const uint32_t required_free_wqebbs = reserve_wqebbs + ASCCOMM_URMA_DWQE_BB_CNT;
     uint32_t consumed = old_head - *sq_tail;
-    while ((consumed > depth || required_free_wqebbs > depth - consumed) && pull_cq_one()) {
+    while ((consumed > depth || required_free_wqebbs > depth - consumed) && pull_cq_one<timeout_cycles>()) {
         consumed = old_head - *sq_tail;
     }
     uint32_t head = 0xFFFFFFFFU;
@@ -429,11 +389,12 @@ __simt_callee__ __forceinline__ uint32_t jetty_impl::reserve_implicit_sq(const u
     return head;
 }
 
-__simt_callee__ __forceinline__ uint32_t jetty_impl::reserve_batch_sq(const uint32_t reserve_wqebbs) const
+__simt_callee__ __forceinline__ uint32_t
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::reserve_batch_sq(const uint32_t reserve_wqebbs) const
 {
     if (stage_addr == 0U)
         return 0xFFFFFFFFU;
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     auto* batch = this->batch();
     // Keep packed_head at the published base while warps claim batch offsets.
     const uint32_t offset = asc_atomic_add(&batch->wqebb_count, reserve_wqebbs);
@@ -450,10 +411,10 @@ __simt_callee__ __forceinline__ uint32_t jetty_impl::reserve_batch_sq(const uint
 }
 
 template <
-    uint32_t sge_num, asccomm_post_opcode opcode, bool do_commit, uint32_t inline_bytes, typename coop_group,
-    typename post_args>
-__simt_callee__ __forceinline__ int32_t
-jetty_impl::post_send(const coop_group& group, const asccomm_peer& peer, const post_args& args) const
+    int64_t timeout_cycles, uint32_t sge_num, asccomm_post_opcode opcode, bool do_commit, uint32_t inline_bytes,
+    typename coop_group, typename post_args>
+__simt_callee__ __forceinline__ int32_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::post_send(
+    const coop_group& group, const peer_info& peer, const post_args& args) const
 {
     static_assert(opcode != asccomm_post_opcode::WRITE_VALUE || sge_num == 0U, "inline writes do not carry SGEs");
     static_assert(
@@ -498,7 +459,7 @@ jetty_impl::post_send(const coop_group& group, const asccomm_peer& peer, const p
     uint32_t head = 0xFFFFFFFFU;
     if (lane_rank == 0U) {
         if constexpr (do_commit || scalar_write) {
-            head = reserve_implicit_sq(reserve_wqebbs);
+            head = reserve_implicit_sq<timeout_cycles>(reserve_wqebbs);
         } else {
             head = reserve_batch_sq(reserve_wqebbs);
         }
@@ -516,15 +477,14 @@ jetty_impl::post_send(const coop_group& group, const asccomm_peer& peer, const p
     asc_threadfence();
     group.sync();
     if constexpr (do_commit) {
-        asccomm_jetty_advance_sq(group);
-        asccomm_jetty_publish_sq(group);
+        ring_doorbell(group);
     }
     return 0;
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::advance_batch() const
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::advance_batch() const
 {
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     auto* batch = this->batch();
     const uint32_t count = batch->wqebb_count;
     if (count == 0U)
@@ -558,9 +518,10 @@ __simt_callee__ __forceinline__ void jetty_impl::advance_batch() const
 // Poll one CQE and advance the local SQ completion tail. The caller owns CQ tail and
 // doorbell updates so this helper can serve both drain and the incremental reservation path.
 template <int64_t timeout_cycles>
-__simt_callee__ __forceinline__ int32_t jetty_impl::poll_cq_entry(const uint32_t current, uint32_t& released) const
+__simt_callee__ __forceinline__ int32_t
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::poll_cq_entry(const uint32_t current, uint32_t& released) const
 {
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
         info->cq_base_addr + static_cast<uint64_t>(info->num_cqe_bytes) * (current & (info->cq_depth - 1U)));
     const uint32_t phase = (current / info->cq_depth) & 1U;
@@ -584,9 +545,10 @@ __simt_callee__ __forceinline__ int32_t jetty_impl::poll_cq_entry(const uint32_t
 
 // Reap one completed CQE, matching the SIMD PullCq behavior. This is used only by
 // the single-producer path, where no other producer can race the CQ tail update.
-__simt_callee__ __forceinline__ bool jetty_impl::pull_cq_one() const
+template <int64_t timeout_cycles>
+__simt_callee__ __forceinline__ bool asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::pull_cq_one() const
 {
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     const uint32_t expected = static_cast<uint32_t>(info->packed_head >> 32U);
     auto* cq_tail = reinterpret_cast<__gm__ uint32_t*>(info->cq_tail_addr);
     auto* sq_tail = reinterpret_cast<__gm__ uint32_t*>(info->completion_tail_addr);
@@ -594,7 +556,7 @@ __simt_callee__ __forceinline__ bool jetty_impl::pull_cq_one() const
     if (current == expected)
         return false;
     uint32_t released = *sq_tail;
-    if (poll_cq_entry<>(current, released) != poll_cq_success) {
+    if (poll_cq_entry<timeout_cycles>(current, released) != poll_cq_success) {
         return false;
     }
     ++current;
@@ -604,13 +566,14 @@ __simt_callee__ __forceinline__ bool jetty_impl::pull_cq_one() const
     return true;
 }
 
-__simt_callee__ __forceinline__ bool jetty_impl::is_valid_sge(const jetty_sge& sge)
+__simt_callee__ __forceinline__ bool asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::is_valid_sge(const asccomm_sge& sge)
 {
     return sge.addr != 0U && sge.len > 0;
 }
 
 template <uint32_t sge_num>
-__simt_callee__ __forceinline__ uint32_t jetty_impl::count_scalar_sges(const jetty_sge* sges)
+__simt_callee__ __forceinline__ uint32_t
+asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::count_scalar_sges(const asccomm_sge* sges)
 {
     uint32_t count = 0U;
 #pragma unroll
@@ -623,22 +586,22 @@ __simt_callee__ __forceinline__ uint32_t jetty_impl::count_scalar_sges(const jet
 template <
     uint32_t sge_num, asccomm_post_opcode opcode, uint32_t inline_bytes, uint32_t wqebb_count, typename coop_group,
     typename post_args>
-__simt_callee__ __forceinline__ void jetty_impl::fill_sq_warp_lane(
-    const coop_group& group, const asccomm_peer& peer, const post_args& args, const uint32_t head,
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::fill_sq_warp_lane(
+    const coop_group& group, const peer_info& peer, const post_args& args, const uint32_t head,
     const uint32_t runtime_wqebb_count, const uint32_t scalar_sge_num) const
 {
     constexpr uint32_t payload_words = post_send_payload_words<sge_num, opcode, inline_bytes>();
     constexpr uint32_t wqebb_total_words = wqebb_count * ASCCOMM_SIMT_WQEBB_LANES;
     constexpr bool warp_lane = asccomm_coop_traits<coop_group>::warp_capable;
     const uint32_t lane = warp_lane ? static_cast<uint32_t>(group.thread_rank()) % ASCCOMM_SIMT_WARP_SIZE : 0U;
-    auto* info = this->info();
+    auto* info = this->wq_buff();
     const uint32_t depth = info->sq_depth;
     auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sq_base_addr);
     uint32_t active_sges = scalar_sge_num;
     if constexpr (warp_lane) {
         active_sges = sge_num;
     }
-    jetty_sge lane_sge{};
+    asccomm_sge lane_sge{};
     if constexpr (opcode == asccomm_post_opcode::WRITE) {
         if constexpr (warp_lane) {
             lane_sge = args.sges[0];
@@ -665,7 +628,7 @@ __simt_callee__ __forceinline__ void jetty_impl::fill_sq_warp_lane(
                                      (logical_word - ASCCOMM_SIMT_SQE_HEADER_WORDS) / 2U :
                                      0U;
             uint64_t sge_addr = 0U;
-            int sge_len = 0;
+            uint32_t sge_len = 0U;
             if constexpr (warp_lane) {
                 // Every lane executes the shuffle, including header and padding
                 // lanes, so the warp follows one uniform data path.
@@ -678,7 +641,7 @@ __simt_callee__ __forceinline__ void jetty_impl::fill_sq_warp_lane(
             if (logical_word == 0U) {
                 value = ASCCOMM_SIMT_WRITE_HEADER | sq_idx;
             } else if (logical_word < ASCCOMM_SIMT_SQE_HEADER_WORDS) {
-                value = detail::peer_word(peer.info(), logical_word, active_sges, args.dst);
+                value = detail::peer_word(peer.entity, logical_word, active_sges, args.dst_addr);
             } else if (logical_word < active_payload_words) {
                 value = (logical_word & 1U) == 0U ? static_cast<uint64_t>(sge_len) : sge_addr;
             } else if constexpr (warp_lane) {
@@ -701,15 +664,15 @@ __simt_callee__ __forceinline__ void jetty_impl::fill_sq_warp_lane(
 }
 
 template <uint32_t payload_words, uint32_t inline_bytes>
-__simt_callee__ __forceinline__ uint64_t jetty_impl::build_value_word(
-    const asccomm_peer& peer, const detail::inline_post_send_args& args, const uint32_t word, const uint32_t sq_idx)
+__simt_callee__ __forceinline__ uint64_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::build_value_word(
+    const peer_info& peer, const detail::inline_post_send_args& args, const uint32_t word, const uint32_t sq_idx)
 {
     if (word == 0U) {
         return ASCCOMM_SIMT_WRITE_HEADER | sq_idx | (1ULL << 22U) |
                (static_cast<uint64_t>(inline_bytes & 0x3FFU) << 54U);
     }
     if (word < ASCCOMM_SIMT_SQE_HEADER_WORDS)
-        return detail::peer_word(peer.info(), word, 0U, args.dst);
+        return detail::peer_word(peer.entity, word, 0U, args.dst_addr);
     if (word < payload_words) {
         const uint32_t offset = (word - ASCCOMM_SIMT_SQE_HEADER_WORDS) * sizeof(uint64_t);
         uint64_t result = 0U;
@@ -721,17 +684,17 @@ __simt_callee__ __forceinline__ uint64_t jetty_impl::build_value_word(
     return 0U;
 }
 
-__simt_callee__ __forceinline__ uint64_t jetty_impl::build_notify_word(
-    const asccomm_peer& peer, const detail::post_send_args<true>& args, const uint32_t word, const uint32_t sq_idx)
+__simt_callee__ __forceinline__ uint64_t asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::build_notify_word(
+    const peer_info& peer, const detail::post_send_args<true>& args, const uint32_t word, const uint32_t sq_idx)
 {
     if (word == 0U) {
         return (ASCCOMM_SIMT_WRITE_HEADER & ~(0xFFULL << 40U)) | (static_cast<uint64_t>(0x0CU) << 40U) | sq_idx;
     }
     if (word < ASCCOMM_SIMT_SQE_HEADER_WORDS)
-        return detail::peer_word(peer.info(), word, 1U, args.dst);
+        return detail::peer_word(peer.entity, word, 1U, args.dst_addr);
     if (word == ASCCOMM_SIMT_SQE_HEADER_WORDS) {
-        return static_cast<uint64_t>((peer.info()->tp_id_num_sges_remote_token_id >> 32U) & 0xFFFFFU) |
-               ((peer.info()->remote_token_value_udf & 0xFFFFFFFFULL) << 32U);
+        return static_cast<uint64_t>((peer.entity->tp_id_num_sges_remote_token_id >> 32U) & 0xFFFFFU) |
+               ((peer.entity->remote_token_value_udf & 0xFFFFFFFFULL) << 32U);
     }
     if (word == ASCCOMM_SIMT_SQE_HEADER_WORDS + 1U)
         return reinterpret_cast<uint64_t>(args.notify_addr);
@@ -744,7 +707,7 @@ __simt_callee__ __forceinline__ uint64_t jetty_impl::build_notify_word(
     return 0U;
 }
 
-__simt_callee__ __forceinline__ void jetty_impl::store_sqe_pair(
+__simt_callee__ __forceinline__ void asccomm_work_queue_impl<COMM_PROTOCOL_UB_CTP>::store_sqe_pair(
     __gm__ uint64_t* sq, const uint32_t depth, const uint32_t head, const uint32_t first_word, const uint64_t first,
     const uint64_t second)
 {
