@@ -33,7 +33,7 @@
 > [!NOTE]说明
 > 资源分配采用“先虚后实”两阶段模型：`local_addr()`构造仅产生虚拟句柄，真正的物理资源在翻译期统一分配。
 
-CCU硬件不接受进程虚拟地址，访问片上内存必须使用由[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
+CCU硬件不接受进程虚拟地址，访问片上内存必须使用由[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
 
 ## 类声明
 
@@ -65,7 +65,7 @@ public:
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
 | `addr` | `address` | 本端片上内存地址。通过`la.addr = imm`（立即数）或`la.addr = var`（variable）赋值，运算符语义见[address](address.md)。 |
-| `token` | `variable` | 安全token值。由host端调用[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)获取后，通过`kernelArg`或`taskArgs`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
+| `token` | `variable` | 安全token值。由host端调用[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)获取后，通过`kernelArg`或`taskArgs`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
 
@@ -78,7 +78,7 @@ public:
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
 - `addr`字段须赋值为CCU可访问的物理地址或经token化的VA，直接传入未经token化的进程虚拟地址将触发驱动错误。
-- `token`通常来自host端[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)调用，须与`addr`配对，不可与对端token混用。
+- `token`通常来自host端[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)调用，须与`addr`配对，不可与对端token混用。
 
 ## 调用示例
 

@@ -46,7 +46,7 @@ Hcomm SIMT通信算子开发分为控制面资源准备和数据面通信执行�
 
 ### 获取对端注册内存表下标
 
-通过通道查询对端注册的通信内存，按tag匹配得到对端内存在远端内存表中的下标（为聚焦调用流程，Host侧示例省略返回值检查与错误处理），参见[`HcclChannelGetRemoteMems`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetRemoteMems.md)。Kernel侧通过该下标经`AscendC::simt::RemoteBufferAddr`解析远端基址：
+通过通道查询对端注册的通信内存，按tag匹配得到对端内存在远端内存表中的下标（为聚焦调用流程，Host侧示例省略返回值检查与错误处理），参见[`HcclChannelGetRemoteMems`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetRemoteMems.md)。Kernel侧通过该下标经`AscendC::simt::RemoteBufferAddr`解析远端基址：
 
   ```cpp
   // 记录对端注册内存在远端内存表中的下标，供Kernel侧解析基址
@@ -68,7 +68,7 @@ Hcomm SIMT通信算子开发分为控制面资源准备和数据面通信执行�
 
 ### 下发句柄到Kernel
 
-将各对端`channel`与对端缓冲区表下标`remoteBufIdxs`组装为Host与Kernel共享的上下文（结构定义参见[Kernel侧通信执行](#kernel侧通信执行)，需在Host与Kernel共享的头文件中定义）后下发。本端缓冲区无需下发地址：Kernel侧按本地缓冲区表下标解析，下标`0`为通信域的HcclBuffer（由[`HcclChannelAcquire`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)建通道时注册的内部缓冲区），显式注册的内存从下标`1`开始（与`HcclCommMemReg`的注册顺序一致）。
+将各对端`channel`与对端缓冲区表下标`remoteBufIdxs`组装为Host与Kernel共享的上下文（结构定义参见[Kernel侧通信执行](#kernel侧通信执行)，需在Host与Kernel共享的头文件中定义）后下发。本端缓冲区无需下发地址：Kernel侧按本地缓冲区表下标解析，下标`0`为通信域的HcclBuffer（由[`HcclChannelAcquire`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)建通道时注册的内部缓冲区），显式注册的内存从下标`1`开始（与`HcclCommMemReg`的注册顺序一致）。
 
   ```cpp
   void* devContext = nullptr;

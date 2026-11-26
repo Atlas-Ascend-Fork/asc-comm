@@ -52,7 +52,7 @@ variable get_res_by_channel<variable>(ChannelHandle channel, uint32_t var_index)
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| channel | 输入 | 跨rank通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)，须已完成建链。 |
+| channel | 输入 | 跨rank通道句柄，类型为[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)，须已完成建链。 |
 | var_index | 输入 | 通道内变量索引（0起），对应channel建链时预分配的一组variable槽位中的一个。当前每条channel固定预留4个variable槽位（`var_index`取值范围为`[0, 3]`），超出该范围返回`ccu_result::CCU_E_PARA`。 |
 
 ## 返回值说明

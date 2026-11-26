@@ -59,7 +59,7 @@ HcommResult MakeMultiChannelHandle(
 | `comm` | 输入 | 已初始化的HCCL通信域。 |
 | `sharedQueueTag` | 输入 | 本组多通道资源的标签，在同一通信域内必须唯一。 |
 | `endpointHandle` | 输入 | 已初始化且支持AIV（AI Vector，向量核）引擎`COMM_PROTOCOL_UB_CTP`协议的Hcomm Endpoint。 |
-| `channelDescs` | 输入 | 包含`channelNum`个元素的HCCL或Hcomm通道描述数组，参见[HcclChannelDesc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/HcclChannelDesc.md)和[HcommChannelDesc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/HcommChannelDesc.md)。数组下标对应Device侧[GetHandleRef](../../aicore/hcomm/GetHandleRef.md)的`channelIndex`。 |
+| `channelDescs` | 输入 | 包含`channelNum`个元素的HCCL或Hcomm通道描述数组，参见[HcclChannelDesc](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/datatype_definition/HcclChannelDesc.md)和[HcommChannelDesc](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/datatype_definition/HcommChannelDesc.md)。数组下标对应Device侧[GetHandleRef](../../aicore/hcomm/GetHandleRef.md)的`channelIndex`。 |
 | `channelNum` | 输入 | 通道描述数量，必须大于0。 |
 | `multiChannel` | 输出 | Device侧多通道句柄，须指向有效可写地址（不能为`nullptr`）。创建失败时置为0。 |
 

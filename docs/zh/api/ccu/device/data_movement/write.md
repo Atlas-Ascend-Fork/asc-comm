@@ -25,7 +25,7 @@
 
 头文件为：`#include <ccu/asc_ccu.h>`
 
-通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)将本端数据异步写入对端片上内存，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
+通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)将本端数据异步写入对端片上内存，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -75,7 +75,7 @@
 - `len`必须大于0，否则硬件会发生未定义行为；该约束须由调用方自行保证。
 - “本端片上内存 -> 对端片上内存”时，`len`须小于256MB；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
 - “本端CCU Buffer -> 对端片上内存”时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
-- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
+- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
 - 本接口为异步操作，须通过`event_wait(evt, mask)`等待写入完成，方可保证对端数据可见。
 
 ## 调用示例

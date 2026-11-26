@@ -53,7 +53,7 @@ Hcomm通信算子开发分为控制面资源准备和数据面通信执行两阶
 
 ### 创建通信域
 
-通信域内所有rank必须共用同一份rootInfo建域（参见[`HcclGetRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclGetRootInfo.md)与[`HcclCommInitRootInfo`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)）。Hcomm流程需通过`HcclCommConfig`创建通信域，并设置`hcclWorldRankID`为当前全局rank，对应接口参见[`HcclCommConfigInit`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommConfigInit.md)与[`HcclCommInitRootInfoConfig`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfoConfig.md)。
+通信域内所有rank必须共用同一份rootInfo建域（参见[`HcclGetRootInfo`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_mgr_c/HcclGetRootInfo.md)与[`HcclCommInitRootInfo`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)）。Hcomm流程需通过`HcclCommConfig`创建通信域，并设置`hcclWorldRankID`为当前全局rank，对应接口参见[`HcclCommConfigInit`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_mgr_c/HcclCommConfigInit.md)与[`HcclCommInitRootInfoConfig`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfoConfig.md)。
 
 样例工程通过以rank 0为中心的TCP socket控制通道交换rootInfo，参见`examples/aicore/utils/rank_sync.h`与`examples/aicore/utils/hccl_comm_init.h`。也可采用文件交换等其他方式：由root节点将rootInfo写入共享路径下的文件，其他rank等待文件就绪后读取同一份rootInfo。
 
@@ -86,7 +86,7 @@ Hcomm通信算子开发分为控制面资源准备和数据面通信执行两阶
 
 AllGather场景下，通信缓冲区需容纳`nranks`个分片：本端分片预置于`rankId * SHARD_SIZE`偏移，作为Kernel侧写入各对端的源数据；该缓冲区同时作为AllGather结果缓冲区，接收其余rank写入的分片。
 
-分配通信缓冲区，并通过[`HcclCommMemReg`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclCommMemReg.md)将本端缓冲区注册为携带tag的通信内存，供对端通过通道识别与访问：
+分配通信缓冲区，并通过[`HcclCommMemReg`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclCommMemReg.md)将本端缓冲区注册为携带tag的通信内存，供对端通过通道识别与访问：
 
   ```cpp
   constexpr uint64_t SHARD_SIZE = 4096U;               // 单个分片大小
@@ -115,7 +115,7 @@ AllGather场景下，通信缓冲区需容纳`nranks`个分片：本端分片预
 
 ### 获取对端链路并创建通道
 
-通过包含当前rank的拓扑模型获取到对端的通信链路，配置通道描述并创建通道，涉及接口参见[`HcclRankGraphGetLayers`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/topo_info_query/HcclRankGraphGetLayers.md)、[`HcclRankGraphGetLinks`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/topo_info_query/HcclRankGraphGetLinks.md)、[`HcclChannelDescInit`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelDescInit.md)与[`HcclChannelAcquire`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)。通道为点对点资源，每个对端需单独创建通道；AllGather场景下本端与其余`nranks - 1`个对端各建一条通道：
+通过包含当前rank的拓扑模型获取到对端的通信链路，配置通道描述并创建通道，涉及接口参见[`HcclRankGraphGetLayers`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/topo_info_query/HcclRankGraphGetLayers.md)、[`HcclRankGraphGetLinks`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/topo_info_query/HcclRankGraphGetLinks.md)、[`HcclChannelDescInit`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelDescInit.md)与[`HcclChannelAcquire`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)。通道为点对点资源，每个对端需单独创建通道；AllGather场景下本端与其余`nranks - 1`个对端各建一条通道：
 
   ```cpp
   // 查询包含当前rank的拓扑层级编号列表以及拓扑层级数量
@@ -157,7 +157,7 @@ AllGather场景下，通信缓冲区需容纳`nranks`个分片：本端分片预
 
 ### 获取对端注册内存
 
-通过通道查询对端注册的通信内存，按tag匹配得到远端缓冲区地址（为聚焦调用流程，Host侧示例省略返回值检查与错误处理），参见[`HcclChannelGetRemoteMems`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetRemoteMems.md)。Kernel侧基于该地址加偏移计算远端写入位置：
+通过通道查询对端注册的通信内存，按tag匹配得到远端缓冲区地址（为聚焦调用流程，Host侧示例省略返回值检查与错误处理），参见[`HcclChannelGetRemoteMems`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetRemoteMems.md)。Kernel侧基于该地址加偏移计算远端写入位置：
 
   ```cpp
   std::vector<uint64_t> remoteBufs(channels.size(), 0U);
@@ -200,7 +200,7 @@ AllGather场景下，通信缓冲区需容纳`nranks`个分片：本端分片预
 
 ### 销毁通信资源
 
-通信任务完成后，销毁通信资源（参见[`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommDestroy.md)）。样例工程中通道与注册内存随通信域统一释放，参见样例[hcomm_urma_write_read_nbi](../../../../examples/aicore/hcomm/01_hcomm_urma_write_read_nbi/README.md)：
+通信任务完成后，销毁通信资源（参见[`HcclCommDestroy`](https://gitcode.com/cann/hcomm/blob/9.3.0-beta.2/docs/zh/api_ref/comm_mgr_c/HcclCommDestroy.md)）。样例工程中通道与注册内存随通信域统一释放：
 
   ```cpp
   // 销毁通信域（通道与注册内存随通信域统一释放）
