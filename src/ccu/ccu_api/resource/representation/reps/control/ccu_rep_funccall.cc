@@ -73,8 +73,20 @@ void ccu_rep_func_call::set_out_arg(const std::vector<variable>& var_list)
 
 uint16_t ccu_rep_func_call::instr_count()
 {
-    instr_count_ = in_arg_count_ + out_arg_count_ +
-                   ins_generator_ptr_->get_instr_count(type_); // funcCall除去入参和出参的处理外，需要额外4条指令
+    // funcCall除去入参和出参的处理外，需要额外4条指令
+    const uint64_t base_instr_count = ins_generator_ptr_->get_instr_count(type_);
+    const uint64_t total_instr_count = static_cast<uint64_t>(in_arg_count_) + out_arg_count_ + base_instr_count;
+
+    CHK_PRT_THROW(
+        total_instr_count > UINT16_MAX,
+        HCCL_ERROR(
+            "[CcuRepFuncCall::instr_count] uint16 integer overflow occurs, inArgCount = [%u], outArgCount = [%u], "
+            "baseInstrCount = [%llu], totalInstrCount = [%llu]",
+            in_arg_count_, out_arg_count_, static_cast<unsigned long long>(base_instr_count),
+            static_cast<unsigned long long>(total_instr_count)),
+        ccu_result::CCU_E_INTERNAL, "integer overflow");
+
+    instr_count_ = static_cast<uint16_t>(total_instr_count);
     return instr_count_;
 }
 

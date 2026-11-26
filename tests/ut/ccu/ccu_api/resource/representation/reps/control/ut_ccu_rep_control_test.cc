@@ -414,6 +414,15 @@ TEST_F(CcuRepFuncCallTest, instr_count)
     EXPECT_GE(count_, 4);
 }
 
+TEST_F(CcuRepFuncCallTest, InstrCount_ExceedsUint16MaxThrows)
+{
+    ccu_rep_func_call func_call(&insGen, "overflowCall");
+    ccu_rep_context context_;
+    std::vector<variable> vars(UINT16_MAX + 1, variable(&context_));
+    func_call.set_in_arg(vars);
+    EXPECT_ANY_THROW(func_call.instr_count());
+}
+
 TEST_F(CcuRepJumpTest, Constructor_Label)
 {
     ccu_rep_context context_;
