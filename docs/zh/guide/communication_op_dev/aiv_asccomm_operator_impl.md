@@ -1,10 +1,10 @@
-# 基于CommRW的AIV直驱通信算子开发指南
+# 基于CommRW的AIV直驱通信算子开发
 
 ## 概述
 
 CommRW是覆盖AI Core与AI CPU侧的点对点通信接口，其中AI Core侧通过`asc::asccomm`模板选择通信协议，提供`write_nbi`/`read_nbi`/`write_value_nbi`/`write_with_notify_nbi`/`write_reduce_nbi`（带归约的写任务）/`atomic_faa_nbi`/`atomic_cas_nbi`等单边数据面能力及`commit`/`drain`提交与完成语义。AI Core侧CommRW基于显式的`ChannelHandle`通信通道与注册内存工作：开发者通过HCCL（Huawei Collective Communication Library，华为集合通信库）接口获取对端链路并创建通道，Kernel侧使用对端注册内存的远端地址直接提交读写任务。
 
-本指南以AllGather为例，介绍CommRW通信算子的完整开发流程。AllGather将每个rank的本端分片聚合到通信域内所有rank：各rank通过`write_nbi`将本端分片写入其余每个对端缓冲区的对应偏移，通信完成后所有rank的缓冲区均持有按rank_id排列的全量数据。
+本节以AllGather为例，介绍CommRW通信算子的完整开发流程。AllGather将每个rank的本端分片聚合到通信域内所有rank：各rank通过`write_nbi`将本端分片写入其余每个对端缓冲区的对应偏移，通信完成后所有rank的缓冲区均持有按rank_id排列的全量数据。
 
 ## 支持范围
 

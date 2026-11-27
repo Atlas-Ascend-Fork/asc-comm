@@ -13,7 +13,7 @@
 | 直驱模式 | 通信引擎 | 通信引擎 | 通信引擎直接下发并执行通信任务，用户通过数据面接口控制任务提交、保序与同步。 | 对通信时序和资源占用有精细控制需求的场景 |
 | 代理模式 | AI Core客户端 | AICPU_TS或CCU服务端 | 发起方与执行方分离，客户端描述任务并发布执行条件，服务端解析任务、展开通信算法并通过Channel执行。 | AI Core Kernel内融合计算与通信的场景 |
 
-两种模式均建立在[《通信模型》](./communication_model.md)定义的通信设备（Endpoint）、通信通道（Channel）、通信内存（CommMem）等概念之上，跨Rank数据搬运均通过Channel完成。直驱模式下通信引擎直接操作Channel；代理模式下由服务端操作Channel，客户端通过代理介质（消息区或CCU寄存器）与服务端交互。
+两种模式均建立在[通信模型](./communication_model.md)定义的通信设备（Endpoint）、通信通道（Channel）、通信内存（CommMem）等概念之上，跨Rank数据搬运均通过Channel完成。直驱模式下通信引擎直接操作Channel；代理模式下由服务端操作Channel，客户端通过代理介质（消息区或CCU寄存器）与服务端交互。
 
 本文首先介绍直驱模式下AICPU_TS、CCU、AIV三类通信引擎的执行机制；随后介绍代理模式的执行机制，以及代理模式下通信与计算的通算融合编排方式；最后介绍约束事务执行与完成顺序的事务序，以及控制多个执行实体执行时序的本端同步与远端同步机制。
 
@@ -93,7 +93,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 2. **任务提交**：客户端描述通信操作、数据位置和数据量，在源数据就绪后，通过代理介质向服务端传递任务参数和执行条件。
 3. **数据传输与完成**：服务端取得任务参数，展开通信算法，并通过Channel完成本端与对端之间的数据传输。通信完成后，服务端将完成状态反馈给客户端。任务提交后，客户端可以继续执行与本轮通信没有数据依赖的计算，并在需要使用通信结果时等待任务完成。
 
-服务端类型以及通信请求的传递方式参见[《通信模型》](./communication_model.md)。
+服务端类型以及通信请求的传递方式参见[通信模型](./communication_model.md)。
 
 代理模式的执行机制如[图4](#fig-proxy-execution-model)所示。
 
@@ -193,7 +193,7 @@ Order标志可以指定以下两种完成序：
 
 > [!NOTE]说明
 >
-> 本章节代码以AIN接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。AIN接口的使用方法可参考[《基于AIN的通信算子开发指南》](../communication_op_dev/ain_operator_impl.md)。
+> 本章节代码以AIN接口为例，均为伪代码，仅用于示意同步机制的用法，不可直接使用。AIN接口的使用方法可参考[基于AIN的通信算子开发](../communication_op_dev/ain_operator_impl.md)。
 
 ### 本端同步
 
@@ -205,7 +205,7 @@ Order标志可以指定以下两种完成序：
 // 初始化UBuf工作区大小：不得小于512B
 constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见“基于AIN的通信算子开发”。
 extern "C" __global__ __aicore__ void local_sync_kernel(
     __gm__ void* team,
     __gm__ void* dst_win, // 目的对称window
@@ -239,7 +239,7 @@ extern "C" __global__ __aicore__ void local_sync_kernel(
 // 初始化UBuf工作区大小：不得小于512B
 constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见“基于AIN的通信算子开发”。
 extern "C" __global__ __aicore__ void p2p_sync_kernel(
     __gm__ void* team,
     __gm__ void* send_win,   // 发送数据所在对称window
@@ -276,7 +276,7 @@ extern "C" __global__ __aicore__ void p2p_sync_kernel(
 // 初始化UBuf工作区大小：不得小于512B
 constexpr uint32_t ASCCOMM_BUF_SIZE = 512U;
 
-// team与对称window句柄由Host侧创建后下发，创建方式参见《基于AIN的通信算子开发指南》。
+// team与对称window句柄由Host侧创建后下发，创建方式参见“基于AIN的通信算子开发”。
 extern "C" __global__ __aicore__ void barrier_sync_kernel(
     __gm__ void* team,
     __gm__ void* send_win, // 发送数据所在对称window

@@ -1,10 +1,10 @@
-# 基于AIN的通信算子开发指南
+# 基于AIN的通信算子开发
 
 ## 概述
 
 AIN（Ascend-Initiated Networking）是AI Core侧单边通信接口模板，提供`put`/`get`/`put_value`/`signal`等单边通信能力及`flush`/`wait_signal`/`sync`同步能力。开发者无需在Kernel侧直接维护远端物理地址，AIN会根据通信team、对端rank和对称window句柄自动解析通信通道与通信内存地址。
 
-本指南以AllGather为例，介绍AIN通信算子的完整开发流程。
+本节以AllGather为例，介绍AIN通信算子的完整开发流程。
 
 ## 支持范围
 

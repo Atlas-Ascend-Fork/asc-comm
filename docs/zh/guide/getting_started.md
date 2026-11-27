@@ -1,6 +1,6 @@
 # 快速入门
 
-## 📖 简介与概述
+## 简介与概述
 
 面向大规模NPU集群上大模型训练与推理场景，跨卡通信是集群吞吐的核心瓶颈。预置通用通信算子难以适配各类模型与并行策略的差异化需求，需要定制化通信实现充分释放硬件能力。
 asc-comm是面向Device侧的数据面通信底座，对外提供配套API以支撑自定义通信算子开发，帮助开发者专注于通信的数据传输逻辑，屏蔽芯片底层的复杂实现细节。架构上与[hcomm](https://gitcode.com/cann/hcomm/blob/master/README.md)分工协作：hcomm承担控制面职责，提供拓扑信息查询与通信资源管理功能。
@@ -16,24 +16,23 @@ asc-comm提供覆盖AIV、AI CPU+TS、CCU三类通信引擎的数据面通信能
 
 **前置知识**：本指南假设您了解[Ascend C算子开发基础](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/index.md)。
 
-## 🛠️ 环境安装与准备<a name="env-setup"></a>
+## 环境安装与准备<a name="env-setup"></a>
 
--   进行asc-comm通信算子开发之前，需要安装**驱动固件**和**CANN软件包**，请参考[《CANN快速安装》](https://www.hiascend.com/cann/download)完成环境准备。
-
+- 进行asc-comm通信算子开发之前，需要安装**驱动固件**和**CANN软件包**，请参考[《CANN快速安装》](https://www.hiascend.com/cann/download)完成环境准备。
 
     > [!NOTE]说明
     > 安装CANN软件包后，使用CANN运行用户进行编译、运行时，需要以CANN运行用户登录环境，执行`source ${INSTALL_DIR}/set_env.sh`命令设置环境变量。`${INSTALL_DIR}`请替换为CANN软件安装后的文件存储路径。以root用户安装为例，安装后文件默认存储路径为：/usr/local/Ascend/cann。
 
--   安装CMake。通过CMake编译Ascend C算子时，要求安装3.16及以上版本的CMake，如果版本不符合要求，可以参考如下示例安装满足要求的版本。
+- 安装CMake。通过CMake编译Ascend C算子时，要求安装3.16及以上版本的CMake，如果版本不符合要求，可以参考如下示例安装满足要求的版本。
 
-    示例：安装3.16.0版本的CMake（x86\_64架构）。
+  示例：安装3.16.0版本的CMake（x86\_64架构）。
 
-    ```
-    mkdir -p cmake-3.16 && wget -qO- "https://cmake.org/files/v3.16/cmake-3.16.0-Linux-x86_64.tar.gz" | tar --strip-components=1 -xz -C cmake-3.16
-    export PATH=`pwd`/cmake-3.16/bin:$PATH
-    ```
+  ```bash
+  mkdir -p cmake-3.16 && wget -qO- "https://cmake.org/files/v3.16/cmake-3.16.0-Linux-x86_64.tar.gz" | tar --strip-components=1 -xz -C cmake-3.16
+  export PATH=`pwd`/cmake-3.16/bin:$PATH
+  ```
 
-## 🚀 第一个示例程序：AIN点对点通信<a name="first-example"></a>
+## 第一个示例程序：AIN点对点通信<a name="first-example"></a>
 
 本节以AIN接口的[basic_ring](../../../examples/aicore/ain/01_basic_ring/README.md)样例为例，介绍最简单的NPU间点到点通信算子的编写和运行。
 
@@ -126,9 +125,6 @@ RESULT | Example=basic_ring | Status=PASS
 ### 下一步
 
 - 了解Ascend C通信编程模型与硬件架构基础，参见[编程模型](./programming_model/README.md)。
-
 - 了解各模块API详细信息，参见[API参考](../api/index.md)。
-
-- 了解如何基于各引擎的API实现通信算子，参见[通信算子开发指南](./communication_op_dev/README.md)。
-
+- 了解如何基于各引擎的API实现通信算子，参见[通信算子开发](./communication_op_dev/README.md)。
 - 了解各引擎更多通信样例，参见[样例目录](../../../examples/README.md)。

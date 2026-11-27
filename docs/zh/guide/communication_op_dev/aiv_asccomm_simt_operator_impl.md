@@ -1,10 +1,10 @@
-# 基于SIMT CommRW的AIV直驱通信算子开发指南
+# 基于SIMT CommRW的AIV直驱通信算子开发
 
 ## 概述
 
-CommRW是覆盖AI Core与AI CPU侧的点对点通信接口，其中AI Core侧的SIMT路径通过`asc::simt::asccomm`模板选择通信协议，提供`write_nbi`/`read_nbi`/`write_value_nbi`/`write_with_notify_nbi`/`atomic_faa_nbi`/`atomic_cas_nbi`等单边数据面能力及`drain`完成等待语义。SIMT（Single Instruction Multiple Threads，单指令多线程）路径与SIMD（Single Instruction Multiple Data，单指令多数据）路径（`asc::asccomm`，参见[基于CommRW的通信算子开发指南](aiv_asccomm_operator_impl.md)）功能近似，Host侧控制面流程完全一致，差异集中在Kernel侧：接口运行于SIMT执行空间，无法使用`LocalTensor`与pipe（流水线）同步原语，缓冲区地址按通道缓冲区表下标解析，普通接口由单个lane（SIMT执行模型中的线程通道，同一Kernel内多个lane并行执行）驱动通道（批量接口支持Group（协作组，由`simt_api/cooperative_groups.h`提供）多lane协同提交）。
+CommRW是覆盖AI Core与AI CPU侧的点对点通信接口，其中AI Core侧的SIMT路径通过`asc::simt::asccomm`模板选择通信协议，提供`write_nbi`/`read_nbi`/`write_value_nbi`/`write_with_notify_nbi`/`atomic_faa_nbi`/`atomic_cas_nbi`等单边数据面能力及`drain`完成等待语义。SIMT（Single Instruction Multiple Threads，单指令多线程）路径与SIMD（Single Instruction Multiple Data，单指令多数据）路径（`asc::asccomm`，参见[基于CommRW的AIV直驱通信算子开发](aiv_asccomm_operator_impl.md)）功能近似，Host侧控制面流程完全一致，差异集中在Kernel侧：接口运行于SIMT执行空间，无法使用`LocalTensor`与pipe（流水线）同步原语，缓冲区地址按通道缓冲区表下标解析，普通接口由单个lane（SIMT执行模型中的线程通道，同一Kernel内多个lane并行执行）驱动通道（批量接口支持Group（协作组，由`simt_api/cooperative_groups.h`提供）多lane协同提交）。
 
-本指南以AllGather为例，介绍基于CommRW的SIMT通信算子的完整开发流程：控制面（Host侧）资源准备与SIMD路径一致，直接参考[基于CommRW的通信算子开发指南](aiv_asccomm_operator_impl.md)，仅展开存在差异的步骤；重点描述Kernel侧（数据面）通信接口与SIMD路径的使用差别。AllGather将每个rank的本端分片聚合到通信域内所有rank：各rank通过`write_nbi`将本端分片写入其余每个对端缓冲区的对应偏移，通信完成后所有rank的缓冲区均持有按rank_id排列的全量数据。
+本节以AllGather为例，介绍基于CommRW的SIMT通信算子的完整开发流程：控制面（Host侧）资源准备与SIMD路径一致，直接参考[基于CommRW的AIV直驱通信算子开发](aiv_asccomm_operator_impl.md)，仅展开存在差异的步骤；重点描述Kernel侧（数据面）通信接口与SIMD路径的使用差别。AllGather将每个rank的本端分片聚合到通信域内所有rank：各rank通过`write_nbi`将本端分片写入其余每个对端缓冲区的对应偏移，通信完成后所有rank的缓冲区均持有按rank_id排列的全量数据。
 
 ## 支持范围
 
@@ -22,7 +22,7 @@ CommRW是覆盖AI Core与AI CPU侧的点对点通信接口，其中AI Core侧的
 
 CommRW SIMT通信算子开发分为控制面资源准备和数据面通信执行两阶段。
 
-控制面流程与SIMD路径完全一致，各步骤的接口说明与代码示例参见[基于CommRW的通信算子开发指南](aiv_asccomm_operator_impl.md#控制面资源准备)，仅步骤5、6由传递64位地址改为传递缓冲区表下标：
+控制面流程与SIMD路径完全一致，各步骤的接口说明与代码示例参见[基于CommRW的AIV直驱通信算子开发 > 控制面资源准备](aiv_asccomm_operator_impl.md#控制面资源准备)，仅步骤5、6由传递64位地址改为传递缓冲区表下标：
 
 1. 初始化运行环境
 2. 创建通信域
@@ -40,7 +40,7 @@ CommRW SIMT通信算子开发分为控制面资源准备和数据面通信执行
 
 ## 控制面资源准备
 
-除下述两个差异步骤外，SIMT路径的控制面流程与SIMD路径完全一致：初始化运行环境、创建通信域、分配内存并注册通信内存、获取对端链路并创建通道、销毁通信资源等步骤参见[基于CommRW的通信算子开发指南](aiv_asccomm_operator_impl.md#控制面资源准备)，SIMT完整流程样例参见[simt_asccomm_urma](../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md)。
+除下述两个差异步骤外，SIMT路径的控制面流程与SIMD路径完全一致：初始化运行环境、创建通信域、分配内存并注册通信内存、获取对端链路并创建通道、销毁通信资源等步骤参见[基于CommRW的AIV直驱通信算子开发 > 控制面资源准备](aiv_asccomm_operator_impl.md#控制面资源准备)，SIMT完整流程样例参见[simt_asccomm_urma](../../../../examples/aicore/asccomm/04_simt_asccomm_urma/README.md)。
 
 差异集中在地址传递方式：SIMT路径Kernel侧按通道缓冲区表下标解析缓冲区地址，因此下述两步由传递64位地址改为传递缓冲区表下标。
 
