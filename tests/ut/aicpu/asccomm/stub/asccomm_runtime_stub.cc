@@ -41,6 +41,19 @@ asccomm_result asccomm_rtsq_notify_record(HcommThreadEntity& context, uint32_t n
     return g_runtimeStubState.notifyRecordResult;
 }
 
+asccomm_result asccomm_rtsq_addr_notify_wait(
+    HcommThreadEntity& context, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
+{
+    g_runtimeStubState.addrNotifyWaitCalls.push_back({&context, waitAddr, valueAddr, last});
+    return ASCCOMM_SUCCESS;
+}
+
+asccomm_result asccomm_rtsq_addr_notify_record(HcommThreadEntity& context, uint64_t recordAddr, uint64_t valueAddr)
+{
+    g_runtimeStubState.addrNotifyRecordCalls.push_back({&context, recordAddr, valueAddr, 0});
+    return ASCCOMM_SUCCESS;
+}
+
 asccomm_result asccomm_rtsq_notify_wait(HcommThreadEntity& context, uint32_t notifyId, uint32_t timeout)
 {
     g_runtimeStubState.notifyWaitCalls.push_back({&context, notifyId, timeout});

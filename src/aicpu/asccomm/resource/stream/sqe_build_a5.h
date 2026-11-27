@@ -105,6 +105,12 @@ inline void build_a5_sqe_ub_db_send(
 
 void build_a5_sqe_rdma_db_send(uint32_t streamId, uint32_t taskId, uint64_t dbAddr, uint64_t dbValue, uint8_t* sqeIn);
 
+void build_a5_sqe_ccore_notify_wait(
+    uint32_t streamId, uint32_t taskId, uint64_t waitAddr, uint64_t actAddr, uint8_t last, uint8_t* sqeIn);
+
+void build_a5_sqe_ccore_notify_record(
+    uint32_t streamId, uint32_t taskId, uint64_t writeAddr, uint64_t valueAddr, uint8_t* sqeIn);
+
 } // namespace Asc
 
 #endif // ASCCOMM_SQE_BUILD_A5_H

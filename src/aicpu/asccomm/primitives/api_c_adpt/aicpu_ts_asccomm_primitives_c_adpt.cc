@@ -269,6 +269,28 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
     });
 }
 
+// 地址语义编排原语：本 TU 编译带 -fvisibility=hidden 且未开 ASCCOMM_ENABLE_INTERNAL_APIS，
+// 故显式 extern "C" + visibility("default") 保证符号对 mc2_server 可见。
+extern "C" __attribute__((visibility("default"))) int32_t
+asccomm_addr_notify_wait_on_thread(ThreadHandle thread, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
+{
+    return execute_api([&]() {
+        ThreadEntity* threadEntity = nullptr;
+        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
+        return asccomm_rtsq_addr_notify_wait(*threadEntity, waitAddr, valueAddr, last);
+    });
+}
+
+extern "C" __attribute__((visibility("default"))) int32_t
+asccomm_addr_notify_record_on_thread(ThreadHandle thread, uint64_t recordAddr, uint64_t valueAddr)
+{
+    return execute_api([&]() {
+        ThreadEntity* threadEntity = nullptr;
+        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
+        return asccomm_rtsq_addr_notify_record(*threadEntity, recordAddr, valueAddr);
+    });
+}
+
 int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len)
 {
     return execute_api([&]() {

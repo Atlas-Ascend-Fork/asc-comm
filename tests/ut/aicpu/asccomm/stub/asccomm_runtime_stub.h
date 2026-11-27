@@ -40,6 +40,14 @@ struct AicpuRuntimeStubState {
         uint32_t notifyId;
     };
     std::vector<NotifyRecordCall> notifyRecordCalls;
+    struct AddrNotifyCall {
+        HcommThreadEntity* context;
+        uint64_t waitAddr;
+        uint64_t valueAddr;
+        uint8_t last;
+    };
+    std::vector<AddrNotifyCall> addrNotifyWaitCalls;
+    std::vector<AddrNotifyCall> addrNotifyRecordCalls;
     struct NotifyWaitCall {
         HcommThreadEntity* context;
         uint32_t notifyId;

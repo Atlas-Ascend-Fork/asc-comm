@@ -9,10 +9,14 @@
  */
 
 #include "asccomm_device.h"
-#include "aprof_pub.h"
 
 #include <atomic>
 #include <mutex>
+
+// aprof_pub.h 与 profiling 特性同为 920 专属，include 与常量并入同一 __NPU_ARCH__ 守卫。
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
+#include "aprof_pub.h"
+#endif
 
 namespace {
 
@@ -20,16 +24,19 @@ std::atomic<bool> g_sqe_profiling_enabled{false};
 
 #if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
 constexpr uint32_t ASCCOMM_MSPROF_AICPU_MODULE_ID = 36; // AICPU module ID in log_types.h.
-#endif
 
 constexpr uint64_t ASCCOMM_ADPROF_TASK_TIME_L1 = ADPROF_TASK_TIME_L1;
+#endif
 
 } // namespace
 
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
 extern "C" __attribute__((weak)) int32_t MsprofRegisterCallback(uint32_t moduleId, ProfCommandHandle handle);
+#endif
 
 extern "C" int32_t asccomm_handle_profiling_command(uint32_t type, void* data, uint32_t len)
 {
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
     (void)len;
     if (data == nullptr) {
         return -1;
@@ -41,6 +48,13 @@ extern "C" int32_t asccomm_handle_profiling_command(uint32_t type, void* data, u
         asccomm_set_sqe_profiling(false);
     }
     return 0;
+#else
+    // 非 920 目标不注册回调（保留导出符号仅为 ABI 稳定，此处恒 inert）。
+    (void)type;
+    (void)data;
+    (void)len;
+    return 0;
+#endif
 }
 
 #if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)

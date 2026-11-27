@@ -26,6 +26,8 @@ asccomm_result asccomm_rtsq_launch(ThreadEntity& thread);
 asccomm_result asccomm_rtsq_try_launch(ThreadEntity& thread);
 asccomm_result asccomm_rtsq_notify_wait(ThreadEntity& thread, uint32_t notifyId, uint32_t timeout);
 asccomm_result asccomm_rtsq_notify_record(ThreadEntity& thread, uint32_t notifyId);
+asccomm_result asccomm_rtsq_addr_notify_wait(ThreadEntity& thread, uint64_t waitAddr, uint64_t valueAddr, uint8_t last);
+asccomm_result asccomm_rtsq_addr_notify_record(ThreadEntity& thread, uint64_t recordAddr, uint64_t valueAddr);
 asccomm_result asccomm_rtsq_sdma_copy(ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
 asccomm_result asccomm_rtsq_sdma_reduce(
     ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
