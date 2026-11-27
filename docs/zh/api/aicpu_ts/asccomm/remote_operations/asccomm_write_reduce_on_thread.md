@@ -52,7 +52,7 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 | dataType | 支持情况 |
 | --- | --- |
 | `ASCCOMM_DATA_TYPE_INT8`、`ASCCOMM_DATA_TYPE_INT16`、`ASCCOMM_DATA_TYPE_INT32`、`ASCCOMM_DATA_TYPE_UINT8`、`ASCCOMM_DATA_TYPE_UINT16`、`ASCCOMM_DATA_TYPE_UINT32`、`ASCCOMM_DATA_TYPE_FP16`、`ASCCOMM_DATA_TYPE_FP32`、`ASCCOMM_DATA_TYPE_BFP16` | 支持归约写。 |
-| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | 不支持，返回`ASCCOMM_E_NOT_SUPPORT`。 |
 | `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | 当前实现不接受，返回`ASCCOMM_E_PARA`。 |
 
 ### reduceOp说明
@@ -62,7 +62,7 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 | reduceOp | 支持情况 |
 | --- | --- |
 | `ASCCOMM_REDUCE_SUM` | 支持归约写。 |
-| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 |
+| `ASCCOMM_REDUCE_PROD` | 不支持，返回`ASCCOMM_E_NOT_SUPPORT`。 |
 | `ASCCOMM_REDUCE_MAX` | 支持归约写。 |
 | `ASCCOMM_REDUCE_MIN` | 支持归约写。 |
 | `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 |
@@ -76,7 +76,7 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 | `ASCCOMM_SUCCESS`（0） | 归约写请求处理成功，归约写任务已生成：批量提交模式下先缓存，由`asccomm_batch_mode_end`统一提交；非批量模式下立即提交。 |
 | `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
 | `ASCCOMM_E_PARA` | `dataType`或`reduceOp`非法，`count * sizeof(dataType)`溢出，或Thread/Channel资源及内存保护参数不合法。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不是当前支持的通信协议，或不支持指定的数据类型或归约操作。 |
 | `ASCCOMM_E_TIMEOUT` | 通信任务提交队列等待超时。 |
 | `ASCCOMM_E_REMOTE` | 通信完成事件报告远端通信错误。 |
 | `ASCCOMM_E_INTERNAL` | UB归约任务编码、任务提交或其他内部操作异常。 |

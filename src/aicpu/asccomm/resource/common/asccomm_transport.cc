@@ -35,6 +35,18 @@ bool is_ub_protocol(CommProtocol protocol)
            protocol == static_cast<CommProtocol>(7) || protocol == static_cast<CommProtocol>(9);
 }
 
+bool is_reduce_op_supported(Asc::ReduceOp reduceOp)
+{
+    return reduceOp == Asc::ReduceOp::SUM || reduceOp == Asc::ReduceOp::MAX || reduceOp == Asc::ReduceOp::MIN;
+}
+
+bool is_reduce_data_type_supported(Asc::DataType dataType)
+{
+    return dataType == Asc::DataType::INT8 || dataType == Asc::DataType::INT16 || dataType == Asc::DataType::INT32 ||
+           dataType == Asc::DataType::UINT8 || dataType == Asc::DataType::UINT16 || dataType == Asc::DataType::UINT32 ||
+           dataType == Asc::DataType::FP16 || dataType == Asc::DataType::FP32 || dataType == Asc::DataType::BFP16;
+}
+
 bool is_range_contained(uint64_t base, uint64_t capacity, uint64_t addr, uint64_t size)
 {
     return addr >= base && size <= capacity && (addr - base) <= (capacity - size);
@@ -546,6 +558,16 @@ asccomm_result asccomm_write_reduce(
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
+        CHK_PRT_RET(
+            !is_reduce_data_type_supported(reduceIn.dataType),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce data type[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.dataType)),
+            ASCCOMM_E_NOT_SUPPORT);
+        CHK_PRT_RET(
+            !is_reduce_op_supported(reduceIn.reduceOp),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce operation[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.reduceOp)),
+            ASCCOMM_E_NOT_SUPPORT);
         return execute_ub_rma(
             thread, channel, localAddr, remoteAddr, len,
             [&reduceIn](
@@ -581,6 +603,16 @@ asccomm_result asccomm_write_reduce_with_notify(
     const Asc::ReduceIn& reduceIn, uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
+        CHK_PRT_RET(
+            !is_reduce_data_type_supported(reduceIn.dataType),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce data type[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.dataType)),
+            ASCCOMM_E_NOT_SUPPORT);
+        CHK_PRT_RET(
+            !is_reduce_op_supported(reduceIn.reduceOp),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce operation[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.reduceOp)),
+            ASCCOMM_E_NOT_SUPPORT);
         Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
         return execute_ub_rma(
@@ -615,6 +647,16 @@ asccomm_result asccomm_read_reduce(
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
+        CHK_PRT_RET(
+            !is_reduce_data_type_supported(reduceIn.dataType),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce data type[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.dataType)),
+            ASCCOMM_E_NOT_SUPPORT);
+        CHK_PRT_RET(
+            !is_reduce_op_supported(reduceIn.reduceOp),
+            ASCCOMM_ERROR(
+                "[%s] UB reduce operation[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.reduceOp)),
+            ASCCOMM_E_NOT_SUPPORT);
         return execute_ub_rma(
             thread, channel, localAddr, remoteAddr, len,
             [&reduceIn](
@@ -622,8 +664,21 @@ asccomm_result asccomm_read_reduce(
                 const Asc::SqeConfigLite& cfg,
                 Asc::ConnLiteOperationOut& out) { connection.read_reduce(reduceIn, local, remote, cfg, out); });
     }
+    CHK_PRT_RET(
+        channel.protocol != COMM_PROTOCOL_ROCE,
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    CHK_PRT_RET(
+        !is_reduce_data_type_supported(reduceIn.dataType),
+        ASCCOMM_ERROR(
+            "[%s] RoCE reduce data type[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.dataType)),
+        ASCCOMM_E_NOT_SUPPORT);
+    CHK_PRT_RET(
+        !is_reduce_op_supported(reduceIn.reduceOp),
+        ASCCOMM_ERROR(
+            "[%s] RoCE reduce operation[%u] is not supported.", __func__, static_cast<uint32_t>(reduceIn.reduceOp)),
+        ASCCOMM_E_NOT_SUPPORT);
     // The original RoCE transport does not override ReadReduce and therefore performs no operation.
-    return channel.protocol == COMM_PROTOCOL_ROCE ? ASCCOMM_SUCCESS : ASCCOMM_E_NOT_SUPPORT;
+    return ASCCOMM_SUCCESS;
 }
 
 asccomm_result asccomm_send(ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len)
@@ -865,6 +920,22 @@ asccomm_result asccomm_batch_transfer(
         } else {
             ASCCOMM_ERROR("[%s] unsupported transfer type[%d].", __func__, desc.transType);
             return ASCCOMM_E_PARA;
+        }
+        if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE ||
+            desc.transType == ASCCOMM_TRANSFER_TYPE_READ_REDUCE ||
+            desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY) {
+            CHK_PRT_RET(
+                !is_reduce_data_type_supported(reduceIn.dataType),
+                ASCCOMM_ERROR(
+                    "[%s] UB reduce data type[%u] is not supported at batch index[%u].", __func__,
+                    static_cast<uint32_t>(reduceIn.dataType), index),
+                ASCCOMM_E_NOT_SUPPORT);
+            CHK_PRT_RET(
+                !is_reduce_op_supported(reduceIn.reduceOp),
+                ASCCOMM_ERROR(
+                    "[%s] UB reduce operation[%u] is not supported at batch index[%u].", __func__,
+                    static_cast<uint32_t>(reduceIn.reduceOp), index),
+                ASCCOMM_E_NOT_SUPPORT);
         }
         CHK_PRT_RET(
             localAddr == 0 || remoteAddr == 0, ASCCOMM_ERROR("[%s] null address at batch index[%u].", __func__, index),

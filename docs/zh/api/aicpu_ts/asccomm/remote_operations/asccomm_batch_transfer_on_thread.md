@@ -79,8 +79,8 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 
 | 场景 | 返回值 |
 | --- | --- |
-| `ASCCOMM_REDUCE_PROD` | `ASCCOMM_E_INTERNAL` |
-| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | `ASCCOMM_E_INTERNAL` |
+| `ASCCOMM_REDUCE_PROD` | `ASCCOMM_E_NOT_SUPPORT` |
+| `ASCCOMM_DATA_TYPE_INT64`、`ASCCOMM_DATA_TYPE_UINT64`、`ASCCOMM_DATA_TYPE_FP64`、`ASCCOMM_DATA_TYPE_INT128` | `ASCCOMM_E_NOT_SUPPORT` |
 | `ASCCOMM_DATA_TYPE_HIF8`、`ASCCOMM_DATA_TYPE_FP8E4M3`、`ASCCOMM_DATA_TYPE_FP8E5M2`、`ASCCOMM_DATA_TYPE_FP8E8M0`、`ASCCOMM_DATA_TYPE_RESERVED` | `ASCCOMM_E_PARA` |
 | `ASCCOMM_REDUCE_RESERVED` | `ASCCOMM_E_PARA` |
 | `count * sizeof(dataType)`溢出 | `ASCCOMM_E_PARA` |
@@ -94,7 +94,7 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 | `ASCCOMM_SUCCESS`（0） | 传输任务已生成：批量提交模式下先缓存，由`asccomm_batch_mode_end`统一提交；非批量模式下立即提交。 |
 | `ASCCOMM_E_PARA` | 参数或通信资源配置不合法。 |
 | `ASCCOMM_E_PTR` | 句柄、指针或任务地址为空或无效。 |
-| `ASCCOMM_E_NOT_SUPPORT` | Channel使用了当前实现不支持的协议。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel使用了当前实现不支持的协议，或不支持指定的数据类型或归约操作。 |
 | `ASCCOMM_E_TIMEOUT` | 立即提交时通信队列空间不足且等待超时。 |
 | `ASCCOMM_E_INTERNAL` | 内部执行异常。 |
 
