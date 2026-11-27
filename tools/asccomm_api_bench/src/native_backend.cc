@@ -220,13 +220,16 @@ void OpenNew(std::ofstream& out, const std::string& path)
 // Algorithm names remain in RecordWriter's JSON-escaped job/plan records and
 // are associated through entry_id. Wait durations use the legacy nanosecond unit.
 #ifndef MC2_BENCH_QUERY_ONLY
-void WriteSample(std::ofstream& output, bool& first, const PlanEntry& entry, const NativeDeviceResult& sample)
+void WriteSample(
+    std::ofstream& output, bool& first, const PlanEntry& entry, const NativeDeviceResult& sample, uint32_t batch)
 {
     if (!first)
         output << ',';
     first = false;
-    output << "{\"entry_id\":" << entry.id << ",\"acl_event_mean_us\":" << std::setprecision(17) << sample.event_us
-           << ",\"validated\":" << (sample.validated ? "true" : "false");
+    output << "{\"entry_id\":" << entry.id << ",\"batch\":" << batch << ",\"requested_bytes\":" << entry.requested_bytes
+           << ",\"acl_event_mean_us\":" << std::setprecision(17) << sample.event_us
+           << ",\"validated\":" << (sample.validated ? "true" : "false") << ",\"algorithm_log_scope\":{\"begin\":\""
+           << sample.algorithm_log_begin << "\",\"end\":\"" << sample.algorithm_log_end << "\"}";
     if (sample.write_report_present)
         output << ",\"write_report\":{\"scope\":\"last_measured_iteration\",\"wait_duration_ns\":"
                << sample.wait_duration_ns << "},\"window_capacity_bytes\":" << sample.window_capacity_bytes
@@ -238,6 +241,47 @@ void WriteSample(std::ofstream& output, bool& first, const PlanEntry& entry, con
 }
 
 #endif
+
+void PrintAlgorithms(const std::string& label, const std::set<std::string>& names)
+{
+    std::cout << label;
+    if (names.empty())
+        std::cout << "无";
+    for (auto iterator = names.begin(); iterator != names.end(); ++iterator) {
+        if (iterator != names.begin())
+            std::cout << ", ";
+        std::cout << *iterator;
+    }
+    std::cout << '\n';
+}
+
+void PrintAlgorithmSelection(const Options& options, const QueryPlanResult& result)
+{
+    const std::set<std::string> requested(options.algorithms.begin(), options.algorithms.end());
+    std::set<std::string> candidates, matched, unsupported;
+    for (const auto& query : result.queries)
+        candidates.insert(query.algorithms.begin(), query.algorithms.end());
+    for (const auto& algorithm : requested) {
+        if (candidates.count(algorithm))
+            matched.insert(algorithm);
+        else
+            unsupported.insert(algorithm);
+    }
+    std::cout << "算法选择汇总：算子=" << OpName(options.op) << " 引擎=" << EngineName(options.engine)
+              << " Rank=" << options.ranks << '\n';
+    if (requested.empty())
+        std::cout << "  用户指定：未指定，使用全部候选\n";
+    else
+        PrintAlgorithms("  用户指定：", requested);
+    PrintAlgorithms("  候选算法：", candidates);
+#ifdef MC2_BENCH_QUERY_ONLY
+    PrintAlgorithms("  匹配算法：", requested.empty() ? candidates : matched);
+#else
+    PrintAlgorithms("  进入实测：", requested.empty() ? candidates : matched);
+#endif
+    PrintAlgorithms("  未命中项：", unsupported);
+    std::cout << std::flush;
+}
 
 int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
 {
@@ -449,6 +493,12 @@ int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
                         communication.communicator.Get(), MakeNativeQueryInput(options, request), MakeNativeQueryApi());
 #endif
                 if (writer) {
+                    if (options.algorithms.empty())
+                        std::cout << "用户指定算法：未指定，使用全部候选\n";
+                    else
+                        PrintAlgorithms(
+                            "用户指定算法：",
+                            std::set<std::string>(options.algorithms.begin(), options.algorithms.end()));
                     std::cout << "Query candidates: count=" << result.algorithms.size() << " ret=" << result.ret
                               << " [";
                     for (size_t index = 0; index < result.algorithms.size(); ++index) {
@@ -473,6 +523,8 @@ int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
             cleanup();
             return 1;
         }
+        if (writer)
+            PrintAlgorithmSelection(options, plan);
 #ifdef MC2_BENCH_QUERY_ONLY
         if (writer)
             std::cout << "Query completed: " << plan.queries.size() << " request(s); no performance run.\n";
@@ -516,8 +568,9 @@ int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
                 << backend.measurement_mode
                 << "\",\"execution_source\":\"native_acl_aclnn\","
                    "\"timing_source\":\"acl_event\",\"rank\":"
-                << context.global_rank << ",\"device_id\":" << device << ",\"warmup\":" << backend.warmup
-                << ",\"iterations\":" << backend.iterations << ",\"samples\":[";
+                << context.global_rank << ",\"backend_pid\":" << getpid() << ",\"world_size\":" << options.ranks
+                << ",\"engine\":\"" << EngineName(options.engine) << "\",\"device_id\":" << device
+                << ",\"warmup\":" << backend.warmup << ",\"iterations\":" << backend.iterations << ",\"samples\":[";
         device_session.reset(new NativeDeviceSession(
             options, context.global_rank, communication.communicator.Name(), communication.communicator.Get(), stream,
             backend.profiling));
@@ -571,7 +624,7 @@ int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
                 throw std::runtime_error("ACL Event mean must be finite and positive");
             double root_us = measured.event_us;
             CheckMpi(MPI_Bcast(&root_us, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD), "MPI_Bcast(rank0 event)");
-            WriteSample(samples, first_sample, entry, measured);
+            WriteSample(samples, first_sample, entry, measured, active.batch);
             Metric kernel;
             kernel.name = "api_kernel_us";
             kernel.value = root_us;

@@ -12,6 +12,7 @@
 #define ASCCOMM_API_BENCH_NATIVE_DEVICE_H
 
 #include <memory>
+#include <string>
 #include <stdexcept>
 #include <vector>
 #include <acl/acl.h>
@@ -36,6 +37,9 @@ struct NativeDeviceResult {
     uint64_t wait_duration_ns = 0;
     uint64_t window_capacity_bytes = 0;
     uint64_t window_verified_bytes = 0;
+    // Local PLOG wall-clock bounds for this entry, outside timed iterations.
+    std::string algorithm_log_begin;
+    std::string algorithm_log_end;
     std::vector<NativeIterationSample> iteration_samples;
 };
 

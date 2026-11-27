@@ -53,6 +53,7 @@ readonly mc2_bench_runtime_libraries=${LD_LIBRARY_PATH:-}
 readonly mc2_bench_runtime_profiling_configured=${PROFILING_MODE+x}
 readonly mc2_bench_runtime_profiling_mode=${PROFILING_MODE-}
 readonly mc2_bench_runtime_profiling_options=${PROFILING_OPTIONS-}
+readonly mc2_bench_runtime_log_path=${ASCEND_PROCESS_LOG_PATH:-}
 shift 3
 mc2_bench_runtime_argv=("$@")
 readonly -a mc2_bench_runtime_argv
@@ -74,6 +75,9 @@ fi
 export ASCEND_HOME_PATH="$mc2_bench_runtime_cann"
 export ASCEND_CANN_PACKAGE_PATH="$mc2_bench_runtime_cann"
 export ASCEND_OPP_PATH="$mc2_bench_runtime_cann/opp"
+if [ -n "$mc2_bench_runtime_log_path" ]; then
+    export ASCEND_PROCESS_LOG_PATH="$mc2_bench_runtime_log_path"
+fi
 if [ -n "$mc2_bench_runtime_vendor" ]; then
     export ASCEND_CUSTOM_OPP_PATH="$mc2_bench_runtime_vendor"
 else

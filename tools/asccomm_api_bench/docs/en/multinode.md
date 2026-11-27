@@ -38,7 +38,7 @@ Select the actual host network interface. Replace `eth0` below with an interface
 ```bash
 export HCCL_SOCKET_FAMILY=AF_INET
 export HCCL_SOCKET_IFNAME=eth0
-bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 --query-only -- \
+bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 --query-only \
   --op allreduce -a aicpu_ts
 ```
 
@@ -49,14 +49,14 @@ Query-only mode creates a real communicator, prints candidates, and saves `query
 Replace `sole[mesh]` with a complete algorithm name returned by the current multi-node query:
 
 ```bash
-bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 -- \
+bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 \
   --op allreduce -a aicpu_ts -b 32K -e 32K --alg 'sole[mesh]'
 ```
 
 Use the same launcher for CCU:
 
 ```bash
-bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 -- \
+bash run_alg_bench.sh -n 16 -p 8 --hostfile ./hosts_2x8 \
   --op allreduce -a ccu_sched -b 32K -e 32K --alg 'sole[mesh]'
 ```
 

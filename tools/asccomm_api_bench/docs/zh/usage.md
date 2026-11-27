@@ -32,24 +32,24 @@ export HCCL_DIR=/实际/HostHCCL安装目录
 
 ## 放置命令参数
 
-命令以第一个`--`分隔启动器参数和测试参数。各部分内一般没有顺序要求，但参数值必须紧跟对应选项。
+所有参数统一填写，不需要分隔符；参数顺序可以调整，但参数值必须紧跟对应选项。
 
 ```text
-bash run_alg_bench.sh [启动器参数] -- [测试参数]
+bash run_alg_bench.sh -n 8 -p 8 --op allreduce -a ccu_sched -b 1M -e 1M
 ```
 
-| 位置 | 参数 | 含义与默认值 |
-| --- | --- | --- |
-| `--`前 | `-n`、`-p` | 总Rank数、每节点设备数，均默认8；Rank是参与通信的进程 |
-| `--`前 | `--query-only` | 只查询候选，不运行性能测试 |
-| `--`前 | `--output-dir` | 新结果目录，省略时自动创建，不能覆盖已有作业 |
-| `--`后 | `--op` | 算子名称，必须指定 |
-| `--`后 | `-a` | 引擎：`aicpu_ts`或`ccu_sched`，默认`aicpu_ts` |
-| `--`后 | `-d` | 数据类型，内置实测使用`fp32`（32位浮点），默认`fp32` |
-| `--`后 | `-o` | 归约类型：`sum`、`prod`、`max`、`min`，默认`sum`；实际支持范围由SDK决定 |
-| `--`后 | `-b`、`-e` | 起始和目标结束字节数，默认32KiB和256MiB |
-| `--`后 | `-f`或`-i` | 倍增因子或线性字节步长，二者互斥，默认`-f 2` |
-| `--`后 | `--alg` | 查询返回的完整算法名，省略时测试全部候选，可重复指定 |
+| 参数 | 含义与默认值 |
+| --- | --- |
+| `-n`、`-p` | 总Rank数、每节点设备数，均默认8；Rank是参与通信的进程 |
+| `--query-only` | 只查询候选，不运行性能测试 |
+| `--output-dir` | 新结果目录，省略时自动创建，不能覆盖已有作业 |
+| `--op` | 算子名称，必须指定 |
+| `-a` | 引擎：`aicpu_ts`或`ccu_sched`，默认`aicpu_ts` |
+| `-d` | 数据类型，内置实测使用`fp32`（32位浮点），默认`fp32` |
+| `-o` | 归约类型：`sum`、`prod`、`max`、`min`，默认`sum`；实际支持范围由SDK决定 |
+| `-b`、`-e` | 起始和目标结束字节数，默认32KiB和256MiB |
+| `-f`或`-i` | 倍增因子或线性字节步长，二者互斥，默认`-f 2` |
+| `--alg` | 查询返回的完整算法名，省略时测试全部候选，可重复指定 |
 
 长度支持`B`、`K`、`KB`、`KiB`、`M`、`MB`、`MiB`等后缀，按1024倍数计算。单点须同时设置`-b/-e`；只设置一个端点时，另一个仍使用默认值。倍增扫描包含首个不小于目标结束值的点，线性扫描不超过结束值。默认范围共14个点。
 
@@ -60,7 +60,7 @@ bash run_alg_bench.sh [启动器参数] -- [测试参数]
 本节为可选步骤。若需先查看候选再选择算法，使用与首次实测相同的AICPU、两张设备和32KiB条件：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 --query-only -- \
+bash run_alg_bench.sh -n 2 -p 2 --query-only \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
@@ -75,12 +75,14 @@ bash run_alg_bench.sh -n 2 -p 2 --query-only -- \
 
 仅查询仍需要真实设备和通信域，但不构建算子包、不预热、不计时，也不生成性能CSV。结果打印到终端并写入本轮`query_summary.json`。
 
+终端的算法选择汇总会相邻展示用户指定、候选算法及匹配结果，便于核对。
+
 性能测试会重新查询，命中才进入实测；未命中提示不支持并跳过，不在工具侧另行兜底。范围查询得到的候选并集在完整测量长度序列上测试，不能把查询返回理解为每个长度都保证执行成功。
 
 需要指定算法时，从相同算子和引擎的查询结果复制完整名称。例如，仅当上面的AICPU查询返回`sole[mesh]`时，才使用：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a aicpu_ts -b 32K -e 32K --alg 'sole[mesh]'
 ```
 
@@ -91,21 +93,21 @@ bash run_alg_bench.sh -n 2 -p 2 -- \
 AICPU AllReduce：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
 CCU AllReduce：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a ccu_sched -b 32K -e 32K
 ```
 
 CCU AllToAllVWrite：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op alltoallvwrite -a ccu_sched -b 32K -e 32K
 ```
 
@@ -126,10 +128,19 @@ CCU性能测试额外打印`Benchmark phase:`阶段进度和`Benchmark exit:`退
 | `report/report.csv` | 中文性能总表，UTF-8带BOM，支持Excel/WPS识别 |
 | `report/summary.json` | 查询来源、测量数量及整轮失败信息 |
 | `report/diagnostics.json` | 逐项状态和错误详情 |
+| `report/ccu_probe_retries.json` | 发生CCU插针补采时的尝试记录和采用的数据来源 |
 | `profile_analysis/profiling_audit.json` | 性能数据关联与解析检查结果 |
 | `collected/ranks/rank_*/stdout.log`、`stderr.log` | 各Rank的原始运行日志 |
 
-`Cluster PASS`仅表示进程完成；还需确认`measured > 0`、适用指标有数值且默认采集解析成功。`NO MEASUREMENTS`表示没有性能值。`algorithm_unconfirmed`表示已有真实执行，但实际算法缺少确认依据，不等于没有性能数据。未实测或缺失指标显示`-`，不适用指标显示`NA`，解析失败项的指标显示`PARSE_FAIL`。
+`Cluster PASS`仅表示进程完成；还需确认`measured > 0`、适用指标有数值且默认采集解析成功。`NO MEASUREMENTS`表示没有性能值。未实测或缺失指标显示`-`，不适用指标显示`NA`，解析失败项的指标显示`PARSE_FAIL`。
+
+`api算法`展示实际执行算法的对外名称，例如`sole[mesh]`：请求A、实际回退B时展示B的对外名称。缺少执行证据、无法确认名称映射或各Rank记录不一致时留空，已取得的性能值保留。指定算法使用查询返回的完整名称；请求配置、内部执行器名及映射依据保存在`report/diagnostics.json`。
+
+算法上下文证据按本轮各Rank进程的生命周期关联。没有新建日志的后续测试项，仅在请求未变且适用执行器唯一时沿用；缓存中存在不同执行器时，需要明确的获取或命中日志才能确认复用对象。上下文标识和日志来源保存在`report/diagnostics.json`。
+
+CCU已执行成功的测试项，若完整插针样本数为0或五段指标缺失，工具自动按原算法、原数据量单点补采，最多尝试3次。补采复用已校验的构建和安装产物，重新执行及采集；成功后采用首个有效尝试的整组性能数据。已有有效插针数据的测试项保持原结果。原始采集和`retries/`下的尝试记录均保留；最终报告的数据来源见`report/selected_profiling_audit.json`。仍无法补齐时保留缺失数据并报告失败。
+
+多算法测试在性能表后打印同数据量的算法对比，按有效`api通信耗时(us)`取最低项，耗时相同则并列。对比表展示数据量、执行算法、通信耗时和有效项/计划项，其中执行算法使用实际算法的对外名称。缺失、失败或实际算法名称未确认的项不参与；只有一种有效实际算法或重复实际算法的耗时不同，则提示无法自动比较。请求配置保留在JSON中，该对比不增加CSV列。
 
 主要指标均以微秒为时间单位，含义如下：
 

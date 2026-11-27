@@ -169,11 +169,12 @@ def parse_arguments(argv):
         launcher_args, backend_args = argv, []
     parser = argparse.ArgumentParser(
         prog="bash run_alg_bench.sh",
-        usage="%(prog)s [launcher arguments] -- [test arguments]",
+        usage="%(prog)s [options] --op OPERATOR",
+        allow_abbrev=False,
         description="Build, run and report AscComm API benchmarks.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Test arguments (after --):\n"
+            "Test arguments (may be mixed with launch options):\n"
             "  --op allgather|allreduce|reducescatter|alltoall|alltoallv|alltoallvwrite (required)\n"
             "  -a aicpu_ts|ccu_sched (default: aicpu_ts)\n"
             "  -d fp32 (default: fp32)\n"
@@ -182,7 +183,7 @@ def parse_arguments(argv):
             "  -f FACTOR (default: 2) or -i BYTE_STEP; mutually exclusive\n"
             "  --alg 'complete-candidate-name' (repeatable; omit to test all candidates)\n\n"
             "Example:\n"
-            "  bash run_alg_bench.sh -n 2 -p 2 -- --op allreduce -b 32K -e 32K"
+            "  bash run_alg_bench.sh -n 2 -p 2 --op allreduce -b 32K -e 32K"
         ),
     )
     parser.add_argument(
@@ -342,7 +343,11 @@ def parse_arguments(argv):
         type=Path,
         help=argparse.SUPPRESS,
     )
-    args = parser.parse_args(launcher_args)
+    # Recognized launcher options may appear anywhere. Keep the old explicit
+    # separator for external backends and archived commands; the remaining
+    # arguments retain their order and go to the existing test parser.
+    args, test_args = parser.parse_known_args(launcher_args)
+    backend_args = test_args + backend_args
     args.native_backend = args.native_backend or not (
         args.check_topology or args.executable
     )
@@ -691,7 +696,11 @@ def configure_migration(args, environment, backend_args):
     environment["MC2_BENCH_MEASUREMENT_MODE"] = args.measurement_mode
     environment["MC2_BENCH_PACKAGE_MARKER"] = str(
         args.vendor_root
-        / ("asccomm_api_bench_ccu_package.info" if ccu else "asccomm_api_bench_package.info")
+        / (
+            "asccomm_api_bench_ccu_package.info"
+            if ccu
+            else "asccomm_api_bench_package.info"
+        )
     )
 
 
@@ -888,7 +897,12 @@ def render_native_report(args, summary, *, profiling_error=None):
     if not records.is_file() and not summary["mpi_started"]:
         print("NO MEASUREMENTS: preparation failed before MPI execution.", flush=True)
         return {"status": "not_run", "directory": str(directory)}
-    report_summary = write_report(read_records(records), directory)
+    from profiling.algorithm_evidence import enrich
+
+    values = read_records(records)
+    algorithm_audit = enrich(values, args.output_dir)
+    report_summary = write_report(values, directory)
+    atomic_json(directory / "algorithm_audit.json", algorithm_audit)
     for message in query_policy_messages(report_summary):
         print(message, file=sys.stderr)
     report_summary.update(
@@ -1313,6 +1327,8 @@ def launch(
             "profiling_mode": environment["PROFILING_MODE"],
             "profiling_options": environment["PROFILING_OPTIONS"],
         }
+    if getattr(args, "retry_context", None):
+        plan["retry_context"] = args.retry_context
     if args.dry_run:
         print(json.dumps(plan, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
@@ -1544,6 +1560,39 @@ def launch(
         try:
             log_benchmark_phase(args, "report_generation")
             summary["report"] = complete_native_report(args, summary)
+            if (
+                passed
+                and args.native_profile == "ccu"
+                and args.native_profiling
+                and args.ccu_probes
+                and summary.get("profiling_analysis", {}).get("enriched_records")
+                and not getattr(args, "ccu_probe_retry_child", False)
+            ):
+                from ccu_probe_retry import retry_missing_probes
+
+                def run_child(child_args, child_backend_args):
+                    return launch(
+                        child_args,
+                        hosts,
+                        dict(environment),
+                        child_backend_args,
+                        cluster_factory=cluster_factory,
+                        mpi_runner=mpi_runner,
+                    )
+
+                retries = retry_missing_probes(args, summary, backend_args, run_child)
+                if retries:
+                    summary["ccu_probe_retries"] = {
+                        key: value
+                        for key, value in retries.items()
+                        if key not in {"report", "analysis"}
+                    }
+                    if "report" in retries:
+                        summary["report"] = retries["report"]
+                        summary["profiling_analysis"] = retries["analysis"]
+                        summary["profiling_association_verified"] = retries[
+                            "profiling_association_verified"
+                        ]
             passed = passed and summary["report"]["status"] == "PASS"
         except Exception as exc:
             print(

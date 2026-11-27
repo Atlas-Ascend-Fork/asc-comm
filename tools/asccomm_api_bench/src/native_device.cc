@@ -12,7 +12,11 @@
 
 #include <cmath>
 #include <cstring>
+#include <ctime>
+#include <iomanip>
 #include <limits>
+#include <sstream>
+#include <sys/time.h>
 #include "case_shape.h"
 #include "options.h"
 #include "legacy/hccl_api_test_common.h"
@@ -28,6 +32,20 @@
 namespace asccomm_api_bench {
 namespace {
 namespace old = hccl_api_test;
+
+std::string AlgorithmLogTimestamp()
+{
+    timeval now{};
+    tm local{};
+    char date[32]{};
+    if (gettimeofday(&now, nullptr) != 0 || localtime_r(&now.tv_sec, &local) == nullptr ||
+        strftime(date, sizeof(date), "%Y-%m-%d-%H:%M:%S", &local) == 0)
+        return {};
+    std::ostringstream result;
+    result << date << '.' << std::setfill('0') << std::setw(3) << now.tv_usec / 1000 << '.' << std::setw(3)
+           << now.tv_usec % 1000;
+    return result.str();
+}
 
 void Check(int64_t ret, const char* operation)
 {
@@ -148,6 +166,7 @@ struct NativeDeviceSession::Impl {
             !SameShape(shape, MakeCaseShape(options, entry.requested_bytes)))
             throw std::invalid_argument("invalid legacy execution entry");
         NativeDeviceResult result;
+        result.algorithm_log_begin = AlgorithmLogTimestamp();
         std::unique_ptr<old::HcclOpBaseTest> executor;
 #ifdef MC2_BENCH_CCU_BACKEND
         if (options.op == Op::AllToAllVWrite)
@@ -252,6 +271,7 @@ struct NativeDeviceSession::Impl {
             throw;
         }
         ClearObservers();
+        result.algorithm_log_end = AlgorithmLogTimestamp();
         if (executor->validation_failed())
             throw NativeDeviceValidationError("legacy executor output validation failed");
         if (ret != 0)

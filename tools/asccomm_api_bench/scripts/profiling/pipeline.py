@@ -27,6 +27,7 @@ from . import api_core as api
 from . import ccu_core as ccu
 from . import native_capture
 from . import legacy_capture
+from . import algorithm_evidence
 
 OPERATORS = {
     "allreduce": "AllReduce",
@@ -1710,6 +1711,8 @@ def analyze_run(run_dir, records_path, output_dir, *, msprof=None):
                     "error": str(exc),
                 }
             )
+    if records:
+        audit["algorithms"] = algorithm_evidence.enrich(records, run_dir)
     enriched_path.write_text(
         "".join(
             json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n"

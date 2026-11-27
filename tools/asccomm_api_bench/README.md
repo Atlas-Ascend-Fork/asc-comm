@@ -29,7 +29,7 @@ cd asc-comm/tools/asccomm_api_bench
 环境就绪后，首次测试使用两张设备、32KiB的AICPU AllReduce；MPI启动两个参与通信的进程，每个进程称为一个Rank。
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
@@ -49,13 +49,13 @@ bash run_alg_bench.sh -n 2 -p 2 -- \
 只查看相同条件下的候选、不执行测试时使用：
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 --query-only -- \
+bash run_alg_bench.sh -n 2 -p 2 --query-only \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
 此模式将候选保存到`query_summary.json`，不生成性能CSV。
 
-指定算法时，在实测命令的`--`后追加`--alg '完整候选名'`，名称取自相同算子和引擎的查询结果；未命中时跳过实测。完整例子见《[使用指南](./docs/zh/usage.md#查询并选择算法)》。
+指定算法时，在实测命令中追加`--alg '完整候选名'`，名称取自相同算子和引擎的查询结果；未命中时跳过实测。完整例子见《[使用指南](./docs/zh/usage.md#查询并选择算法)》。
 
 测试CCU时，将`-a aicpu_ts`改为`-a ccu_sched`。入口自动准备对应引擎的算子包并执行测试。
 

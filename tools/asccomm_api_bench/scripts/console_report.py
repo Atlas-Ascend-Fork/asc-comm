@@ -10,12 +10,15 @@
 """Display a native run's already validated report without inventing metrics."""
 
 import csv
+from collections import defaultdict
+from decimal import Decimal
 import json
+import math
 from pathlib import Path
 import sys
 import unicodedata
 
-from report import CCU_AUDIT_METRICS, COLUMN_LABELS
+from report import CCU_AUDIT_METRICS, COLUMN_LABELS, actual_algorithm_name
 
 
 def _cell(value):
@@ -48,6 +51,119 @@ def _entry_description(entry):
     return "bytes={} algorithm={}".format(
         entry.get("requested_bytes", "-"), entry.get("algorithm") or "-"
     )
+
+
+def _print_table(columns, values, output):
+    rows = [[_cell(value) for value in row] for row in [columns, *values]]
+    widths = [
+        max(_display_width(row[index]) for row in rows) for index in range(len(columns))
+    ]
+    for index, row in enumerate(rows):
+        print(
+            "  ".join(
+                value + " " * (width - _display_width(value))
+                for value, width in zip(row, widths)
+            ).rstrip(),
+            file=output,
+        )
+        if index == 0:
+            print("  ".join("-" * width for width in widths), file=output)
+
+
+def _print_algorithm_comparison(diagnostics, output):
+    # One report already has a single op/engine/dtype/reduce/rank context.
+    # Compare its final communication values, without deriving new timings.
+    groups = defaultdict(list)
+    for record in diagnostics:
+        groups[record["entry"]["requested_bytes"]].append(record)
+    rows, notes = [], []
+    for length, records in sorted(groups.items()):
+        requests = {
+            record["entry"]["algorithm"]
+            for record in records
+            if record["entry"]["algorithm"]
+        }
+        if len(requests) < 2:
+            continue
+        measured = defaultdict(list)
+        public_names = {}
+        valid = 0
+        for record in records:
+            value = record.get("metrics", {}).get("api_comm_us")
+            actual = record.get("actual_algorithm")
+            public_name = actual_algorithm_name(record)
+            confirmed = (
+                record.get("status") in {"hit", "fallback"}
+                or record.get("algorithm_observation", {}).get("confirmed") is True
+            )
+            if (
+                record.get("status") not in {"hit", "fallback", "algorithm_unconfirmed"}
+                or record.get("ret") != 0
+                or not actual
+                or not public_name
+                or not confirmed
+                or type(value) not in {int, float}
+                or not math.isfinite(value)
+                or value <= 0
+            ):
+                continue
+            measured[actual].append((Decimal(str(value)), record["entry"]["algorithm"]))
+            public_names[actual] = public_name
+            valid += 1
+        coverage = str(valid) + "/" + str(len(records))
+        duplicates = {name for name, values in measured.items() if len(values) > 1}
+        conflicting = {
+            name
+            for name in duplicates
+            if len({value for value, _ in measured[name]}) > 1
+        }
+        if conflicting:
+            reason = "重复实际算法的耗时不同，请人工核对：" + ", ".join(
+                sorted({public_names[name] for name in conflicting})
+            )
+        elif len(measured) < 2:
+            reason = "仅" + str(len(measured)) + "种实际算法有有效通信耗时，未形成对比"
+        else:
+            best = min(values[0][0] for values in measured.values())
+            for name, values in sorted(measured.items()):
+                if values[0][0] == best:
+                    rows.append(
+                        (
+                            length,
+                            public_names[name],
+                            str(best),
+                            coverage,
+                        )
+                    )
+            reason = (
+                "有效项未覆盖全部计划，结论限于已完成项" if valid < len(records) else ""
+            )
+        if conflicting or len(measured) < 2:
+            rows.append((length, "未形成对比", "-", coverage))
+        if duplicates:
+            notes.append(
+                str(length)
+                + "B：重复实际算法 "
+                + ", ".join(sorted({public_names[name] for name in duplicates}))
+                + "，按同一实际算法处理"
+            )
+        if reason:
+            notes.append(str(length) + "B：" + reason)
+    if not rows:
+        return
+    print("\n同数据量算法对比（本轮api通信耗时最低项，耗时相同则并列）", file=output)
+    _print_table(
+        (
+            "数据量(B)",
+            "执行算法",
+            "api通信耗时(us)",
+            "有效项/计划项",
+        ),
+        rows,
+        output,
+    )
+    for note in notes:
+        print("  " + _cell(note), file=output)
 
 
 def _reasons(summary, diagnostics):
@@ -207,21 +323,8 @@ def print_native_report(report_dir, summary, *, stream=None):
             ]
             for row in rows
         ]
-        text_rows = [[_cell(value) for value in row] for row in [columns, *values]]
-        widths = [
-            max(_display_width(row[index]) for row in text_rows)
-            for index in range(len(columns))
-        ]
-        for index, row in enumerate(text_rows):
-            print(
-                "  ".join(
-                    value + " " * (width - _display_width(value))
-                    for value, width in zip(row, widths)
-                ).rstrip(),
-                file=output,
-            )
-            if index == 0:
-                print("  ".join("-" * width for width in widths), file=output)
+        _print_table(columns, values, output)
+    _print_algorithm_comparison(diagnostics, output)
     if measured:
         if options.get("engine") in {
             "ccu_sched",
@@ -244,9 +347,22 @@ def print_native_report(report_dir, summary, *, stream=None):
                 "Profiling metrics: phases and kernel duration come from associated device profiling records.",
                 file=output,
             )
-        if summary.get("algorithm_unconfirmed"):
+        if summary.get("unconfirmed_algorithm_names"):
             print(
-                "algorithm_unconfirmed: performance was measured; the actual algorithm has not been confirmed.",
+                "Algorithm name unavailable: execution evidence or a consistent public-name mapping is missing; "
+                "available performance values are retained.",
+                file=output,
+            )
+        elif summary.get("algorithm_unconfirmed"):
+            print(
+                "algorithm_unconfirmed: performance was measured; "
+                + (
+                    "unconfirmed actual algorithm names are left blank."
+                    if summary.get(
+                        "unconfirmed_algorithm_names", summary["algorithm_unconfirmed"]
+                    )
+                    else "actual executors were observed; their mapping to the requested configuration is unconfirmed."
+                ),
                 file=output,
             )
     elif profiling and summary.get("native_event_records"):

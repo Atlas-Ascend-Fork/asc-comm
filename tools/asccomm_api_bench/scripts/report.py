@@ -22,7 +22,10 @@ import csv
 import json
 import math
 from pathlib import Path
+import re
 import sys
+
+from profiling.external_algorithms import is_external_name as _external_algorithm
 
 # Human-facing headers follow hccl_api_test; structured records retain their
 # stable field names and metric keys for collection and profiling adapters.
@@ -268,25 +271,22 @@ def validate_write_plan(plan, layout, rank):
         )
 
 
-def _external_algorithm(value):
-    """Check the public-name boundary, without interpreting library grammar."""
-    if not isinstance(value, str) or not value or value.strip() != value:
-        return False
-    if any(ord(char) < 32 or ord(char) == 127 for char in value):
-        return False
-    if value.find("[") <= 0 or not value.endswith("]"):
-        return False
-    depth = 0
-    for char in value:
-        if char == "[":
-            depth += 1
-        elif char == "]":
-            if depth == 0:
-                return False
-            depth -= 1
-        elif char == "," and depth == 0:
-            return False
-    return depth == 0
+def actual_algorithm_name(record):
+    """Public name of the observed executor; never substitute the request."""
+    observation = record.get("algorithm_observation", {})
+    if record.get("status") not in {"hit", "fallback"} and not observation.get(
+        "confirmed"
+    ):
+        return ""
+    actual = record.get("actual_algorithm", "")
+    if _external_algorithm(actual):
+        return actual
+    name = observation.get("external_name", "")
+    return (
+        name
+        if observation.get("confirmed") is True and _external_algorithm(name)
+        else ""
+    )
 
 
 def _entry(value, schema_version=1):
@@ -448,7 +448,7 @@ def _plan_coverage(
     return expected_pairs, candidates
 
 
-def _validate_result(record, entry, metric_names):
+def _validate_result(record, entry, metric_names, ranks):
     _require(record.get("entry") == entry, "result entry differs from its plan")
     status = record.get("status")
     _require(status in STATUSES, "unknown result status")
@@ -459,20 +459,71 @@ def _validate_result(record, entry, metric_names):
         "actual_algorithm must be a string",
     )
     _require(isinstance(record.get("evidence"), str), "evidence must be a string")
+    observation = record.get("algorithm_observation", {})
+    _require(isinstance(observation, dict), "algorithm_observation must be an object")
+    observed = observation.get("confirmed") is True
+    if observed:
+        by_rank = observation.get("ranks", {})
+        _require(
+            _external_algorithm(record["actual_algorithm"])
+            or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", record["actual_algorithm"]),
+            "observed algorithm must be an SDK executor identifier or external name",
+        )
+        _require(
+            record["actual_algorithm"]
+            and record["evidence"]
+            and observation.get("executor") == record["actual_algorithm"]
+            and isinstance(by_rank, dict)
+            and set(by_rank) == {str(rank) for rank in range(ranks)}
+            and all(
+                isinstance(value, dict)
+                and value.get("executor") == record["actual_algorithm"]
+                for value in by_rank.values()
+            ),
+            "observed algorithm requires consistent selected-executor evidence from every rank",
+        )
+        requested_executor = observation.get("requested_executor")
+        external_name = observation.get("external_name", "")
+        _require(
+            isinstance(external_name, str)
+            and (
+                not external_name
+                or (
+                    _external_algorithm(external_name)
+                    and all(
+                        value.get("external_name") == external_name
+                        for value in by_rank.values()
+                    )
+                )
+            ),
+            "public algorithm mapping must agree on every rank",
+        )
+        if requested_executor is not None:
+            _require(
+                isinstance(requested_executor, str)
+                and requested_executor
+                and all(
+                    value.get("requested_executor") == requested_executor
+                    for value in by_rank.values()
+                ),
+                "requested executor mapping must agree on every rank",
+            )
     if record["actual_algorithm"] and not _external_algorithm(
         record["actual_algorithm"]
     ):
         _require(
-            status == "algorithm_unconfirmed",
-            "internal actual algorithm names may only remain in unconfirmed diagnostics",
+            status == "algorithm_unconfirmed" or observed,
+            "internal actual algorithm confirmation requires selected-executor observations",
         )
     if status in {"hit", "fallback"}:
         _require(
             record["actual_algorithm"] and record["evidence"] and record["ret"] == 0,
             "confirmed result requires actual algorithm, evidence and success",
         )
+        requested_executor = observation.get("requested_executor") if observed else None
         _require(
-            (record["actual_algorithm"] == entry["algorithm"]) == (status == "hit"),
+            (record["actual_algorithm"] == (requested_executor or entry["algorithm"]))
+            == (status == "hit"),
             "hit/fallback does not match actual algorithm",
         )
     if entry["kind"] == "unsupported":
@@ -766,7 +817,7 @@ def build_report(records):
     missing_pairs = set(expected_pairs) - combinations
     _require(set(results) <= set(plans), "result has no matching plan")
     for entry_id, record in results.items():
-        _validate_result(record, plans[entry_id], allowed_metrics)
+        _validate_result(record, plans[entry_id], allowed_metrics, options["ranks"])
         if schema_version == 2 and plans[entry_id]["kind"] == "unsupported":
             _require(
                 not record["actual_algorithm"] and not record["evidence"],
@@ -867,9 +918,9 @@ def build_report(records):
     rows = []
     for record in diagnostics:
         status = record["status"]
-        algorithm = record["entry"]["algorithm"]
-        if status == "fallback":
-            algorithm = record["actual_algorithm"]
+        # Display the observed executor's public name; retain internal names
+        # and the original request in diagnostics, outside presentation columns.
+        algorithm = actual_algorithm_name(record)
         if status in SUCCESS and not record.get("metrics"):
             record["performance_status"] = "missing"
             missing_performance.append(record["entry"])
@@ -925,6 +976,18 @@ def build_report(records):
         ),
         "fallback": counts["fallback"],
         "algorithm_unconfirmed": counts["algorithm_unconfirmed"],
+        "observed_algorithms": sum(
+            bool(record.get("actual_algorithm"))
+            and (
+                record["status"] in {"hit", "fallback"}
+                or record.get("algorithm_observation", {}).get("confirmed") is True
+            )
+            for record in diagnostics
+        ),
+        "unconfirmed_algorithm_names": sum(
+            record["status"] in SUCCESS and not actual_algorithm_name(record)
+            for record in diagnostics
+        ),
         "unsupported": counts["unsupported"],
         "failed": bool(failed),
         "counts": dict(counts),
@@ -1002,9 +1065,7 @@ def build_report(records):
             "mission_count_scope": "parameter_array_layout",
         }
     column_keys = (
-        ["op", "dtype", "requested_bytes", "ranks"]
-        + list(metric_names)
-        + ["algorithm"]
+        ["op", "dtype", "requested_bytes", "ranks"] + list(metric_names) + ["algorithm"]
     )
     return (
         [COLUMN_LABELS[key] for key in column_keys],

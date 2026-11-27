@@ -32,24 +32,24 @@ For the first run, go directly to [Run a Single-host Benchmark](#run-a-single-ho
 
 ## Place Command Arguments
 
-The first `--` separates launcher arguments from test arguments. Arguments within each section generally have no ordering requirement, but each value must follow its option.
+Write all options in one command without a separator. Options may be reordered, but each value must follow its option.
 
 ```text
-bash run_alg_bench.sh [launcher arguments] -- [test arguments]
+bash run_alg_bench.sh -n 8 -p 8 --op allreduce -a ccu_sched -b 1M -e 1M
 ```
 
-| Position | Argument | Meaning and Default |
-| --- | --- | --- |
-| Before `--` | `-n`, `-p` | Total ranks and devices per node, both defaulting to 8; a rank is a participating communication process |
-| Before `--` | `--query-only` | List candidates without running benchmarks |
-| Before `--` | `--output-dir` | New result directory, allocated automatically when omitted; existing jobs cannot be overwritten |
-| After `--` | `--op` | Required operation name |
-| After `--` | `-a` | Engine: `aicpu_ts` or `ccu_sched`, defaulting to `aicpu_ts` |
-| After `--` | `-d` | Data type, defaulting to `fp32` (32-bit floating-point); built-in measurements use `fp32` |
-| After `--` | `-o` | Reduction: `sum`, `prod`, `max`, or `min`, defaulting to `sum`; actual support depends on the SDK |
-| After `--` | `-b`, `-e` | Starting and target ending byte lengths, defaulting to 32KiB and 256MiB |
-| After `--` | `-f` or `-i` | Multiplicative factor or linear byte step, mutually exclusive; the default is `-f 2` |
-| After `--` | `--alg` | Complete algorithm name returned by the query; repeatable, or omit to test all candidates |
+| Argument | Meaning and Default |
+| --- | --- |
+| `-n`, `-p` | Total ranks and devices per node, both defaulting to 8; a rank is a participating communication process |
+| `--query-only` | List candidates without running benchmarks |
+| `--output-dir` | New result directory, allocated automatically when omitted; existing jobs cannot be overwritten |
+| `--op` | Required operation name |
+| `-a` | Engine: `aicpu_ts` or `ccu_sched`, defaulting to `aicpu_ts` |
+| `-d` | Data type, defaulting to `fp32` (32-bit floating-point); built-in measurements use `fp32` |
+| `-o` | Reduction: `sum`, `prod`, `max`, or `min`, defaulting to `sum`; actual support depends on the SDK |
+| `-b`, `-e` | Starting and target ending byte lengths, defaulting to 32KiB and 256MiB |
+| `-f` or `-i` | Multiplicative factor or linear byte step, mutually exclusive; the default is `-f 2` |
+| `--alg` | Complete algorithm name returned by the query; repeatable, or omit to test all candidates |
 
 Lengths accept suffixes such as `B`, `K`, `KB`, `KiB`, `M`, `MB`, and `MiB`, using powers of 1024. Set both `-b` and `-e` for a single point. If only one endpoint is set, the other keeps its default. Multiplicative scans include the first point at or above the target ending length; linear scans stop at or below it. The default range contains 14 points.
 
@@ -60,7 +60,7 @@ Requested bytes may differ from each rank's input and output sizes: AllGather us
 This step is optional. To inspect candidates before selecting an algorithm, use the same AICPU engine, two devices, and 32KiB point as the first benchmark:
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 --query-only -- \
+bash run_alg_bench.sh -n 2 -p 2 --query-only \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
@@ -75,12 +75,14 @@ The command filters by the 32KiB point. Omit `-b/-e` to query all candidates for
 
 Query-only mode still requires real devices and a communicator. It does not build operator packages, warm up, measure, or generate a performance CSV. Results are printed and saved to `query_summary.json` in the run directory.
 
+The algorithm selection summary places requested names, candidates, and matches together for comparison.
+
 A benchmark queries again and measures only matched candidates. Unmatched names are reported as unsupported and skipped, without a separate tool-side fallback. Range mode tests the candidate union across the complete measurement length sequence. A returned candidate does not guarantee successful execution at every length.
 
 To select an algorithm, copy its complete name from query results for the same operation and engine. For example, use the following only if the preceding AICPU query returns `sole[mesh]`:
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a aicpu_ts -b 32K -e 32K --alg 'sole[mesh]'
 ```
 
@@ -91,21 +93,21 @@ The following commands use two devices and a 32KiB point. No algorithm is specif
 AICPU AllReduce:
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a aicpu_ts -b 32K -e 32K
 ```
 
 CCU AllReduce:
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op allreduce -a ccu_sched -b 32K -e 32K
 ```
 
 CCU AllToAllVWrite:
 
 ```bash
-bash run_alg_bench.sh -n 2 -p 2 -- \
+bash run_alg_bench.sh -n 2 -p 2 \
   --op alltoallvwrite -a ccu_sched -b 32K -e 32K
 ```
 
@@ -126,10 +128,19 @@ CCU benchmarks also print stage progress as `Benchmark phase:` and exit details 
 | `report/report.csv` | Performance table with Chinese headers, encoded as UTF-8 with BOM for Excel/WPS |
 | `report/summary.json` | Query source, measurement counts, and run failures |
 | `report/diagnostics.json` | Per-entry states and error details |
+| `report/ccu_probe_retries.json` | CCU probe recollection attempts and selected data sources, when needed |
 | `profile_analysis/profiling_audit.json` | Profiling association and analysis checks |
 | `collected/ranks/rank_*/stdout.log`, `stderr.log` | Original logs from each rank |
 
-`Cluster PASS` confirms process completion only. Also verify `measured > 0`, populated applicable metrics, and successful analysis with default collection enabled. `NO MEASUREMENTS` means no performance values are available. `algorithm_unconfirmed` indicates real execution without evidence confirming the actual algorithm; measurements can still be available. Unmeasured or unavailable metrics show `-`; inapplicable metrics show `NA`; metrics for analysis failures show `PARSE_FAIL`.
+`Cluster PASS` confirms process completion only. Also verify `measured > 0`, populated applicable metrics, and successful analysis with default collection enabled. `NO MEASUREMENTS` means no performance values are available. Unmeasured or unavailable metrics show `-`; inapplicable metrics show `NA`; metrics for analysis failures show `PARSE_FAIL`.
+
+`api算法` shows the public name of the algorithm actually executed, such as `sole[mesh]`. A request for A that falls back to B displays B's public name. Missing execution evidence, an unresolved name mapping, or conflicting rank records leaves the cell blank while preserving available performance values. Use a complete name returned by the query for `--alg`. Requested configurations, internal executor names, and mapping evidence remain in `report/diagnostics.json`.
+
+Algorithm context evidence follows each rank process within the current run. Later entries without creation logs inherit evidence only while the requested configuration stays unchanged and one compatible executor remains. When different executors are cached, explicit context-get or cache-hit logs must identify the reused resource. Context tags and source logs remain in `report/diagnostics.json`.
+
+Successfully executed CCU entries with zero complete probe samples or missing five-stage metrics are automatically rerun at the original size and requested algorithm, for up to three attempts. Verified build and installation artifacts are reused; execution and profiling collection run again. The first valid attempt supplies the entry's entire set of performance values. Entries that already have valid probe data retain their results. Original captures and attempts under `retries/` are preserved; `report/selected_profiling_audit.json` identifies the final report's sources. Unrecovered entries retain missing data and the run reports failure.
+
+Multi-algorithm runs print a comparison after the performance table, selecting the lowest valid `api通信耗时(us)` at each size, including ties. Its columns show data size, executed algorithm (`执行算法`), communication time, and valid/planned entries. Executed algorithms use their public names. Missing, failed, or unidentified results are excluded. A single valid executor or conflicting timings for duplicate executors prevents an automatic comparison. Requested configurations remain in JSON. No CSV columns are added.
 
 Time metrics use microseconds. The main metrics are:
 

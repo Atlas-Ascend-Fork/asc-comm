@@ -140,6 +140,11 @@ def write_query_report(run_dir, cluster):
             + " 个",
             flush=True,
         )
+        print(
+            "用户指定："
+            + (", ".join(result["options"]["algorithms"]) or "未指定，查询全部候选"),
+            flush=True,
+        )
         for index, name in enumerate(result["algorithms"], 1):
             print("  " + str(index) + ". " + name, flush=True)
         if not result["algorithms"]:
