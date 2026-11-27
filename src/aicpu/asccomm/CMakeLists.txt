@@ -9,9 +9,11 @@
 # ----------------------------------------------------------------------------------------------------------
 
 target_sources(asccomm_aicpu PRIVATE
+    diagnostics/profiling_session.cc
     primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
     experimental/asccomm_experimental_primitives_c_adpt.cc
     primitives/launch/asccomm_launch.cc
+    primitives/task_cache/binary_capture.cc
     resource/common/asccomm_runtime.cc
     resource/common/asccomm_transport.cc
     resource/common/asccomm_device.cc
@@ -20,9 +22,11 @@ target_sources(asccomm_aicpu PRIVATE
 )
 
 set_source_files_properties(
+    diagnostics/profiling_session.cc
     primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
     experimental/asccomm_experimental_primitives_c_adpt.cc
     primitives/launch/asccomm_launch.cc
+    primitives/task_cache/binary_capture.cc
     resource/common/asccomm_runtime.cc
     resource/common/asccomm_transport.cc
     resource/common/asccomm_device.cc

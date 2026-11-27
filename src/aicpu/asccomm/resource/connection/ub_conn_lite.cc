@@ -7,7 +7,11 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include "../../diagnostics/profiling_session.h"
+
 #include "ub_conn_lite.h"
+#include <cstring>
+#include "../../primitives/task_cache/binary_template.h"
 #include "asccomm_log.h"
 #include "../../common/utils/exception_util.h"
 #include "udma_data_struct.h"
@@ -65,12 +69,12 @@ uint32_t get_data_type_size(DataType dataType)
 }
 
 void UbConnLite::fill_comm_sqe(
-    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
+    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode, uint32_t sqOffset,
     SlicePosition slicePos)
 {
     uint32_t cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
     sqe->cqe = cqeEn;
-    sqe->owner = (pi == (sqDepth_ - 1)) ? 1 : 0;
+    sqe->owner = (sqDepth_ != 0 && sqOffset == (sqDepth_ - 1)) ? 1 : 0;
     sqe->opcode = opCode;
     sqe->tpn = tpn_;
 
@@ -295,7 +299,8 @@ void UbConnLite::fill_one_sqe_write(
     ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
 
     sqe->comm.inlineEn = 0;
-    fill_comm_sqe(&(sqe->comm), rmt, cfg, opCode, slicePos);
+    const uint32_t sqOffset = (sqDepth_ != 0) ? (pi % sqDepth_) : 0;
+    fill_comm_sqe(&(sqe->comm), rmt, cfg, opCode, sqOffset, slicePos);
     fill_local_sge_sqe(&(sqe->u.sge), loc);
     if (sqe->u.sge.length == 0) {
         sqe->comm.sgeNum = 0;
@@ -312,7 +317,8 @@ void UbConnLite::fill_one_sqe_send(
         "[UbConnLite::%s] start, loc size[%llu], remoteJettyId[%u]", __func__, loc.get_size(), target.get_token_id());
 
     sqe->comm.inlineEn = 0;
-    fill_comm_sqe(&(sqe->comm), target, cfg, opCode, slicePos);
+    const uint32_t sqOffset = (sqDepth_ != 0) ? (pi % sqDepth_) : 0;
+    fill_comm_sqe(&(sqe->comm), target, cfg, opCode, sqOffset, slicePos);
     // SEND的rmtObjId是远端接收Jetty/JFR id，tokenEn表示远端token是否参与校验；二者不能复用
     // RMA内存token的“无条件启用token”语义。
     sqe->comm.rmtObjId = target.get_token_id() & RMT_OBJ_ID_MASK;
@@ -338,11 +344,13 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
 {
     ASCCOMM_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<uint32_t>(opCode));
 
+    reserve_space(1);
+    AsccommBinaryCache::CaptureWqe(AsccommBinaryCache::Kind::UbWqe, sqe, SQE_SIZE_64);
+    if (AscProf::Enabled()) {
+        AscProf::Wqe(profilingChannel_, sqe, SQE_SIZE_64, static_cast<uint16_t>(pi + 1));
+    }
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     uint32_t sqOffset = pi % sqDepth_;
-    if (sqOffset < sqDepth_ && (sqOffset + 1) >= sqDepth_) {
-        piDetourCount++;
-    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求uint16_t数据结构并且自然增长
     pi = pi + 1;
 
@@ -365,15 +373,13 @@ void UbConnLite::process_one_wqe_with_notify(
     ASCCOMM_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
+    reserve_space(2);
     uint32_t sqOffset = pi % sqDepth_;
-    if (sqOffset < sqDepth_ && (sqOffset + PI_NUM_TWO) >= sqDepth_) {
-        piDetourCount++;
-    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求uint16_t数据结构并且自然增长
     pi = pi + PI_NUM_TWO;
     // 填充sqe
     sqe->comm.inlineEn = 0;
-    fill_comm_sqe(&(sqe->comm), rmt, cfg, WRITE_WITH_NOTIFY_OPCODE, slicePos);
+    fill_comm_sqe(&(sqe->comm), rmt, cfg, WRITE_WITH_NOTIFY_OPCODE, sqOffset, slicePos);
     fill_notify_sqe(&(sqe->notify), notify, notifyData);
     fill_local_sge_sqe(&(sqe->localU.sge), loc);
     if (sqe->localU.sge.length == 0) {
@@ -382,6 +388,19 @@ void UbConnLite::process_one_wqe_with_notify(
     sqe->rsv1 = 0;
     sqe->rsv2 = 0;
 
+    // The logical structure is 96 bytes but occupies two 64-byte WQEBBs.
+    // Materialize deterministic padding instead of reading past the stack object.
+    alignas(8) uint8_t physical[SQE_SIZE_128]{};
+    (void)memcpy_sp(physical, sizeof(physical), sqe, sizeof(*sqe));
+    AsccommBinaryCache::CaptureWqe(AsccommBinaryCache::Kind::UbWqe, physical, sizeof(physical));
+    if (AscProf::Enabled()) {
+        AscProf::Wqe(profilingChannel_, physical, sizeof(physical), pi);
+    }
+    publish_double(physical, sqOffset);
+}
+
+void UbConnLite::publish_double(void* sqe, uint32_t sqOffset)
+{
     uint8_t* va = reinterpret_cast<uint8_t*>((sqVa_) + sqOffset * SQE_SIZE_64);
     if (!dwqeCacheLocked_) {
         // 带notify的wqe是96字节, 需要占用两个wqebb, 实际占用128字节
@@ -394,7 +413,45 @@ void UbConnLite::process_one_wqe_with_notify(
             memory_set_and_copy(va, SQE_SIZE_128, sqe, SQE_SIZE_96);
         }
     }
-    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
+}
+
+void UbConnLite::publish_template(void* bytes, uint32_t length, const AscProf::WqeDescription* description)
+{
+    // Compiled templates contain all physical bytes, including 128B padding.
+    // Keep the native owner/PI ordering but avoid native capture/logging hooks.
+    if (length != SQE_SIZE_64 && length != SQE_SIZE_128) {
+        throw_exception<InvalidParamsException>("invalid UB template length");
+    }
+    const uint32_t blocks = length / SQE_SIZE_64;
+    reserve_space(blocks);
+    const uint32_t offset = pi % sqDepth_;
+    auto* common = static_cast<UdmaSqeCommon*>(bytes);
+    // Match #317 native builders: owner belongs to the starting WQEBB slot.
+    common->owner = (offset == sqDepth_ - 1) ? 1 : 0;
+    pi = pi + blocks;
+    if (AscProf::Enabled()) {
+        AscProf::Wqe(profilingChannel_, bytes, length, pi, description);
+    }
+    if (dwqeCacheLocked_) {
+        return;
+    }
+    auto* target = reinterpret_cast<uint8_t*>(sqVa_ + offset * SQE_SIZE_64);
+    // Constant lengths select securec's inline copy path, including ring wrap.
+    int ret;
+    if (length == SQE_SIZE_64) {
+        ret = memcpy_sp(target, SQE_SIZE_64, bytes, SQE_SIZE_64);
+    } else if (offset != sqDepth_ - 1) {
+        ret = memcpy_sp(target, SQE_SIZE_128, bytes, SQE_SIZE_128);
+    } else {
+        ret = memcpy_sp(target, SQE_SIZE_64, bytes, SQE_SIZE_64);
+        if (ret == 0) {
+            ret = memcpy_sp(
+                reinterpret_cast<void*>(sqVa_), SQE_SIZE_64, static_cast<uint8_t*>(bytes) + SQE_SIZE_64, SQE_SIZE_64);
+        }
+    }
+    if (ret != 0) {
+        throw_exception<InternalException>("UB template copy failed");
+    }
 }
 
 void UbConnLite::memory_set_and_copy(uint8_t* va, uint32_t destSize, const void* sqe, uint32_t copySize)
@@ -484,7 +541,8 @@ void UbConnLite::inline_write(
     UdmaSqeWrite sqe{};
     sqe.comm.inlineEn = 1;
     sqe.comm.inlineMsgLen = size;
-    fill_comm_sqe(&sqe.comm, rmt, cfg, UdmaSqOpcode::UDMA_OPC_WRITE);
+    const uint32_t sqOffset = (sqDepth_ != 0) ? (pi % sqDepth_) : 0;
+    fill_comm_sqe(&sqe.comm, rmt, cfg, UdmaSqOpcode::UDMA_OPC_WRITE, sqOffset);
     auto ret = memcpy_sp(sqe.u.inlineData.data, SQE_INLINE_DATA_SIZE, data, size);
     if (UNLIKELY(ret != 0)) {
         throw_exception<InternalException>(string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
@@ -593,16 +651,8 @@ void UbConnLite::import_context(const UbConnLiteParam& liteParam)
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void UbConnLite::import_queue_state(uint32_t sqHead, uint32_t sqTail)
-{
-    pi = static_cast<uint16_t>(sqHead);
-    piDetourCount = sqTail;
-}
+void UbConnLite::import_queue_state(uint32_t sqHead) { pi = static_cast<uint16_t>(sqHead); }
 
-void UbConnLite::export_queue_state(uint32_t& sqHead, uint32_t& sqTail) const
-{
-    sqHead = static_cast<uint32_t>(pi);
-    sqTail = piDetourCount;
-}
+void UbConnLite::export_queue_state(uint32_t& sqHead) const { sqHead = static_cast<uint32_t>(pi); }
 
 } // namespace Asc

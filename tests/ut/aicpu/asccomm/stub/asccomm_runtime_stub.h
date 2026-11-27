@@ -41,22 +41,28 @@ struct AicpuRuntimeStubState {
         uint32_t notifyId;
     };
     std::vector<NotifyRecordCall> notifyRecordCalls;
-    struct AddrNotifyCall {
-        HcommThreadEntity* context;
-        uint64_t waitAddr;
-        uint64_t valueAddr;
-        uint8_t last;
-    };
-    std::vector<AddrNotifyCall> addrNotifyWaitCalls;
-    std::vector<AddrNotifyCall> addrNotifyRecordCalls;
     struct NotifyWaitCall {
         HcommThreadEntity* context;
         uint32_t notifyId;
         uint32_t timeout;
     };
     std::vector<NotifyWaitCall> notifyWaitCalls;
+    struct AddrNotifyWaitCall {
+        ThreadEntity* context;
+        uint64_t waitAddr;
+        uint64_t valueAddr;
+        uint8_t last;
+    };
+    std::vector<AddrNotifyWaitCall> addrNotifyWaitCalls;
+    struct AddrNotifyRecordCall {
+        ThreadEntity* context;
+        uint64_t recordAddr;
+        uint64_t valueAddr;
+    };
+    std::vector<AddrNotifyRecordCall> addrNotifyRecordCalls;
     std::vector<ThreadHandle> launchThreads;
     std::vector<ThreadHandle> tryLaunchThreads;
+    uint32_t launchCalls{0};
     struct WriteCall {
         HcommThreadEntity* thread;
         ChannelEntity* channel;
@@ -171,6 +177,8 @@ struct AicpuRuntimeStubState {
     asccomm_result reduceResult{ASCCOMM_SUCCESS};
     asccomm_result notifyRecordResult{ASCCOMM_SUCCESS};
     asccomm_result notifyWaitResult{ASCCOMM_SUCCESS};
+    asccomm_result addrNotifyWaitResult{ASCCOMM_SUCCESS};
+    asccomm_result addrNotifyRecordResult{ASCCOMM_SUCCESS};
     asccomm_result launchResult{ASCCOMM_SUCCESS};
     asccomm_result tryLaunchResult{ASCCOMM_SUCCESS};
     asccomm_result writeResult{ASCCOMM_SUCCESS};

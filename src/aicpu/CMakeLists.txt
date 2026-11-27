@@ -84,6 +84,14 @@ target_compile_options(asccomm_aicpu PRIVATE
 )
 
 target_include_directories(asccomm_aicpu PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/aicpu_sched
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/aicpu
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/profiling
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/aicpu_sched
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/aicpu
+    ${ASCCOMM_CANN_ARCH_DIR}/include/experiment/slog
+    ${ASCCOMM_CANN_ARCH_DIR}/include/experiment/runtime
     ${ASCCOMM_ROOT}/include/aicpu_ts
     ${ASCCOMM_ROOT}/include/aicpu_ts/asccomm
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
@@ -106,6 +114,23 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/connection
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/stream
 )
+# Runtime source builds may not have installed pkg_inc headers yet. Consume
+# public header targets below and support source layouts without those targets.
+# Do not link profapi/runtime implementations: symbols are resolved at load time.
+foreach(_runtime_root
+    "${RUNTIME_DIR}"
+    "${RUNTIME_SOURCE_DIR}"
+    "${ASCCOMM_ROOT}/../runtime"
+    "${ASCCOMM_ROOT}/../../runtime")
+    if(EXISTS "${_runtime_root}/pkg_inc/profiling/prof_common.h")
+        target_include_directories(asccomm_aicpu PRIVATE
+            "${_runtime_root}/pkg_inc/profiling"
+            "${_runtime_root}/pkg_inc/aicpu_sched"
+            "${_runtime_root}/include/dfx/base")
+        break()
+    endif()
+endforeach()
+
 # 控制面源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
 if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
     target_include_directories(asccomm_aicpu PRIVATE
@@ -117,7 +142,7 @@ endif()
 # 设备侧库：securec/dlog/驱动符号由设备运行环境(ccl_kernel/内核驱动)在加载期解析，
 # 链接期不强制落地；cann-cmake导入目标存在时按需附加，避免独立构建缺目标报错
 set(_asccomm_aicpu_link_targets asc_comm_dfx)
-foreach(_target acl_rt_headers slog_headers ascend_hal c_sec)
+foreach(_target runtime_headers msprof_headers acl_rt_headers slog_headers ascend_hal c_sec)
     if(TARGET ${_target})
         list(APPEND _asccomm_aicpu_link_targets ${_target})
     endif()

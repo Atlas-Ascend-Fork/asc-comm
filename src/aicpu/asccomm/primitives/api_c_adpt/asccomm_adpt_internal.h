@@ -11,6 +11,7 @@
 #ifndef ASCCOMM_ADPT_INTERNAL_H
 #define ASCCOMM_ADPT_INTERNAL_H
 
+#include "../task_cache/binary_capture.h"
 #include "asccomm_res_defs.h"
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
@@ -108,6 +109,9 @@ asccomm_result execute_api(Operation operation)
 {
     asccomm_result ret = ASCCOMM_SUCCESS;
     EXCEPTION_CATCH(ret = operation(), ret = ASCCOMM_E_INTERNAL);
+    if (ret != ASCCOMM_SUCCESS) {
+        AsccommBinaryCapture::Invalidate();
+    }
     return ret;
 }
 

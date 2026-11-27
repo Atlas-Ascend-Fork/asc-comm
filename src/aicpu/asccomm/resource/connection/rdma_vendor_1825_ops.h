@@ -10,6 +10,7 @@
 
 #ifndef RDMA_VENDOR_1825_OPS_H
 #define RDMA_VENDOR_1825_OPS_H
+#include "../../primitives/task_cache/binary_template.h"
 
 #include "rdma_vendor_base_ops.h"
 
@@ -196,6 +197,19 @@ public:
 
     ~Rdma1825Ops() override {}
 
+    asccomm_result publish_template(Roce3WqeEntry wqe)
+    {
+        CHK_RET(wait_sq_free(1));
+        wqe.ctrl.owner_sl =
+            (((sqHead_ & sqContext_->depth) == 0 ? 0 : 1) << ROCE_WQE_OWNERBIT_SHIFT) | ROCE_WQE_CTRL_VALUE;
+        uint16_t control = htons16(wqe.ctrl.wf_bdsl);
+        control = (control & ~(ROCE_WQE_SSN_MASK << ROCE_WQE_SSN_SHIFT)) |
+                  ((sqHead_ & ROCE_WQE_SSN_MASK) << ROCE_WQE_SSN_SHIFT);
+        wqe.ctrl.wf_bdsl = htons16(control);
+        CHK_RET(commit_wqe(&wqe, sizeof(wqe)));
+        return update_sq_pi();
+    }
+
     asccomm_result build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         Roce3DbEntry dbEntry;
@@ -261,6 +275,12 @@ protected:
         CHK_RET(fill_task_seg(&wqe, params));
         CHK_RET(fill_data_seg(&wqe, params));
 
+        if (AsccommBinaryCache::Capture()) {
+            AsccommBinaryCache::Capture()->Append(
+                AsccommBinaryCache::Kind::RdmaWqe, AsccommBinaryCache::Channel(), AsccommBinaryCache::VERSION, &wqe,
+                sizeof(wqe), {{1, AsccommBinaryCache::ResourceRole(), 0, AsccommBinaryCache::NotifyIndex()}},
+                ASCCOMM_BINARY_ENTRY_BUDGET);
+        }
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]", __func__,
@@ -278,6 +298,12 @@ protected:
         CHK_RET(fill_task_seg(&wqe, params));
         CHK_RET(fill_data_seg(&wqe, params));
 
+        if (AsccommBinaryCache::Capture()) {
+            AsccommBinaryCache::Capture()->Append(
+                AsccommBinaryCache::Kind::RdmaWqe, AsccommBinaryCache::Channel(), AsccommBinaryCache::VERSION, &wqe,
+                sizeof(wqe), {{1, AsccommBinaryCache::ResourceRole(), 0, AsccommBinaryCache::NotifyIndex()}},
+                ASCCOMM_BINARY_ENTRY_BUDGET);
+        }
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]", __func__,
@@ -297,6 +323,15 @@ protected:
         CHK_RET(fill_reduce_task_seg(&wqe, params, dataType, reduceOp));
         CHK_RET(fill_data_seg(&wqe, params));
 
+        if (AsccommBinaryCache::Capture()) {
+            const uint32_t reduceBits =
+                (Roce3ReduceOpTypeMap[static_cast<uint32_t>(reduceOp)] << ROCE_WQE_TASK_REDUCE_OP_OFFSET) |
+                Roce3ReduceDataTypeMap[static_cast<uint32_t>(dataType)];
+            AsccommBinaryCache::Capture()->Append(
+                AsccommBinaryCache::Kind::RdmaWqe, AsccommBinaryCache::Channel(), AsccommBinaryCache::VERSION, &wqe,
+                sizeof(wqe), {{1, AsccommBinaryCache::ResourceRole(), reduceBits, AsccommBinaryCache::NotifyIndex()}},
+                ASCCOMM_BINARY_ENTRY_BUDGET);
+        }
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u], "

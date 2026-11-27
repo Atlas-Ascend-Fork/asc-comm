@@ -26,7 +26,6 @@ protected:
         asccomm_clear_registered_threads("tag-a");
         asccomm_clear_registered_threads("tag-b");
         g_launchStubState = {};
-        g_launchStubState = {};
     }
 };
 
@@ -111,6 +110,23 @@ TEST_F(AsccommLaunchTest, TryLaunchUsesSnapshotOfRegisteredThreads)
     g_launchStubState.lastTryThreads.clear();
     ASSERT_EQ(asccomm_try_launch_registered_threads(), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_launchStubState.lastTryThreads, (std::vector<ThreadHandle>{301U, 302U}));
+}
+
+TEST_F(AsccommLaunchTest, ActiveClearPreservesOtherTaggedBatch)
+{
+    asccomm_set_batch_launch_mode_with_tag("keep", true);
+    asccomm_register_thread(101U);
+    asccomm_set_batch_launch_mode_with_tag("retire", true);
+    asccomm_register_thread(202U);
+    ASSERT_EQ(asccomm_clear_active_threads(), ASCCOMM_SUCCESS);
+    asccomm_set_batch_launch_mode_with_tag("retire", false);
+    g_launchStubState.lastThreads.clear();
+    ASSERT_EQ(asccomm_launch_registered_threads(), ASCCOMM_SUCCESS);
+    EXPECT_TRUE(g_launchStubState.lastThreads.empty());
+    asccomm_set_batch_launch_mode_with_tag("keep", false);
+    ASSERT_EQ(asccomm_launch_registered_threads(), ASCCOMM_SUCCESS);
+    EXPECT_EQ(g_launchStubState.lastThreads, (std::vector<ThreadHandle>{101U}));
+    asccomm_clear_registered_threads("keep");
 }
 
 } // namespace

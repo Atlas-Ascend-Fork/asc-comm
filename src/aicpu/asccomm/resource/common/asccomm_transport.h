@@ -12,10 +12,16 @@
 #define ASCCOMM_TRANSPORT_H
 
 #include "asccomm_res_defs.h"
+#include "../connection/ub_completion.h"
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_primitives.h"
 #include "asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
+
+uint64_t asccomm_ub_current_domain();
+
+// Records a staged DB, not completion; used only by the private queue-space guard.
+AsccommUbCompletionTag asccomm_ub_note_db(const ChannelEntity& channel, uint16_t pi);
 
 asccomm_result asccomm_write(
     ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);

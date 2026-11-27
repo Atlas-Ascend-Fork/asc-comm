@@ -29,6 +29,8 @@ asccomm_result asccomm_set_batch_launch_mode_with_tag(const char* batchTag, bool
 bool asccomm_is_automatic_launch_mode();
 asccomm_result asccomm_launch_registered_threads();
 asccomm_result asccomm_try_launch_registered_threads();
-asccomm_result asccomm_clear_registered_threads(const char* batchTag);
+asccomm_result asccomm_clear_registered_threads(const char* batchTag = nullptr);
+
+asccomm_result asccomm_clear_active_threads();
 
 #endif // ASCCOMM_LAUNCH_H

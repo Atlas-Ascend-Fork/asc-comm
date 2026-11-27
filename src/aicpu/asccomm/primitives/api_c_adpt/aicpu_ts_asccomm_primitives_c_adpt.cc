@@ -7,8 +7,10 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include "../../primitives/task_cache/binary_template.h"
 
 #include <cmath>
+#include "../task_cache/binary_capture.h"
 #include <limits>
 #include "asccomm_primitives.h"
 #include "asccomm_adpt_internal.h"
@@ -16,9 +18,17 @@
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
 #include "asccomm_runtime.h"
+#include "asccomm_thread_notify.h"
 #include "asccomm_transport.h"
 #include "../../common/utils/exception_util.h"
 #include "asccomm_log.h"
+
+// This translation unit is the privileged implementation of the internal primitives, so it opts in explicitly to keep
+// their declarations (and thus the default visibility carried by ASCCOMM_API) in scope.
+#ifndef ASCCOMM_ENABLE_INTERNAL_APIS
+#define ASCCOMM_ENABLE_INTERNAL_APIS
+#endif
+#include "asccomm_primitives_internal.h"
 
 namespace {
 
@@ -37,20 +47,16 @@ asccomm_result get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyI
         ASCCOMM_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, notifyIdx, thread.localNotifyNum),
         ASCCOMM_E_PARA);
 
-    constexpr uint32_t notifySegmentDataNum = 127U;
-    const uint32_t segmentIdx = notifyIdx / notifySegmentDataNum;
-    const uint32_t slotIdx = notifyIdx % notifySegmentDataNum;
-    const HcommRegedNotifyEntity* segment = thread.localNotifyAddr;
-    for (uint32_t i = 0; i < segmentIdx && segment != nullptr; ++i) {
-        const uint64_t nextSegmentAddr = *reinterpret_cast<const uint64_t*>(segment + notifySegmentDataNum);
-        segment = reinterpret_cast<const HcommRegedNotifyEntity*>(static_cast<uintptr_t>(nextSegmentAddr));
-    }
-    CHK_PTR_NULL(segment);
+    const auto* notify = Asc::ResolveThreadNotify(thread, notifyIdx);
+    CHK_PTR_NULL(notify);
     CHK_PRT_RET(
-        segment[slotIdx].type != HCOMM_REGED_NOTIFY_IPC_RT,
-        ASCCOMM_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__, segment[slotIdx].type), ASCCOMM_E_PARA);
-    const int32_t resourceId = segment[slotIdx].notifyInfo.ipcRt.notifyId;
+        notify->type != HCOMM_REGED_NOTIFY_IPC_RT,
+        ASCCOMM_ERROR("[%s] invalid local notify type[%u].", __func__, notify->type), ASCCOMM_E_PARA);
+    const int32_t resourceId = notify->notifyInfo.ipcRt.notifyId;
     CHK_PRT_RET(resourceId < 0, ASCCOMM_ERROR("[%s] invalid notify id[%d].", __func__, resourceId), ASCCOMM_E_PARA);
+    const uint64_t binding[2] = {notifyIdx, static_cast<uint32_t>(resourceId)};
+    AsccommBinaryCache::CaptureTask(
+        AsccommBinaryCache::Kind::ThreadNotifyGuard, reinterpret_cast<uint64_t>(&thread), binding, sizeof(binding));
     notifyId = static_cast<uint32_t>(resourceId);
     return ASCCOMM_SUCCESS;
 }
@@ -187,20 +193,24 @@ asccomm_result convert_timeout(float timeout, uint32_t& timeoutSeconds)
 
 int32_t asccomm_batch_mode_start(const char* batchTag)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_batch_mode_start);
     return execute_api([&]() { return asccomm_set_batch_launch_mode_with_tag(batchTag, true); });
 }
 
 int32_t asccomm_batch_mode_end(const char* batchTag)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_batch_mode_end);
     return execute_api([&]() {
         CHK_RET(asccomm_set_batch_launch_mode_with_tag(batchTag, false));
         CHK_RET(asccomm_launch_registered_threads());
+        AsccommBinaryCache::CaptureTask(AsccommBinaryCache::Kind::BatchEnd, 0, nullptr, 0);
         return asccomm_clear_registered_threads(batchTag);
     });
 }
 
 int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void* src, uint64_t len)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_local_copy_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -223,6 +233,7 @@ int32_t asccomm_local_reduce_on_thread(
     ThreadHandle thread, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
     asccomm_reduce_op reduceOp)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_local_reduce_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -261,6 +272,7 @@ int32_t asccomm_local_reduce_on_thread(
 
 int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_thread_notify_record_on_thread);
     return execute_api([&]() {
         ThreadEntity* threadEntity = nullptr;
         ThreadEntity* dstThreadEntity = nullptr;
@@ -274,6 +286,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
 
 int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_thread_notify_wait_on_thread);
     return execute_api([&]() {
         ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
@@ -283,11 +296,9 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
     });
 }
 
-// 地址语义编排原语：本 TU 编译带 -fvisibility=hidden 且未开 ASCCOMM_ENABLE_INTERNAL_APIS，
-// 故显式 extern "C" + visibility("default") 保证符号对 mc2_server 可见。
-extern "C" __attribute__((visibility("default"))) int32_t
-asccomm_addr_notify_wait_on_thread(ThreadHandle thread, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
+int32_t asccomm_addr_notify_wait_on_thread(ThreadHandle thread, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_addr_notify_wait_on_thread);
     return execute_api([&]() {
         ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
@@ -295,9 +306,9 @@ asccomm_addr_notify_wait_on_thread(ThreadHandle thread, uint64_t waitAddr, uint6
     });
 }
 
-extern "C" __attribute__((visibility("default"))) int32_t
-asccomm_addr_notify_record_on_thread(ThreadHandle thread, uint64_t recordAddr, uint64_t valueAddr)
+int32_t asccomm_addr_notify_record_on_thread(ThreadHandle thread, uint64_t recordAddr, uint64_t valueAddr)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_addr_notify_record_on_thread);
     return execute_api([&]() {
         ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
@@ -307,6 +318,7 @@ asccomm_addr_notify_record_on_thread(ThreadHandle thread, uint64_t recordAddr, u
 
 int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_write_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -321,6 +333,7 @@ int32_t asccomm_write_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
     asccomm_reduce_op reduceOp)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_write_reduce_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -338,6 +351,7 @@ int32_t asccomm_write_reduce_on_thread(
 int32_t asccomm_write_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_write_with_notify_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -353,6 +367,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
     asccomm_reduce_op reduceOp, uint32_t remoteNotifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_write_reduce_with_notify_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -369,6 +384,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(
 
 int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_read_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -383,6 +399,7 @@ int32_t asccomm_read_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, asccomm_data_type dataType,
     asccomm_reduce_op reduceOp)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_read_reduce_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
@@ -401,6 +418,7 @@ int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const asccomm_batch_transfer_desc* transferDescs,
     uint32_t transferDescNum)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_batch_transfer_on_thread);
     return execute_api([&]() {
         CHK_PTR_NULL(transferDescs);
         CommContext context{};
@@ -411,6 +429,7 @@ int32_t asccomm_batch_transfer_on_thread(
 
 int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_channel_notify_record_on_thread);
     return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
@@ -421,6 +440,7 @@ int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHand
 int32_t asccomm_channel_notify_wait_on_thread(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_channel_notify_wait_on_thread);
     return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
@@ -430,6 +450,7 @@ int32_t asccomm_channel_notify_wait_on_thread(
 
 int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_channel_fence_on_thread);
     return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, false, context));
@@ -440,6 +461,7 @@ int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle chann
 int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_channel_notify_wait_on_thread_with_default_timeout);
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
     return execute_api([&]() {
         CommContext context{};
@@ -450,6 +472,7 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
 
 int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle thread, uint32_t notifyIdx)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_thread_notify_wait_on_thread_with_default_timeout);
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
     return execute_api([&]() {
         ThreadEntity* threadEntity = nullptr;
@@ -462,6 +485,7 @@ int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle t
 
 int32_t asccomm_set_notify_wait_timeout(float timeOut)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_set_notify_wait_timeout);
     return execute_api([&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
@@ -472,6 +496,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
 
 int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_thread_res_acquire_timeout);
     return execute_api([&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
@@ -482,6 +507,7 @@ int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 
 int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
+    AsccommBinaryCapture::Record(AsccommBinaryCapture::Op::asccomm_channel_drain_on_thread);
     return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));

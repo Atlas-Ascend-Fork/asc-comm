@@ -15,6 +15,7 @@ set(AICPU_UT_INCLUDE_DIRS
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/driver
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/common/utils
@@ -74,13 +75,16 @@ add_executable(asccomm_utest_comms_aicpu_primitives
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/experimental/asccomm_experimental_primitives_c_adpt.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache/binary_capture.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
 )
 target_include_directories(asccomm_utest_comms_aicpu_primitives PRIVATE
     ${AICPU_UT_INCLUDE_DIRS}
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache
 )
 target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
     OPEN_BUILD_PROJECT
+    ASCCOMM_ENABLE_INTERNAL_APIS
 )
 target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
     __NPU_ARCH__=${ASCCOMM_UT_V310_NPU_ARCH}
@@ -93,6 +97,29 @@ target_link_libraries(asccomm_utest_comms_aicpu_primitives PRIVATE
 )
 add_test(NAME asccomm_utest_comms_aicpu_primitives COMMAND asccomm_utest_comms_aicpu_primitives)
 
+add_executable(asccomm_binary_native_test main.cc ut_binary_native.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc)
+target_include_directories(asccomm_binary_native_test PRIVATE ${AICPU_UT_INCLUDE_DIRS})
+target_compile_definitions(asccomm_binary_native_test PRIVATE OPEN_BUILD_PROJECT)
+target_link_libraries(asccomm_binary_native_test PRIVATE intf_llt_pub_basic pthread)
+add_test(NAME asccomm_binary_native_test COMMAND asccomm_binary_native_test)
+
+# Real capture/transport/runtime; only the HAL boundary is mocked. No NPU work.
+add_executable(asccomm_binary_pipeline_test main.cc ut_binary_pipeline.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache/binary_capture.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_runtime.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_transport.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc)
+target_include_directories(asccomm_binary_pipeline_test PRIVATE
+    ${AICPU_UT_INCLUDE_DIRS}
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache
+)
+target_compile_definitions(asccomm_binary_pipeline_test PRIVATE OPEN_BUILD_PROJECT ASCCOMM_ENABLE_INTERNAL_APIS)
+target_link_libraries(asccomm_binary_pipeline_test PRIVATE intf_llt_pub_basic pthread)
+add_test(NAME asccomm_binary_pipeline_test COMMAND asccomm_binary_pipeline_test)
 add_executable(asccomm_public_header_isolation_check
     public_header_isolation_check.cc
 )
@@ -122,3 +149,64 @@ target_compile_options(asccomm_experimental_header_isolation_check PRIVATE
     -Werror
 )
 add_test(NAME asccomm_experimental_header_isolation_check COMMAND asccomm_experimental_header_isolation_check)
+
+# 工单104(G1/G2/G4/P3)：UB 连接缝、transport 导出守卫与运行时状态行
+add_executable(asccomm_utest_comms_aicpu_transport
+    main.cc
+    ut_asccomm_transport.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache/binary_capture.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_runtime.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
+)
+target_include_directories(asccomm_utest_comms_aicpu_transport PRIVATE
+    ${AICPU_UT_INCLUDE_DIRS}
+)
+target_compile_definitions(asccomm_utest_comms_aicpu_transport PRIVATE OPEN_BUILD_PROJECT ASCCOMM_ENABLE_INTERNAL_APIS)
+target_link_libraries(asccomm_utest_comms_aicpu_transport PRIVATE
+    intf_llt_pub_basic
+    ${ASCEND_CANN_ARCH_DIR}/lib64/libc_sec.so
+    pthread
+)
+add_test(NAME asccomm_utest_comms_aicpu_transport COMMAND asccomm_utest_comms_aicpu_transport)
+
+add_executable(asccomm_utest_comms_aicpu_runtime
+    main.cc
+    ut_asccomm_runtime.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_device.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/task_cache/binary_capture.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_transport.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/stream/sqe_build_a5.cc
+    ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/connection/ub_conn_lite.cc
+)
+target_include_directories(asccomm_utest_comms_aicpu_runtime PRIVATE
+    ${AICPU_UT_INCLUDE_DIRS}
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/driver
+)
+target_compile_definitions(asccomm_utest_comms_aicpu_runtime PRIVATE OPEN_BUILD_PROJECT ASCCOMM_ENABLE_INTERNAL_APIS)
+target_link_libraries(asccomm_utest_comms_aicpu_runtime PRIVATE
+    intf_llt_pub_basic
+    ${ASCEND_CANN_ARCH_DIR}/lib64/libc_sec.so
+    pthread
+)
+add_test(NAME asccomm_utest_comms_aicpu_runtime COMMAND asccomm_utest_comms_aicpu_runtime)
+
+# Link real profiling hooks for every target exercising native publication.
+foreach(target asccomm_utest_comms_aicpu_primitives asccomm_binary_native_test asccomm_binary_pipeline_test asccomm_utest_comms_aicpu_runtime asccomm_utest_comms_aicpu_transport)
+    target_sources(${target} PRIVATE ${ASCCOMM_ROOT}/src/aicpu/asccomm/diagnostics/profiling_session.cc)
+    target_include_directories(${target} PRIVATE
+        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
+        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/aicpu_sched
+        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/aicpu
+        ${ASCEND_CANN_ARCH_DIR}/include/experiment/slog)
+    target_link_libraries(${target} PRIVATE dl
+        ${ASCEND_CANN_ARCH_DIR}/lib64/libc_sec.so
+        ${ASCEND_CANN_ARCH_DIR}/lib64/libunified_dlog.so)
+endforeach()
+
+foreach(target asccomm_binary_native_test asccomm_binary_pipeline_test asccomm_utest_comms_aicpu_transport)
+    target_sources(${target} PRIVATE ${ASCCOMM_ROOT}/src/aicpu/asccomm/resource/common/asccomm_device.cc)
+endforeach()

@@ -17,6 +17,9 @@
 #include "../buffer/rmt_rma_buf_slice_lite.h"
 #include "udma_data_struct.h"
 
+namespace AscProf {
+struct WqeDescription;
+}
 namespace Asc {
 
 enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
@@ -35,10 +38,18 @@ struct UbConnLiteParam {
 
 class UbConnLite {
 public:
+    void set_profiling_channel(uint64_t channel) { profilingChannel_ = channel; }
+    using SpaceGuard = void (*)(void*, uint16_t, uint32_t);
+    void set_space_guard(SpaceGuard guard, void* context)
+    {
+        spaceGuard_ = guard;
+        spaceContext_ = context;
+    }
     void import_context(const UbConnLiteParam& liteParam);
 
-    void import_queue_state(uint32_t sqHead, uint32_t sqTail);
-    void export_queue_state(uint32_t& sqHead, uint32_t& sqTail) const;
+    void import_queue_state(uint32_t sqHead);
+    void export_queue_state(uint32_t& sqHead) const;
+    uint16_t current_pi() const { return pi; }
 
     void read(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
@@ -66,19 +77,30 @@ public:
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, uint64_t immData, const SqeConfigLite& cfg,
         ConnLiteOperationOut& out);
 
+    // Caller patches current addresses/tokens. This helper only owns live queue fields.
+    void publish_template(void* bytes, uint32_t length, const AscProf::WqeDescription* description = nullptr);
+
     void fill_comm_sqe(
-        UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
+        UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode, uint32_t sqOffset,
         SlicePosition slicePos = SlicePosition::ONLY);
 
     void fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSliceLite& notify, uint64_t notifyData) const;
     void fill_local_sge_sqe(UdmaNormalSge* sqe, const RmaBufSliceLite& loc) const;
 
 private:
+    SpaceGuard spaceGuard_ = nullptr;
+    void* spaceContext_ = nullptr;
+    void reserve_space(uint32_t count)
+    {
+        if (spaceGuard_) {
+            spaceGuard_(spaceContext_, pi, count);
+        }
+    }
     uint16_t pi{0};
-    uint32_t piDetourCount{0};
     uint32_t maxReadSize{0};
     uint32_t maxWriteSize{0};
     uint32_t jettyId_{0};
+    uint64_t profilingChannel_{0};
     uint64_t sqVa_{0};
     uint32_t sqDepth_{0};
     bool dwqeCacheLocked_{false};
@@ -103,6 +125,7 @@ private:
     void fill_one_sqe_write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, SlicePosition slicePos);
+    void publish_double(void* sqe, uint32_t sqOffset);
     void fill_one_sqe_send(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& target, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, uint64_t immData, SlicePosition slicePos);

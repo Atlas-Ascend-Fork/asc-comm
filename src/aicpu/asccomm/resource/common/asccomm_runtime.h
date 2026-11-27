@@ -14,6 +14,7 @@
 // Internal resource RTSQ runtime. This header is not part of the public API.
 
 #include "asccomm_res_defs.h"
+#include "../connection/ub_completion.h"
 #include "hcomm_res_entity_defs.h"
 #include "asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
@@ -31,7 +32,13 @@ asccomm_result asccomm_rtsq_addr_notify_record(ThreadEntity& thread, uint64_t re
 asccomm_result asccomm_rtsq_sdma_copy(ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
 asccomm_result asccomm_rtsq_sdma_reduce(
     ThreadEntity& thread, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
-asccomm_result asccomm_rtsq_ub_db_send(ThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
+asccomm_result asccomm_rtsq_ub_db_send(
+    ThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue, AsccommUbCompletionTag tag = {});
+// Slow path only: submit a cumulative UB checkpoint and wait for its DB completion.
+// No completion is inferred from PI or the software detour counter.
+asccomm_result asccomm_rtsq_ub_checkpoint(
+    ThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t pi, AsccommUbCompletionTag tag);
+asccomm_result asccomm_rtsq_wait_ub(ThreadEntity& thread, AsccommUbCompletion& completion);
 asccomm_result asccomm_rtsq_rdma_db_send(ThreadEntity& thread, uint64_t dbAddr, uint64_t dbValue);
 asccomm_result asccomm_resolve_thread_rtsq(ThreadEntity* thread);
 asccomm_result asccomm_validate_device_range(uint64_t addr, uint64_t len);

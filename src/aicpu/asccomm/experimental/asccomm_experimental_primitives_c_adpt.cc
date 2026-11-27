@@ -24,6 +24,8 @@ constexpr uint64_t ASCCOMM_SEND_LEN_MAX = 64ULL * 1024ULL;
 
 int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len)
 {
+    // The receive-side SEND contract cannot be captured by binary replay.
+    AsccommBinaryCapture::Invalidate();
     return execute_api([&]() {
         CHK_PTR_NULL(src);
         CHK_PRT_RET(
@@ -41,6 +43,8 @@ int32_t asccomm_send_on_thread(ThreadHandle thread, ChannelHandle channel, const
 int32_t asccomm_send_with_imm_on_thread(
     ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint64_t immData)
 {
+    // The receive-side SEND contract cannot be captured by binary replay.
+    AsccommBinaryCapture::Invalidate();
     return execute_api([&]() {
         CHK_PTR_NULL(src);
         CHK_PRT_RET(

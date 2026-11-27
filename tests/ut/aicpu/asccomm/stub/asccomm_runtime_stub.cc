@@ -55,23 +55,24 @@ asccomm_result asccomm_rtsq_notify_record(HcommThreadEntity& context, uint32_t n
     return g_runtimeStubState.notifyRecordResult;
 }
 
-asccomm_result asccomm_rtsq_addr_notify_wait(
-    HcommThreadEntity& context, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
-{
-    g_runtimeStubState.addrNotifyWaitCalls.push_back({&context, waitAddr, valueAddr, last});
-    return ASCCOMM_SUCCESS;
-}
-
-asccomm_result asccomm_rtsq_addr_notify_record(HcommThreadEntity& context, uint64_t recordAddr, uint64_t valueAddr)
-{
-    g_runtimeStubState.addrNotifyRecordCalls.push_back({&context, recordAddr, valueAddr, 0});
-    return ASCCOMM_SUCCESS;
-}
-
 asccomm_result asccomm_rtsq_notify_wait(HcommThreadEntity& context, uint32_t notifyId, uint32_t timeout)
 {
     g_runtimeStubState.notifyWaitCalls.push_back({&context, notifyId, timeout});
     return g_runtimeStubState.notifyWaitResult;
+}
+
+asccomm_result asccomm_rtsq_addr_notify_wait(ThreadEntity& context, uint64_t waitAddr, uint64_t valueAddr, uint8_t last)
+{
+    g_runtimeStubState.addrNotifyWaitCalls.push_back({&context, waitAddr, valueAddr, last});
+    ++g_runtimeStubState.launchCalls;
+    return g_runtimeStubState.addrNotifyWaitResult;
+}
+
+asccomm_result asccomm_rtsq_addr_notify_record(ThreadEntity& context, uint64_t recordAddr, uint64_t valueAddr)
+{
+    g_runtimeStubState.addrNotifyRecordCalls.push_back({&context, recordAddr, valueAddr});
+    ++g_runtimeStubState.launchCalls;
+    return g_runtimeStubState.addrNotifyRecordResult;
 }
 
 asccomm_result asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
@@ -180,3 +181,12 @@ asccomm_result asccomm_drain(HcommThreadEntity& thread, ChannelEntity& channel)
     g_runtimeStubState.drainCalls.push_back({&thread, &channel});
     return g_runtimeStubState.drainResult;
 }
+
+// This target intentionally stubs the entire runtime/transport. Binary queue
+// equivalence is covered by the standalone native-template target.
+#include "../../../../../src/aicpu/asccomm/primitives/task_cache/binary_template.h"
+namespace AsccommBinaryCache {
+Result ReplayRtsq(Entry&) { return Result::Fallback; }
+bool CompileTransport(Entry&) { return true; }
+bool CompileRtsq(Entry&) { return true; }
+} // namespace AsccommBinaryCache
