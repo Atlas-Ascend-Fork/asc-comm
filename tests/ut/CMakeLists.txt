@@ -61,7 +61,29 @@ set(ASCEND_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${ASCCOMM_CANN_ARCH}")
 if(NOT EXISTS "${ASCEND_CANN_ARCH_DIR}")
     set(ASCEND_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux")
 endif()
-set(ASCENDC_DIR "${ASCEND_CANN_ARCH_DIR}/asc" CACHE PATH "AscendC headers path")
+set(ASCCOMM_DEVKIT_HEADER
+    "impl/adv_api/detail/hccl/cc/src/common/hcomm_dlsym/ccu/ccu_res_defs_dl.h")
+set(_ASCCOMM_DEVKIT_INSTALLED_CANDIDATES
+    "${ASCEND_CANN_ARCH_DIR}/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/x86_64-linux/asc"
+    "${ASCEND_CANN_PACKAGE_PATH}/asc"
+)
+set(_ASCCOMM_DEVKIT_SOURCE_CANDIDATES
+    "${ASCCOMM_ROOT}/../asc-devkit"
+    "${ASCCOMM_ROOT}/../../asc-devkit"
+)
+set(_ASCCOMM_DEVKIT_INCLUDE_DIR "")
+foreach(_ASCCOMM_DEVKIT_CANDIDATE
+        IN LISTS _ASCCOMM_DEVKIT_SOURCE_CANDIDATES _ASCCOMM_DEVKIT_INSTALLED_CANDIDATES)
+    if(EXISTS "${_ASCCOMM_DEVKIT_CANDIDATE}/${ASCCOMM_DEVKIT_HEADER}")
+        get_filename_component(_ASCCOMM_DEVKIT_INCLUDE_DIR "${_ASCCOMM_DEVKIT_CANDIDATE}" ABSOLUTE)
+        break()
+    endif()
+endforeach()
+if(_ASCCOMM_DEVKIT_INCLUDE_DIR)
+    set(ASCENDC_DIR "${_ASCCOMM_DEVKIT_INCLUDE_DIR}" CACHE PATH "AscendC headers path" FORCE)
+endif()
 
 set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
@@ -279,6 +301,7 @@ target_include_directories(asccomm_ccu_host_launch
         ${ASCCOMM_ROOT}/pkg_inc
     PRIVATE
         ${ASCCOMM_ROOT}/src/ccu
+        ${ASCENDC_DIR}
         ${ASCEND_CANN_ARCH_DIR}/include
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
@@ -301,6 +324,7 @@ target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/pkg_inc/hcomm
     ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/src/ccu
+    ${ASCENDC_DIR}
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
@@ -326,6 +350,7 @@ target_include_directories(asccomm_ccu_launch_stub PRIVATE
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCENDC_DIR}
 )
 
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE

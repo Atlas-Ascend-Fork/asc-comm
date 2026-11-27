@@ -8,17 +8,102 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_api/resource/common/asc_ccu_res_snapshot.h"
 #include "ccu_api/common/ccu_log.h"
+#include "ccu_api/common/ccu_device_context.h"
+#include "ccu_api/resource/common/asc_ccu_res_snapshot.h"
+#include "impl/adv_api/detail/hccl/cc/src/common/hcomm_dlsym/ccu/ccu_res_defs_dl.h"
+#include "ccu_api/resource/kernel/ccu_kernel_res_allocator.h"
+#include "ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
+#include "ccu_api/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
 #include <algorithm>
 #include <limits>
+#include <mutex>
 #include <cstring>
+
+// hcomm public C ABI. The declarations are intentionally weak: asc-comm only carries the
+// entity-layout headers at build time, while the deployed libhcomm provides these symbols.
+
+extern "C" {
+ccu_result HcommCcuInsResDescCreate(uint32_t die_id, HcommCcuResDescHandle* res_desc) __attribute__((weak));
+ccu_result HcommCcuInsResDescSetNum(HcommCcuResDescHandle res_desc, int32_t res_type, uint32_t res_num)
+    __attribute__((weak));
+ccu_result HcommCcuInsResDescDestroy(HcommCcuResDescHandle res_desc) __attribute__((weak));
+ccu_result HcommCcuInsCreate(const HcommCcuResDescHandle* res_descs, uint32_t res_desc_num, uint64_t* ccu_ins_handle)
+    __attribute__((weak));
+ccu_result HcommCcuInsDestroy(uint64_t ccu_ins_handle) __attribute__((weak));
+}
 
 namespace asc {
 namespace {
 
 constexpr uint32_t CCU_INSTANCE_DIE_CAPACITY = 8U; // Instance 预留的 die 槽数
+// 每个 slot 的 XN = translator 自身 XN + reference manager XN。
+constexpr uint32_t ASC_CCU_TRANSLATOR_XN_PER_SLOT =
+    static_cast<uint32_t>(ccu_rep::ccu_translator_xn_num) + ccu_rep::ccu_reference_manager_xn_num;
+
+struct TranslatorResourceCount {
+    uint32_t xn{0};
+    uint32_t cke{0};
+    uint32_t gsa{0};
+};
+
+struct TranslatorResourceMapping {
+    uint32_t source_type;
+    uint32_t destination_type;
+    uint32_t TranslatorResourceCount::*required_count;
+};
+
+TranslatorResourceCount GetTranslatorResourceCount(uint32_t ccu_version)
+{
+    const uint32_t slot_num = ccu_rep::ccu_translator_mission_slot_num;
+    return {
+        slot_num * ASC_CCU_TRANSLATOR_XN_PER_SLOT, slot_num * static_cast<uint32_t>(ccu_rep::ccu_translator_cke_num),
+        ccu_version == HCOMM_CCU_VERSION_V1 ? slot_num * static_cast<uint32_t>(ccu_rep::ccu_translator_gsa_num) : 0U};
+}
+
+asc_ccu_res_request GetTranslatorResourceRequest(uint32_t valid_die_mask, uint32_t ccu_version)
+{
+    asc_ccu_res_request request{};
+    const TranslatorResourceCount resource_count = GetTranslatorResourceCount(ccu_version);
+    for (uint32_t die = 0; die < HCOMM_CCU_MAX_DIE_NUM; ++die) {
+        if ((valid_die_mask & (1U << die)) != 0) {
+            request.count[HCOMM_CCU_BATCH_RES_XN][die] = resource_count.xn;
+            request.count[HCOMM_CCU_BATCH_RES_CKE][die] = resource_count.cke;
+            request.count[HCOMM_CCU_BATCH_RES_GSA][die] = resource_count.gsa;
+        }
+    }
+    return request;
+}
+
+struct DataPlaneInstanceEntry {
+    uint64_t handle{0};
+    uint32_t valid_die_mask{0};
+    uint32_t ccu_version{0};
+};
+
+DataPlaneInstanceEntry (&GetDataPlaneInstanceEntries())[ccu_max_device_num + 1]
+{
+    // 指向进程生命周期对象，避免静态对象析构后继续访问缓存。
+    static auto* entries = new DataPlaneInstanceEntry[ccu_max_device_num + 1]();
+    return reinterpret_cast<DataPlaneInstanceEntry(&)[ccu_max_device_num + 1]>(*entries);
+}
+
+DataPlaneInstanceEntry& GetDataPlaneInstanceEntry(int32_t device_logic_id)
+{
+    int32_t index = device_logic_id;
+    if (index < 0 || static_cast<uint32_t>(index) >= ccu_max_device_num) {
+        index = ccu_max_device_num;
+    }
+    return GetDataPlaneInstanceEntries()[index];
+}
+
+std::mutex& GetDataPlaneInstanceMutex()
+{
+    // 指向进程生命周期对象，避免 registry 静态对象析构时访问已析构 mutex。
+    static std::mutex* mutex = new std::mutex();
+    return *mutex;
+}
 
 std::vector<asc_ccu_res_range>* get_ranges(asc_ccu_res_repository& repository, uint32_t resource_type, uint32_t die_id)
 {
@@ -87,7 +172,7 @@ uint32_t derive_valid_die_mask(const HcommCcuInstanceEntity& instance)
     return mask;
 }
 
-// 控制操作槽位校验：槽 0-2 （ChannelEntity/AllocInstSpace/SubmitInsts）
+// 控制操作槽位校验：Instance 解析只依赖槽 0-2。
 bool is_control_ops_valid(const uint64_t (&control_ops)[8])
 {
     return control_ops[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] != 0 &&
@@ -143,6 +228,213 @@ bool is_unused_type_view_zero(const HcommCcuDieResRangePack& type_view)
 {
     return type_view.resourceType == 0 && type_view.resRangeNum == 0 && type_view.resRanges == nullptr &&
            type_view.reserved == 0;
+}
+
+void collect_repository_ranges(
+    asc_ccu_res_repository& repository, uint32_t valid_die_mask, std::vector<asc_ccu_res_range>& all_ranges)
+{
+    for (uint32_t type = 0; type < HCOMM_CCU_BATCH_RES_TYPE_COUNT; ++type) {
+        for (uint32_t die = 0; die < HCOMM_CCU_MAX_DIE_NUM; ++die) {
+            const auto* ranges = get_ranges(repository, type, die);
+            if (ranges == nullptr) {
+                continue;
+            }
+            for (const auto& range : *ranges) {
+                if ((valid_die_mask & (1U << die)) != 0) {
+                    all_ranges.push_back(range);
+                }
+            }
+        }
+    }
+}
+
+ccu_result AppendTranslatorPrefix(
+    const asc_ccu_res_repository& source, uint32_t source_type, uint32_t die_id, uint32_t destination_type,
+    uint32_t required_count, std::vector<asc_ccu_res_range>& all_ranges, asc_ccu_res_repository& destination)
+{
+    auto* destination_ranges = get_ranges(destination, destination_type, die_id);
+    if (destination_ranges == nullptr) {
+        return ccu_result::CCU_E_PARA;
+    }
+    uint32_t remaining = required_count;
+    const auto* source_ranges = get_ranges(const_cast<asc_ccu_res_repository&>(source), source_type, die_id);
+    if (source_ranges == nullptr) {
+        return ccu_result::CCU_E_PARA;
+    }
+    for (const asc_ccu_res_range& range : *source_ranges) {
+        if (remaining == 0) {
+            break;
+        }
+        const uint32_t count = std::min(remaining, range.count);
+        const asc_ccu_res_range prefix{destination_type, die_id, range.start_id, count};
+        for (const asc_ccu_res_range& existing : all_ranges) {
+            if (ranges_overlap(existing, prefix)) {
+                return ccu_result::CCU_E_PARA;
+            }
+        }
+        all_ranges.push_back(prefix);
+        destination_ranges->push_back(prefix);
+        remaining -= count;
+    }
+    return remaining == 0 ? ccu_result::CCU_SUCCESS : ccu_result::CCU_E_UNAVAIL;
+}
+
+ccu_result CreateDataPlaneInstance(DataPlaneInstanceEntry& entry, uint32_t valid_die_mask, uint32_t ccu_version)
+{
+    entry = DataPlaneInstanceEntry{};
+    HcommCcuResDescHandle descs[HCOMM_CCU_MAX_DIE_NUM]{};
+    uint32_t desc_num = 0;
+    const auto destroy_descs = [&descs, &desc_num]() {
+        for (uint32_t index = 0; index < desc_num; ++index) {
+            (void)HcommCcuInsResDescDestroy(descs[index]);
+        }
+    };
+    const TranslatorResourceCount resource_count = GetTranslatorResourceCount(ccu_version);
+    ccu_result ret = ccu_result::CCU_SUCCESS;
+    for (uint32_t die = 0; die < HCOMM_CCU_MAX_DIE_NUM; ++die) {
+        if ((valid_die_mask & (1U << die)) == 0) {
+            continue;
+        }
+        ret = HcommCcuInsResDescCreate(die, &descs[desc_num]);
+        if (ret != ccu_result::CCU_SUCCESS) {
+            break;
+        }
+        if ((ret = HcommCcuInsResDescSetNum(descs[desc_num], HCOMM_CCU_RES_TYPE_VARIABLE, resource_count.xn)) !=
+                ccu_result::CCU_SUCCESS ||
+            (ret = HcommCcuInsResDescSetNum(descs[desc_num], HCOMM_CCU_RES_TYPE_EVENT, resource_count.cke)) !=
+                ccu_result::CCU_SUCCESS ||
+            (resource_count.gsa != 0 &&
+             (ret = HcommCcuInsResDescSetNum(descs[desc_num], HCOMM_CCU_RES_TYPE_ADDRESS, resource_count.gsa)) !=
+                 ccu_result::CCU_SUCCESS)) {
+            ++desc_num;
+            break;
+        }
+        ++desc_num;
+    }
+    if (ret != ccu_result::CCU_SUCCESS) {
+        destroy_descs();
+        return ret;
+    }
+
+    ccu_result create_ret = ccu_result::CCU_E_UNAVAIL;
+    if (desc_num != 0) {
+        create_ret = HcommCcuInsCreate(descs, desc_num, &entry.handle);
+    }
+    destroy_descs();
+    if (create_ret != ccu_result::CCU_SUCCESS || entry.handle == 0) {
+        entry.handle = 0;
+        return create_ret == ccu_result::CCU_SUCCESS ? ccu_result::CCU_E_INTERNAL : create_ret;
+    }
+
+    entry.valid_die_mask = valid_die_mask;
+    entry.ccu_version = ccu_version;
+    return ccu_result::CCU_SUCCESS;
+}
+
+void DestroyDataPlaneInstance(DataPlaneInstanceEntry& entry)
+{
+    if (entry.handle == 0) {
+        return;
+    }
+    // 仅初始化失败回滚时进入本函数；load_data_plane_resources 保证当前线程在创建 device 上。
+    const ccu_result ret = HcommCcuInsDestroy(entry.handle);
+    if (ret != ccu_result::CCU_SUCCESS) {
+        HCCL_ERROR(
+            "[AscCcuResSnapshot][%s] failed to rollback data plane instance, ret[%d], handle[0x%llx].", __func__,
+            static_cast<int32_t>(ret), static_cast<unsigned long long>(entry.handle));
+        return;
+    }
+    entry = DataPlaneInstanceEntry{};
+}
+
+ccu_result AcquireDataPlaneInstance(
+    DataPlaneInstanceEntry& entry, uint32_t valid_die_mask, uint32_t ccu_version, uint64_t& instance_handle,
+    bool& created_now)
+{
+    instance_handle = 0;
+    created_now = false;
+    if (entry.handle == 0) {
+        CCU_CHK_RET(CreateDataPlaneInstance(entry, valid_die_mask, ccu_version));
+        created_now = true;
+    }
+    if (entry.valid_die_mask != valid_die_mask || entry.ccu_version != ccu_version) {
+        HCCL_ERROR(
+            "[AscCcuResSnapshot][%s] data plane instance state mismatch, die mask[%u/%u], version[%u/%u].", __func__,
+            valid_die_mask, entry.valid_die_mask, ccu_version, entry.ccu_version);
+        return ccu_result::CCU_E_PARA;
+    }
+    instance_handle = entry.handle;
+    return ccu_result::CCU_SUCCESS;
+}
+
+class DataPlaneInitGuard {
+public:
+    DataPlaneInitGuard(DataPlaneInstanceEntry& entry, bool created_now) : entry_(entry), created_now_(created_now) {}
+    DataPlaneInitGuard(const DataPlaneInitGuard&) = delete;
+    DataPlaneInitGuard& operator=(const DataPlaneInitGuard&) = delete;
+    ~DataPlaneInitGuard()
+    {
+        if (created_now_) {
+            DestroyDataPlaneInstance(entry_);
+        }
+    }
+
+    void Commit() { created_now_ = false; }
+
+private:
+    DataPlaneInstanceEntry& entry_;
+    bool created_now_;
+};
+
+ccu_result LoadDirectDataPlaneResources(
+    DataPlaneInstanceEntry& entry, uint32_t valid_die_mask, uint32_t ccu_version,
+    const asc_ccu_res_repository& user_repository, asc_ccu_res_repository& translator_repository)
+{
+    uint64_t instance_handle = 0;
+    bool created_now = false;
+    CCU_CHK_RET(AcquireDataPlaneInstance(entry, valid_die_mask, ccu_version, instance_handle, created_now));
+    DataPlaneInitGuard init_guard(entry, created_now);
+
+    asc_ccu_res_snapshot direct_snapshot;
+    CCU_CHK_RET(direct_snapshot.load(*reinterpret_cast<const HcommCcuInstanceEntity*>(instance_handle)));
+    if (direct_snapshot.get_valid_die_mask() != valid_die_mask || direct_snapshot.get_ccu_version() != ccu_version) {
+        return ccu_result::CCU_E_PARA;
+    }
+
+    asc_ccu_res_repository direct_repository{};
+    std::vector<asc_ccu_res_range> all_ranges{};
+    collect_repository_ranges(const_cast<asc_ccu_res_repository&>(user_repository), valid_die_mask, all_ranges);
+    const TranslatorResourceCount resource_count = GetTranslatorResourceCount(ccu_version);
+    constexpr TranslatorResourceMapping mappings[] = {
+        {HCOMM_CCU_BATCH_RES_BLOCK_XN, HCOMM_CCU_BATCH_RES_XN, &TranslatorResourceCount::xn},
+        {HCOMM_CCU_BATCH_RES_BLOCK_CKE, HCOMM_CCU_BATCH_RES_CKE, &TranslatorResourceCount::cke},
+        {HCOMM_CCU_BATCH_RES_BLOCK_GSA, HCOMM_CCU_BATCH_RES_GSA, &TranslatorResourceCount::gsa}};
+    const asc_ccu_res_repository& direct_repo = direct_snapshot.get_ccu_res_repo();
+    for (uint32_t die = 0; die < HCOMM_CCU_MAX_DIE_NUM; ++die) {
+        if ((valid_die_mask & (1U << die)) == 0) {
+            continue;
+        }
+        for (const TranslatorResourceMapping& mapping : mappings) {
+            const uint32_t required_count = resource_count.*mapping.required_count;
+            if (required_count == 0) {
+                continue;
+            }
+            CCU_CHK_RET(AppendTranslatorPrefix(
+                direct_repo, mapping.source_type, die, mapping.destination_type, required_count, all_ranges,
+                direct_repository));
+        }
+    }
+    translator_repository = std::move(direct_repository);
+    init_guard.Commit();
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result PlanUserPoolTranslatorResources(
+    const asc_ccu_res_repository& user_repository, uint32_t valid_die_mask, uint32_t ccu_version,
+    asc_ccu_res_repository& remaining, asc_ccu_res_repository& translator_repository)
+{
+    return plan_kernel_resources(
+        user_repository, GetTranslatorResourceRequest(valid_die_mask, ccu_version), remaining, translator_repository);
 }
 } // namespace
 
@@ -224,15 +516,51 @@ ccu_result asc_ccu_res_snapshot::load(const HcommCcuInstanceEntity& instance)
         }
     }
 
-    asc_ccu_res_repository current_repo = instance_snapshot;
     ccu_version_ = instance.ccuVersion;
     valid_die_mask_ = derived_die_mask;
     for (uint32_t i = 0; i < 8; ++i) {
         control_ops_[i] = instance.ascCustom[i];
     }
     initial_repo_ = std::move(instance_snapshot);
-    res_repo_ = std::move(current_repo);
+    res_base_repo_ = initial_repo_;
+    res_repo_ = initial_repo_;
     die_metadata_ = die_metadata;
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result asc_ccu_res_snapshot::load_data_plane_resources(int32_t deviceLogicId)
+{
+    const int32_t current_device = get_current_ccu_device_logic_id();
+    if (current_device != deviceLogicId) {
+        HCCL_ERROR(
+            "[AscCcuResSnapshot][%s] failed, current device[%d] mismatches data plane device[%d].", __func__,
+            current_device, deviceLogicId);
+        return ccu_result::CCU_E_PARA;
+    }
+    if (valid_die_mask_ == 0) {
+        return ccu_result::CCU_E_UNAVAIL;
+    }
+
+    std::unique_lock<std::mutex> lock(GetDataPlaneInstanceMutex());
+    DataPlaneInstanceEntry& entry = GetDataPlaneInstanceEntry(deviceLogicId);
+
+    asc_ccu_res_repository translator_snapshot{};
+    ccu_result ret =
+        LoadDirectDataPlaneResources(entry, valid_die_mask_, ccu_version_, initial_repo_, translator_snapshot);
+    res_base_repo_ = initial_repo_;
+    if (ret == ccu_result::CCU_E_UNAVAIL) {
+        HCCL_WARNING(
+            "[AscCcuResSnapshot][%s] data plane instance resources are unavailable, fallback to user instance "
+            "resources, device[%d], die mask[%u], version[%u].",
+            __func__, deviceLogicId, valid_die_mask_, ccu_version_);
+        ret = PlanUserPoolTranslatorResources(
+            initial_repo_, valid_die_mask_, ccu_version_, res_base_repo_, translator_snapshot);
+    }
+    if (ret != ccu_result::CCU_SUCCESS) {
+        return ret;
+    }
+    translator_repo_ = std::move(translator_snapshot);
+    res_repo_ = res_base_repo_;
     return ccu_result::CCU_SUCCESS;
 }
 
@@ -241,11 +569,13 @@ ccu_result asc_ccu_res_snapshot::reset()
     if (valid_die_mask_ == 0) {
         return ccu_result::CCU_E_UNAVAIL;
     }
-    res_repo_ = initial_repo_;
+    res_repo_ = res_base_repo_;
     return ccu_result::CCU_SUCCESS;
 }
 
 asc_ccu_res_repository& asc_ccu_res_snapshot::get_ccu_res_repo() { return res_repo_; }
+
+const asc_ccu_res_repository& asc_ccu_res_snapshot::get_translator_res_repo() const { return translator_repo_; }
 
 const HcommCcuDieMetadata* asc_ccu_res_snapshot::get_die_metadata(uint32_t die_id) const
 {

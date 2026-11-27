@@ -27,6 +27,7 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
     ${ASCCOMM_UT_ROOT}/ccu/stub
+    ${ASCENDC_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
 
@@ -275,6 +276,8 @@ add_executable(hccl_utest_comms_asc_ccu_res_snapshot
     resource/common/asc_ccu_res_snapshot_main.cc
     resource/common/ut_asc_ccu_res_snapshot.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/common/asc_ccu_res_snapshot.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/kernel/ccu_kernel_res_allocator.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/common/ccu_device_context.cc
 )
 target_include_directories(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
     ${UT_COMMON_INCLUDE_LIST}

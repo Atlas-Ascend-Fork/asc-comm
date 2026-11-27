@@ -33,36 +33,6 @@ namespace asc {
 
 namespace {
 
-ccu_result set_request_count(uint32_t& target, size_t value)
-{
-    if (value > std::numeric_limits<uint32_t>::max()) {
-        return ccu_result::CCU_E_INTERNAL;
-    }
-    target = static_cast<uint32_t>(value);
-    return ccu_result::CCU_SUCCESS;
-}
-
-ccu_result build_translator_resource_request(uint32_t die_id, uint32_t ccu_version, asc_ccu_res_request& request)
-{
-    request = {};
-    if (die_id >= HCOMM_CCU_MAX_DIE_NUM) {
-        return ccu_result::CCU_E_PARA;
-    }
-
-    constexpr size_t slot_num = ccu_rep::ccu_translator_mission_slot_num;
-    constexpr size_t xn_per_slot = ccu_rep::ccu_reference_manager_xn_num + ccu_rep::ccu_translator_xn_num;
-    constexpr size_t cke_per_slot = ccu_rep::ccu_translator_cke_num;
-    constexpr size_t gsa_per_slot = ccu_rep::ccu_translator_gsa_num;
-
-    CCU_CHK_RET(set_request_count(request.count[HCOMM_CCU_BATCH_RES_XN][die_id], slot_num * xn_per_slot));
-    CCU_CHK_RET(set_request_count(request.count[HCOMM_CCU_BATCH_RES_CKE][die_id], slot_num * cke_per_slot));
-    if (ccu_version == HCOMM_CCU_VERSION_V1) {
-        CCU_CHK_RET(set_request_count(request.count[HCOMM_CCU_BATCH_RES_GSA][die_id], slot_num * gsa_per_slot));
-    }
-
-    return ccu_result::CCU_SUCCESS;
-}
-
 ccu_result clear_kernel_instruction_resource(ccu_kernel& kernel)
 {
     asc_ccu_res_range range{};
@@ -712,24 +682,8 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
         translators_[die_id][i]->get_res(translator_rep_res);
     }
 
-    asc_ccu_res_request request{};
-    ccu_result ccu_ret = build_translator_resource_request(die_id, ccu_version_, request);
-    if (ccu_ret != ccu_result::CCU_SUCCESS) {
-        return static_cast<HcclResult>(ccu_ret);
-    }
-
-    asc_ccu_res_repository remaining_repository;
-    asc_ccu_res_repository translator_res_repository;
-    ccu_ret =
-        plan_kernel_resources(res_pack.get_ccu_res_repo(), request, remaining_repository, translator_res_repository);
-    if (ccu_ret != ccu_result::CCU_SUCCESS) {
-        dump_res_req_info(request);
-        dump_res_pool_info("avail_on_translator_fail", res_pack.get_ccu_res_repo());
-        HCCL_WARNING("[ccu_kernel_mgr][%s] translator resource is not enough, die_id[%u].", __func__, die_id);
-        return static_cast<HcclResult>(ccu_ret);
-    }
     asc_ccu_res_repository expanded_translator_res_repository;
-    ccu_ret = expand_res_repo(expanded_translator_res_repository, translator_res_repository);
+    ccu_result ccu_ret = expand_res_repo(expanded_translator_res_repository, res_pack.get_translator_res_repo());
     if (ccu_ret != ccu_result::CCU_SUCCESS) {
         return static_cast<HcclResult>(ccu_ret);
     }
@@ -738,8 +692,7 @@ HcclResult ccu_kernel_mgr::instantiation_translator(const uint16_t die_id, asc_c
     if (hccl_ret != HcclResult::HCCL_SUCCESS) {
         return hccl_ret;
     }
-    res_pack.get_ccu_res_repo() = std::move(remaining_repository);
-    dump_res_pool_info("remaining_after_translator", res_pack.get_ccu_res_repo());
+    dump_res_pool_info("translator_reserved", res_pack.get_translator_res_repo());
     return HcclResult::HCCL_SUCCESS;
 }
 
