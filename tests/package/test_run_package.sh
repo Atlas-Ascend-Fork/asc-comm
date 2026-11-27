@@ -38,12 +38,10 @@ trap cleanup_test_root EXIT
 
 if [[ $(id -u) -eq 0 ]]; then
     EXPECTED_FILE_MODE=555
-    EXPECTED_ARCHIVE_MODE=444
     EXPECTED_HCOMM_DIR_MODE=755
     EXPECTED_COMM_API_DIR_MODE=555
 else
     EXPECTED_FILE_MODE=550
-    EXPECTED_ARCHIVE_MODE=440
     EXPECTED_HCOMM_DIR_MODE=750
     EXPECTED_COMM_API_DIR_MODE=550
 fi
@@ -183,7 +181,7 @@ COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f \
     \( -name '*.h' -o -name '*.hpp' \) \
     ! -path "${PROJECT_ROOT}/src/aicore/legacy/*" | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + \
-    JETTY_LEGACY_PUBLIC_HEADER_COUNT + COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + 4))
+    JETTY_LEGACY_PUBLIC_HEADER_COUNT + COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT + 3))
 AICPU_LIBRARY="${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}/devlib/device/libasccomm_aicpu.so"
 AICPU_ARCHIVE="${EXTRACT_DIR}/payload/opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz"
 if [[ -f "${AICPU_LIBRARY}" ]]; then
@@ -194,6 +192,7 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/experimental/ccu_resource_api.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/cpu_ts/asccomm_cpu_primitives.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_primitives.h" ]]
 [[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu_ts/asccomm/asccomm_res_defs.h" ]]
@@ -201,7 +200,6 @@ fi
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/comm_api/aicpu/asccomm" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_ccu.so" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/libasccomm_cpu.so" ]]
-[[ -f "${EXTRACT_DIR}/payload/lib64/libccu_runtime.a" ]]
 [[ -f "${EXTRACT_DIR}/payload/lib64/cmake/asccomm-config.cmake" ]]
 if [[ -e "${EXTRACT_DIR}/payload/${PACKAGE_ARCH_DIR}" ]]; then
     [[ -f "${AICPU_LIBRARY}" ]]
@@ -271,9 +269,6 @@ run_package --full --install-path="${FAKE_CANN}"
 while read -r _ path; do
     cmp "${EXTRACT_DIR}/payload/${path}" "${FAKE_CANN}/${path}"
     expected_mode=${EXPECTED_FILE_MODE}
-    if [[ "${path}" == lib64/libccu_runtime.a ]]; then
-        expected_mode=${EXPECTED_ARCHIVE_MODE}
-    fi
     [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "${expected_mode}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
@@ -289,7 +284,6 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm")" == "../../adv_api/hcomm" ]]
 [[ ! -e "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
-[[ -f "${FAKE_CANN}/lib64/libccu_runtime.a" ]]
 [[ -f "${FAKE_CANN}/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/libasccomm_ccu.so" ]]
 [[ -f "${FAKE_CANN}/lib64/cmake/asccomm-config.cmake" ]]
@@ -404,9 +398,6 @@ write_dependency_versions "${INSTALL_FOR_ALL_CANN}"
 run_package --full --install-for-all --install-path="${INSTALL_FOR_ALL_CANN}"
 while read -r _ path; do
     expected_mode=555
-    if [[ "${path}" == lib64/libccu_runtime.a ]]; then
-        expected_mode=444
-    fi
     [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/${path}")" == "${expected_mode}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/adv_api/hcomm")" == "755" ]]

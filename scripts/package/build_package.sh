@@ -148,22 +148,17 @@ find_ccu_libraries()
 {
     local build_dir="${PROJECT_ROOT}/build/package-ccu"
     local library="${build_dir}/libasccomm_ccu.so"
-    local runtime_library="${build_dir}/src/ccu/experimental/libccu_runtime.a"
 
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
         -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DASCCOMM_BUILD_CCU=ON \
-        -DASCCOMM_BUILD_CCU_RUNTIME=ON
+        -DASCCOMM_BUILD_CCU=ON
 
-    cmake --build "${build_dir}" --target asccomm_ccu ccu_runtime
+    cmake --build "${build_dir}" --target asccomm_ccu
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
-    [[ -f "${runtime_library}" ]] || \
-        fail "CCU runtime library was not built: ${runtime_library}"
     CCU_LIBRARY="${library}"
-    CCU_RUNTIME_LIBRARY="${runtime_library}"
 }
 
 find_cpu_ts_library()
@@ -177,7 +172,6 @@ find_cpu_ts_library()
         -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=OFF \
-        -DASCCOMM_BUILD_CCU_RUNTIME=OFF \
         -DASCCOMM_BUILD_AICPU=OFF \
         -DASCCOMM_BUILD_CPU_TS=ON
 
@@ -202,7 +196,6 @@ find_aicpu_library()
         -DCANN_3RD_LIB_PATH="${CANN_3RD_LIB_PATH}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DASCCOMM_BUILD_CCU=OFF \
-        -DASCCOMM_BUILD_CCU_RUNTIME=OFF \
         -DASCCOMM_BUILD_AICPU="${ASCCOMM_BUILD_AICPU}" \
         -DASCCOMM_BUILD_CPU_TS=OFF
 
@@ -390,8 +383,6 @@ build_package()
         "${STAGING_DIR}/payload/lib64/libasccomm_ccu.so"
     install -D -m 550 "${CPU_TS_LIBRARY}" \
         "${STAGING_DIR}/payload/lib64/libasccomm_cpu.so"
-    install -D -m 440 "${CCU_RUNTIME_LIBRARY}" \
-        "${STAGING_DIR}/payload/lib64/libccu_runtime.a"
     install -D -m 550 "${PROJECT_ROOT}/cmake/asccomm-config.cmake" \
         "${STAGING_DIR}/payload/lib64/cmake/asccomm-config.cmake"
     if [[ -n "${AICPU_LIBRARY}" ]]; then

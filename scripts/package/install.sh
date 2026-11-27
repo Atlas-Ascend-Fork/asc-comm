@@ -418,7 +418,6 @@ is_allowed_path()
         asc/lib64/libasccomm_cpu.so|\
         lib64/libasccomm_ccu.so|\
         lib64/libasccomm_cpu.so|\
-        lib64/libccu_runtime.a|\
         lib64/cmake/asccomm-config.cmake|\
         "${ARCH_DIR}/devlib/device/libasccomm_aicpu.so"|\
         opp/built-in/op_impl/aicpu/kernel/asccomm_aicpu.tar.gz)
@@ -456,9 +455,6 @@ payload_file_mode()
     local mode
 
     case "${path}" in
-        lib64/libccu_runtime.a)
-            mode=440
-            ;;
         asc/include/adv_api/*.h|asc/include/adv_api/*.hpp|\
         asc/include/adv_api/*/*.h|asc/include/adv_api/*/*.hpp|\
         asc/include/adv_api/*/*/*.h|asc/include/adv_api/*/*/*.hpp|\
