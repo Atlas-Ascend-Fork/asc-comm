@@ -62,7 +62,7 @@ public:
 
 ### config-based：`ccu_loop_group_config`<a id="loop-group-cfg-config-based"></a>
 
-config-based构造的`loop_group_cfg`类型，字段如下：
+config-based构造的`ccu_loop_group_config`类型，字段如下：
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
