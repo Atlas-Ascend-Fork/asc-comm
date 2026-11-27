@@ -1,4 +1,4 @@
-# 基于MC2的通算算子开发指南
+# 基于MC2的通算算子开发
 
 ## 概述
 
@@ -6,7 +6,7 @@ MC2（Matrix Computation & Communication）是代理模式在Ascend C通信编�
 
 MC2通算算子的核心价值是通信与计算重叠。通信任务提交后，通信数据传输由AICPU_TS或CCU服务端执行，AI Core可以继续执行与本轮通信结果没有依赖的计算；待通信结果就绪后，AI Core再读取通信输出并执行依赖计算，从而将部分通信时间与计算时间重叠，减少串行等待，提高算子整体性能。
 
-本指南介绍MC2通算算子的通用开发流程。文中以AllGatherAdd样例作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开，并补充CCU路径的关键差异。AICPU_TS样例参见[`02_allgather_add`](../../../../examples/aicore/cc/aicpu_ts_builtin/02_allgather_add/README.md)，CCU样例参见[`02_allgather_add`](../../../../examples/aicore/cc/ccu_builtin/02_allgather_add/README.md)。计算部分使用可替换的示例函数表示，可替换为其他的Vector、Matrix计算逻辑。
+本节介绍MC2通算算子的通用开发流程。文中以AllGatherAdd样例作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开，并补充CCU路径的关键差异。AICPU_TS样例参见[`02_allgather_add`](../../../../examples/aicore/cc/aicpu_ts_builtin/02_allgather_add/README.md)，CCU样例参见[`02_allgather_add`](../../../../examples/aicore/cc/ccu_builtin/02_allgather_add/README.md)。计算部分使用可替换的示例函数表示，可替换为其他的Vector、Matrix计算逻辑。
 
 ## 支持范围
 
@@ -259,7 +259,7 @@ AICPU_TS路径中，`unfoldStream`为通信域unfold线程绑定的展开流，�
 
 ### Client Kernel入口
 
-MC2 Client运行在AIV上。本指南以Vector计算场景为例，Kernel使用`__vector__`入口，通信Client和计算逻辑写在同一个Kernel中。
+MC2 Client运行在AIV上。下面以Vector计算场景为例，Kernel使用`__vector__`入口，通信Client和计算逻辑写在同一个Kernel中。
 
 Kernel入口参数由Host启动Kernel时传入，通常包括通信源GM地址、通信目的GM地址、计算输入/输出GM地址、MC2通信资源上下文和通信规模等。`contextGM`使用Host侧`Mc2AcquireCcResCtx`返回的通信资源上下文地址，Client通过`InitV2`使用该上下文访问通信资源。
 
@@ -296,7 +296,7 @@ CCU路径使用CCU Server类型，Kernel入口可按以下形式定义：
 
 ### Prepare和Commit通信任务
 
-Client完成`InitV2`初始化后，调用HCCL通信接口创建通信任务。通信接口由具体通信操作决定，本指南以AllGather为例。
+Client完成`InitV2`初始化后，调用HCCL通信接口创建通信任务。通信接口由具体通信操作决定，以AllGather为例进行说明。
 
 通信接口返回`HcclHandle`，表示通信请求已被接受。`AllGather<true>`在Prepare后立即Commit，`AllGather<false>`仅完成Prepare。无论使用哪种Commit方式，返回句柄都不表示目的GM中的数据已经可用，通信结果必须经过`Wait`确认。
 

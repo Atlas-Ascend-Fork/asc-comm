@@ -25,7 +25,7 @@
 
 头文件为：`#include <ccu/asc_ccu.h>`
 
-通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据到本端，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
+通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据到本端，硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -72,7 +72,7 @@
 ## 约束说明
 
 - 参数顺序为目的端在前、源端在后：`read(ch, local, remote, ...)`，与`write`相反，顺序写反会因类型不同在编译期报错。
-- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
+- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
 - “对端片上内存 -> 本端CCU Buffer”时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出会导致执行期硬件行为未定义。
 - 本接口为异步操作，须通过`event_wait(evt, mask)`等待读取完成后再访问目标内存。
 

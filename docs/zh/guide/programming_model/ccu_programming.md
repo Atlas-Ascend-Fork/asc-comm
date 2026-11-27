@@ -167,7 +167,7 @@ CCU的同步资源由同步寄存器在硬件侧实现，基于其事件位提�
 | event | 单个Device的本地操作 |
 | notify | 不同Device之间的通信操作 |
 
-本节的event和notify是CCU基于同步寄存器提供的机制；通信场景中通用的完成队列轮询、点对点同步和屏障同步参见[《执行模型》](./execution_model.md)的“同步机制”。
+本节的event和notify是CCU基于同步寄存器提供的机制；通信场景中通用的完成队列轮询、点对点同步和屏障同步参见[执行模型](./execution_model.md)的“同步机制”。
 
 #### event
 
@@ -376,7 +376,7 @@ CCU算子的代码分为Host侧与Kernel侧两部分：Host侧函数作为任务
 
 #### 核函数调用
 
-`<<<>>>`是内核调用符，在函数名与参数列表之间插入`<<<...>>>`即可下发执行配置，概念和用法与[《Ascend C核函数》](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)一致。代码示例如下：
+`<<<>>>`是内核调用符，在函数名与参数列表之间插入`<<<...>>>`即可下发执行配置，概念和用法与[Ascend C核函数](https://gitcode.com/cann/asc-devkit/blob/9.3.0/docs/zh/guide/programming_guide/programming_model/ai_core_simd_programming/kernel_function.md)一致。代码示例如下：
        
 ```cpp
 kernel_name<<<schd, insHandle, stream>>>(argument list);
@@ -410,7 +410,7 @@ kernel_name<<<schd, insHandle, stream>>>(argument list);
 
     若通信域尚未创建CCU实例，该调用会自动创建后返回；返回的句柄由通信域管理，仅供借用，调用方不得销毁。
 
-- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序。stream创建等管理接口请参考[《Runtime运行时API》](https://gitcode.com/cann/runtime/blob/master/docs/zh/api_ref/README.md)。
+- **stream**：类型为`aclrtStream`，指定关联的流。CCU任务下发到该Stream上，与其他任务一同维护异步执行顺序。stream创建等管理接口请参考[《Runtime运行时API》](https://gitcode.com/cann/runtime/blob/9.3.0/docs/zh/api_ref/README.md)。
 
     ```cpp
     aclrtStream stream;

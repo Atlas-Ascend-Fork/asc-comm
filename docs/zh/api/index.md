@@ -158,5 +158,5 @@
     - [ccu_local_addr_handle](./ccu/datatype_definition/ccu_local_addr_handle.md)
     - [ccu_remote_addr_handle](./ccu/datatype_definition/ccu_remote_addr_handle.md)
     - [ccu_kernel_arg](./ccu/datatype_definition/ccu_kernel_arg.md)
-
+- [HCCL通信类<a name="sub_menu"></a>](https://gitcode.com/cann/asc-devkit/blob/9.3.0/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_communication.md)
 - [预留接口](./reserve.md)

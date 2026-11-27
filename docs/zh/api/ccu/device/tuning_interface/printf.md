@@ -101,7 +101,7 @@ Host处理记录时若检测到非法格式，输出ERROR日志，并停止本�
 
 Host消费打印记录后，将包含`[CCU_PRINTF]`前缀、调用文件和行号的正文直接写入stdout，同时使用CCU模块的INFO级调试日志通道输出。stdout保留格式字符串中的换行，不自动追加换行，每批记录输出后刷新。
 
-stdout输出不依赖日志组件的打屏开关。日志落盘路径通过[ASCEND_PROCESS_LOG_PATH](https://gitcode.com/cann/runtime/blob/master/docs/zh/env_vars/ASCEND_PROCESS_LOG_PATH.md)配置；日志分类、级别及相关配置参见[设置日志级别](https://gitcode.com/cann/runtime/blob/master/docs/zh/log_ref/setting_log_levels.md)。
+stdout输出不依赖日志组件的打屏开关。日志落盘路径通过[ASCEND_PROCESS_LOG_PATH](https://gitcode.com/cann/runtime/blob/9.3.0/docs/zh/env_vars/ASCEND_PROCESS_LOG_PATH.md)配置；日志分类、级别及相关配置参见[设置日志级别](https://gitcode.com/cann/runtime/blob/9.3.0/docs/zh/log_ref/setting_log_levels.md)。
 
 ### 调用示例
 

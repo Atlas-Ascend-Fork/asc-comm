@@ -1,4 +1,4 @@
-# Ascend C通信编程
+# Ascend C算子开发（通算融合类）
 
 - [快速入门](./getting_started.md)
 - [编程模型](./programming_model/README.md)
@@ -9,11 +9,10 @@
   - [内存模型](./programming_model/memory_model.md)
   - [执行模型](./programming_model/execution_model.md)
   - [CCU编程](./programming_model/ccu_programming.md)
-- [通信算子开发指南](./communication_op_dev/README.md)
-  - [基于CommRW的AIV直驱通信算子开发指南](./communication_op_dev/aiv_asccomm_operator_impl.md)
-  - [基于SIMT CommRW的AIV直驱通信算子开发指南](./communication_op_dev/aiv_asccomm_simt_operator_impl.md)
-  - [基于AIN的通信算子开发指南](./communication_op_dev/ain_operator_impl.md)
-  - [基于MC2的通算算子开发指南](./communication_op_dev/mc2_operator_impl.md)
-  - [CCU通信算子开发指南](./communication_op_dev/ccu_comm_op_dev.md)
-  - [CCU通算融合算子开发指南](./communication_op_dev/ccu_comm_compute_op_dev.md)
-- [API参考<a name="sub_menu"></a>](../api/index.md)
+- [通信算子开发](./communication_op_dev/README.md)
+  - [基于CommRW的AIV直驱通信算子开发](./communication_op_dev/aiv_asccomm_operator_impl.md)
+  - [基于SIMT CommRW的AIV直驱通信算子开发](./communication_op_dev/aiv_asccomm_simt_operator_impl.md)
+  - [基于AIN的通信算子开发](./communication_op_dev/ain_operator_impl.md)
+  - [基于MC2的通算算子开发](./communication_op_dev/mc2_operator_impl.md)
+  - [CCU通信算子开发](./communication_op_dev/ccu_comm_op_dev.md)
+  - [CCU通算融合算子开发](./communication_op_dev/ccu_comm_compute_op_dev.md)

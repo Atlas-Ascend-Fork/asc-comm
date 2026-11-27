@@ -1,10 +1,10 @@
-# CCU通信算子开发指南
+# CCU通信算子开发
 
 ## 概述
 
-本指南介绍如何以[`<<<>>>`](../programming_model/ccu_programming.md#核函数)直调方式开发CCU通信算子，覆盖Host侧资源准备、任务下发与Kernel侧通信执行的全流程。
+本节介绍如何以[`<<<>>>`](../programming_model/ccu_programming.md#核函数)直调方式开发CCU通信算子，覆盖Host侧资源准备、任务下发与Kernel侧通信执行的全流程。
 
-本指南以AllGather为例展开。AllGather是集合通信算子，功能是将通信域内所有rank的输入按照rankId从小到大的顺序拼接，再将拼接结果发送到所有rank的输出缓冲区，如[图1](#fig-allgather)所示。
+下面以AllGather为例展开。AllGather是集合通信算子，功能是将通信域内所有rank的输入按照rankId从小到大的顺序拼接，再将拼接结果发送到所有rank的输出缓冲区，如[图1](#fig-allgather)所示。
 
 **图1** AllGather语义<a id="fig-allgather"></a>
 
@@ -385,7 +385,7 @@ AllGather的执行分为两部分：向其他rank写入本rank数据，以及本
 
 - 本地拷贝
 
-    本rank数据通过`ccu::local_copy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[《CCU编程》](../programming_model/ccu_programming.md)的“并发执行”一节，样例中封装为`GroupCopy`）：
+    本rank数据通过`ccu::local_copy`在本地内存间搬运。数据量较大时，将搬运切分为多个分片，经CCU Buffer中转，由多个Loop并发执行以撑满带宽（参见[CCU编程](../programming_model/ccu_programming.md)的“并发执行”一节，样例中封装为`GroupCopy`）：
 
     ```cpp
     // Loop执行体：片上内存 -> CcuBuffer -> 片上内存，两段搬运间用event_wait确认完成

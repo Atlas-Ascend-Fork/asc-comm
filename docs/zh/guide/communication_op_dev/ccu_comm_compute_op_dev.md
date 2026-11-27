@@ -1,8 +1,8 @@
-# CCU通算融合算子开发指南
+# CCU通算融合算子开发
 
 ## 概述
 
-通算融合算子将AI Core上的计算与CCU上的集合通信融合到同一个算子内，本指南基于[add_allgather](../../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，以Add + AllGather为例，介绍如何以`<<<>>>`直调方式开发通算融合算子。
+通算融合算子将AI Core上的计算与CCU上的集合通信融合到同一个算子内，本节基于[add_allgather](../../../../examples/ccu/ccu_direct/12_add_allgather/README.md)样例，以Add + AllGather为例，介绍如何以`<<<>>>`直调方式开发通算融合算子。
 
 ## 支持范围
 
@@ -26,7 +26,7 @@
 2. 分配内存与初始化输入数据：每个Device创建一个rank，并初始化输入Buffer。
 3. 申请CCU资源：基于HCCL通信域申请CCU Channel、CCU实例、CCU变量和CCU事件资源。
 4. 下发AI Core计算任务：通过`vector_add<<<1, nullptr, streamAiv>>>`直调AI Core vector kernel，生成本地计算结果。
-5. 获取内存Token与准备任务参数：通过[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)获取`computeBuf`内存Token，并准备CCU任务参数。
+5. 获取内存Token与准备任务参数：通过[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)获取`computeBuf`内存Token，并准备CCU任务参数。
 6. 下发CCU通信任务：通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`直调CCU Kernel完成AllGather。
 7. 销毁资源：销毁HCCL通信域、Stream和Device侧内存。
 
@@ -47,7 +47,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 ### 初始化运行环境
 
-- 初始化ACL、生成rootInfo、各rank初始化通信域与纯通信算子一致，参见[《CCU通信算子开发指南》·初始化运行环境](ccu_comm_op_dev.md#初始化运行环境)，本节不再展开。
+- 初始化ACL、生成rootInfo、各rank初始化通信域与纯通信算子一致，参见[CCU通信算子开发 > 初始化运行环境](ccu_comm_op_dev.md#初始化运行环境)，本节不再展开。
 
 - 创建计算与通信两条Stream：AI Core计算任务与CCU通信任务分别由`streamAiv`与`streamCcu`承载，用于通算并行：
 
@@ -74,7 +74,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 ### 申请CCU资源
 
-- CCU Channel及CCU实例的申请与纯通信算子一致，参见[《CCU通信算子开发指南》·申请CCU资源](ccu_comm_op_dev.md#申请ccu资源)，本节不再展开。
+- CCU Channel及CCU实例的申请与纯通信算子一致，参见[CCU通信算子开发 > 申请CCU资源](ccu_comm_op_dev.md#申请ccu资源)，本节不再展开。
 
 - 申请共享变量与事件：AI Core与CCU分属不同Stream，无法通过Stream内顺序建立依赖。通算融合通过Host侧从CCU实例资源池划出的共享变量与事件实现跨引擎的数据交互与同步：AI Core直接读写GM上的变量、置位事件，CCU Kernel读变量、等待事件。
 
@@ -249,15 +249,15 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
 
 ### 前同步
 
-与纯通信算子一致，参见[《CCU通信算子开发指南》·前同步](ccu_comm_op_dev.md#前同步)，本节不再展开。
+与纯通信算子一致，参见[CCU通信算子开发 > 前同步](ccu_comm_op_dev.md#前同步)，本节不再展开。
 
 ### 算子执行
 
-与纯通信AllGather一致（向各对端rank写数据完成发送，本地落位并等待数据到达完成接收），参见[《CCU通信算子开发指南》·算子执行](ccu_comm_op_dev.md#算子执行)，本节不再展开。
+与纯通信AllGather一致（向各对端rank写数据完成发送，本地落位并等待数据到达完成接收），参见[CCU通信算子开发 > 算子执行](ccu_comm_op_dev.md#算子执行)，本节不再展开。
 
 ### 后同步
 
-与纯通信算子一致，参见[《CCU通信算子开发指南》·后同步](ccu_comm_op_dev.md#后同步)，本节不再展开。
+与纯通信算子一致，参见[CCU通信算子开发 > 后同步](ccu_comm_op_dev.md#后同步)，本节不再展开。
 
 ### 通知计算完成
 

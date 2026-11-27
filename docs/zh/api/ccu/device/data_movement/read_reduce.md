@@ -25,7 +25,7 @@
 
 头文件为：`#include <ccu/asc_ccu.h>`
 
-通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据，并与本端片上内存现有数据按指定算子合并（`local = reduce(local, fetch_from_remote, op_type)`），硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
+通过已建链的[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)从对端片上内存异步读取数据，并与本端片上内存现有数据按指定算子合并（`local = reduce(local, fetch_from_remote, op_type)`），硬件完成时自动将`evt`中`mask`对应的标志位设置为1。
 
 具体支持的数据通路为：
 
@@ -65,7 +65,7 @@ ccu_result read_reduce(ChannelHandle ch, local_addr local, remote_addr remote,
 ## 约束说明
 
 - 参数顺序为目的端在前、源端在后：`read_reduce(ch, local, remote, ...)`，`local`同时也是归约的累加端。
-- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
+- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`ccu_result::CCU_E_PARA`，而非本接口的返回值。
 - `local`在调用前须已写入有效初值（如0或负无穷），否则归约结果未定义。
 - 本接口为异步操作，须通过`event_wait(evt, mask)`等待归约完成后再读取结果。
 

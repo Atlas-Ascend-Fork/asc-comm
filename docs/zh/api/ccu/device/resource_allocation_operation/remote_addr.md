@@ -62,7 +62,7 @@ public:
 
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
-| `addr` | `address` | 对端片上内存目标地址。须由对端rank的VA（Virtual Address，虚拟地址）与token（对端[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)结果）来填充，运算符语义见[address](address.md)。 |
+| `addr` | `address` | 对端片上内存目标地址。须由对端rank的VA（Virtual Address，虚拟地址）与token（对端[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)结果）来填充，运算符语义见[address](address.md)。 |
 | `token` | `variable` | 对端安全token值。须与`addr`配对，来自对端rank，不可与本端token混用。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
@@ -75,7 +75,7 @@ public:
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段，不申请新的`address/variable`，`remote_addr r2 = r1;`后两个对象指向同一组寄存器；`operator=(const remote_addr&)`则会执行device端寄存器赋值指令（语义与`local_addr`相同），两者不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`remote_addr()`已一次性完成所有子字段的分配。
-- `remote_addr`必须与[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)配合使用，通过已建链的channel进行跨rank RDMA操作，脱离channel直接使用时，硬件会发生未定义行为。
+- `remote_addr`必须与[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/9.3.0/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)配合使用，通过已建链的channel进行跨rank RDMA操作，脱离channel直接使用时，硬件会发生未定义行为。
 
 ## 调用示例
 
