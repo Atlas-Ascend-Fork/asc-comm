@@ -2,7 +2,7 @@
 
 简体中文 | [English](./README_en.md)
 
-本目录提供AI Core侧通信API使用样例，按接口分为CommRW点对点通信、AIN单边通信、Jetty通信和AICore发起的集合通信（cc）四类；`utils`目录提供各样例共享的Host侧工具代码，不是独立样例。
+本目录提供AI Core侧通信API使用样例，按接口分为CommRW点对点通信、AIN单边通信和Jetty通信三类；`utils`目录提供各样例共享的Host侧工具代码，不是独立样例。
 
 ## 样例列表
 
@@ -11,7 +11,6 @@
 | [ain](./ain/README.md) | AIN单边通信样例。演示基于对称窗口的`put`/`get`单边通信与集合同步。 |
 | [asccomm](./asccomm/README.md) | CommRW点对点通信样例。覆盖AIV直驱URMA、RoCE协议的普通接口、批量接口，以及功能验证与性能测试。 |
 | [asccomm_work_queue](./asccomm_work_queue/README.md) | Work queue通信样例。演示AIV Kernel直驱和SIMT Kernel直接向Jetty SQ构造并提交WQE。 |
-| [cc](./cc/README.md) | AICore发起的集合通信样例。按通信引擎分为AICPU_TS和CCU两类MC2 builtin接入样例，由AICore Kernel通过HCCL高阶API提交通信任务。 |
 
 ## 使用说明
 

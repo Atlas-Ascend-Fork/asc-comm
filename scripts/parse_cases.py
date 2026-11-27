@@ -84,10 +84,10 @@ def collect_cases(examples_dir, repo_root, prefix):
 
 
 def default_examples_dirs(repo_root):
-    """默认样例目录：ccu_direct位于examples/ccu，ccu_builtin位于examples/aicore/cc。"""
+    """默认样例目录：ccu_direct位于examples/ccu，ccu_builtin位于examples/cc。"""
     return [
         repo_root / "examples" / "ccu" / "ccu_direct",
-        repo_root / "examples" / "aicore" / "cc" / "ccu_builtin",
+        repo_root / "examples" / "cc" / "ccu_builtin",
     ]
 
 
@@ -100,7 +100,7 @@ def parse_args():
         type=Path,
         action="append",
         default=None,
-        help="CCU样例根目录，可指定多次；默认为examples/ccu/ccu_direct与examples/aicore/cc/ccu_builtin",
+        help="CCU样例根目录，可指定多次；默认为examples/ccu/ccu_direct与examples/cc/ccu_builtin",
     )
     parser.add_argument(
         "--output",

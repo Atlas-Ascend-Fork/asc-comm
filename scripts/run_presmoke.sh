@@ -30,7 +30,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 EXAMPLES_DIRS=(
     "${REPO_ROOT}/examples/ccu/ccu_direct"
-    "${REPO_ROOT}/examples/aicore/cc/ccu_builtin"
+    "${REPO_ROOT}/examples/cc/ccu_builtin"
 )
 REPORT_DIR="${REPO_ROOT}/presmoke_reports"
 LOG_DIR="${REPORT_DIR}/log"
@@ -48,7 +48,7 @@ usage() {
 
 对CCU样例执行前冒烟：样例提取 -> 编译/执行流水线 -> 结果汇总。
 CPU并行编译与硬件串行执行重叠，编译完成的样例直接排队执行。
-不带pattern时执行 ccu_direct 与 ccu_builtin 全部样例（分别位于 examples/ccu/ccu_direct 与 examples/aicore/cc/ccu_builtin）。每个pattern按以下规则匹配用例（可叠加多个pattern）：
+不带pattern时执行 ccu_direct 与 ccu_builtin 全部样例（分别位于 examples/ccu/ccu_direct 与 examples/cc/ccu_builtin）。每个pattern按以下规则匹配用例（可叠加多个pattern）：
     完整样例名    ccu_direct-04_allreduce-SC1   仅该场景
     样例名        ccu_direct-04_allreduce       该样例全部场景
     目录名        04_allreduce                  该样例全部场景

@@ -150,7 +150,7 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   ├── aicore/hcomm              # AICore Hcomm point-to-point communication samples
 │   ├── aicore/ain                # AICore Ain one-sided communication samples
 │   ├── aicore/asccomm_work_queue      # AICore WorkQueue communication samples
-│   ├── aicore/cc                 # AICore-initiated AICPU_TS/CCU collective builtin samples
+│   ├── cc                        # AICore-initiated AICPU_TS/CCU collective builtin samples
 │   ├── aicore/utils              # Host-side utilities shared by AICore samples
 │   ├── aicpu_ts                  # AICPU_TS communication samples
 │   ├── ccu                       # CCU communication and dataplane samples
