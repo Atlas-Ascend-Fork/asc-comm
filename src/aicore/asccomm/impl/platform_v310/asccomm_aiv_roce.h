@@ -150,20 +150,20 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::make_wqe(
     write_invalid_wqebb(sq_addr_next, next_wqebb_index, sq_depth);
     // Wait until MTE3 has finished reading wqe_ub before Scalar can reuse it.
     sync_action<PIPE_MTE3, PIPE_S>(EVENT_ID7);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm make_wqe: set wqe to qp ok.\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM make_wqe: set wqe to qp ok.\n");
     return ASCCOMM_SUCCESS;
 }
 
 __aicore__ inline bool asccomm_impl<COMM_PROTOCOL_ROCE>::check_channel_param(__gm__ ChannelEntity* chnl_ptr)
 {
     if (chnl_ptr == nullptr) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm check_channel_param failed: chnl_ptr is nullptr.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "ASCCOMM check_channel_param failed: chnl_ptr is nullptr.\n");
         return false;
     }
     if (chnl_ptr->sqNum == 0 || chnl_ptr->cqNum == 0 || chnl_ptr->sqContextAddr == 0 || chnl_ptr->cqContextAddr == 0) {
         ASCCOMM_KERNEL_LOG(
             KERNEL_ERROR,
-            "Hcomm check_channel_param failed: sqNum = %u cqNum = %u sqContextAddr = %llu  cq_context_addr = %llu\n",
+            "ASCCOMM check_channel_param failed: sqNum = %u cqNum = %u sqContextAddr = %llu  cq_context_addr = %llu\n",
             chnl_ptr->sqNum, chnl_ptr->cqNum, chnl_ptr->sqContextAddr, chnl_ptr->cqContextAddr);
         return false;
     }
@@ -176,7 +176,7 @@ __aicore__ inline bool asccomm_impl<COMM_PROTOCOL_ROCE>::check_channel_param(__g
         chnl_ptr->cqContextAddr[0].contextInfo.roceCq.cqVa == 0 ||
         chnl_ptr->cqContextAddr[0].contextInfo.roceCq.dbSwVa == 0 || cqe_size < sizeof(roce_cqe_entry) ||
         (cq_depth & (cq_depth - 1U)) != 0) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm check_channel_param failed: invalid SQ/CQ context.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "ASCCOMM check_channel_param failed: invalid SQ/CQ context.\n");
         return false;
     }
     return true;
@@ -195,12 +195,12 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
     uint32_t wqebb_tail = chnl_ptr->sqTail;
     uint32_t sq_depth = chnl_ptr->sqContextAddr[0].contextInfo.roceSq.depth;
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm post_send: op_type = %u, sq_head = 0x%x, sq_tail = 0x%x, sq_depth = %u.\n",
+        KERNEL_INFO, "ASCCOMM post_send: op_type = %u, sq_head = 0x%x, sq_tail = 0x%x, sq_depth = %u.\n",
         static_cast<uint32_t>(op_type), chnl_ptr->sqHead, chnl_ptr->sqTail, sq_depth);
     uint16_t outstanding = static_cast<uint16_t>(wqebb_head - wqebb_tail);
     if (outstanding >= sq_depth || sq_depth - outstanding <= ASCCOMM_POLL_CQ_THRESHOLD) {
         ASCCOMM_KERNEL_LOG(
-            KERNEL_INFO, "Hcomm post_send: RoCE SQ overflow sq_head=%u sq_tail=%u sq_depth=%u\n", wqebb_head,
+            KERNEL_INFO, "ASCCOMM post_send: RoCE SQ overflow sq_head=%u sq_tail=%u sq_depth=%u\n", wqebb_head,
             wqebb_tail, sq_depth);
         (void)poll_cq<true>(chnl_ptr, chnl_ptr->cqHead, ASCCOMM_POLL_CQ_THRESHOLD);
         wqebb_tail = chnl_ptr->sqTail;
@@ -216,15 +216,15 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
     if constexpr (config.cqe != 0) {
         uint32_t cq_head = chnl_ptr->cqHead + 1U;
         chnl_ptr->cqHead = cq_head;
-        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm post_send: update CQ PI cq_head = %u\n", cq_head);
+        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send: update CQ PI cq_head = %u\n", cq_head);
     }
     uint32_t next_wqebb_head = (wqebb_head + 1U) & ROCE_SQ_INDEX_MASK;
     chnl_ptr->sqHead = next_wqebb_head;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm post_send: update SQ PI sq_head = %u\n", chnl_ptr->sqHead);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send: update SQ PI sq_head = %u\n", chnl_ptr->sqHead);
 
     if constexpr (commit) {
         knock_door_bell(chnl_ptr, next_wqebb_head);
-        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm post_send: knock_door_bell ok.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send: knock_door_bell ok.\n");
     }
     return ASCCOMM_SUCCESS;
 }
@@ -308,7 +308,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
     // SQ WQEBBs and the invalid owner marker must reach DDR before the doorbell notifies the NIC.
     asc_sync_data_barrier(DSB_DDR);
     st_dev(db_value, db_hw_addr + (sq_head & 0xff), 0);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm knock_door_bell: write hw db ok, hw_db_val = %llu\n", db_value);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM knock_door_bell: write hw db ok, hw_db_val = %llu\n", db_value);
 
     uint32_t cq_head = chnl_ptr->cqHead;
     uint32_t cq_tail = chnl_ptr->cqTail;
@@ -321,7 +321,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
         uint32_t idx = cq_tail + poll_count;
         ASCCOMM_KERNEL_LOG(
             KERNEL_INFO,
-            "Hcomm knock_door_bell: cq overflow sq_head=%u cq_head=%u cq_tail=%u idx=%u sq_depth=%u cq_depth=%u\n",
+            "ASCCOMM knock_door_bell: cq overflow sq_head=%u cq_head=%u cq_tail=%u idx=%u sq_depth=%u cq_depth=%u\n",
             sq_head, cq_head, cq_tail, idx, sq_depth, cq_depth);
         (void)poll_cq(chnl_ptr, idx);
     }
@@ -330,14 +330,14 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::knock_door_bell(
 template <pipe_t pipe>
 __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::commit(ChannelHandle channel)
 {
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: Enter\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM commit: Enter\n");
     __gm__ ChannelEntity* chnl_ptr = (__gm__ ChannelEntity*)(channel);
     // post_send updates the software PI; the hardware head is not a staging location for deferred posts.
     uint32_t sq_head = chnl_ptr->sqHead;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: sq_head = %u\n", sq_head);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM commit: sq_head = %u\n", sq_head);
 
     knock_door_bell(chnl_ptr, sq_head);
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm commit: Exit ok.\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM commit: Exit ok.\n");
     return ASCCOMM_SUCCESS;
 }
 
@@ -388,7 +388,7 @@ __aicore__ inline asccomm_cqe_status asccomm_impl<COMM_PROTOCOL_ROCE>::wait_cqe_
     uint16_t wqebb_outstanding = static_cast<uint16_t>(wqebb_head - wqebb_tail);
     if (wqebb_advance == 0U || wqebb_advance > wqebb_outstanding) {
         ASCCOMM_KERNEL_LOG(
-            KERNEL_ERROR, "Hcomm poll_cq: invalid SQ completion, wqebb_index = %u.\n", completed_wqebb_index);
+            KERNEL_ERROR, "ASCCOMM poll_cq: invalid SQ completion, wqebb_index = %u.\n", completed_wqebb_index);
         return asccomm_cqe_status::INVALID;
     }
     wqebb_tail = next_wqebb_tail;
@@ -410,7 +410,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
     uint16_t wqebb_tail = static_cast<uint16_t>(chnl_ptr->sqTail);
     uint32_t sq_depth = chnl_ptr->sqContextAddr[0].contextInfo.roceSq.depth;
     uint32_t expected_qpn = chnl_ptr->sqContextAddr[0].contextInfo.roceSq.qpn & ROCE_1825_CQE_QPN_MASK;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm poll_cq: cq_tail= %u expect_idx = %u\n", cq_tail, expect_idx);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM poll_cq: cq_tail= %u expect_idx = %u\n", cq_tail, expect_idx);
     __gm__ uint8_t* cq_base_buf = (__gm__ uint8_t*)(cq_context_info.roceCq.cqVa);
     while (true) {
         if (!en_continue<sq_safe_mode>(expect_idx, cq_tail, wqebb_head, wqebb_tail, sq_depth, threshold)) {
@@ -427,7 +427,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
                 cqe_words, cq_tail, cq_depth, expected_qpn, wqebb_head, wqebb_tail, cqe_type);
         }
         if (cqe_status == asccomm_cqe_status::NOT_READY) {
-            ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm poll_cq: failed, overtime and exit.\n");
+            ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "ASCCOMM poll_cq: failed, overtime and exit.\n");
             AscendC::Trap();
             return ASCCOMM_FAILED;
         }
@@ -437,7 +437,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
             uint32_t syndrome = syndrome_word & ROCE_1825_CQE_SYNDROME_MASK;
             uint32_t wqe_counter = syndrome_word >> ROCE_1825_CQE_WQE_COUNTER_SHIFT;
             ASCCOMM_KERNEL_LOG(
-                KERNEL_ERROR, "Hcomm poll_cq: failed, syndrome = 0x%x, err_code = %u, wqe_counter = %u\n", syndrome,
+                KERNEL_ERROR, "ASCCOMM poll_cq: failed, syndrome = 0x%x, err_code = %u, wqe_counter = %u\n", syndrome,
                 (owner_id_qpn >> ROCE_1825_CQE_QPN_BITS) & ROCE_1825_CQE_ERR_CODE_MASK, wqe_counter);
             AscendC::Trap();
             return ASCCOMM_FAILED;
@@ -447,30 +447,30 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::poll_cq(
             return ASCCOMM_FAILED;
         }
         cq_tail += 1;
-        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm poll_cq: cq_tail = %u\n", cq_tail);
+        ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM poll_cq: cq_tail = %u\n", cq_tail);
     }
     chnl_ptr->cqTail = cq_tail;
     chnl_ptr->sqTail = wqebb_tail;
     __gm__ uint32_t* db_sw_addr = reinterpret_cast<__gm__ uint32_t*>(cq_context_info.roceCq.dbSwVa);
     st_dev(hto_nl(cq_tail & ROCE_1825_CQE_UPDATE_CI_MASK), db_sw_addr, 0);
     ASCCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm poll_cq: knock cq_db ok, cq_tail = %u, sq_tail = %u\n", cq_tail, chnl_ptr->sqTail);
+        KERNEL_INFO, "ASCCOMM poll_cq: knock cq_db ok, cq_tail = %u, sq_tail = %u\n", cq_tail, chnl_ptr->sqTail);
     return ASCCOMM_SUCCESS;
 }
 
 template <pipe_t pipe>
 __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(ChannelHandle channel)
 {
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: Enter\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM drain: Enter\n");
     __gm__ ChannelEntity* chnl_ptr = (__gm__ ChannelEntity*)(channel);
     ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm drain failed with invalid channel.\n");
     uint32_t cq_head = chnl_ptr->cqHead;
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: cq_head = %u\n", cq_head);
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM drain: cq_head = %u\n", cq_head);
     if (poll_cq(chnl_ptr, cq_head) != ASCCOMM_SUCCESS) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm drain: poll_cq failed.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "ASCCOMM drain: poll_cq failed.\n");
         return ASCCOMM_FAILED;
     }
-    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm drain: Exit ok.\n");
+    ASCCOMM_KERNEL_LOG(KERNEL_INFO, "ASCCOMM drain: Exit ok.\n");
     return ASCCOMM_SUCCESS;
 }
 
@@ -733,7 +733,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::batch_commit(roce_ba
     ASCCOMM_DEBUG_TRAP_IF(!check_channel_param(chnl_ptr), "Hcomm batch_commit failed with invalid channel.\n");
     if (is_batch_sq_near_full(chnl_ptr, batch_handle)) {
         ASCCOMM_KERNEL_LOG(
-            KERNEL_INFO, "Hcomm batch_commit: RoCE SQ near full, poll CQ first. sq_head=%u sq_tail=%u sq_depth=%u\n",
+            KERNEL_INFO, "ASCCOMM batch_commit: RoCE SQ near full, poll CQ first. sq_head=%u sq_tail=%u sq_depth=%u\n",
             (batch_handle.cursor.sq_head + pre_sq_cnt) & ROCE_SQ_INDEX_MASK, chnl_ptr->sqTail,
             batch_handle.sq_context.contextInfo.roceSq.depth);
         (void)poll_cq<true>(chnl_ptr, chnl_ptr->cqHead, ASCCOMM_POLL_CQ_THRESHOLD);
@@ -803,7 +803,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::drain(roce_batch_han
 
     int32_t poll_ret = poll_batch_cq(batch_handle, batch_handle.cursor.cq_head);
     if (poll_ret != ASCCOMM_SUCCESS) {
-        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm RoCE drain by batch handle failed.\n");
+        ASCCOMM_KERNEL_LOG(KERNEL_ERROR, "ASCCOMM RoCE drain by batch handle failed.\n");
         return poll_ret;
     }
     return ASCCOMM_SUCCESS;

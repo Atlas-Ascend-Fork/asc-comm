@@ -156,3 +156,27 @@ When a run fails, check the error message printed to the terminal (including the
   to execute `read_nbi` reading `prev`'s seg0 into local seg2, then using the `next` channel to execute `write_nbi` writing local seg0 into
   `next`'s seg1, so that each rank's seg1 and seg2 both match `prev`'s pattern. When extending, keep the Host-side barriers before and after Kernel execution;
   if data segment offsets are adjusted, update the expected rank and offset used by Host-side pattern validation accordingly.
+
+## Enable CommRW Debug Logging
+
+CommRW debug logging is controlled by the compile-time `ASCENDC_DEBUG` macro and is disabled by default. Configure
+and rebuild the sample with:
+
+```bash
+rm -rf build
+mkdir -p build
+cd build
+cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON ..
+make -j
+```
+
+When enabled, the runtime log contains CommRW debug messages such as `PostSend`, WQE, CQE, and `PollCq`, for example:
+
+```text
+[AIV Block 0/1] ASCCOMM URMA PostSend ...
+[AIV Block 0/1] ASCCOMM URMA WQE: ...
+[AIV Block 0/1] ASCCOMM URMA CQE: ...
+```
+
+Debug logging is a compile-time option and cannot be switched at runtime. Reconfigure and rebuild without
+`-DASCENDC_DEBUG=ON` to disable it.

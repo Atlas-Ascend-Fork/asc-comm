@@ -46,9 +46,9 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)config;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM Write channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
     post_send(channel, dst, src, len, false);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write complete");
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM Write complete");
     return ASCCOMM_SUCCESS;
 }
 
@@ -57,9 +57,9 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::read_nbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)config;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM Read channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
     post_send(channel, dst, src, len, true);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read complete");
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM Read complete");
     return ASCCOMM_SUCCESS;
 }
 
@@ -73,7 +73,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_value_nbi(Chan
     (void)channel;
     (void)dst;
     (void)value;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE write_value_nbi is not supported.");
+    KERNEL_LOG(KERNEL_ERROR, "ASCCOMM ROCE write_value_nbi is not supported.");
     return ASCCOMM_FAILED;
 }
 
@@ -91,7 +91,7 @@ __aicore__ inline int32_t asccomm_impl<COMM_PROTOCOL_ROCE>::write_with_notify_nb
     (void)len;
     (void)notify_addr;
     (void)notify_val;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE write_with_notify_nbi is not supported");
+    KERNEL_LOG(KERNEL_ERROR, "ASCCOMM ROCE write_with_notify_nbi is not supported");
     return ASCCOMM_FAILED;
 }
 
@@ -104,7 +104,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::door_bell(__gm__ Channe
     door_bell_info |= (uint64_t)(channel->sqContextAddr[0].contextInfo.roceSq.sl) << 48UL; // [48:50] DB_SL = qp.sl
 
     __gm__ uint64_t* door_bell_addr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbHwVa);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm door_bell door_bell_addr:%p, door_bell_info:%llu", door_bell_addr, door_bell_info);
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM door_bell door_bell_addr:%p, door_bell_info:%llu", door_bell_addr, door_bell_info);
 
     ub_local.SetValue(0, door_bell_info);
     AscendC::GlobalTensor<uint64_t> db_global_tensor;
@@ -129,7 +129,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
     auto qp_depth = channel->sqContextAddr[0].contextInfo.roceSq.depth;
 
     KERNEL_LOG(
-        KERNEL_INFO, "Hcomm door_bell qp_num:%d, sq_base_addr:%p, wqeSize:%d, cur_head:%d, qp_depth:%d", qp_num,
+        KERNEL_INFO, "ASCCOMM door_bell qp_num:%d, sq_base_addr:%p, wqeSize:%d, cur_head:%d, qp_depth:%d", qp_num,
         sq_base_addr, wqeSize, cur_head, qp_depth);
 
     // Make sure we don't overflow the SQ in an infinite loop - no need to mitigate endless loop as the host
@@ -142,7 +142,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
     }
 
     __gm__ uint8_t* wqe_addr = (__gm__ uint8_t*)(sq_base_addr + wqeSize * (cur_head % qp_depth));
-    KERNEL_LOG(KERNEL_INFO, "Hcomm post_send wqe_addr:%p", wqe_addr);
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send wqe_addr:%p", wqe_addr);
 
     // Write the WQE to GM
     uint64_t own_bit = (cur_head >> shift) & 1U;
@@ -162,7 +162,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
 
     constexpr uint32_t sge_addr_offset = 32;
     __gm__ uint8_t* sge_addr = wqe_addr + sge_addr_offset;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm post_send sge_addr:%p", sge_addr);
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send sge_addr:%p", sge_addr);
     *(__gm__ uint32_t*)(sge_addr) = len;
     *(__gm__ uint32_t*)(sge_addr + sizeof(uint32_t)) =
         channel->localBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
@@ -181,7 +181,7 @@ __aicore__ inline void asccomm_impl<COMM_PROTOCOL_ROCE>::post_send(
     head_global_tensor.SetGlobalBuffer((__gm__ uint32_t*)cur_hardware_head);
     AscendC::DataCopyExtParams copy_params_head{1, 1 * sizeof(uint32_t), 0, 0, 0};
     AscendC::DataCopyPad(head_global_tensor, ub_local_head, copy_params_head);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm post_send finish");
+    KERNEL_LOG(KERNEL_INFO, "ASCCOMM post_send finish");
 }
 
 } // namespace asc
