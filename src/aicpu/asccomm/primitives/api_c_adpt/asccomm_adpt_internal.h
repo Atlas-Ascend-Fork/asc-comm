@@ -17,8 +17,25 @@
 #include "asccomm_runtime.h"
 #include "asccomm_log.h"
 #include "asccomm_result.h"
+#include "page_size_util.h"
 
 namespace asccomm_adpt {
+
+inline bool is_mapped_address(const void* address)
+{
+    // ThreadHandle and ChannelHandle are resource entity addresses. Validate the
+    // first mapped page with mincore before reading the ABI header. This catches
+    // small integers and non-canonical values without introducing a HAL dependency.
+    unsigned char unused = 0;
+    const void* page = reinterpret_cast<const void*>(asccomm::GetPageBase(reinterpret_cast<uintptr_t>(address)));
+    return syscall(SYS_mincore, page, 1U, &unused) == 0;
+}
+
+inline asccomm_result validate_local_memory_range(const void* dst, const void* src, uint64_t len)
+{
+    CHK_RET(asccomm_validate_device_range(reinterpret_cast<uint64_t>(dst), len));
+    return asccomm_validate_device_range(reinterpret_cast<uint64_t>(src), len);
+}
 
 struct CommContext {
     ThreadEntity* thread;
@@ -48,6 +65,12 @@ inline asccomm_result get_thread_entity(
     ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
+    CHK_PRT_RET(
+        !is_mapped_address(reinterpret_cast<void*>(static_cast<uintptr_t>(thread))),
+        ASCCOMM_ERROR(
+            "[%s] thread handle[0x%llx] is not a mapped resource address.", __func__,
+            static_cast<unsigned long long>(thread)),
+        ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
     // plane performs the original-handle -> POD conversion before launch.
     threadEntity = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(thread));
@@ -70,6 +93,12 @@ inline asccomm_result get_context(ThreadHandle thread, ChannelHandle channel, bo
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
     // ChannelHandle follows the same resource-address ABI as ThreadHandle.
     context.channel = reinterpret_cast<ChannelEntity*>(static_cast<uintptr_t>(channel));
+    CHK_PRT_RET(
+        !is_mapped_address(context.channel),
+        ASCCOMM_ERROR(
+            "[%s] channel handle[0x%llx] is not a mapped resource address.", __func__,
+            static_cast<unsigned long long>(channel)),
+        ASCCOMM_E_PTR);
     CHK_RET(validate_entity(context.channel, HCOMM_CHANNEL_ENTITY_VERSION, HCOMM_CHANNEL_ENTITY_MAGIC_WORD));
     return ASCCOMM_SUCCESS;
 }

@@ -207,6 +207,79 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }
 
+TEST_F(AsccommPrimitivesTest, LocalReduceValidatesThreadBeforeReduceParams)
+{
+    uint64_t buffer = 0;
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            1, &buffer, &buffer, std::numeric_limits<uint64_t>::max(), ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PTR);
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            std::numeric_limits<uint64_t>::max(), &buffer, &buffer, 1, ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PTR);
+    EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
+}
+
+TEST_F(AsccommPrimitivesTest, LocalReduceRejectsOverflowCountWithoutSubmit)
+{
+    uint64_t buffer = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            handle, &buffer, &buffer, std::numeric_limits<uint64_t>::max(), ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PARA);
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            handle, &buffer, &buffer, std::numeric_limits<uint64_t>::max() - 1, ASCCOMM_DATA_TYPE_INT8,
+            ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PARA);
+    EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
+}
+
+TEST_F(AsccommPrimitivesTest, LocalReduceRejectsInvalidDstDeviceAddress)
+{
+    uint64_t buffer = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    g_runtimeStubState.deviceRangeResult = 1;
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            handle, reinterpret_cast<void*>(0xDEADBEEFU), &buffer, 1, ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PARA);
+    ASSERT_EQ(g_runtimeStubState.deviceRangeQueries.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.deviceRangeQueries[0].addr, 0xDEADBEEFU);
+    EXPECT_EQ(g_runtimeStubState.deviceRangeQueries[0].len, 1U);
+    EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
+}
+
+TEST_F(AsccommPrimitivesTest, LocalReduceRejectsInvalidSrcDeviceAddress)
+{
+    uint64_t buffer = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    g_runtimeStubState.deviceRange = {reinterpret_cast<uint64_t>(&buffer), sizeof(buffer)};
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            handle, &buffer, reinterpret_cast<const void*>(0xDEADBEEFU), 1, ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PARA);
+    ASSERT_EQ(g_runtimeStubState.deviceRangeQueries.size(), 2U);
+    EXPECT_EQ(g_runtimeStubState.deviceRangeQueries[0].addr, reinterpret_cast<uint64_t>(&buffer));
+    EXPECT_EQ(g_runtimeStubState.deviceRangeQueries[1].addr, 0xDEADBEEFU);
+    EXPECT_EQ(g_runtimeStubState.deviceRangeQueries[1].len, 1U);
+    EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
+}
+
+TEST_F(AsccommPrimitivesTest, LocalReduceRejectsDeviceAddressOutOfRange)
+{
+    uint64_t buffer = 0;
+    const auto handle = ThreadHandleOf(thread_);
+    g_runtimeStubState.deviceRange = {reinterpret_cast<uint64_t>(&buffer), sizeof(buffer)};
+    EXPECT_EQ(
+        asccomm_local_reduce_on_thread(
+            handle, &buffer, &buffer, sizeof(buffer) + 1U, ASCCOMM_DATA_TYPE_INT8, ASCCOMM_REDUCE_SUM),
+        ASCCOMM_E_PARA);
+    EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
+}
+
 TEST_F(AsccommPrimitivesTest, ChannelNotifyWaitAndFenceDrainPassArguments)
 {
     const auto threadHandle = ThreadHandleOf(thread_);

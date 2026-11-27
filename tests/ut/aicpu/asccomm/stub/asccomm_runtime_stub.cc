@@ -22,6 +22,20 @@ asccomm_result asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
     return g_runtimeStubState.resolveResult;
 }
 
+asccomm_result asccomm_validate_device_range(uint64_t addr, uint64_t len)
+{
+    g_runtimeStubState.deviceRangeQueries.push_back({addr, len});
+    if (g_runtimeStubState.deviceRangeResult != 0) {
+        return ASCCOMM_E_PARA;
+    }
+    const uint64_t base = g_runtimeStubState.deviceRange.base;
+    const uint64_t size = g_runtimeStubState.deviceRange.size;
+    if (base > addr || len > size || addr - base > size - len) {
+        return ASCCOMM_E_PARA;
+    }
+    return ASCCOMM_SUCCESS;
+}
+
 asccomm_result asccomm_rtsq_sdma_copy(HcommThreadEntity& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
 {
     g_runtimeStubState.copyCalls.push_back({&context, dstAddr, srcAddr, size});

@@ -34,6 +34,7 @@ asccomm_result asccomm_rtsq_sdma_reduce(
 asccomm_result asccomm_rtsq_ub_db_send(ThreadEntity& thread, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
 asccomm_result asccomm_rtsq_rdma_db_send(ThreadEntity& thread, uint64_t dbAddr, uint64_t dbValue);
 asccomm_result asccomm_resolve_thread_rtsq(ThreadEntity* thread);
+asccomm_result asccomm_validate_device_range(uint64_t addr, uint64_t len);
 
 // RTSQ硬件属性由数据面在首次使用Thread resource时懒解析。
 asccomm_result asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum);

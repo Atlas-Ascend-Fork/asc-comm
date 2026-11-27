@@ -26,6 +26,7 @@ using asccomm_adpt::CommContext;
 using asccomm_adpt::execute_api;
 using asccomm_adpt::get_context;
 using asccomm_adpt::get_thread_entity;
+using asccomm_adpt::validate_local_memory_range;
 
 constexpr uint64_t SDMA_SEND_MAX_SIZE = std::numeric_limits<uint32_t>::max();
 
@@ -225,13 +226,26 @@ int32_t asccomm_local_reduce_on_thread(
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
+        // Resolve and validate the ThreadHandle before reduce-parameter arithmetic.
+        // ThreadHandle is a resource-address ABI, so it must be checked before use.
+        ThreadEntity* threadEntity = nullptr;
+        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
         uint64_t len = 0;
         uint32_t dataTypeSize = 1;
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn, &dataTypeSize));
-        ThreadEntity* threadEntity = nullptr;
-        CHK_RET(get_thread_entity(thread, true, true, threadEntity));
+        CHK_RET(validate_local_memory_range(dst, src, len));
         const uint64_t maxReduceSize = SDMA_SEND_MAX_SIZE / dataTypeSize * dataTypeSize;
+        const uintptr_t dstAddr = reinterpret_cast<uintptr_t>(dst);
+        const uintptr_t srcAddr = reinterpret_cast<uintptr_t>(src);
+        CHK_PRT_RET(
+            len > std::numeric_limits<uintptr_t>::max() - dstAddr ||
+                len > std::numeric_limits<uintptr_t>::max() - srcAddr,
+            ASCCOMM_ERROR(
+                "[%s] reduce range overflows address space, dst[0x%llx], src[0x%llx], len[%llu].", __func__,
+                static_cast<unsigned long long>(dstAddr), static_cast<unsigned long long>(srcAddr),
+                static_cast<unsigned long long>(len)),
+            ASCCOMM_E_PARA);
         uint64_t offset = 0;
         while (offset < len) {
             const uint64_t remaining = len - offset;

@@ -19,6 +19,7 @@
 #include "securec.h"
 #include "ascend_hal.h"
 #include "asccomm_log.h"
+#include "page_size_util.h"
 
 // 局部打开宏以包含 internal 声明，与下方导出定义做编译期交叉校验；符号契约不变。
 #define ASCCOMM_ENABLE_INTERNAL_APIS
@@ -35,6 +36,31 @@ using HcommRtsqContext = decltype(((HcommThreadSqContext*)nullptr)->contextInfo.
 // [Head] 解码行位序锚定（小端），编译断言防布局漂移。
 static_assert(offsetof(Asc::Rt91095StarsSqeHeader, rtStreamId) == 4U, "word1 low16 must be rtStreamId");
 static_assert(offsetof(Asc::Rt91095StarsSqeHeader, taskId) == 6U, "word1 high16 must be taskId");
+
+bool is_mapped_page(uint64_t address)
+{
+    const uintptr_t page = asccomm::GetPageBase(static_cast<uintptr_t>(address));
+    unsigned char resident = 0;
+    return syscall(SYS_mincore, reinterpret_cast<void*>(page), 1U, &resident) == 0;
+}
+
+asccomm_result validate_device_range(uint64_t addr, uint64_t len, const char* caller)
+{
+    CHK_PRT_RET(
+        len > std::numeric_limits<uintptr_t>::max() - addr,
+        ASCCOMM_ERROR(
+            "[%s] device address range overflows address space, addr[0x%llx], len[%llu].", caller,
+            static_cast<unsigned long long>(addr), static_cast<unsigned long long>(len)),
+        ASCCOMM_E_PARA);
+    const uint64_t end = len == 0 ? addr : addr + len - 1U;
+    CHK_PRT_RET(
+        !is_mapped_page(addr) || !is_mapped_page(end),
+        ASCCOMM_ERROR(
+            "[%s] device address is not mapped, addr[0x%llx], len[%llu].", caller,
+            static_cast<unsigned long long>(addr), static_cast<unsigned long long>(len)),
+        ASCCOMM_E_PARA);
+    return ASCCOMM_SUCCESS;
+}
 
 asccomm_result acquire_task_id(HcommThreadSqContext& contextOuter, uint32_t& taskId)
 {
@@ -241,6 +267,11 @@ asccomm_result validate_thread_entity(ThreadEntity* thread)
 }
 
 } // namespace
+
+asccomm_result asccomm_validate_device_range(uint64_t addr, uint64_t len)
+{
+    return validate_device_range(addr, len, __func__);
+}
 
 asccomm_result asccomm_resolve_thread_rtsq(ThreadEntity* thread)
 {

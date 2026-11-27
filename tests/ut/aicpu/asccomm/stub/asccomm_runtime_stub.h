@@ -12,6 +12,7 @@
 #define ASCCOMM_RUNTIME_STUB_H
 
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "asccomm_runtime.h"
@@ -153,6 +154,17 @@ struct AicpuRuntimeStubState {
         ChannelEntity* channel;
     };
     std::vector<DrainCall> drainCalls;
+    struct DeviceRangeQuery {
+        uint64_t addr;
+        uint64_t len;
+    };
+    std::vector<DeviceRangeQuery> deviceRangeQueries;
+    struct DeviceRange {
+        uint64_t base;
+        uint64_t size;
+    };
+    DeviceRange deviceRange{0, std::numeric_limits<uint64_t>::max()};
+    int32_t deviceRangeResult{0};
 
     asccomm_result resolveResult{ASCCOMM_SUCCESS};
     asccomm_result copyResult{ASCCOMM_SUCCESS};
