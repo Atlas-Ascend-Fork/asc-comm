@@ -134,14 +134,19 @@ TEST_F(CcuRepReadTest, describe)
     ccu_rep_context context_;
     variable len_{&context_};
     completed_event sem_{&context_};
-    address addr_;
+    address local_addr_;
+    address remote_addr_;
     variable token;
-    local_addr loc_{addr_, token};
-    remote_addr rem_{addr_, token};
+    local_addr loc_{local_addr_, token};
+    remote_addr rem_{remote_addr_, token};
+
+    local_addr_.reset(11);
+    remote_addr_.reset(22);
 
     ccu_rep_read rep(&insGen, 0, loc_, rem_, len_, sem_, 0xF);
-    std::string desc = rep.describe();
-    EXPECT_NE(desc.find("Read"), std::string::npos);
+    EXPECT_EQ(
+        rep.describe(),
+        "Read RemoteAddr[22] To LocalAddr[11], length[0], set sem[0] with mask[000f], dataType[0], opType[0]");
 }
 
 TEST_F(CcuRepReadTest, translate)
@@ -192,14 +197,19 @@ TEST_F(CcuRepWriteTest, describe)
     ccu_rep_context context_;
     variable len_{&context_};
     completed_event sem_{&context_};
-    address addr_;
+    address local_addr_;
+    address remote_addr_;
     variable token;
-    local_addr loc_{addr_, token};
-    remote_addr rem_{addr_, token};
+    local_addr loc_{local_addr_, token};
+    remote_addr rem_{remote_addr_, token};
+
+    local_addr_.reset(11);
+    remote_addr_.reset(22);
 
     ccu_rep_write rep(&insGen, 0, rem_, loc_, len_, sem_, 0xF);
-    std::string desc = rep.describe();
-    EXPECT_NE(desc.find("Write"), std::string::npos);
+    EXPECT_EQ(
+        rep.describe(),
+        "Write LocalAddr[11] To RemoteAddr[22], length[0], set sem[0] with mask[000f], dataType[0], opType[0]");
 }
 
 TEST_F(CcuRepWriteTest, translate)

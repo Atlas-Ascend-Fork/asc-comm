@@ -23,6 +23,7 @@
 
 namespace {
 
+constexpr size_t kMaxKernelFuncNameLen = 128;
 constexpr ccu_buffer_handle kInvalidBufferHandle = 0xFFFF;
 constexpr ccu_local_addr_handle kInvalidLocalAddrHandle = 0xFFFF;
 constexpr ccu_remote_addr_handle kInvalidRemoteAddrHandle = 0xFFFF;
@@ -67,6 +68,37 @@ protected:
 class CcuLocalCopyTransferTest : public CcuTransferKernelTest {};
 class CcuWriteTransferTest : public CcuTransferKernelTest {};
 class CcuWriteReduceTransferTest : public CcuTransferKernelTest {};
+
+void CheckSetupProfilingInfo(const char* kernel_name, const std::string& expected_name)
+{
+    asc::ccu_kernel kernel{};
+    ASSERT_EQ(kernel.setup_profiling_info(kernel_name), HcclResult::HCCL_SUCCESS);
+    ASSERT_EQ(kernel.get_profiling_info().size(), 1U);
+    EXPECT_EQ(kernel.get_profiling_info()[0].type, static_cast<uint8_t>(asc::ccu_profilin_type::ccu_task_profiling));
+    EXPECT_EQ(kernel.get_profiling_info()[0].die_id, 0U);
+    EXPECT_EQ(kernel.get_profiling_info()[0].name, expected_name);
+}
+
+TEST(CcuKernelProfilingTest, SetupProfilingInfo_NullNameUsesDefault) { CheckSetupProfilingInfo(nullptr, "CCU_KERNEL"); }
+
+TEST(CcuKernelProfilingTest, SetupProfilingInfo_EmptyNameUsesDefault) { CheckSetupProfilingInfo("", "CCU_KERNEL"); }
+
+TEST(CcuKernelProfilingTest, SetupProfilingInfo_NormalNameIsRecorded)
+{
+    CheckSetupProfilingInfo("allreduce_16", "allreduce_16");
+}
+
+TEST(CcuKernelProfilingTest, SetupProfilingInfo_MaxNameIsRecorded)
+{
+    const std::string name(kMaxKernelFuncNameLen, 'a');
+    CheckSetupProfilingInfo(name.c_str(), name);
+}
+
+TEST(CcuKernelProfilingTest, SetupProfilingInfo_TooLongNameIsTruncated)
+{
+    const std::string name(kMaxKernelFuncNameLen + 1, 'b');
+    CheckSetupProfilingInfo(name.c_str(), name.substr(0, kMaxKernelFuncNameLen));
+}
 
 TEST_F(CcuLocalCopyTransferTest, MemToMem_AppendsRepresentationAndTranslatesV1)
 {

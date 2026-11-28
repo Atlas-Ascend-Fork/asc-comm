@@ -1072,7 +1072,7 @@ TEST_F(CcuRepAddTest, Constructor_V2SubTypes_AndDescribe)
 
     ccu_rep_add r1(&insGen, addr_c_, addr_a_, uint16_t(10));
     EXPECT_EQ(r1.get_sub_type(), add_sub_type::addr_plus_immed_to_addr);
-    EXPECT_NE(r1.describe().find("Addr"), std::string::npos);
+    EXPECT_EQ(r1.describe(), "Address[6] = Address[4] + Immed[10]");
 
     ccu_rep_add r2(&insGen, addr_a_, uint16_t(10));
     EXPECT_EQ(r2.get_sub_type(), add_sub_type::self_add_immed_address);
@@ -1082,6 +1082,7 @@ TEST_F(CcuRepAddTest, Constructor_V2SubTypes_AndDescribe)
 
     ccu_rep_add r4(&insGen, addr_c_, var_a_, uint16_t(10));
     EXPECT_EQ(r4.get_sub_type(), add_sub_type::var_plus_immed_to_addr);
+    EXPECT_EQ(r4.describe(), "Address[6] = Variable[2] + Immed[10]");
 
     ccu_rep_add r5(&insGen, var_c_, addr_a_, addr_b_);
     EXPECT_EQ(r5.get_sub_type(), add_sub_type::addr_plus_addr_to_var);
@@ -1197,9 +1198,7 @@ TEST_F(CcuRepAddTest, Describe_VarPlusImmedToAddr)
     var_a_.reset(2);
     ccu_rep_add rep(&insGen, addr_c_, var_a_, uint16_t(3));
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
-    EXPECT_NE(desc.find("varA[2]"), std::string::npos);
-    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+    EXPECT_EQ(desc, "Address[1] = Variable[2] + Immed[3]");
 }
 
 TEST_F(CcuRepAddTest, Describe_AddrPlusImmedToVar)

@@ -163,8 +163,8 @@ HcclResult ccu_kernel::setup_profiling_info(const char* kernel_func_name)
 
     constexpr size_t max_kernel_func_name_len = 128;
     const auto name_len = strlen(kernel_func_name);
+    name_ = std::string(kernel_func_name, std::min(name_len, max_kernel_func_name_len));
     if (name_len > max_kernel_func_name_len) {
-        name_ = std::string(kernel_func_name, max_kernel_func_name_len);
         HCCL_WARNING("[ccu_kernel][%s] kernel_func_name is too long, reset to %s.", __func__, name_.c_str());
     }
 
