@@ -96,10 +96,9 @@ __simt_callee__ inline int32_t write_value_nbi(
 
 **批量接口**
 
-- 添加完成后需要调用[batch_commit](./simt_batch_commit.md)提交当前批次。
+- 批量重载不提供`commit`参数，添加完成后调用[batch_commit](./simt_batch_commit.md)提交当前批次。
 - 批量任务访问的`dst`地址必须落在批量句柄所属通道的远端注册内存内，该约束由调用方保证。
-- 同一批次内追加的请求必须使用相同的WQE宽度（即占用相同的任务槽位数量，如写通知/原子任务占2个任务槽位，普通写/读任务占1个），混用宽度不受支持。
-- 批量重载不提供`commit`参数，固定按延迟语义添加任务，每个批量立即数写任务占用1个任务槽位（64字节）。
+- 同一批次内追加的请求必须使用相同的WQE宽度。Group模式下每轮需要的SQ和CQ槽位见[Group模式容量规划](./simt_batch_commit.md#group模式容量规划)。
 
 ## 调用示例
 

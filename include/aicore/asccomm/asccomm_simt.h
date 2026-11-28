@@ -52,13 +52,13 @@ namespace asc::simt {
  * @note There is no commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note An asccomm object is lane-private. Non-batch interfaces are called by one lane. On a
- *       batch overload with a coop_group argument, one lane plans the SQ range, every
- *       lane writes its final slot, and batch_commit publishes after those writes are ready.
- * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
- *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
- *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
- *       for the later immediate DWQE that publishes the batch.
+ * @note An asccomm object is lane-private. Non-batch interfaces are called by one lane. For each
+ *       group batch posting round, one lane plans the SQ range and every lane writes its assigned slot.
+ *       All group lanes call batch_commit after the requests have been added.
+ * @note When the send queue has insufficient free basic blocks, a non-batch posting interface polls
+ *       completed CQEs to release SQ space and retries the reservation. It returns -1 without changing
+ *       the SQ head if no completion arrives before the retry limit. Deferred posts reserve two basic
+ *       blocks for the later immediate DWQE that publishes the batch.
  * @note A channel must not be driven by both this class and the SIMD AscendC::Hcomm. The two paths
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs cur_head and wqe_cnt into the u64 at SqContext::ubJfs::headAddr.
@@ -105,10 +105,17 @@ public:
      * @brief Create a batch for the explicitly supplied cooperative group.
      * @param [in] group: Cooperative group whose lanes own this batch.
      * @note Pass the same group to every posting call and batch_commit for this handle.
-     *       The no-group overloads are for single-lane handles. A supplied coop_group uses the
-     *       collective path, including when its current size is 1.
+     *       The no-group overloads are for single-lane handles.
      *       Use fixed group membership, lane ranks and size for the handle's lifetime.
-     *       Every lane must pass the same valid buff and buff_len arguments.
+     *       Every lane must pass the same channel, buff and buff_len. Each live group handle needs
+     *       an exclusive channel and a separate workspace of at least 256 bytes aligned to 16 bytes.
+     *       Workspaces used by concurrent group batch handles must not overlap.
+     * @note Check that the returned context is non-null before using the handle.
+     * @note In each round, every lane must call the same communication function with the group argument
+     *       and matching template arguments. Lanes may supply their own request data. One or more successful
+     *       rounds can be submitted in one commit. All rounds in a batch must use the same WQE width.
+     * @note The group must contain at least 16 consecutive hardware threads in rank order. Group rank 0
+     *       must start at hardware warp lane 0 or 16.
      */
     template <typename coop_group>
     __simt_callee__ inline batch_handle<ChannelHandle> make_batch_handle(
@@ -279,6 +286,14 @@ public:
      */
     __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle);
 
+    /*!
+     * @brief Submit one or more rounds of requests added by the group batch posting calls.
+     * @note Every lane in the group must call this overload. Each request must generate a CQE.
+     * @note A failed posting round preserves earlier successful rounds. If the queue is full, submit any
+     *       successfully added rounds and have one lane drain the submitted requests. Synchronize the
+     *       group and retry the failed round only if drain succeeds.
+     *       This overload returns -1 if no round has succeeded since handle creation or the last commit.
+     */
     template <typename coop_group>
     __simt_callee__ inline int32_t batch_commit(ubc_ctp_batch_handle& batch_handle, const coop_group& group);
 

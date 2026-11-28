@@ -72,6 +72,7 @@ static_assert(sizeof(asccomm_urma_sge_ctx) == 16U, "Packed SIMT SQE assumes a 16
 // than struct bit-fields, so these offsets are the single description of the WQE layout;
 // the structs above only pin down the sizes they are derived from.
 constexpr uint32_t ASCCOMM_SIMT_WQE_WORDS = ASCCOMM_URMA_DWQE_SIZE / sizeof(uint64_t);
+constexpr uint32_t ASCCOMM_SIMT_DWQE_LANES = ASCCOMM_SIMT_WQE_WORDS;
 constexpr uint32_t ASCCOMM_SIMT_BB_WORDS = ASCCOMM_URMA_WQE_BB_SIZE / sizeof(uint64_t);
 constexpr uint32_t ASCCOMM_SIMT_SQE_WORDS = sizeof(asccomm_urma_sqe_ctx) / sizeof(uint64_t);
 constexpr uint32_t ASCCOMM_SIMT_NOTIFY_WORDS = sizeof(asccomm_urma_notify_ctx) / sizeof(uint64_t);
@@ -79,27 +80,33 @@ constexpr uint32_t ASCCOMM_SIMT_SGE_WORDS = sizeof(asccomm_urma_sge_ctx) / sizeo
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t ASCCOMM_SIMT_INLINE_FIRST_WORD = ASCCOMM_SIMT_SQE_WORDS;
 
-// Static queue/Jetty fields and the exclusive producer cursor are shared by all lanes. The
+// Static queue/Jetty fields and the accumulated producer cursor are shared by all lanes. The
 // second 128-byte workspace block holds the final publisher WQE used to ring DWQE.
 struct alignas(sizeof(ulonglong2)) asccomm_simt_batch_static_context {
     uint64_t head_addr;
     uint64_t sq_tail_addr;
+    uint64_t cq_tail_addr;
     uint64_t dwqe_addr;
     uint64_t sq_base_addr;
     uint64_t word1Base;
     uint64_t remote_eid_l;
     uint64_t remote_eid_h;
     uint64_t token_word;
-    uint64_t reserved_head;
+    uint64_t reserved_head; // Packed SQ and CQ counters advanced by group reservations before commit.
+
     uint32_t sq_wqe_size;
     uint32_t sq_depth;
+    uint32_t cq_depth;
     uint32_t cached_sq_tail;
-    uint32_t item_bb; // WQE width in basic blocks, re-declared by each appended request; 0 until the first append.
+    uint32_t cached_cq_tail;
+
+    uint32_t round_start; // SQ counter before the current group reservation.
+    uint32_t item_bb;     // WQE width in basic blocks; zero when a collective batch is empty.
     uint32_t group_size;
-    int32_t reservation_status;
+    int32_t reservation_status; // Result of the latest reservation attempt.
 };
 static_assert(
-    sizeof(asccomm_simt_batch_static_context) <= ASCCOMM_URMA_DWQE_SIZE,
+    sizeof(asccomm_simt_batch_static_context) <= ASCCOMM_SIMT_BATCH_CONTEXT_BYTES,
     "The shared SIMT batch context must fit in the public UB workspace");
 
 // Copies a staged WQE into its reserved SQ slot. A 2-BB WQE landing on the last slot of the ring
@@ -382,21 +389,12 @@ __simt_callee__ inline uint32_t asccomm_simt_batch_total_bb(uint32_t group_size,
     return group_size * item_bb + (item_bb == ASCCOMM_URMA_WQE_BB_CNT ? ASCCOMM_URMA_WQE_BB_CNT : 0U);
 }
 
-// Advance the private producer cursor without publishing it. The cached tail is sufficient on the
+// Check capacity at the private producer cursor without publishing it. The cached tail is sufficient on the
 // normal path; it is refreshed from GM only when the cached free range has been exhausted.
-// item_bb overrides context->item_bb for this planning pass without storing it, so make_batch_handle can
-// pre-check capacity with the widest request layout before the first request fixes the actual width.
-__simt_callee__ inline bool asccomm_simt_plan_batch_from_head(
-    __ubuf__ asccomm_simt_batch_static_context* context, uint64_t head_val, uint32_t item_bb = 0U)
+__simt_callee__ inline bool asccomm_simt_has_batch_sq_space(
+    __ubuf__ asccomm_simt_batch_static_context* context, uint64_t head_val, uint32_t item_bb)
 {
-    const uint32_t planned_item_bb = item_bb == 0U ? context->item_bb : item_bb;
-    if (planned_item_bb == 0U) {
-        // A zero width means no request has fixed the WQE size yet; a zero-width plan would pass every
-        // capacity check, so fail the reservation instead.
-        context->reservation_status = ASCCOMM_FAILED;
-        return false;
-    }
-    const uint32_t total_bb = asccomm_simt_batch_total_bb(context->group_size, planned_item_bb);
+    const uint32_t total_bb = asccomm_simt_batch_total_bb(context->group_size, item_bb);
     const uint32_t head = asccomm_simt_head_idx(head_val);
     uint32_t used_bb = head - context->cached_sq_tail;
     if (used_bb > context->sq_depth || total_bb > context->sq_depth - used_bb) {
@@ -404,10 +402,36 @@ __simt_callee__ inline bool asccomm_simt_plan_batch_from_head(
         context->cached_sq_tail = *reinterpret_cast<__gm__ uint32_t*>(context->sq_tail_addr);
         used_bb = head - context->cached_sq_tail;
     }
+    return used_bb <= context->sq_depth && total_bb <= context->sq_depth - used_bb;
+}
+
+// Re-plan the single-lane batch at the supplied head.
+__simt_callee__ inline bool asccomm_simt_plan_batch_from_head(
+    __ubuf__ asccomm_simt_batch_static_context* context, uint64_t head_val, uint32_t item_bb = 0U)
+{
+    const uint32_t planned_item_bb = item_bb == 0U ? context->item_bb : item_bb;
+    if (planned_item_bb == 0U) {
+        context->reservation_status = ASCCOMM_FAILED;
+        return false;
+    }
+    const bool has_space = asccomm_simt_has_batch_sq_space(context, head_val, planned_item_bb);
     context->reserved_head = head_val;
-    context->reservation_status =
-        used_bb <= context->sq_depth && total_bb <= context->sq_depth - used_bb ? ASCCOMM_SUCCESS : ASCCOMM_FAILED;
-    return context->reservation_status == ASCCOMM_SUCCESS;
+    context->reservation_status = has_space ? ASCCOMM_SUCCESS : ASCCOMM_FAILED;
+    return has_space;
+}
+
+__simt_callee__ inline bool asccomm_simt_has_batch_cq_space(__ubuf__ asccomm_simt_batch_static_context* context)
+{
+    // Count reserved CQEs, including pending rounds. Unsigned subtraction handles counter wrap.
+    const uint32_t cq_head = asccomm_simt_wqe_cnt(context->reserved_head);
+    uint32_t used_cq = cq_head - context->cached_cq_tail;
+    if (used_cq > context->cq_depth || context->group_size > context->cq_depth - used_cq) {
+        auto cq_tail = reinterpret_cast<__gm__ uint32_t*>(context->cq_tail_addr);
+        asc_dcci_single(cq_tail);
+        context->cached_cq_tail = *cq_tail;
+        used_cq = cq_head - context->cached_cq_tail;
+    }
+    return used_cq <= context->cq_depth && context->group_size <= context->cq_depth - used_cq;
 }
 
 // Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence and
@@ -537,8 +561,7 @@ __simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::
     context->cached_sq_tail = *post.sq_tail_addr;
     context->item_bb = 0U;
     context->group_size = group_size;
-    // Pre-check capacity with the widest request layout; every appended request re-plans with its
-    // actual width.
+    // Pre-check capacity with the widest request layout; every appended request re-plans with its actual width.
     asccomm_simt_plan_batch_from_head(context, *post.head_addr, ASCCOMM_URMA_DWQE_BB_CNT);
 
     batch_handle.channel = channel;
@@ -554,19 +577,33 @@ __simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::
 {
     ubc_ctp_batch_handle batch_handle;
     constexpr uint32_t workspace_bytes = ASCCOMM_SIMT_BATCH_CONTEXT_BYTES + ASCCOMM_SIMT_BATCH_ITEM_BYTES;
+    const uint32_t size = static_cast<uint32_t>(group.size());
     // All lanes must supply the same arguments; reject invalid storage before any lane reads it.
-    if (buff == nullptr || buff_len < workspace_bytes) {
+    if (buff == nullptr || buff_len < workspace_bytes || size < ASCCOMM_SIMT_DWQE_LANES) {
         return batch_handle;
     }
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
-    const uint32_t size = static_cast<uint32_t>(group.size());
+    __ubuf__ asccomm_simt_batch_static_context* context =
+        reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(buff);
     if (rank == 0U) {
-        (void)make_batch_handle(channel, buff, buff_len, 0U, size);
+        const auto handle = make_batch_handle(channel, buff, buff_len, 0U, size);
+        const uint32_t tid = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
+        // With consecutive hardware lanes in rank order, this keeps all DWQE writers in one half warp.
+        if (handle.context == nullptr || tid % ASCCOMM_SIMT_DWQE_LANES != 0U) {
+            context->head_addr = 0U;
+        } else {
+            auto entity = reinterpret_cast<__gm__ asccomm_simt_channel_entity*>(channel);
+            auto cq = reinterpret_cast<__gm__ CqContext*>(entity->cqContextAddr);
+            const auto& jfc = cq[ASCCOMM_URMA_DEFAULT_QP_IDX].contextInfo.ubJfc;
+            auto cq_tail = reinterpret_cast<__gm__ uint32_t*>(jfc.tailAddr);
+            context->cq_tail_addr = jfc.tailAddr;
+            context->cq_depth = jfc.cqDepth;
+            asc_dcci_single(cq_tail);
+            context->cached_cq_tail = *cq_tail;
+        }
     }
     group.sync();
 
-    __ubuf__ asccomm_simt_batch_static_context* context =
-        reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(buff);
     if (context->head_addr == 0U) {
         return batch_handle;
     }
@@ -577,8 +614,6 @@ __simt_callee__ inline ubc_ctp_batch_handle asccomm_impl<COMM_PROTOCOL_UB_CTP>::
     return batch_handle;
 }
 
-// Each operator prepares its request-specific values at final WQE offsets. The same-BB contract
-// lets coop_group commit derive every final SQ position directly from group rank.
 template <bool commit_flag, asccomm_urma_op_code op_code, auto const& config>
 struct asccomm_simt_data_desc {
     static constexpr bool commit = commit_flag;
@@ -778,21 +813,31 @@ __simt_callee__ inline void asccomm_simt_emit_final_batch_wqe(
     asccomm_simt_store_batch_vector<publisher>(context, first_bb, second_bb, 2U, operand0, operand1, 0U, 0U);
 }
 
-// Sets the WQE width to the appended request's layout and replans the SQ range for that width.
-// The collective path runs this pass on rank 0 only and publishes the results with a group sync
-// before any lane reads them back; the single-lane path needs no barrier because no other lane
-// shares the context.
+// Preserve any successfully appended rounds if the next round cannot be reserved.
 template <typename post_desc>
-__simt_callee__ inline void asccomm_simt_plan_batch_append(__ubuf__ asccomm_simt_batch_static_context* context)
+__simt_callee__ inline void asccomm_simt_plan_group_batch_append(__ubuf__ asccomm_simt_batch_static_context* context)
 {
+    context->reservation_status = ASCCOMM_FAILED;
+    if ((context->item_bb != 0U && context->item_bb != post_desc::bb_cnt) ||
+        !asccomm_simt_has_batch_sq_space(context, context->reserved_head, post_desc::bb_cnt) ||
+        !asccomm_simt_has_batch_cq_space(context)) {
+        return;
+    }
+    context->round_start = asccomm_simt_head_idx(context->reserved_head);
     context->item_bb = post_desc::bb_cnt;
-    asccomm_simt_plan_batch_from_head(context, context->reserved_head);
+    // Reserve the final lane's DWQE in the SQ on every round so it can end the batch if the next round fails.
+    const uint32_t next_head =
+        context->round_start + asccomm_simt_batch_total_bb(context->group_size, context->item_bb);
+    // The SQ and CQ counters wrap independently despite sharing a packed head.
+    const uint32_t next_cq = asccomm_simt_wqe_cnt(context->reserved_head) + context->group_size;
+    context->reserved_head = (static_cast<uint64_t>(next_cq) << 32U) | next_head;
+    context->reservation_status = ASCCOMM_SUCCESS;
 }
 
 // Emits one lane's WQE from the shared plan. The caller guarantees that the plan has been
 // published to every lane, so the check below sees the same item_bb and reservation_status on all
 // lanes and the append decision is uniform across the group.
-template <typename post_desc>
+template <bool collective, typename post_desc>
 __simt_callee__ inline int32_t asccomm_simt_append_planned_batch_wqe(
     __ubuf__ asccomm_simt_batch_static_context* context, uint32_t rank, uint32_t size, const post_desc& desc)
 {
@@ -803,7 +848,8 @@ __simt_callee__ inline int32_t asccomm_simt_append_planned_batch_wqe(
     asccomm_simt_resolved_post post;
     asccomm_simt_load_batch_static_post(context, post);
     const bool publisher = rank + 1U == size;
-    const uint32_t cur_head = asccomm_simt_head_idx(context->reserved_head) + rank * context->item_bb;
+    const uint32_t round_start = collective ? context->round_start : asccomm_simt_head_idx(context->reserved_head);
+    const uint32_t cur_head = round_start + rank * context->item_bb;
     __gm__ uint8_t* first_bb =
         reinterpret_cast<__gm__ uint8_t*>(post.sq_base_addr + post.sq_wqe_size * (cur_head % post.meta.sq_depth));
     __gm__ uint8_t* second_bb = (cur_head % post.meta.sq_depth) + 1U == post.meta.sq_depth ?
@@ -814,7 +860,6 @@ __simt_callee__ inline int32_t asccomm_simt_append_planned_batch_wqe(
     } else {
         asccomm_simt_emit_final_batch_wqe<false>(context, first_bb, second_bb, cur_head, desc);
     }
-    asc_threadfence();
     return ASCCOMM_SUCCESS;
 }
 
@@ -823,31 +868,36 @@ template <typename post_desc>
 __simt_callee__ inline int32_t asccomm_simt_append_final_batch_wqe(
     __ubuf__ asccomm_simt_batch_static_context* context, uint32_t rank, uint32_t size, const post_desc& desc)
 {
-    asccomm_simt_plan_batch_append<post_desc>(context);
-    return asccomm_simt_append_planned_batch_wqe<post_desc>(context, rank, size, desc);
+    context->item_bb = post_desc::bb_cnt;
+    asccomm_simt_plan_batch_from_head(context, context->reserved_head);
+    const int32_t status = asccomm_simt_append_planned_batch_wqe<false>(context, rank, size, desc);
+    if (status == ASCCOMM_SUCCESS) {
+        asc_threadfence();
+    }
+    return status;
 }
 
 // Collective append: rank 0 re-plans with the appended request's width and the sync publishes the
 // plan, so every lane reads the same item_bb and reservation_status before deciding whether to
-// write its WQE.
+// write its WQE. The closing sync keeps the plan stable until all lanes have finished.
+// Each lane orders its accumulated SQ stores at commit, before the publisher advances GM head.
 template <typename post_desc, typename coop_group>
 __simt_callee__ inline int32_t asccomm_simt_append_final_batch_wqe(
     __ubuf__ asccomm_simt_batch_static_context* context, uint32_t rank, uint32_t size, const post_desc& desc,
     const coop_group& group)
 {
     if (rank == 0U) {
-        asccomm_simt_plan_batch_append<post_desc>(context);
+        asccomm_simt_plan_group_batch_append<post_desc>(context);
     }
     group.sync();
-    return asccomm_simt_append_planned_batch_wqe<post_desc>(context, rank, size, desc);
+    const int32_t status = asccomm_simt_append_planned_batch_wqe<true>(context, rank, size, desc);
+    group.sync();
+    return status;
 }
 
 template <bool refresh_cache>
 __simt_callee__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq(ChannelHandle channel, uint32_t expect_idx)
 {
-    if (expect_idx == 0U) {
-        return ASCCOMM_SUCCESS;
-    }
     __gm__ asccomm_simt_channel_entity* channel_entity = reinterpret_cast<__gm__ asccomm_simt_channel_entity*>(channel);
     __gm__ CqContext* cq_contexts = reinterpret_cast<__gm__ CqContext*>(channel_entity->cqContextAddr);
     __gm__ CqContext* cq_ctx = &cq_contexts[ASCCOMM_URMA_DEFAULT_QP_IDX];
@@ -856,6 +906,10 @@ __simt_callee__ inline uint32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::poll_cq(Chan
         asc_dcci_single(tail_addr);
     }
     uint32_t cur_tail = *tail_addr;
+    // The expected CQ index can wrap to zero with completions still pending.
+    if (cur_tail == expect_idx) {
+        return ASCCOMM_SUCCESS;
+    }
 
     __gm__ SqContext* sq_contexts = reinterpret_cast<__gm__ SqContext*>(channel_entity->sqContextAddr);
     __gm__ SqContext* sq_ctx = &sq_contexts[ASCCOMM_URMA_DEFAULT_QP_IDX];
@@ -1048,10 +1102,9 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_post_wq
 {
     __ubuf__ asccomm_simt_batch_static_context* context =
         reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(batch_handle.context);
-    // The first append plans on rank 0 and syncs before the emit; later appends read the state
-    // published by the previous sync. batch_commit synchronizes the group again before the
-    // publisher advances the shared head.
-    return asccomm_simt_append_final_batch_wqe(context, batch_handle.group_rank, batch_handle.group_size, desc, group);
+    return context == nullptr ? ASCCOMM_FAILED :
+                                asccomm_simt_append_final_batch_wqe(
+                                    context, batch_handle.group_rank, batch_handle.group_size, desc, group);
 }
 
 template <bool commit, auto const& config>
@@ -1262,26 +1315,40 @@ __simt_callee__ inline int32_t asccomm_impl<COMM_PROTOCOL_UB_CTP>::batch_commit(
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
-    const bool publisher = rank + 1U == size;
     __ubuf__ asccomm_simt_batch_static_context* context =
         reinterpret_cast<__ubuf__ asccomm_simt_batch_static_context*>(batch_handle.context);
-    // Check the shared reservation after the sync so every lane reads the same value and the
-    // collective call returns uniformly.
-    if (context->reservation_status != ASCCOMM_SUCCESS) {
+    if (context == nullptr) {
         return ASCCOMM_FAILED;
     }
-    // Append has ordered every lane's SQ stores before the publisher advances the shared head.
-    group.sync();
-    if (publisher) {
-        asccomm_simt_resolved_post post;
-        asccomm_simt_load_batch_static_post(context, post);
-        const uint32_t total_bb = asccomm_simt_batch_total_bb(size, context->item_bb);
-        const uint64_t published_head = context->reserved_head + ((static_cast<uint64_t>(size) << 32U) | total_bb);
-        *post.head_addr = published_head;
-        asc_dcci_single(post.head_addr);
+    // A successful append sets item_bb to the WQE width. A failed append leaves it unchanged.
+    const bool has_pending_batch = context->item_bb != 0U;
+    if (has_pending_batch) {
+        // The NIC may fall back to SQ, so every producer must order its own SQ stores before DWQE.
         asc_threadfence();
-        asccomm_simt_ring_batch_dwqe(post.dwqe_addr, asccomm_simt_batch_publisher_words(context));
-        asccomm_simt_plan_batch_from_head(context, published_head);
+    }
+    // Finish reading item_bb and ordering SQ stores before publishing the head or reusing the batch.
+    group.sync();
+    if (!has_pending_batch) {
+        return ASCCOMM_FAILED;
+    }
+
+    const bool is_last_lane = rank + 1U == size;
+    if (is_last_lane) {
+        auto head = reinterpret_cast<__gm__ uint64_t*>(context->head_addr);
+        *head = context->reserved_head;
+        asc_dcci_single(head);
+        asc_threadfence();
+        context->item_bb = 0U;
+    }
+    // Wait for the SQ head update before the first 16 lanes write the DWQE.
+    group.sync();
+
+    // Each of the first 16 lanes writes one word using the same warp store instruction.
+    if (rank < ASCCOMM_SIMT_DWQE_LANES) {
+        auto dwqe = reinterpret_cast<__gm__ uint64_t*>(context->dwqe_addr);
+        asc_stcg(dwqe + rank, asccomm_simt_batch_publisher_words(context)[rank]);
+        // Order this lane's DWQE store before the group can reuse the workspace.
+        asc_threadfence();
     }
     group.sync();
     return ASCCOMM_SUCCESS;

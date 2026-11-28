@@ -200,14 +200,14 @@ AllGather：遍历全部对端通道，将本端分片（位于`rank_id * SHARD_
 
 ### 批量提交
 
-需要以批量方式提交通信任务时，可使用批量接口。批量接口通过`make_batch_handle`创建的批量句柄添加任务，通过`batch_commit`统一提交，其UB工作区由`make_batch_handle`绑定（至少256字节，即128字节共享上下文与128字节发布者DWQE（Direct WQE，直接写入硬件门铃窗口的工作队列元素）镜像，工作区大小不随Group规模增长），不通过`init`传入。SIMT批量分为单lane批量与多lane协同批量两种形态：单lane批量当前每批仅支持提交一个任务请求，需要提交多个任务时逐个添加并逐批提交；多lane协同批量每批由group内每个lane各添加一个任务，每批任务数等于lane数。
+需要以批量方式提交通信任务时，可使用批量接口。批量接口通过`make_batch_handle`创建的批量句柄添加任务，通过`batch_commit`统一提交，其UB工作区由`make_batch_handle`绑定（至少256字节，即128字节共享上下文与128字节发布者DWQE（Direct WQE，直接写入硬件门铃窗口的工作队列元素）镜像，工作区大小不随Group规模增长），不通过`init`传入。SIMT批量分为单lane批量与多lane协同批量两种形态：单lane批量当前每批仅支持提交一个任务请求，需要提交多个任务时逐个添加并逐批提交；多lane协同批量每轮由group内每个lane各添加一个任务，可以提交一轮，也可以一次提交多轮。
 
 主要约束：
 
 - 通过批量句柄提交的请求，目标地址必须位于批量句柄所属通道的远端注册内存内，由调用方保证。
 - 同一批次内追加的请求必须使用相同的WQE宽度（即占用相同的任务槽位数量，如写通知/原子任务占2个任务槽位，普通写/读任务占1个），混用宽度不受支持。
-- 同一批量句柄从创建到失效必须使用同一Group（成员、lane rank与size保持不变）和同一UB工作区；未传Group的重载用于单lane句柄，传入Group的句柄按多lane协同路径处理（即使size为1），每次添加任务与`batch_commit`均须传入该Group。
-- 添加任务的接口返回失败时，不得对该批次调用`batch_commit`；未添加任何任务的空批次提交将失败。
+- 同一批量句柄在使用期间须使用同一UB工作区。单lane批量使用不带group参数的重载。多lane协同批量要求group至少包含16个线程，创建句柄、添加任务和提交时须传入同一个group（成员、lane rank与size保持不变）。
+- 单lane批量中，添加任务的接口返回`-1`时，不得提交该批次。多lane协同批量中，队列空间不足时，按[batch_commit](../../api/aicore/asccomm/simt_batch_commit.md)的约束说明处理。
 - 通道在同一时刻只能被一个存活的batch_handle独占，存活期间不能在该通道上使用普通接口提交任务。
 
 #### 单lane批量
@@ -236,24 +236,25 @@ AllGather：遍历全部对端通道，将本端分片（位于`rank_id * SHARD_
 
 #### 多lane协同批量
 
-group内每个lane各构造一个请求并添加到当前批次，`batch_commit`为协作调用（group内所有lane均须调用），由发布lane统一发布整批，每批任务数等于lane数。group为协作组对象，由头文件`simt_api/cooperative_groups.h`提供（如通过`cooperative_groups::this_thread_block()`获取当前线程块组，`__simt_vf__`函数需以多lane形态下发）。asccomm对象为lane私有，Group内每个lane各自持有，并在每次添加任务与`batch_commit`时显式传入group：
+每轮由group内每个lane各添加一个任务。成功添加一轮后，所有lane即可共同调用`batch_commit`，也可继续添加多轮再统一提交。每个lane各自持有asccomm对象。协作组须满足[make_batch_handle](../../api/aicore/asccomm/simt_make_batch_handle.md)的线程数和对齐约束。
+
+以下示例使用`cooperative_groups::this_thread_block()`获取协作组并提交一轮写任务。示例检查句柄是否有效，省略后续接口的返回值检查与错误处理。
 
   ```cpp
-  // group来自simt_api/cooperative_groups.h，通过this_thread_block()等接口构造
+  // 通过simt_api/cooperative_groups.h中的接口获取当前线程块组。
   auto group = cooperative_groups::this_thread_block();
 
-  // 前置条件：remote_dst_for_lane/local_src_for_lane/len为每lane各自写任务的目的/源GM地址与长度
-  // 以下调用由group所有lane参与，每lane构造自己的一个请求
+  // remote_dst_for_lane和local_src_for_lane是各lane写任务的目的和源GM地址。
   auto batch_handle = asccomm.make_batch_handle(channel, batch_workspace, WORKSPACE_BYTES, group);
   if (batch_handle.context == nullptr) {
       return;
   }
-  ret = asccomm.write_nbi(batch_handle, remote_dst_for_lane, local_src_for_lane, len, group);
-  ret = asccomm.batch_commit(batch_handle, group);
-  // 所有lane同步后，由一个lane调用Drain，Drain不接收group
+  asccomm.write_nbi(batch_handle, remote_dst_for_lane, local_src_for_lane, len, group);
+  asccomm.batch_commit(batch_handle, group);
+  // 组内同步后，由一个lane等待任务完成。
   group.sync();
   if (group.thread_rank() == 0U) {
-      ret = asccomm.drain(batch_handle);
+      asccomm.drain(batch_handle);
   }
   ```
 
@@ -266,7 +267,7 @@ group内每个lane各构造一个请求并添加到当前批次，`batch_commit`
 - 一个通道必须由一个lane驱动：普通接口由单个lane调用，同一批任务（含延迟任务）必须由同一个lane提交，其余lane直接返回。
 - 缓冲区地址按通道缓冲区表下标解析：本地表下标0为通信域的HcclBuffer，显式注册的内存从下标1开始编排；远端下标取`HcclChannelGetRemoteMems`返回的内存表中按tag匹配到的下标。不能直接传`HcclCommMemReg`的`memHandles`数组下标，否则会解析到HcclBuffer。
 - SIMT路径没有`commit`接口，`commit = false`的任务由后续`commit = true`的任务提交时带出。
-- 批量提交：同一批次内追加的请求必须使用相同的WQE宽度，混用宽度不受支持；单lane批量当前每批仅支持提交一个任务请求，多lane协同批量每批由group内每个lane各添加一个任务，`batch_commit`由所有lane协作调用。
+- 批量提交：同一批次内追加的请求必须使用相同的WQE宽度，混用宽度不受支持；单lane批量当前每批仅支持提交一个任务请求，多lane协同批量每轮由group内每个lane各添加一个任务，可以提交一轮或多轮，`batch_commit`由所有lane协作调用。
 - SQ（Send Queue，发送队列）占用：延迟提交（`commit`为`false`）的`write_nbi`/`read_nbi`/`write_value_nbi`占1个任务槽位，立即提交（`commit`为`true`）的`write_nbi`/`read_nbi`/`write_value_nbi`占2个任务槽位，写通知与原子任务无论提交方式均占2个任务槽位。`commit`为`false`时，积攒的延迟提交任务占用的槽位数与发布该批的`commit`为`true`任务占用的槽位数之和不得超过通道的任务提交容量（SQ深度sqDepth），需在SQ耗尽前由`commit`为`true`的任务提交积攒的任务，否则后续任务提交将因SQ溢出而失败。
 - 同一通道不能同时由SIMT的`asc::simt::asccomm`与SIMD的`asc::asccomm`驱动。
 - 单次`write_nbi`/`read_nbi`的数据长度必须不超过256MB；普通接口（立即提交与延迟提交）与批量接口的数据长度`len`均至少为2字节。

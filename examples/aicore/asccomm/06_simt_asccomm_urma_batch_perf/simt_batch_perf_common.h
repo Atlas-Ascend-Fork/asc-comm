@@ -17,8 +17,15 @@ namespace simt_batch_perf {
 
 constexpr uint32_t ROOT_RANK = 0U;
 constexpr uint32_t SLOT_COUNT = 64U;
-constexpr uint32_t MAX_BATCH_SIZE = 1024U;
-constexpr uint32_t MAX_GROUP_LANES = 1024U;
+constexpr uint32_t MIN_GROUP_LANES = 16U;
+// Maximum total threads in one SIMT VF, shared by all channel groups.
+constexpr uint32_t MAX_GROUP_LANES = 2048U;
+constexpr uint32_t MAX_CHANNELS = 32U;
+// Leave room in uint32 for both phases and for rounding the group warmup.
+constexpr uint32_t MAX_ITERATIONS = (UINT32_MAX - MAX_GROUP_LANES + 1U) / 2U;
+constexpr uint32_t MAX_WARMUP = MAX_ITERATIONS;
+// Maximum transfer length for a single SIMT URMA request.
+constexpr uint32_t MAX_PAYLOAD_BYTES = 256U * 1024U * 1024U;
 // One 128-byte block holds the shared context and one holds the publisher DWQE image.
 constexpr uint32_t BATCH_ITEM_BYTES = 128U;
 constexpr uint32_t BATCH_BUFFER_BYTES = 2U * BATCH_ITEM_BYTES;
@@ -44,7 +51,14 @@ constexpr uint32_t COMPLETION_CYCLES_INDEX = 1U;
 constexpr uint32_t STATUS_INDEX = 2U;
 constexpr uint32_t COMPLETED_INDEX = 3U;
 constexpr uint32_t PUBLISH_COUNT_INDEX = 4U;
-constexpr uint32_t TIMING_WORDS = 5U;
+constexpr uint32_t BATCH_TIMING_WORDS = PUBLISH_COUNT_INDEX + 1U;
+constexpr uint32_t ISSUE_START_INDEX = BATCH_TIMING_WORDS;
+constexpr uint32_t GROUP_TIMING_WORDS = ISSUE_START_INDEX + 1U;
+
+struct ChannelConfig {
+    uint64_t handle;
+    uint32_t remote_recv_idx;
+};
 
 } // namespace simt_batch_perf
 

@@ -27,7 +27,7 @@
 
 `asc::simt::asccomm`是SIMD（Single Instruction Multiple Data，单指令多数据）路径`asc::asccomm`在SIMT（Single Instruction Multiple Threads，单指令多线程）执行空间的对应接口模板，提供相同的点对点通信原语（write_nbi、read_nbi等），适用于LocalTensor和pipe同步原语不可用的SIMT Kernel侧代码。普通接口通过`channel`逐条添加读、写、写通知和原子操作任务；批量接口通过[make_batch_handle](./simt_make_batch_handle.md)创建的批量句柄添加任务，再通过[batch_commit](./simt_batch_commit.md)统一提交。批量任务还支持通过Group协作组由组内多个线程协作提交。
 
-通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：添加通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE，Completion Queue Entry）写入CQ，[drain](./simt_drain.md)通过轮询CQ等待任务完成。任务以WQE（Work Queue Element，工作队列元素）描述，一个WQE占1-2个任务槽位，每个任务槽位为64字节，即一个WQEBB（WQE Basic Block，WQE基本块）。普通接口（`channel`入参）的槽位占用与提交方式相关：立即提交（`commit`为`true`）的写/读任务占2个任务槽位，延迟提交（`commit`为`false`）的写/读任务占1个任务槽位（容量规划时还需为后续的立即提交任务额外计入2个任务槽位）。批量接口（`batch_handle`入参）不提供`commit`参数，固定按延迟语义添加任务：写/读任务占1个任务槽位，写通知/原子任务占2个。任务提交容量即SQ深度（sqDepth），由Host侧创建通道资源时确定。
+通道的底层通信资源包含SQ（Send Queue，发送队列）与CQ（Completion Queue，完成队列）：添加通信任务时，任务描述写入SQ；任务完成后生成完成记录（CQE，Completion Queue Entry）写入CQ，[drain](./simt_drain.md)通过轮询CQ等待任务完成。任务以WQE（Work Queue Element，工作队列元素）描述，一个WQE占1-2个任务槽位，每个任务槽位为64字节，即一个WQEBB（WQE Basic Block，WQE基本块）。普通接口（`channel`入参）的槽位占用与提交方式相关：立即提交（`commit`为`true`）的写/读任务占2个任务槽位，延迟提交（`commit`为`false`）的写/读任务占1个任务槽位（容量规划时还需为后续的立即提交任务额外计入2个任务槽位）。任务提交容量即SQ深度（sqDepth），由Host侧创建通道资源时确定。Group协作批量每轮需要的SQ和CQ槽位见[Group模式容量规划](./simt_batch_commit.md#group模式容量规划)。
 
 典型使用流程如下：
 

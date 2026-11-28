@@ -78,7 +78,7 @@ __simt_callee__ inline int32_t drain(ubc_ctp_batch_handle& batch_handle);
 
 **批量接口**
 
-- 调用前必须通过[batch_commit](./simt_batch_commit.md)提交当前批次中的全部任务。
+- 批量任务须经[batch_commit](./simt_batch_commit.md)提交后，才能通过本接口等待其完成。
 - 使用批量句柄期间需要独占其关联的通道资源，不能混用普通`drain`。
 
 ## 调用示例
