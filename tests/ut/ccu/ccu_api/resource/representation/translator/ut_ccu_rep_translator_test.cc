@@ -223,6 +223,58 @@ TEST_F(CcuRepTranslatorTest, Translate_V2_RunsOptimizer)
     EXPECT_GT(info.instr_count, 0u);
 }
 
+TEST_F(CcuRepTranslatorTest, Translate_V2_MarksTokenConstantAsSecret)
+{
+    ccu_rep_translator::set_ccu_version(HCOMM_CCU_VERSION_V2);
+    ccu_rep_translator translator(refMgr, dep);
+
+    constexpr uint64_t token_value = 0x123456789ABCDEF0ULL;
+    constexpr uint64_t normal_value = 0xDEADBEEFULL;
+    ASSERT_EQ(kernel.add2_const_value2_var_map({normal_value, token_value}, {token_value}), HCCL_SUCCESS);
+
+    std::vector<std::shared_ptr<ccu_rep_base>> rep_vec;
+    auto info = translator.translate(&kernel, rep_vec, /*start_instr_id=*/0);
+
+    size_t token_instr_num = 0;
+    size_t normal_instr_num = 0;
+    for (const auto& instr : info.instr_vec) {
+        if (instr.header.type == 0x0 && instr.header.code == 0x2 && instr.v2.load_imd_to_x.immediate == token_value) {
+            ++token_instr_num;
+            EXPECT_EQ(instr.v2.load_imd_to_x.sec_flag, ccu_load_to_xn_sec_info);
+        }
+        if (instr.header.type == 0x0 && instr.header.code == 0x2 && instr.v2.load_imd_to_x.immediate == normal_value) {
+            ++normal_instr_num;
+            EXPECT_EQ(instr.v2.load_imd_to_x.sec_flag, 0);
+        }
+    }
+    EXPECT_EQ(token_instr_num, 1u);
+    EXPECT_EQ(normal_instr_num, 1u);
+}
+
+TEST_F(CcuRepTranslatorTest, Translate_EmptyRepVec_V2_DoesNotGenerateGsaInstruction)
+{
+    ccu_rep_translator::set_ccu_version(HCOMM_CCU_VERSION_V2);
+    ccu_rep_translator translator(refMgr, dep);
+    std::vector<std::shared_ptr<ccu_rep_base>> rep_vec;
+
+    auto info = translator.translate(&kernel, rep_vec, /*start_instr_id=*/0);
+    EXPECT_EQ(info.start_instr_id, 0u);
+    // V2 mission 序言 3 条 + FinishMainBlock 固定 10 条。
+    EXPECT_EQ(info.instr_count, 13u);
+    ASSERT_EQ(info.instr_vec.size(), 13u);
+
+    // 前 2 条为 AssignI，即 V2 LoadImdToXn；第 3 条为 SetCKE；末尾 10 条为 NOP。
+    EXPECT_EQ(info.instr_vec[0].header.type, 0x0);
+    EXPECT_EQ(info.instr_vec[0].header.code, 0x2);
+    EXPECT_EQ(info.instr_vec[1].header.type, 0x0);
+    EXPECT_EQ(info.instr_vec[1].header.code, 0x2);
+    EXPECT_EQ(info.instr_vec[2].header.type, 0x1);
+    for (size_t i = 3; i < info.instr_vec.size(); ++i) {
+        EXPECT_EQ(info.instr_vec[i].header.type, 0x0) << "index=" << i;
+        EXPECT_EQ(info.instr_vec[i].header.code, 0x9) << "index=" << i;
+    }
+}
+
 TEST_F(CcuRepTranslatorTest, TranslateAssign_Var_V1)
 {
     ccu_rep_translator translator(refMgr, dep);

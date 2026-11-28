@@ -127,7 +127,7 @@ void ccu_rep_mul::validate_ins_gen_ptr_for_mul() const
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     CHK_PRT_THROW(
         (tmp_ptr_v1 && !support_ccu_v1_),
-        HCCL_ERROR("[CcuRepMul][%s]Cannot translate CcuRepMul for A5 when supportCcuV1 is false", __func__),
+        HCCL_ERROR("[CcuRepMul][%s]Cannot translate CcuRepMul for V1 when supportCcuV1 is false", __func__),
         ccu_result::CCU_E_INTERNAL, "tmpPtrV1 does not match supportCcuV1");
 }
 

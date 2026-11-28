@@ -1055,7 +1055,7 @@ TEST_F(CcuRepSubTest, TranslateViaGenerator_NotSupported)
     EXPECT_EQ(ret, HcclResult::HCCL_E_NOT_SUPPORT);
 }
 
-TEST_F(CcuRepAddTest, Constructor_A6SubTypes_AndDescribe)
+TEST_F(CcuRepAddTest, Constructor_V2SubTypes_AndDescribe)
 {
     variable var_c_;
     variable var_a_;
@@ -1124,7 +1124,7 @@ TEST_F(CcuRepMulTest, Constructor_RemainingSubTypes_AndDescribe)
     EXPECT_NE(r5.describe().find("Immed"), std::string::npos);
 }
 
-TEST_F(CcuRepMulTest, Translate_A6SubType_V1GeneratorThrows)
+TEST_F(CcuRepMulTest, Translate_V2SubType_V1GeneratorThrows)
 {
     // v1 生成器对 mul 恒返回 NOT_SUPPORT, translate 抛错
     variable var_c_;

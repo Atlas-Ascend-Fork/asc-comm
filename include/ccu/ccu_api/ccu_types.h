@@ -94,7 +94,7 @@ typedef struct {
     uint32_t addr_offset;
     uint32_t ccu_buffer_offset;
     uint32_t event_offset;
-    uint32_t var_offset; // A6 专属，旧 ccu_loop_group_config 不含此字段
+    uint32_t var_offset; // V2 专属，旧 ccu_loop_group_config 不含此字段
     uint32_t reserved[8];
 } ccu_loop_group_cfg;
 

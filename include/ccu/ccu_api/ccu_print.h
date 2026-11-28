@@ -165,7 +165,7 @@ ccu_result EmitPrintf(const detail::PrintInfoHandle* handle, const Args&... args
 
     // Keep one of the 32 slots empty (31 usable). Drop rather than overwrite an
     // unread record or stall communication. Each ring requires a single writer.
-    // A5 cannot compare two variables (nor subtract/XOR them). The Host stores
+    // V1 cannot compare two variables (nor subtract/XOR them). The Host stores
     // head as 0 - byteOffset, so modular addition tests equality against zero.
     // Compute once: the full branch may reuse other temporaries.
     head = next + head;

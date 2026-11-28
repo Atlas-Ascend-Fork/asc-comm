@@ -252,17 +252,28 @@ ccu_instr_info ccu_rep_translator::translate(
 
 void ccu_rep_translator::common_process(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id)
 {
-    load_imd_to_xn_instr(instr++, var_[0].id(), 0);
-    load_imd_to_gsa_instr(instr++, addr_[0].id(), 0);
+    // 对齐 hcomm 正仓 CommonProcess：V2 无 GSA，使用 AssignI 初始化两个保留 XN。
+    if (ccu_version == HCOMM_CCU_VERSION_V1) {
+        load_imd_to_gsa_instr(instr++, addr_[0].id(), 0);
+        load_imd_to_xn_instr(instr++, var_[0].id(), 0);
+    } else {
+        ccu_v2::assign_i(instr++, var_[0].id(), 0);
+        ccu_v2::assign_i(instr++, var_[xn_num - 1].id(), 0);
+    }
     set_cke_instr(instr++, signal_[0].id(), 0xffff, 0, 0, 1);
 
-    // 遍历需要赋值的常量，A5场景下暂为空表
+    // 遍历需要赋值的常量，V1场景下暂为空表
     std::unordered_map<uint64_t, ccu_rep::variable>& const_value2_var_map = ccu_kernel->get_const_value2_var_map();
     uint32_t const_value_num = const_value2_var_map.size();
     for (auto elem : const_value2_var_map) {
         uint64_t const_value = elem.first;
         ccu_rep::variable cur_variable = elem.second;
-        load_imd_to_xn_instr(instr++, cur_variable.id(), const_value);
+        if (ccu_version == HCOMM_CCU_VERSION_V1) {
+            load_imd_to_xn_instr(instr++, cur_variable.id(), const_value);
+        } else {
+            const uint16_t sec_flag = ccu_kernel->is_sec_const_value(const_value) ? ccu_load_to_xn_sec_info : 0;
+            ccu_v2::load_imd_to_xn(instr++, cur_variable.id(), const_value, sec_flag);
+        }
     }
 
     uint32_t instr_num = 3 + const_value_num;
@@ -274,12 +285,31 @@ void ccu_rep_translator::common_process(ccu_kernel* ccu_kernel, ccu_instr*& inst
 
 void ccu_rep_translator::finish_main_block(ccu_instr*& instr, uint16_t& instr_id)
 {
-    if (trans_dep_.is_func_block) {
-        jump_instr(instr++, ref_manager_.get()->get_func_ret(func_nest_max).id(), trans_dep_.reserve_xn_id, 1);
+    if (ccu_version == HCOMM_CCU_VERSION_V1) {
+        if (trans_dep_.is_func_block) {
+            jump_instr(instr++, ref_manager_.get()->get_func_ret(func_nest_max).id(), trans_dep_.reserve_xn_id, 1);
+        } else {
+            load_imd_to_xn_instr(instr++, var_[0].id(), 0);
+        }
+        instr_id++;
     } else {
-        load_imd_to_xn_instr(instr++, var_[0].id(), 0);
+        constexpr uint32_t V2_FINISH_BLOCK_INSTR_NUM = 10;
+        constexpr uint32_t V2_RELJMP_INSTR_NUM = 9;
+        if (trans_dep_.is_func_block) {
+            ccu_v2::rel_jmp(
+                instr, ref_manager_.get()->get_func_ret(func_nest_max).id(), instr_id + V2_RELJMP_INSTR_NUM,
+                trans_dep_.comm_xn[0], trans_dep_.comm_xn[1]);
+            instr += V2_RELJMP_INSTR_NUM;
+            ccu_v2::jump(
+                instr++, ref_manager_.get()->get_func_ret(func_nest_max).id(), trans_dep_.reserve_xn_id,
+                trans_dep_.reserve_xn_id, 0);
+        } else {
+            for (uint32_t i = 0; i < V2_FINISH_BLOCK_INSTR_NUM; i++) {
+                ccu_v2::nop(instr++);
+            }
+        }
+        instr_id += V2_FINISH_BLOCK_INSTR_NUM;
     }
-    instr_id++;
 
     if (instr_id > UINT16_MAX - 1) {
         asc::throw_ccu_internal("integer overflow occurs");
@@ -293,8 +323,9 @@ void ccu_rep_translator::dump_instruction(const ccu_instr_info& instr_info) cons
         instr_info.start_instr_id, instr_info.instr_count, instr_info.mission_start_instr_id,
         instr_info.mission_instr_count);
     for (uint16_t index = 0; index < instr_info.instr_vec.size(); index++) {
-        HCCL_INFO(
-            "%d: %s", instr_info.start_instr_id + index, parse_instr(instr_info.instr_vec.data() + index).c_str());
+        const auto* instr = instr_info.instr_vec.data() + index;
+        const auto& text = ccu_version == HCOMM_CCU_VERSION_V1 ? parse_instr(instr) : ccu_v2::parse_instr_v2(instr);
+        HCCL_INFO("%d: %s", instr_info.start_instr_id + index, text.c_str());
     }
 }
 
@@ -318,9 +349,9 @@ void ccu_rep_translator::dump_rep(
                 HCCL_ERROR("instrId[%u] less than startInstrId[%u]", instr_id, instr_info.start_instr_id);
                 continue;
             }
-            HCCL_INFO(
-                "microcode[%u]: %s", instr_id,
-                parse_instr(instr_info.instr_vec.data() + (instr_id - instr_info.start_instr_id)).c_str());
+            const auto* instr = instr_info.instr_vec.data() + (instr_id - instr_info.start_instr_id);
+            const auto& text = ccu_version == HCOMM_CCU_VERSION_V1 ? parse_instr(instr) : ccu_v2::parse_instr_v2(instr);
+            HCCL_INFO("microcode[%u]: %s", instr_id, text.c_str());
         }
     }
 }

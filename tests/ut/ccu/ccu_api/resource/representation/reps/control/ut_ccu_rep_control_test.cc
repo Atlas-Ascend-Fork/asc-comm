@@ -751,7 +751,7 @@ TEST_F(CcuRepJumpTest, Constructor_JumpNE_VarExpectedVariant)
     variable target_instr_id_(&context_);
     variable condition_(&context_);
     variable expected_var_(&context_);
-    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 A6 翻译
+    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 V2 翻译
     ccu_rep_jump_ne jumpNE(&insGen, "testJumpNEVar", target_instr_id_, condition_, expected_var_);
     EXPECT_EQ(jumpNE.type(), ccu_rep_type::jump_ne);
 }
@@ -762,7 +762,7 @@ TEST_F(CcuRepJumpTest, Constructor_JumpEQ_VarExpectedVariant)
     variable target_instr_id_(&context_);
     variable condition_(&context_);
     variable expected_var_(&context_);
-    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 A6 翻译
+    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 V2 翻译
     ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQVar", target_instr_id_, condition_, expected_var_);
     EXPECT_EQ(jumpEQ.type(), ccu_rep_type::jump_eq);
 }

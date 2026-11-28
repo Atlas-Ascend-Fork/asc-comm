@@ -18,4 +18,23 @@ void ccu_kernel::append(std::shared_ptr<ccu_rep::ccu_rep_base> rep) { ccu_rep_co
 
 ccu_rep::variable ccu_kernel::create_variable() { return ccu_rep::variable(this); }
 
+HcclResult ccu_kernel::add2_const_value2_var_map(
+    const std::vector<uint64_t>& values, const std::vector<uint64_t>& secret_values)
+{
+    for (uint64_t value : values) {
+        if (const_value2_var_map_.find(value) == const_value2_var_map_.end()) {
+            const_value2_var_map_[value] = create_variable();
+        }
+    }
+    for (uint64_t value : secret_values) {
+        sec_const_value_set_.insert(value);
+    }
+    return HCCL_SUCCESS;
+}
+
+bool ccu_kernel::is_sec_const_value(uint64_t value) const
+{
+    return sec_const_value_set_.find(value) != sec_const_value_set_.end();
+}
+
 } // namespace asc

@@ -22,7 +22,7 @@ ccu_rep_store_var::ccu_rep_store_var(
     ccu_ins_generater_base* ins_generator_ptr, const variable& var, const variable& dst, uint32_t num, bool hscb_flag)
     : ins_generator_ptr_(ins_generator_ptr), var_(var), dst_(dst), num_(num), hscb_flag_(hscb_flag)
 {
-    // for A6 only
+    // for V2 only
     type_ = ccu_rep_type::store_var;
     instr_count_ = ins_generator_ptr_->get_instr_count(type_);
 }

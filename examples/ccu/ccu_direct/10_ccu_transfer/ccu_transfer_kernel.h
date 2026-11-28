@@ -184,7 +184,7 @@ ccu_result ExecuteControlFlowAndLocalNotify(TransferContext& ctx)
     const ccu::local_addr input = MakeLocalAddr(ctx.input, ctx.inputToken);
     const ccu::local_addr output = MakeLocalAddr(ctx.output, ctx.outputToken);
 
-    // 控制流条件仅支持"变量与立即数"比较（双变量比较是 A6/V2 能力，A5 上翻译会直接失败），
+    // 控制流条件仅支持"变量与立即数"比较（双变量比较是 V2 能力，V1 上翻译会直接失败），
     // 立即数不可直接参与算术，故位值与计数均先赋给 variable
     ccu::variable result;
     result = 0;

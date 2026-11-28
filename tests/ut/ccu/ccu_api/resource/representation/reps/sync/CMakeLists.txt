@@ -26,8 +26,10 @@ set(CCU_SYNC_IMPL_SOURCES
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/instruction_scheduler.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/control/ccu_rep_funccall.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager.cc
-        ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_assist.cc
-        ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_assist.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode_v2.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_base.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/common/ccu_rep_block.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/loop/ccu_rep_loop.cc
@@ -45,8 +47,10 @@ set(CCU_SYNC_IMPL_SOURCES
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/common/ccu_rep_loadarg.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/channel/ccu_channel.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/common/ccu_device_context.cc
+
     ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_assign.cc
-    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_add.cc
+${CCU_REP_DIR}/reps/arithmetic/ccu_rep_add.cc
+    ${CCU_REP_DIR}/reps/translator/ccu_ins_generater_base.cc
     ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_sub.cc
     ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_mul.cc
     ${CCU_REP_DIR}/reps/logical/ccu_rep_and.cc

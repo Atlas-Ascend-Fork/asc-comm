@@ -465,7 +465,40 @@ ccu_result ccu_kernel::write_variable_with_notify(
     return static_cast<ccu_result>(ut::take_result());
 }
 
+ccu_result ccu_kernel::load_add_imm(
+    ccu_variable_handle var_handle, uint16_t src_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle dst_handle)
+{
+    ut::record("load_add_imm", {var_handle, src_num, offset_handle, imm_add_value, dst_handle});
+    return static_cast<ccu_result>(ut::take_result());
+}
+
+ccu_result ccu_kernel::add_imm_store(
+    ccu_variable_handle var_handle, uint16_t dst_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle src_handle)
+{
+    ut::record("add_imm_store", {var_handle, dst_num, offset_handle, imm_add_value, src_handle});
+    return static_cast<ccu_result>(ut::take_result());
+}
+
+ccu_result ccu_kernel::write_var_atomic_add(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle var_addr_handle, ccu_variable_handle add_value_handle,
+    ccu_event_handle event_handle, uint32_t mask)
+{
+    ut::record("write_var_atomic_add", {channel_id_handle, var_addr_handle, add_value_handle, event_handle, mask});
+    return static_cast<ccu_result>(ut::take_result());
+}
+
+ccu_result ccu_kernel::write_with_cnt_inc(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle,
+    ccu_variable_handle len_handle, ccu_remote_addr_handle in_cnt_addr_handle)
+{
+    ut::record("write_with_cnt_inc", {channel_id_handle, remote_handle, local_handle, len_handle, in_cnt_addr_handle});
+    return static_cast<ccu_result>(ut::take_result());
+}
+
 ccu_result ccu_kernel::local_notify_record(const char* notify_tag, const uint32_t mask)
+
 {
     ut::record("local_notify_record", {mask});
     return static_cast<ccu_result>(ut::take_result());

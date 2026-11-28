@@ -108,4 +108,69 @@ HcclResult ccu_channel::get_rmt_buffer(uint64_t& addr, uint32_t& size, uint32_t&
     return HCCL_SUCCESS;
 }
 
+// 资源区段基址与步长（对齐 hcomm CcuResSpecifications 的段布局：
+// CCUM + 1M 指令预留 [+ 32K GSA(V1)] + XN 预留（V1 32K / V2 256K）之后为 CKE 区段）
+namespace {
+constexpr uint64_t CCU_RESOURCE_INS_RESERVE_SIZE = 0x100000;     // 指令预留空间 1M
+constexpr uint64_t CCU_V1_RESOURCE_GSA_RESERVE_SIZE = 0x8000;    // V1 GSA 预留空间 32K
+constexpr uint64_t CCU_RESOURCE_XN_V1_RESERVE_SIZE = 32 * 1024;  // XN 预留空间 32K
+constexpr uint64_t CCU_RESOURCE_XN_V2_RESERVE_SIZE = 256 * 1024; // XN 预留空间 256K
+constexpr uint64_t CCU_RESOURCE_CKE_PER_SIZE = 8;                // 单个 CKE 资源占用空间步长
+constexpr uint64_t CCU_RESOURCE_XN_PER_SIZE = 8;                 // 单个 XN 资源占用空间步长
+
+uint64_t get_xn_section_base(uint32_t ccu_version)
+{
+    // XN 区段直接位于指令预留之后
+    return CCU_RESOURCE_INS_RESERVE_SIZE;
+}
+
+uint64_t get_cke_section_base(uint32_t ccu_version)
+{
+    if (ccu_version == 0 /* V1 */) {
+        return CCU_RESOURCE_INS_RESERVE_SIZE + CCU_V1_RESOURCE_GSA_RESERVE_SIZE + CCU_RESOURCE_XN_V1_RESERVE_SIZE;
+    }
+    return CCU_RESOURCE_INS_RESERVE_SIZE + CCU_RESOURCE_XN_V2_RESERVE_SIZE; // V2
+}
+} // namespace
+
+HcclResult ccu_channel::get_rmt_cke_addr_by_index(uint32_t index, uint64_t& rmt_cke_addr) const
+{
+    uint32_t remote_cke_id = 0;
+    HcclResult ret = get_rmt_cke_by_index(index, remote_cke_id);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    uint64_t rmt_base = 0;
+    uint32_t size = 0;
+    uint32_t token_id = 0;
+    uint32_t token_value = 0;
+    ret = get_rmt_buffer(rmt_base, size, token_id, token_value);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    rmt_cke_addr = rmt_base + get_cke_section_base(channel_entity_.ccuVersion) +
+                   static_cast<uint64_t>(remote_cke_id) * CCU_RESOURCE_CKE_PER_SIZE;
+    return HCCL_SUCCESS;
+}
+
+HcclResult ccu_channel::get_rmt_var_addr_by_index(uint32_t index, uint64_t& rmt_var_addr) const
+{
+    uint32_t remote_xn_id = 0;
+    HcclResult ret = get_rmt_xn_by_index(index, remote_xn_id);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    uint64_t rmt_base = 0;
+    uint32_t size = 0;
+    uint32_t token_id = 0;
+    uint32_t token_value = 0;
+    ret = get_rmt_buffer(rmt_base, size, token_id, token_value);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    rmt_var_addr = rmt_base + get_xn_section_base(channel_entity_.ccuVersion) +
+                   static_cast<uint64_t>(remote_xn_id) * CCU_RESOURCE_XN_PER_SIZE;
+    return HCCL_SUCCESS;
+}
+
 } // namespace asc

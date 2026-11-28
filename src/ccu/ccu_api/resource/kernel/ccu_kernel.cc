@@ -843,6 +843,94 @@ ccu_result ccu_kernel::write_variable_with_notify(
     return ccu_result::CCU_SUCCESS;
 }
 
+// 0.5rtt 专用（V2）相关接口
+ccu_result ccu_kernel::load_add_imm(
+    ccu_variable_handle var_handle, uint16_t src_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle dst_handle)
+{
+    HCCL_INFO(
+        "[load_add_imm] var_handle=%llu, offset_handle=%llu, imm_add_value=%u, dst_handle=%llu", var_handle,
+        offset_handle, imm_add_value, dst_handle);
+    ccu_rep::variable* base_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(var_handle, &base_var));
+    ccu_rep::variable* offset_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(offset_handle, &offset_var));
+    ccu_rep::variable* dst_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(dst_handle, &dst_var));
+    append(std::make_shared<ccu_rep::ccu_rep_load_add_imm>(
+        ins_generator_, *base_var, src_num, *offset_var, imm_add_value, *dst_var));
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_kernel::add_imm_store(
+    ccu_variable_handle var_handle, uint16_t dst_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle src_handle)
+{
+    HCCL_INFO(
+        "[add_imm_store] var_handle=%llu, offset_handle=%llu, imm_add_value=%u, src_handle=%llu", var_handle,
+        offset_handle, imm_add_value, src_handle);
+    ccu_rep::variable* base_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(var_handle, &base_var));
+    ccu_rep::variable* offset_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(offset_handle, &offset_var));
+    ccu_rep::variable* src_var{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(src_handle, &src_var));
+    append(std::make_shared<ccu_rep::ccu_rep_store_add_imm>(
+        ins_generator_, *base_var, dst_num, *offset_var, imm_add_value, *src_var));
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_kernel::write_var_atomic_add(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle var_addr_handle, ccu_variable_handle add_value_handle,
+    ccu_event_handle event_handle, uint32_t mask)
+{
+    HCCL_INFO(
+        "[write_var_atomic_add] channel_id_handle=%llu, var_addr_handle=%llu, add_value_handle=%llu, "
+        "event_handle=%llu, mask=%u",
+        channel_id_handle, var_addr_handle, add_value_handle, event_handle, mask);
+    if (current_block()->type() == ccu_rep::ccu_rep_type::loop_block) {
+        HCCL_ERROR("[%s] write_var_atomic_add is not allowed inside a ccu::Loop body", __func__);
+        return latch_body_error(ccu_result::CCU_E_NOT_SUPPORT);
+    }
+    ccu_rep::variable* channel_id{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(channel_id_handle, &channel_id));
+    ccu_rep::remote_addr* var_addr{nullptr};
+    CCU_CHK_RET(get_remote_addr_by_handle(var_addr_handle, &var_addr));
+    ccu_rep::variable* add_value{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(add_value_handle, &add_value));
+    ccu_rep::completed_event* event{nullptr};
+    CCU_CHK_RET(get_event_by_handle(event_handle, &event));
+    auto rep = std::make_shared<ccu_rep::ccu_rep_write_var_atomic>(
+        ins_generator_, *channel_id, *var_addr, *add_value, *event, mask);
+    append(rep);
+    set_dependency_info(event->id(), mask, rep);
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_kernel::write_with_cnt_inc(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle,
+    ccu_variable_handle len_handle, ccu_remote_addr_handle in_cnt_addr_handle)
+{
+    HCCL_INFO(
+        "[write_with_cnt_inc] channel_id_handle=%llu, remote_handle=%llu, local_handle=%llu, len_handle=%llu, "
+        "in_cnt_addr_handle=%llu",
+        channel_id_handle, remote_handle, local_handle, len_handle, in_cnt_addr_handle);
+    ccu_rep::variable* channel_id{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(channel_id_handle, &channel_id));
+    ccu_rep::remote_addr* remote_addr{nullptr};
+    CCU_CHK_RET(get_remote_addr_by_handle(remote_handle, &remote_addr));
+    ccu_rep::local_addr* local{nullptr};
+    CCU_CHK_RET(get_local_addr_by_handle(local_handle, &local));
+    ccu_rep::variable* len{nullptr};
+    CCU_CHK_RET(get_variable_by_handle(len_handle, &len));
+    ccu_rep::remote_addr* in_cnt_addr{nullptr};
+    CCU_CHK_RET(get_remote_addr_by_handle(in_cnt_addr_handle, &in_cnt_addr));
+    ccu_rep::variable orig_len = create_variable();
+    append(std::make_shared<ccu_rep::ccu_rep_write_with_cnt_inc>(
+        ins_generator_, *channel_id, *remote_addr, *local, *len, *in_cnt_addr, orig_len));
+    return ccu_result::CCU_SUCCESS;
+}
+
 // 加载类 相关接口
 ccu_result ccu_kernel::load_arg(ccu_variable_handle var_handle, uint32_t arg_id)
 {
@@ -2703,8 +2791,8 @@ ccu_rep::variable ccu_kernel::create_variable() { return create_res_assist(res_.
 
 ccu_rep::variable ccu_kernel::create_expect_var()
 {
-    // v2(A6) jump compares two variables and needs a real XN for the immediate value.
-    // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
+    // v2 jump compares two variables and needs a real XN for the immediate value.
+    // v1 compares with the immediate directly, so keep the placeholder out of the resource ledger.
     if (ccu_version_ == HCOMM_CCU_VERSION_V2) {
         return create_variable();
     }
@@ -2714,7 +2802,7 @@ ccu_rep::variable ccu_kernel::create_expect_var()
 ccu_rep::address ccu_kernel::create_address()
 {
     if (ccu_version_ == HCOMM_CCU_VERSION_V2) {
-        // A6创建Address时，需要添加到Variable的列表中，但是仍以Address返回
+        // V2创建Address时，需要添加到Variable的列表中，但是仍以Address返回
         return ccu_rep::address(create_res_assist(res_.continuous_variable));
     }
     return create_res_assist(res_.block_address);
@@ -3164,15 +3252,24 @@ HcclResult ccu_kernel::add_ccu_profiling(
     return HCCL_SUCCESS;
 }
 
-HcclResult ccu_kernel::add2_const_value2_var_map(std::vector<uint64_t>& values)
+HcclResult ccu_kernel::add2_const_value2_var_map(
+    const std::vector<uint64_t>& values, const std::vector<uint64_t>& secret_values)
 {
-    // 记录当前context所需的常量，仅A6场景适用
+    // 记录当前context所需的常量，仅V2场景适用；secret_values 为其中的敏感值(token)
     for (uint64_t value : values) {
         if (const_value2_var_map_.find(value) == const_value2_var_map_.end()) {
             const_value2_var_map_[value] = create_variable();
         }
     }
+    for (uint64_t value : secret_values) {
+        sec_const_value_set_.insert(value);
+    }
     return HCCL_SUCCESS;
+}
+
+bool ccu_kernel::is_sec_const_value(uint64_t value) const
+{
+    return sec_const_value_set_.find(value) != sec_const_value_set_.end();
 }
 
 }; // namespace asc

@@ -21,7 +21,7 @@
 
 using namespace asc::ccu_rep;
 
-TEST(CcuPrintA5Translate, TranslatesPrintfImmediateBranches)
+TEST(CcuPrintV1Translate, TranslatesPrintfImmediateBranches)
 {
     ccu_ins_generater_v1 generator;
     ccu_rep_context context;
@@ -51,7 +51,7 @@ TEST(CcuPrintA5Translate, TranslatesPrintfImmediateBranches)
 
 // Exercise the other instruction forms emitted by printf with the real V1
 // translator. This checks translation support, not device execution or tokens.
-TEST(CcuPrintA5Translate, TranslatesPrintfMemoryAndArithmeticOperations)
+TEST(CcuPrintV1Translate, TranslatesPrintfMemoryAndArithmeticOperations)
 {
     ccu_ins_generater_v1 generator;
     ccu_rep_context context;

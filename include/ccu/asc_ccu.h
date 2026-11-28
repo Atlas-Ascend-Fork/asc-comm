@@ -23,6 +23,6 @@
 #include "ccu/ccu_api/ccu_primitives.h"
 #include "ccu/ccu_api/ccu_print.h"
 #include "ccu/experimental/ccu_resource_api.h"
-#include "ccu/ccu_host_launch.h"
+#include "ccu_host_launch.h"
 
 #endif // ASC_COMM_CCU_H

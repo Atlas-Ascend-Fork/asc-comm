@@ -624,7 +624,7 @@ TEST_F(CcuRepSetLoopTest, describe)
     EXPECT_NE(desc.find("var["), std::string::npos);
 }
 
-TEST_F(CcuRepLoopTest, Constructor_A6Variant)
+TEST_F(CcuRepLoopTest, Constructor_V2Variant)
 {
     variable loop_param_(nullptr);
     variable loop_iter_num_(nullptr);
@@ -635,9 +635,9 @@ TEST_F(CcuRepLoopTest, Constructor_A6Variant)
     EXPECT_EQ(loop.get_label(), "a6_loop");
 }
 
-TEST_F(CcuRepLoopTest, Translate_A6Variant_V1GeneratorThrows)
+TEST_F(CcuRepLoopTest, Translate_V2Variant_V1GeneratorThrows)
 {
-    // A6 构造(supportCcuV1=false) + v1 生成器: validate 抛错
+    // V2 构造(supportCcuV1=false) + v1 生成器: validate 抛错
     variable loop_param_(nullptr);
     variable loop_iter_num_(nullptr);
     variable loop_gsa_offset_(nullptr);

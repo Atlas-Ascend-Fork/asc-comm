@@ -33,7 +33,7 @@ int32_t AsccommTestProfilingCommand(uint32_t type, void* data, uint32_t len)
     return asccomm_handle_profiling_command(type, &command, sizeof(command));
 }
 
-TEST_F(AsccommSqeTest, ProfilingCallbackEnablesSqeProfilingOnA6)
+TEST_F(AsccommSqeTest, ProfilingCallbackEnablesSqeProfilingOnV2)
 {
 #if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 9201 || __NPU_ARCH__ == 9202)
     EXPECT_EQ(AsccommTestProfilingCommand(PROF_COMMANDHANDLE_TYPE_START, nullptr, 0), 0);

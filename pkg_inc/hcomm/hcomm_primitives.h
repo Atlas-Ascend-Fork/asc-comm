@@ -255,7 +255,7 @@ extern int32_t HcommWriteReduceOnThread(
  * @param[in] len 数据长度（字节）
  * @param[in] notifyIdx 远端通知索引
  * @return int32_t 执行结果状态码
- * @note 当前在A5上主要支持
+ * @note 当前在V1上主要支持
  *
  * WARNING: experimental API, No compatibility is currently guaranteed for this API
  */
@@ -339,7 +339,7 @@ extern int32_t HcommWriteNbi(ChannelHandle channel, void* dst, const void* src, 
  * @param[in] len 数据长度（字节）
  * @param[in] notifyIdx 远端通知索引
  * @return int32_t 执行结果状态码
- * @note 当前在A5上主要支持
+ * @note 当前在V1上主要支持
  */
 extern int32_t HcommWriteWithNotifyNbiOnThread(
     ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
@@ -352,7 +352,7 @@ extern int32_t HcommWriteWithNotifyNbiOnThread(
  * @param[in] len 数据长度（字节）
  * @param[in] notifyIdx 远端通知索引
  * @return int32_t 执行结果状态码
- * @note 当前在A5上主要支持
+ * @note 当前在V1上主要支持
  *
  * WARNING: experimental API, No compatibility is currently guaranteed for this API
  */

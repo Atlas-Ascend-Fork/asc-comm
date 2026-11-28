@@ -31,6 +31,7 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/shift/ccu_rep_shl.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/shift/ccu_rep_shr.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_translator.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_base.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/microcode_optimizer.cc
@@ -42,6 +43,7 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/arithmetic/ccu_rep_add.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/arithmetic/ccu_rep_assign.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode_v2.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_assist.cc
 )
 

@@ -67,6 +67,7 @@ ccu_result ccu_kernel_registry::load_register_context(const HcommCcuInstanceEnti
         res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
         CCU_CHK_PTR_NULL(res_snapshot_);
     }
+    // 这里按实体中的指针深拷贝 cascCnts 并建立 handle -> block 映射；输入实体加载期间必须保持不变。
     CCU_CHK_RET(res_snapshot_->load(instance));
     CCU_CHK_RET(res_snapshot_->load_data_plane_resources(dev_logic_id_));
     context_loaded_ = true;

@@ -26,7 +26,7 @@ constexpr uint64_t PRINT_RING_DEPTH = 32;
 // offsets into the payload, not addresses. The CCU owns tail; the Host owns head.
 // On every CCU version, head is encoded as uint64_t{0} - byteOffset.
 // Modular addition then tests equality using an immediate-zero branch, without
-// requiring variable-to-variable comparisons (unsupported by A5).
+// requiring variable-to-variable comparisons (unsupported by V1).
 // A trailing allocation replaces the old non-standard C++ flexible array.
 struct PrintRingHeader {
     uint64_t tail;

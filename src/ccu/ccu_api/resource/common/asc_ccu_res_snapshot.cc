@@ -600,7 +600,7 @@ ccu_result asc_ccu_res_snapshot::get_xn_base_addr(uint32_t die_id, uint64_t& add
     }
     const uint64_t offset = ccu_version_ == HCOMM_CCU_VERSION_V1 ? v1_xn_offset : v2_xn_offset;
     const auto& buffer = metadata->ccuResBuffer.bufferInfo.rma;
-    // 旧版控制面在 A5 上上报 size=0x180000，但原版 HComm 的 XN 地址仍为
+    // 旧版控制面在 V1 上上报 size=0x180000，但原版 HComm 的 XN 地址仍为
     // base+0x908000+id*8：size 并非从 addr 开始的完整 CCU 地址窗口跨度。
     // 因此不能用 offset<size 做普通线性 buffer 的越界判断，否则所有注册都被挡住。
     // XN ID 的合法范围由资源池分配保证；这里只检查元数据非空及地址加法溢出。

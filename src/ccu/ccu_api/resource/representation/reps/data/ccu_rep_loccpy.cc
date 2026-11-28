@@ -43,7 +43,7 @@ ccu_rep_loc_cpy::ccu_rep_loc_cpy(
     type_ = ccu_rep_type::local_reduce;
     instr_count_ = ins_gen_ptr->get_instr_count(type_);
     reduce_flag_ = 1;
-    // A5和A6都走环回
+    // V1和V2都走环回
     use_ccu_buffer_ = false;
 }
 
@@ -61,8 +61,8 @@ void ccu_rep_loc_cpy::validate_ins_generator_for_loc_cpy() const
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     if (tmp_ptr_v1 && use_ccu_buffer_) {
-        // 使用了A6场景的ms中转搬运
-        asc::throw_ccu_internal("Cannot translate CcuRepLocCpy for A5 when useCcuBuffer is true!");
+        // 使用了V2场景的ms中转搬运
+        asc::throw_ccu_internal("Cannot translate CcuRepLocCpy for V1 when useCcuBuffer is true!");
     }
 }
 

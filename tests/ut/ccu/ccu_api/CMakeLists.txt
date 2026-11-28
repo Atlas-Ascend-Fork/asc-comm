@@ -113,6 +113,7 @@ endif()
 # + groupcopy demo. groupcopy has no tests but is part of the f8c8fd2 features target.
 set(CCU_FEATURES_IMPL_SOURCES
     ${CCU_MICROCODE_DIR}/ccu_microcode.cc
+    ${CCU_MICROCODE_DIR}/ccu_microcode_v2.cc
     ${CCU_REP_DIR}/context/ccu_rep_context.cc
     ${CCU_REP_DIR}/interface/ccu_interface_assist.cc
     ${CCU_REP_DIR}/interface/ccu_datatype.cc
@@ -131,6 +132,7 @@ set(CCU_FEATURES_IMPL_SOURCES
     ${CCU_REP_DIR}/reps/logical/ccu_rep_xor.cc
     ${CCU_REP_DIR}/reps/shift/ccu_rep_shl.cc
     ${CCU_REP_DIR}/reps/shift/ccu_rep_shr.cc
+    ${CCU_REP_DIR}/reps/translator/ccu_ins_generater_base.cc
     ${CCU_REP_DIR}/reps/translator/ccu_ins_generater_v1.cc
     ${CCU_REP_DIR}/reps/translator/ccu_rep_translator.cc
     ${CCU_REP_DIR}/reps/translator/ccu_rep_reference_manager.cc
@@ -227,6 +229,10 @@ set(CCU_TRANSFER_TEST_SOURCES
     ${CCU_REP_DIR}/reps/data/ccu_rep_read.cc
     ${CCU_REP_DIR}/reps/data/ccu_rep_remMem.cc
     ${CCU_REP_DIR}/reps/data/ccu_rep_write.cc
+    ${CCU_REP_DIR}/reps/data/ccu_rep_write_with_cnt_inc.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_load_add_imm.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_store_add_imm.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_write_var_atomic.cc
     ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_record_event.cc
     ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_event.cc
     ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_notify.cc
@@ -234,6 +240,9 @@ set(CCU_TRANSFER_TEST_SOURCES
     ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostsem.cc
     ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostvar.cc
     ${CCU_REP_DIR}/reps/sync/ccu_rep_remwaitsem.cc
+    # 0.5RTT translation depends on the V2 instruction generator and V2 microcode builder.
+    ${CCU_REP_DIR}/reps/translator/ccu_ins_generater_v2.cc
+    ${CCU_MICROCODE_DIR}/ccu_microcode_v2.cc
     ${CCU_REP_DIR}/interface/ccu_funccall.cc
     ${CCU_REP_DIR}/interface/ccu_loopcall.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/common/ccu_var_event_res_mgr.cc

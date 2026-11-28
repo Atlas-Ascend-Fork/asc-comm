@@ -61,7 +61,7 @@ private:
     local_addr src_;
     variable len_;
 
-    // 用于A6场景locmem2locmem搬运
+    // 用于V2场景locmem2locmem搬运
     std::vector<ccu_buf> bufs_;
 
     completed_event sem_;

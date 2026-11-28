@@ -118,7 +118,9 @@ public:
 
     // process const values
     std::unordered_map<uint64_t, ccu_rep::variable>& get_const_value2_var_map() { return const_value2_var_map_; }
-    HcclResult add2_const_value2_var_map(std::vector<uint64_t>& values);
+    HcclResult add2_const_value2_var_map(
+        const std::vector<uint64_t>& values, const std::vector<uint64_t>& secret_values = {});
+    bool is_sec_const_value(uint64_t value) const;
 
     const std::unordered_set<ChannelHandle>& get_channels() { return channels_; }
 
@@ -158,6 +160,22 @@ public:
     ccu_result write_variable_with_notify(
         const ChannelHandle channel, ccu_variable_handle var_handle, uint32_t remote_var_idx,
         uint32_t remote_notify_idx, uint32_t mask);
+    // 0.5rtt 专用（V2）：读改写装载，dst = src 段内偏移 srcOffset+imm 处的值（按 srcNum 段）
+    ccu_result load_add_imm(
+        ccu_variable_handle var_handle, uint16_t src_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+        ccu_variable_handle dst_handle);
+    // 0.5rtt 专用（V2）：读改写存储，src 写入 dst 段内偏移 dstOffset+imm 处（按 dstNum 段）
+    ccu_result add_imm_store(
+        ccu_variable_handle var_handle, uint16_t dst_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+        ccu_variable_handle src_handle);
+    // 0.5rtt 专用（V2）：经 channel 向对端计数地址原子加变量值（SyncAtX 单指令）
+    ccu_result write_var_atomic_add(
+        ccu_variable_handle channel_id_handle, ccu_remote_addr_handle var_addr_handle,
+        ccu_variable_handle add_value_handle, ccu_event_handle event_handle, uint32_t mask);
+    // 0.5rtt 专用（V2）：带计数递增的远端写（URMA WRITE_WITH_CNT_INC DMA，inc_cnt 指向对端 wish 计数器地址）
+    ccu_result write_with_cnt_inc(
+        ccu_variable_handle channel_id_handle, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle,
+        ccu_variable_handle len_handle, ccu_remote_addr_handle in_cnt_addr_handle);
     // 本地（同 device 内跨 core）通知同步：用 notifyTag 字符串作为对端标识，
     // 由调用方约定生产者/消费者使用相同的 tag 字符串完成配对。
     // 与 NotifyRecord/Wait（用 ChannelHandle 标识跨 rank 通道）的对偶。
@@ -507,8 +525,10 @@ private:
     std::vector<group_info> group_op_size_info_;
     std::vector<ccu_profiling_info> all_ccu_profiling_infos_;
 
-    // 记录每个kernel所需常量，适用于A6场景
+    // 记录每个kernel所需常量，适用于V2场景
     std::unordered_map<uint64_t, ccu_rep::variable> const_value2_var_map_;
+    // 记录常量表中属于敏感信息(token)的值，装载到寄存器时用于打 sec_flag 标记
+    std::unordered_set<uint64_t> sec_const_value_set_;
 
     struct loop_descriptor {
         std::string label;

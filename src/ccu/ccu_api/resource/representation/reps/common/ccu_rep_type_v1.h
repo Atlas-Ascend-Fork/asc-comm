@@ -79,11 +79,13 @@ enum class ccu_rep_type {
 
     record_shared_notify,
 
-    // 0.5rtt专用
-    write_with_arrive_notify,
-    clear_all_arrive_notify,
-    record_expect_count,
-    wait_all_peers_arrive_notify,
+    // 0.5rtt专用（V2）
+    write_var_atomic,
+    write_with_cnt_inc,
+    casc_cnt_wait,
+    casc_cnt_clear,
+    load_add_imm,
+    store_add_imm,
 };
 
 enum class assign_sub_type { invalid, imd_to_variable, imd_to_addr, var_to_addr, addr_to_addr, var_to_var };

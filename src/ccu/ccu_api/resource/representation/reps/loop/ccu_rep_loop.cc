@@ -38,15 +38,15 @@ ccu_rep_loop::ccu_rep_loop(
 {
     type_ = ccu_rep_type::loop;
     instr_count_ = ins_generator_ptr_->get_instr_count(type_);
-    support_ccu_v1_ = false; // loopParam按照A6格式填写，不适用A5
+    support_ccu_v1_ = false; // loopParam按照V2格式填写，不适用V1
 }
 
 void ccu_rep_loop::validate_ins_generator_for_loop() const
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_generator_ptr_);
     if (tmp_ptr_v1 && !support_ccu_v1_) {
-        // 在A5场景下没有使用A5的loop调用方式
-        asc::throw_ccu_internal("Cannot translate CcuRepLoop for A5 when supportCcuV1 is false!");
+        // 在V1场景下没有使用V1的loop调用方式
+        asc::throw_ccu_internal("Cannot translate CcuRepLoop for V1 when supportCcuV1 is false!");
     }
 }
 

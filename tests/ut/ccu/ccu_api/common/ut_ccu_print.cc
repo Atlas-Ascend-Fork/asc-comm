@@ -185,7 +185,7 @@ ccu_result ccu_if_begin_var(
     ccu_variable_handle a, ccu_variable_handle b, ccu_condition_type condition, const char* label)
 {
     if (!variableComparison) {
-        ADD_FAILURE() << "printf emitted an A5-unsupported variable comparison";
+        ADD_FAILURE() << "printf emitted an V1-unsupported variable comparison";
         return ccu_result::CCU_E_NOT_SUPPORT;
     }
     const auto result = ccu_if_begin(a, b, condition, label);

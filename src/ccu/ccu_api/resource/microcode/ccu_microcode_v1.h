@@ -33,6 +33,12 @@ constexpr uint16_t ccu_load_to_xn_sec_info = 1;
 // V2 CKE 写后读需要的最坏延迟，调度补 NOP 与指令空间预留必须共用该值。
 constexpr uint32_t ccu_cke_raw_latency = 14;
 
+// WriteWithCntInc 单次搬运上限，超限硬件会挂死；翻译端与 DFX 端必须同源引用。
+constexpr uint64_t CCU_WRITE_CNT_INC_LEN_LIMIT = 0x10000;
+
+// 长度护栏注入的非法 token：tokenValid(bit52)=0，使超限分支的 TransMem 因 token 无效而失败。
+constexpr uint64_t CCU_GUARD_TOKEN_INVALID_VALUE = 0;
+
 #pragma pack(push, 1)
 // instr common header
 union ccu_instr_header {
@@ -512,7 +518,8 @@ struct ccu_instr_load_sqe_args_to_x {
 struct ccu_instr_load_imd_to_x {
     uint16_t xn_id;
     uint64_t immediate;
-    uint16_t reserved[8];
+    uint16_t sec_flag;
+    uint16_t reserved[7];
     uint16_t set_cke_id;
     uint16_t set_cke_mask;
 };
@@ -934,7 +941,8 @@ void nop(ccu_instr* instr);
 void load_sqe_args_to_x(
     ccu_instr* instr, uint16_t xn_id, uint16_t sqe_args_id, uint16_t set_cke_id = 0, uint16_t set_cke_mask = 0);
 void load_imd_to_xn(
-    ccu_instr* instr, uint16_t xn_id, uint64_t immediate, uint16_t set_cke_id = 0, uint16_t set_cke_mask = 0);
+    ccu_instr* instr, uint16_t xn_id, uint64_t immediate, uint16_t sec_flag = 0, uint16_t set_cke_id = 0,
+    uint16_t set_cke_mask = 0);
 void clear_x(
     ccu_instr* instr, uint16_t xn_id, uint16_t xm_id, uint16_t xn_id_mode = 0, uint16_t xm_id_mode = 0,
     uint16_t set_cke_id = 0, uint16_t set_cke_mask = 0);
@@ -943,6 +951,14 @@ void load_x_from_mem(
     uint16_t set_cke_id, uint16_t set_cke_mask);
 void store_x_to_mem(
     ccu_instr* instr, uint16_t dst, uint16_t dst_token, uint16_t src, uint16_t len, const cache_config& cache_config,
+    uint16_t set_cke_id, uint16_t set_cke_mask);
+// 寄存器间带偏移读：xs 经偏移装入 xd，oMode 选择偏移解释模式
+void load_x(
+    ccu_instr* instr, uint16_t dst, uint16_t src, uint16_t src_offset, uint16_t dst_offset, uint16_t o_mode,
+    uint16_t set_cke_id, uint16_t set_cke_mask);
+// 寄存器间带偏移写：xd = xs（偏移 xso/xdo 由硬件解释），oMode 选择偏移解释模式
+void store_x(
+    ccu_instr* instr, uint16_t dst, uint16_t src, uint16_t src_offset, uint16_t dst_offset, uint16_t o_mode,
     uint16_t set_cke_id, uint16_t set_cke_mask);
 void hscb_store_x_to_mem(
     ccu_instr* instr, uint16_t dst, uint16_t src, uint16_t len, const cache_config& cache_config, uint16_t set_cke_id,
@@ -1036,14 +1052,14 @@ void sync_at_x(
     ccu_instr* instr, uint16_t dst_addr, uint16_t dst_token, uint16_t src_id, uint16_t channel_id, uint16_t set_cke_id,
     uint16_t set_cke_mask);
 void reduce_add(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t cast_en, uint16_t data_type, uint16_t set_cke_id,
-    uint16_t set_cke_mask, uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t cast_en, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t xn_id_length);
 void reduce_max(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t xn_id_length);
 void reduce_min(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t xn_id_length);
 void rel_jmp(ccu_instr* instr, uint16_t target_xn_id, uint32_t jmp_instr_id, uint16_t xn0, uint16_t xn1);
 std::string parse_instr_v2(const ccu_instr* instr);
 }; // namespace ccu_v2

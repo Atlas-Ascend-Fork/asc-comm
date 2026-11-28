@@ -524,11 +524,11 @@ TEST(AscCcuXnMapping, RejectsShortAndOverflowingResourceMappings)
     EXPECT_EQ(address, 123ULL);
 }
 
-TEST(AscCcuXnMapping, AcceptsLegacyA5CapacitySmallerThanXnOffset)
+TEST(AscCcuXnMapping, AcceptsLegacyV1CapacitySmallerThanXnOffset)
 {
     ContextStorage storage(11);
     storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.addr = 0xf98000000000ULL;
-    // 蓝区 A5 9.3 真机 metadata；原版 HComm 的 XN[4] Load 地址为 0xf98000908020。
+    // 蓝区 V1 9.3 真机 metadata；原版 HComm 的 XN[4] Load 地址为 0xf98000908020。
     // 不应把 1.5 MiB 容量错当成覆盖 XN 的地址窗口长度。
     storage.dieMetadata[0].ccuResBuffer.bufferInfo.rma.size = 0x180000;
     asc_ccu_res_snapshot snapshot;

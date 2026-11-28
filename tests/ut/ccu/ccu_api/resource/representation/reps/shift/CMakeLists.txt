@@ -16,6 +16,7 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/logical/ccu_rep_not.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/logical/ccu_rep_xor.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_translator.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_base.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/common/ccu_rep_base.cc
@@ -63,6 +64,7 @@ ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/data/ccu_rep_write.
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/sync/ccu_rep_remwaitsem.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/interface/ccu_datatype.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode_v2.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/microcode_optimizer.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/extract_operands.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/instruction_scheduler.cc

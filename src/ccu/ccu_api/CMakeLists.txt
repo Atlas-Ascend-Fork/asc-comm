@@ -29,6 +29,7 @@ target_sources(asccomm_ccu_obj PRIVATE
     resource/kernel/ccu_kernel_res_allocator.cc
     resource/kernel/ccu_kernel_mgr.cc
     resource/microcode/ccu_microcode.cc
+    resource/microcode/ccu_microcode_v2.cc
     resource/microcode/ccu_assist.cc
     resource/microcode_opt/extract_operands.cc
     resource/microcode_opt/instruction_scheduler.cc
@@ -53,10 +54,12 @@ target_sources(asccomm_ccu_obj PRIVATE
     resource/representation/reps/common/ccu_rep_base.cc
     resource/representation/reps/common/ccu_rep_block.cc
     resource/representation/reps/common/ccu_rep_load.cc
+    resource/representation/reps/common/ccu_rep_load_add_imm.cc
     resource/representation/reps/common/ccu_rep_load_var.cc
     resource/representation/reps/common/ccu_rep_loadarg.cc
     resource/representation/reps/common/ccu_rep_nop.cc
     resource/representation/reps/common/ccu_rep_store.cc
+    resource/representation/reps/common/ccu_rep_store_add_imm.cc
     resource/representation/reps/common/ccu_rep_store_var.cc
     resource/representation/reps/control/ccu_rep_funcblock.cc
     resource/representation/reps/control/ccu_rep_funccall.cc
@@ -71,6 +74,7 @@ target_sources(asccomm_ccu_obj PRIVATE
     resource/representation/reps/data/ccu_rep_read.cc
     resource/representation/reps/data/ccu_rep_remMem.cc
     resource/representation/reps/data/ccu_rep_write.cc
+    resource/representation/reps/data/ccu_rep_write_with_cnt_inc.cc
     resource/representation/reps/logical/ccu_rep_and.cc
     resource/representation/reps/logical/ccu_rep_not.cc
     resource/representation/reps/logical/ccu_rep_or.cc
@@ -89,7 +93,10 @@ target_sources(asccomm_ccu_obj PRIVATE
     resource/representation/reps/sync/ccu_rep_rempostsem.cc
     resource/representation/reps/sync/ccu_rep_rempostvar.cc
     resource/representation/reps/sync/ccu_rep_remwaitsem.cc
+    resource/representation/reps/sync/ccu_rep_write_var_atomic.cc
+    resource/representation/reps/translator/ccu_ins_generater_base.cc
     resource/representation/reps/translator/ccu_ins_generater_v1.cc
+    resource/representation/reps/translator/ccu_ins_generater_v2.cc
     resource/representation/reps/translator/ccu_rep_reference_manager.cc
     resource/representation/reps/translator/ccu_rep_translator.cc
 )

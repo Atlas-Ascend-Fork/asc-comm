@@ -923,7 +923,7 @@ TEST_F(CcuRepLocCpyTest, GetFirstBufId_EmptyBufsThrows)
 
 TEST_F(CcuRepLocCpyTest, Translate_WithBufs_V1GeneratorThrows)
 {
-    // A6 的 ms 中转搬运 (use_ccu_buffer_=true) 在 A5 生成器下不允许
+    // V2 的 ms 中转搬运 (use_ccu_buffer_=true) 在 V1 生成器下不允许
     ccu_rep_context context_;
     variable len_(&context_);
     completed_event sem_(&context_);

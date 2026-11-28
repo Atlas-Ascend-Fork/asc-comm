@@ -475,6 +475,53 @@ ccu_result ccu_write_variable_with_notify(
     CCU_CHK_RET_ASC(kernel->write_variable_with_notify(channel, var_handle, remote_var_idx, remote_notify_idx, mask));
     return ccu_result::CCU_SUCCESS;
 }
+// 0.5rtt 专用（V2）相关接口
+ccu_result ccu_load_add_imm(
+    ccu_variable_handle var_handle, uint16_t src_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle dst_handle)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL_ASC(kernel);
+    CCU_CHK_RET_ASC(kernel->load_add_imm(var_handle, src_num, offset_handle, imm_add_value, dst_handle));
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_add_imm_store(
+    ccu_variable_handle var_handle, uint16_t dst_num, ccu_variable_handle offset_handle, uint16_t imm_add_value,
+    ccu_variable_handle src_handle)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL_ASC(kernel);
+    CCU_CHK_RET_ASC(kernel->add_imm_store(var_handle, dst_num, offset_handle, imm_add_value, src_handle));
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_write_var_atomic_add(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle var_addr_handle, ccu_variable_handle add_value_handle,
+    ccu_event_handle event_handle, uint32_t mask)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL_ASC(kernel);
+    CCU_CHK_RET_ASC(
+        kernel->write_var_atomic_add(channel_id_handle, var_addr_handle, add_value_handle, event_handle, mask));
+    return ccu_result::CCU_SUCCESS;
+}
+
+ccu_result ccu_write_with_cnt_inc(
+    ccu_variable_handle channel_id_handle, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle,
+    ccu_variable_handle len_handle, ccu_remote_addr_handle in_cnt_addr_handle)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL_ASC(kernel);
+    CCU_CHK_RET_ASC(
+        kernel->write_with_cnt_inc(channel_id_handle, remote_handle, local_handle, len_handle, in_cnt_addr_handle));
+    return ccu_result::CCU_SUCCESS;
+}
+
 ccu_result ccu_local_notify_record(const char* notify_tag, uint16_t mask)
 {
     CCU_CHK_PTR_NULL_ASC(notify_tag);

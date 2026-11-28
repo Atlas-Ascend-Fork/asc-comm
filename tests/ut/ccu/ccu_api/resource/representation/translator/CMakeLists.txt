@@ -13,12 +13,14 @@ set(src_to_test_list
     ut_ccu_rep_translator_test.cc
     ut_ccu_rep_reference_manager_test.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_translator.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_base.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/representation/reps/translator/ccu_rep_reference_manager.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/microcode_optimizer.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/extract_operands.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode_opt/instruction_scheduler.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_microcode_v2.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/microcode/ccu_assist.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/resource/channel/ccu_channel.cc
     ${ASCCOMM_ROOT}/src/ccu/ccu_api/common/ccu_device_context.cc

@@ -57,7 +57,7 @@ protected:
     ccu_instr* instr_{nullptr};
 
     bool comp2_immed_{false};
-    bool support_ccu_v1_{true}; // 暂定用于识别 使用特定的构造方法时是否支持A5的翻译流程
+    bool support_ccu_v1_{true}; // 暂定用于识别 使用特定的构造方法时是否支持V1的翻译流程
 
     variable expected_var_;
     variable condition_;
@@ -79,7 +79,7 @@ public:
         const variable& expected_var, const variable& condition, uint64_t expected);
     ccu_rep_jump_ne(
         ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
-        const variable& condition, const variable& expected_var); // 仅用于A6翻译
+        const variable& condition, const variable& expected_var); // 仅用于V2翻译
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
 };
@@ -91,7 +91,7 @@ public:
         const variable& expected_var, const variable& condition, uint64_t expected);
     ccu_rep_jump_eq(
         ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
-        const variable& condition, const variable& expected_var); // 仅用于A6翻译
+        const variable& condition, const variable& expected_var); // 仅用于V2翻译
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
 };

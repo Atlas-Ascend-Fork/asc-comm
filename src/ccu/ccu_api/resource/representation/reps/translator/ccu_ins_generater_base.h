@@ -150,11 +150,26 @@ public:
         ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_store_var* store_var_ptr,
         const trans_dep& dep) = 0;
 
+    // 0.5rtt 专用 rep（V2）：默认实现返回 NOT_SUPPORT，由 V2 生成器覆写；
+    // V1 生成器与未覆写路径落在基类默认实现上。
+    virtual HcclResult ccu_rep_write_var_atomic_translate(
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_write_var_atomic* write_var_atom_ptr,
+        const trans_dep& dep);
+    virtual HcclResult ccu_rep_write_with_cnt_inc_translate(
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id,
+        ccu_rep_write_with_cnt_inc* write_cnt_inc_ptr, const trans_dep& dep);
+    virtual HcclResult ccu_rep_load_add_imm_translate(
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_load_add_imm* load_add_imm_ptr,
+        const trans_dep& dep);
+    virtual HcclResult ccu_rep_store_add_imm_translate(
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_store_add_imm* store_add_imm_ptr,
+        const trans_dep& dep);
+
     virtual uint32_t get_instr_count(ccu_rep_type rep_type) = 0;
 
-    virtual HcclResult prepare_const_value(const ccu_rep_base* rep_ptr, const trans_dep& dep, ccu_kernel* ccu_kernel)
+    virtual HcclResult prepare_const_value(ccu_rep_base* rep_ptr, const trans_dep& dep, ccu_kernel* ccu_kernel)
     {
-        // A5使用基类空实现；A6需要根据repType做不同处理
+        // V1使用基类空实现；V2需要根据repType做不同处理
         (void)rep_ptr;
         (void)dep;
         (void)ccu_kernel;

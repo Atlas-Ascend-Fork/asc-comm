@@ -40,6 +40,10 @@ public:
     HcclResult get_rmt_cke_by_index(uint32_t index, uint32_t& remote_cke_id) const;
     HcclResult get_rmt_xn_by_index(uint32_t index, uint32_t& remote_xn_id) const;
     HcclResult get_rmt_buffer(uint64_t& addr, uint32_t& size, uint32_t& token_id, uint32_t& token_value) const;
+    // 远端 CKE（信号）的用户态地址 = 远端 CCU 资源空间基址 + CKE 区段基址（按 CCU 版本） + id 步长
+    HcclResult get_rmt_cke_addr_by_index(uint32_t index, uint64_t& rmt_cke_addr) const;
+    // 远端 XN（变量）的用户态地址 = 远端 CCU 资源空间基址 + XN 区段基址（按 CCU 版本） + id 步长
+    HcclResult get_rmt_var_addr_by_index(uint32_t index, uint64_t& rmt_var_addr) const;
 
 private:
     HcclResult init(ChannelHandle channel);

@@ -19,6 +19,7 @@
 #include "ccu_api/resource/microcode/ccu_assist_v1.h"
 #include "ccu_api/common/ccu_dev_mem.h"
 #include "ccu_api/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "ccu_api/resource/representation/reps/translator/ccu_ins_generater_v2.h"
 
 #include "ccu_api/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_block_v1.h"
@@ -107,7 +108,13 @@ ccu_result ccu_kernel_mgr::configure(asc_ccu_res_snapshot& res_pack)
             return static_cast<ccu_result>(trans_ret);
         }
     }
-    ins_gene_ptr_ = std::make_shared<ccu_rep::ccu_ins_generater_v1>();
+    // 按 CCU 版本选定指令生成器：V2 覆写 0.5rtt/相对跳转/变量化装载等翻译；
+    // V1 落到基类默认 NOT_SUPPORT。进程内 per-mgr 单例，创建后跨 kernel 复用。
+    if (ccu_version_ == HCOMM_CCU_VERSION_V2) {
+        ins_gene_ptr_ = std::make_shared<ccu_rep::ccu_ins_generater_v2>();
+    } else {
+        ins_gene_ptr_ = std::make_shared<ccu_rep::ccu_ins_generater_v1>();
+    }
     initialized_flag_ = true;
     return ccu_result::CCU_SUCCESS;
 }
@@ -359,7 +366,7 @@ static ccu_result set_kernel_instruction_resource(
 
 ccu_result ccu_kernel_mgr::prepare_const_value_resources()
 {
-    // insGenerator统计rep中常量，并填写当前kernel的常量表，当前只有A6有对应处理，A5没有常量处理需求
+    // insGenerator统计rep中常量，并填写当前kernel的常量表，当前只有V2有对应处理，V1没有常量处理需求
     CCU_CHK_PTR_NULL(curr_kernel_);
     const auto& rep_vec = curr_kernel_->get_rep_sequence();
 

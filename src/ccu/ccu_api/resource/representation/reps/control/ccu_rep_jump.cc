@@ -38,8 +38,8 @@ void ccu_rep_jump_base::validate_ins_generator_for_jump()
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_generator_ptr_);
     if (tmp_ptr_v1 && !support_ccu_v1_) {
-        // 当右值只传入var没有立即数时，无法在A5上翻译
-        asc::throw_ccu_internal("Cannot translate %s for A5 when supportCcuV1 is false!", this->describe().c_str());
+        // 当右值只传入var没有立即数时，无法在V1上翻译
+        asc::throw_ccu_internal("Cannot translate %s for V1 when supportCcuV1 is false!", this->describe().c_str());
     }
 }
 
@@ -92,7 +92,7 @@ ccu_rep_jump_ne::ccu_rep_jump_ne(
     this->expected_ = expected;
     type_ = ccu_rep_type::jump_ne;
     instr_count_ = ins_generator_ptr_->get_instr_count(type_);
-    comp2_immed_ = true; // A6翻译时插入一条加载立即数指令，A5无关
+    comp2_immed_ = true; // V2翻译时插入一条加载立即数指令，V1无关
     support_ccu_v1_ = true;
 }
 
@@ -101,7 +101,7 @@ ccu_rep_jump_ne::ccu_rep_jump_ne(
     const variable& condition, const variable& expected_var)
     : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    // 仅用于A6翻译
+    // 仅用于V2翻译
     type_ = ccu_rep_type::jump_ne;
     instr_count_ = 2; // 2条指令，暂直接填充指令数，insGenerator中未记录这种使用方式对应的指令数
     comp2_immed_ = false;
@@ -142,7 +142,7 @@ ccu_rep_jump_eq::ccu_rep_jump_eq(
     this->expected_ = expected;
     type_ = ccu_rep_type::jump_eq;
     instr_count_ = ins_generator_ptr_->get_instr_count(type_);
-    comp2_immed_ = true; // A6翻译时插入一条加载立即数指令，A5无关
+    comp2_immed_ = true; // V2翻译时插入一条加载立即数指令，V1无关
     support_ccu_v1_ = true;
 }
 

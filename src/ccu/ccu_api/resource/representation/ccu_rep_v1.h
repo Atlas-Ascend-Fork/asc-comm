@@ -53,7 +53,11 @@
 #include "ccu_api/resource/representation/interface/ccu_funccall_v1.h"
 #include "ccu_api/resource/representation/interface/ccu_interface_assist_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_load_v1.h"
+#include "ccu_api/resource/representation/reps/common/ccu_rep_load_add_imm_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_store_v1.h"
+#include "ccu_api/resource/representation/reps/common/ccu_rep_store_add_imm_v1.h"
+#include "ccu_api/resource/representation/reps/data/ccu_rep_write_with_cnt_inc_v1.h"
+#include "ccu_api/resource/representation/reps/sync/ccu_rep_write_var_atomic_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_store_var_v1.h"
 #include "ccu_api/resource/representation/reps/common/ccu_rep_load_var_v1.h"
 
