@@ -41,6 +41,13 @@
     - [Introduction](./aicpu_ts/asccomm/datatype_definition/README.md)
     - [asccomm_result](./aicpu_ts/asccomm/datatype_definition/asccomm_result.md)
 
+- [CPU_TS Asccomm](./cpu_ts/asccomm/index.md)
+  - [CPU_TS Asccomm API Introduction](./cpu_ts/asccomm/README.md)
+  - [Synchronization](./cpu_ts/asccomm/synchronization/_dump_node.md)
+    - [Introduction](./cpu_ts/asccomm/synchronization/README.md)
+    - [asccomm_cpu_thread_notify_record_on_thread](./cpu_ts/asccomm/synchronization/asccomm_cpu_thread_notify_record_on_thread.md)
+    - [asccomm_cpu_thread_notify_wait_on_thread](./cpu_ts/asccomm/synchronization/asccomm_cpu_thread_notify_wait_on_thread.md)
+
 - [AI Core Hcomm](./aicore/hcomm/README.md)
   - [Hcomm Class](./aicore/hcomm/_dump_node_hcomm.md)
     - [Hcomm](./aicore/hcomm/Hcomm.md)

@@ -41,6 +41,13 @@
     - [简介](./aicpu_ts/asccomm/datatype_definition/README.md)
     - [asccomm_result](./aicpu_ts/asccomm/datatype_definition/asccomm_result.md)
 
+- [CPU_TS Asccomm](./cpu_ts/asccomm/index.md)
+  - [CPU_TS Asccomm接口简介](./cpu_ts/asccomm/README.md)
+  - [同步](./cpu_ts/asccomm/synchronization/_dump_node.md)
+    - [简介](./cpu_ts/asccomm/synchronization/README.md)
+    - [asccomm_cpu_thread_notify_record_on_thread](./cpu_ts/asccomm/synchronization/asccomm_cpu_thread_notify_record_on_thread.md)
+    - [asccomm_cpu_thread_notify_wait_on_thread](./cpu_ts/asccomm/synchronization/asccomm_cpu_thread_notify_wait_on_thread.md)
+
 - [AI Core CommRW](./aicore/asccomm/README.md)
   - [asccomm类](./aicore/asccomm/_dump_node_asccomm.md)
     - [asccomm](./aicore/asccomm/asccomm.md)
