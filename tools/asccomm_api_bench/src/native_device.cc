@@ -91,8 +91,7 @@ void ValidateNativeDeviceOptions(const Options& options)
     if (options.engine != Engine::AicpuTs || options.op == Op::AllToAllVWrite)
         throw std::invalid_argument("native AICPU backend requires an AICPU tensor operator");
 #endif
-    if (options.dtype != "fp32")
-        throw std::invalid_argument("native device backend currently requires -d fp32");
+    ValidateMeasurementDType(options);
     if ((options.op == Op::AllToAllV || options.op == Op::AllToAllVWrite) && options.ranks > 384)
         throw std::invalid_argument("AlltoAllV and AlltoAllVWrite custom operators support at most 384 ranks");
 }

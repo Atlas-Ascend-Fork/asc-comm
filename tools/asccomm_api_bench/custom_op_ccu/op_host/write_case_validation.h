@@ -17,7 +17,7 @@ namespace asccomm_api_bench_device {
 // Bound byte offsets before kernel compilation, avoiding device 128-bit overflow helpers.
 inline bool ValidWriteCase(uint64_t count, int64_t ranks, uint64_t width)
 {
-    if (ranks <= 0 || ranks > 384 || count == 0 || width != sizeof(float) ||
+    if (ranks <= 0 || ranks > 384 || count == 0 || (width != 1 && width != 2 && width != 4 && width != 8) ||
         count % static_cast<uint64_t>(ranks) != 0 || count > std::numeric_limits<uint64_t>::max() / width)
         return false;
     const uint64_t peer = count / static_cast<uint64_t>(ranks) * width;

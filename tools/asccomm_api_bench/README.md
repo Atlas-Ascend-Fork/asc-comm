@@ -6,7 +6,7 @@
 
 ## 支持范围
 
-内置性能测试使用`fp32`（32位浮点）数据，适用于配套SDK支持的Ascend 950PR/Ascend 950DT环境。
+内置性能测试支持多种数据类型，默认`fp16`（16位浮点），适用于配套SDK支持的Ascend 950PR/Ascend 950DT环境。各引擎的类型范围见《[使用说明](./docs/zh/usage.md)》。
 
 | 算子 | `aicpu_ts`引擎 | `ccu_sched`引擎 |
 | --- | --- | --- |

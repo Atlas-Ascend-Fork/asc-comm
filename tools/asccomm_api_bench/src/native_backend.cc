@@ -349,7 +349,7 @@ int RunBackend(const BackendOptions& backend, Coordinator& coordinator)
 #ifndef MC2_BENCH_QUERY_ONLY
         if (options.op == Op::AllToAllVWrite) {
             metadata["write_event_scope"] = "kernel_including_receive_copy";
-            metadata["write_payload_policy"] = "legacy_fp32_rank_pattern_slots_aligned_512";
+            metadata["write_payload_policy"] = "legacy_rank_pattern_slots_aligned_512";
             metadata["write_wire_dtype"] = options.dtype;
         }
 #endif
@@ -701,9 +701,9 @@ int main(int argc, char** argv)
                 std::cout << "asccomm_api_bench_backend\n"
                           << Usage()
 #ifdef MC2_BENCH_CCU_BACKEND
-                          << "Device backend: CCU_SCHED, fp32, six operators; requires a real SDK/NPU.\n"
+                          << "Device backend: CCU_SCHED, six operators; requires a real SDK/NPU.\n"
 #else
-                          << "Device backend: AICPU_TS, fp32, five operators; requires a real SDK/NPU.\n"
+                          << "Device backend: AICPU_TS, five operators; requires a real SDK/NPU.\n"
 #endif
                              "Queries use the formal MC2 API by default.\n"
                              "No simulated performance or algorithm-hit evidence.\n";

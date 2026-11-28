@@ -6,7 +6,7 @@ English | [简体中文](./README.md)
 
 ## Supported Operations
 
-Built-in benchmarks use `fp32` (32-bit floating-point) data with a matching SDK for Ascend 950PR/Ascend 950DT devices.
+Built-in benchmarks support multiple data types and default to `fp16` (16-bit floating-point), with a matching SDK for Ascend 950PR/Ascend 950DT devices. See the [usage guide](./docs/en/usage.md) for the types supported by each engine.
 
 | Operation | `aicpu_ts` engine | `ccu_sched` engine |
 | --- | --- | --- |

@@ -27,7 +27,8 @@ struct Options {
     Engine engine = Engine::AicpuTs;
     uint32_t ranks = 8;
     uint32_t devices_per_node = 8;
-    std::string dtype = "fp32";
+    // Match Mc2GetCcArgs defaults for both query and execution.
+    std::string dtype = "fp16";
     std::string reduce = "sum";
     uint64_t begin = 32768;
     uint64_t end = 268435456;

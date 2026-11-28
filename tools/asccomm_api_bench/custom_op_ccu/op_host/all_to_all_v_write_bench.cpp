@@ -34,16 +34,17 @@ static ge::graphStatus AllToAllVWriteCustomTilingFunc(gert::TilingContext* conte
     const bool sqrt1_flag = *context->GetAttrs()->GetAttrPointer<bool>(4);
     const bool sqrt2_flag = *context->GetAttrs()->GetAttrPointer<bool>(5);
     const uint64_t input_count = GetInputElementCount(context);
+    const auto input_type = context->GetInputDesc(0)->GetDataType();
+    const auto output_type = context->GetOutputDesc(0)->GetDataType();
+    const auto type_size = GetDataTypeSizeUsed(input_type);
     const auto* receive_window = context->GetAttrs()->GetAttrPointer<int64_t>(8);
     if (group == nullptr || rank_size <= 0 || rank_size > MAX_RANK_DIM || step_size != 0 || sqrt1_flag || sqrt2_flag ||
         receive_window == nullptr || *receive_window == 0 ||
-        !asccomm_api_bench_device::ValidWriteCase(input_count, rank_size, sizeof(float))) {
-        ERROR_LOG("AllToAllVWrite requires the legacy FP32 equal-peer shape and a valid receive window");
+        !asccomm_api_bench_device::ValidWriteCase(input_count, rank_size, type_size)) {
+        ERROR_LOG("AllToAllVWrite requires the legacy equal-peer shape and a valid receive window");
         return ge::GRAPH_FAILED;
     }
 
-    const auto input_type = context->GetInputDesc(0)->GetDataType();
-    const auto output_type = context->GetOutputDesc(0)->GetDataType();
     context->SetBlockDim(MC2_CCU_BLOCK_DIM);
     context->SetTilingKey(MC2_CCU_TILING_KEY);
     const uint64_t lib_workspace_size =
@@ -56,7 +57,7 @@ static ge::graphStatus AllToAllVWriteCustomTilingFunc(gert::TilingContext* conte
         return ge::GRAPH_FAILED;
     }
     tiling->param.K = input_count / static_cast<uint64_t>(rank_size);
-    tiling->param.dataTypeSize = sizeof(float);
+    tiling->param.dataTypeSize = static_cast<uint32_t>(type_size);
     tiling->param.receiveWindow = static_cast<uint64_t>(*receive_window);
     tiling->param.rankDim = static_cast<uint32_t>(rank_size);
     tiling->param.dataType = GetHcclDataType(input_type);

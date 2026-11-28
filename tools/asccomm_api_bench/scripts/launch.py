@@ -177,7 +177,8 @@ def parse_arguments(argv):
             "Test arguments (may be mixed with launch options):\n"
             "  --op allgather|allreduce|reducescatter|alltoall|alltoallv|alltoallvwrite (required)\n"
             "  -a aicpu_ts|ccu_sched (default: aicpu_ts)\n"
-            "  -d fp32 (default: fp32)\n"
+            "  -d TYPE (default: fp16; bfp16 aliases bf16)\n"
+            "     AICPU: int8,int64,uint64,fp16,fp32,fp64,bf16; CCU: int8,fp16,fp32,bf16\n"
             "  -o sum|prod|max|min (default: sum; SDK support required)\n"
             "  -b BEGIN -e END (default: 32K to 256M)\n"
             "  -f FACTOR (default: 2) or -i BYTE_STEP; mutually exclusive\n"
@@ -488,8 +489,21 @@ def configure_native(args, environment, backend_args):
         raise ValueError("the bundled backend requires an explicit supported --op")
     if operator == "alltoallvwrite" and args.native_profile != "ccu":
         raise ValueError("alltoallvwrite requires an explicit CCU engine")
-    if not args.query_only and backend_option(backend_args, "-d", "fp32") != "fp32":
-        raise ValueError("the bundled backend currently requires -d fp32")
+    if not args.query_only:
+        # Match the old benchmark scripts; tensor encoding and checking remain
+        # in the reused legacy executor, not in this launcher.
+        dtypes = (
+            ("int8", "fp16", "fp32", "bf16")
+            if args.native_profile == "ccu"
+            else ("int8", "int64", "uint64", "fp16", "fp32", "fp64", "bf16")
+        )
+        dtype = backend_option(backend_args, "-d", "fp16")
+        if ("bf16" if dtype == "bfp16" else dtype) not in dtypes:
+            raise ValueError(
+                "{} measurements support -d {} (bfp16 aliases bf16)".format(
+                    args.native_profile.upper(), ",".join(dtypes)
+                )
+            )
     query_stub = backend_option(backend_args, "--query-stub")
     if query_stub is not None and query_stub not in {
         "basic",

@@ -24,18 +24,25 @@ constexpr uint64_t NS_PER_CYCLE = 1ULL;
 
 __aicore__ inline void CopyFromGmToGmScalar(GM_ADDR dst, GM_ADDR src, uint32_t bytes)
 {
-    GlobalTensor<uint64_t> gmSrc, gmDst;
-    gmSrc.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(src), (bytes + 7U) / 8U);
-    gmDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(dst), (bytes + 7U) / 8U);
-    for (uint32_t i = 0; i < bytes / 8U; ++i) {
-        gmDst.SetValue(i, gmSrc.GetValue(i));
+    uint32_t copied = 0;
+    if (((reinterpret_cast<uint64_t>(src) | reinterpret_cast<uint64_t>(dst)) & 7U) == 0) {
+        // Preserve the legacy wide copy for aligned communication payloads.
+        GlobalTensor<uint64_t> gmSrc, gmDst;
+        gmSrc.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(src), bytes / 8U);
+        gmDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(dst), bytes / 8U);
+        for (uint32_t i = 0; i < bytes / 8U; ++i) {
+            gmDst.SetValue(i, gmSrc.GetValue(i));
+        }
+        copied = bytes / 8U * 8U;
     }
-    // The old scalar loop drops a final FP32 element when peer count is odd.
-    if (bytes % 8U != 0) {
-        GlobalTensor<uint32_t> tailSrc, tailDst;
-        tailSrc.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(src + bytes / 8U * 8U));
-        tailDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(dst + bytes / 8U * 8U));
-        tailDst.SetValue(0, tailSrc.GetValue(0));
+    if (copied < bytes) {
+        // INT8/FP16 peers can end on any byte, including unaligned tiny cases.
+        GlobalTensor<uint8_t> tailSrc, tailDst;
+        tailSrc.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(src), bytes);
+        tailDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(dst), bytes);
+        for (uint32_t i = copied; i < bytes; ++i) {
+            tailDst.SetValue(i, tailSrc.GetValue(i));
+        }
     }
 }
 
@@ -75,7 +82,9 @@ extern "C" __global__ __aicore__ void all_to_all_v_write_bench(
 
     const uint32_t rank_dim = hccl.GetRankDim();
     if (rank_dim == 0 || rank_dim > MAX_RANK_DIM || rank_dim != tiling_data.param.rankDim ||
-        tiling_data.param.dataTypeSize != sizeof(float) || K == 0 || tiling_data.param.receiveWindow == 0) {
+        (tiling_data.param.dataTypeSize != 1 && tiling_data.param.dataTypeSize != 2 &&
+         tiling_data.param.dataTypeSize != 4 && tiling_data.param.dataTypeSize != 8) ||
+        K == 0 || tiling_data.param.receiveWindow == 0) {
         return;
     }
     const uint32_t rank_id = hccl.GetRankId();

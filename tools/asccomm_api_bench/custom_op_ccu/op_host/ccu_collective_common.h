@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -24,9 +25,33 @@
 #include "tiling/tiling_api.h"
 
 #define ERROR_LOG(...) std::fprintf(stderr, __VA_ARGS__)
-#define MC2_CCU_DTYPES {ge::DT_FLOAT}
-#define MC2_CCU_SPLIT_DTYPES {ge::DT_INT32}
-#define MC2_CCU_FORMATS {ge::FORMAT_ND}
+// Reused from hccl_api_test: custom_op_ccu/op_host/common.h.
+#define MC2_CCU_DTYPES               \
+    {ge::DT_INT8,                    \
+     ge::DT_INT16,                   \
+     ge::DT_INT32,                   \
+     ge::DT_FLOAT,                   \
+     ge::DT_INT64,                   \
+     ge::DT_UINT64,                  \
+     ge::DT_UINT8,                   \
+     ge::DT_UINT16,                  \
+     ge::DT_UINT32,                  \
+     ge::DT_FLOAT16,                 \
+     ge::DT_BF16,                    \
+     ge::DT_DOUBLE,                  \
+     ge::DT_FLOAT8_E8M0,             \
+     ge::DataType::DT_FLOAT8_E4M3FN, \
+     ge::DataType::DT_FLOAT8_E5M2,   \
+     ge::DataType::DT_HIFLOAT8}
+
+#define MC2_CCU_SPLIT_DTYPES                                                                                         \
+    {ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, \
+     ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32}
+
+#define MC2_CCU_FORMATS                                                                        \
+    {ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, \
+     ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, \
+     ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND}
 
 namespace {
 constexpr uint32_t MC2_CCU_TILING_KEY = 0;
@@ -40,6 +65,37 @@ enum HcclCMDType {
     HCCL_CMD_ALLTOALL = 10,
 };
 
+// Keep this legacy mapping type distinct from the public SDK's HcclDataType.
+enum class CcuBenchDataType : uint8_t {
+    INT8 = 0,
+    INT16 = 1,
+    INT32 = 2,
+    FP16 = 3,
+    FP32 = 4,
+    INT64 = 5,
+    UINT64 = 6,
+    UINT8 = 7,
+    UINT16 = 8,
+    UINT32 = 9,
+    FP64 = 10,
+    BFP16 = 11,
+    HIF8 = 14,
+    FP8E4M3 = 15,
+    FP8E5M2 = 16,
+    FP8E8M0 = 17,
+};
+
+const std::map<ge::DataType, CcuBenchDataType> HCCL_DATA_TYPE_MAP = {
+    {ge::DT_INT8, CcuBenchDataType::INT8},           {ge::DT_INT16, CcuBenchDataType::INT16},
+    {ge::DT_INT32, CcuBenchDataType::INT32},         {ge::DT_FLOAT16, CcuBenchDataType::FP16},
+    {ge::DT_FLOAT, CcuBenchDataType::FP32},          {ge::DT_INT64, CcuBenchDataType::INT64},
+    {ge::DT_UINT64, CcuBenchDataType::UINT64},       {ge::DT_UINT8, CcuBenchDataType::UINT8},
+    {ge::DT_UINT16, CcuBenchDataType::UINT16},       {ge::DT_UINT32, CcuBenchDataType::UINT32},
+    {ge::DT_DOUBLE, CcuBenchDataType::FP64},         {ge::DT_BF16, CcuBenchDataType::BFP16},
+    {ge::DT_HIFLOAT8, CcuBenchDataType::HIF8},       {ge::DT_FLOAT8_E4M3FN, CcuBenchDataType::FP8E4M3},
+    {ge::DT_FLOAT8_E5M2, CcuBenchDataType::FP8E5M2}, {ge::DT_FLOAT8_E8M0, CcuBenchDataType::FP8E8M0},
+};
+
 ge::graphStatus CheckCollectiveInputs(gert::TilingContext* context, size_t algorithm_index)
 {
     if (context == nullptr || context->GetAttrs() == nullptr || context->GetInputShape(0) == nullptr ||
@@ -50,8 +106,8 @@ ge::graphStatus CheckCollectiveInputs(gert::TilingContext* context, size_t algor
     if (shape.GetDimNum() != 2 || shape.GetShapeSize() <= 0 ||
         context->GetInputDesc(0)->GetStorageFormat() != ge::FORMAT_ND ||
         context->GetOutputDesc(0)->GetStorageFormat() != ge::FORMAT_ND ||
-        context->GetInputDesc(0)->GetDataType() != ge::DT_FLOAT ||
-        context->GetOutputDesc(0)->GetDataType() != ge::DT_FLOAT) {
+        HCCL_DATA_TYPE_MAP.count(context->GetInputDesc(0)->GetDataType()) == 0 ||
+        context->GetInputDesc(0)->GetDataType() != context->GetOutputDesc(0)->GetDataType()) {
         return ge::GRAPH_FAILED;
     }
     const auto* attrs = context->GetAttrs();
@@ -75,8 +131,36 @@ uint64_t GetInputElementCount(gert::TilingContext* context)
     return static_cast<uint64_t>(context->GetInputShape(0)->GetStorageShape().GetShapeSize());
 }
 
-// HcclDataType::FP32; every registered data input/output has already been checked.
-uint8_t GetHcclDataType(ge::DataType) { return 4; }
+uint8_t GetHcclDataType(ge::DataType data_type) { return static_cast<uint8_t>(HCCL_DATA_TYPE_MAP.at(data_type)); }
+
+// tiling 侧需要字节数（kernel 的 rowBytes = K * dataTypeSize）。
+inline size_t GetDataTypeSizeUsed(ge::DataType data_type)
+{
+    switch (data_type) {
+        case ge::DT_INT8:
+        case ge::DT_UINT8:
+        case ge::DT_HIFLOAT8:
+        case ge::DT_FLOAT8_E4M3FN:
+        case ge::DT_FLOAT8_E5M2:
+        case ge::DT_FLOAT8_E8M0:
+            return 1U;
+        case ge::DT_INT16:
+        case ge::DT_UINT16:
+        case ge::DT_FLOAT16:
+        case ge::DT_BF16:
+            return 2U;
+        case ge::DT_INT32:
+        case ge::DT_UINT32:
+        case ge::DT_FLOAT:
+            return 4U;
+        case ge::DT_INT64:
+        case ge::DT_UINT64:
+        case ge::DT_DOUBLE:
+            return 8U;
+        default:
+            return 0U;
+    }
+}
 
 ge::graphStatus ApplyRuntimeCcuConfig(
     AscendC::Mc2CcTilingConfig& config, gert::TilingContext* context, size_t algorithm_index)

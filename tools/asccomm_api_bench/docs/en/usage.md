@@ -45,11 +45,20 @@ bash run_alg_bench.sh -n 8 -p 8 --op allreduce -a ccu_sched -b 1M -e 1M
 | `--output-dir` | New result directory, allocated automatically when omitted; existing jobs cannot be overwritten |
 | `--op` | Required operation name |
 | `-a` | Engine: `aicpu_ts` or `ccu_sched`, defaulting to `aicpu_ts` |
-| `-d` | Data type, defaulting to `fp32` (32-bit floating-point); built-in measurements use `fp32` |
+| `-d` | Data type, defaulting to `fp16` (16-bit floating-point); supported types are listed below |
 | `-o` | Reduction: `sum`, `prod`, `max`, or `min`, defaulting to `sum`; actual support depends on the SDK |
 | `-b`, `-e` | Starting and target ending byte lengths, defaulting to 32KiB and 256MiB |
 | `-f` or `-i` | Multiplicative factor or linear byte step, mutually exclusive; the default is `-f 2` |
 | `--alg` | Complete algorithm name returned by the query; repeatable, or omit to test all candidates |
+
+Measurement data types depend on the engine. Specify one type per command:
+
+| Engine | Supported data types |
+| --- | --- |
+| `aicpu_ts` | `int8`, `int64`, `uint64`, `fp16`, `fp32`, `fp64`, `bf16` |
+| `ccu_sched` | `int8`, `fp16`, `fp32`, `bf16` |
+
+`bfp16` is an alias for `bf16`; reports use `bf16`. When `-d` or `-o` is omitted, both queries and measurements use the SDK defaults of `fp16` or `sum`, respectively. Explicit values override the defaults. For example, add `-d fp32 -o max` to query and measure with FP32 and MAX. The installed SDK must support the selected operator, algorithm, data type, and reduction combination. Query-only mode accepts a wider set of SDK data types.
 
 Lengths accept suffixes such as `B`, `K`, `KB`, `KiB`, `M`, `MB`, and `MiB`, using powers of 1024. Set both `-b` and `-e` for a single point. If only one endpoint is set, the other keeps its default. Multiplicative scans include the first point at or above the target ending length; linear scans stop at or below it. The default range contains 14 points.
 
@@ -72,6 +81,8 @@ The command filters by the 32KiB point. Omit `-b/-e` to query all candidates for
 | No algorithms or lengths specified | Query all candidates for the current conditions with `dataLen=0` |
 | No algorithms specified, with a single point | Pass that point's byte length to the query |
 | No algorithms specified, with a range | Query each expanded point and take the deduplicated union of algorithm names |
+
+Query conditions also include the data type and reduction. `dataLen=0` skips only length filtering; it does not query every data type and reduction combination.
 
 Query-only mode still requires real devices and a communicator. It does not build operator packages, warm up, measure, or generate a performance CSV. Results are printed and saved to `query_summary.json` in the run directory.
 
@@ -111,7 +122,7 @@ bash run_alg_bench.sh -n 2 -p 2 \
   --op alltoallvwrite -a ccu_sched -b 32K -e 32K
 ```
 
-AllToAllVWrite input, output, and query data types are all `fp32`. The SDK provides the communication window, whose capacity is checked. Validate on one host first; do not directly apply the two-host, 16-rank example. Actual support depends on the SDK query.
+AllToAllVWrite supports the CCU data types listed above. Input, output, and query types follow `-d`, which defaults to `fp16`. The element size determines transfer sizes and the communication-window layout. The SDK provides the communication window, whose capacity is checked. Validate on one host first; do not directly apply the two-host, 16-rank example. Actual support depends on the SDK query.
 
 For other standard operations, replace `--op`. The launcher prepares the engine's operator package, compiles the benchmark, queries, warms up, measures, validates, and generates reports automatically. No separate build or analysis command is required. Each test entry validates its last measured output after the measured iterations finish.
 

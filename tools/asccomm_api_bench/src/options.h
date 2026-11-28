@@ -18,6 +18,8 @@ namespace asccomm_api_bench {
 // args contains tool arguments only, without argv[0].
 Options ParseOptions(const std::vector<std::string>& args);
 void ValidateOptions(const Options& options);
+// Match the public hccl_api_test benchmark scripts; query-only accepts wider SDK types.
+void ValidateMeasurementDType(const Options& options);
 std::vector<std::string> ParseAlgorithms(const std::string& text);
 // Checks only the external name boundary (prefix[...]), not library grammar
 // or a mapping from registered names. Unknown/internal names remain diagnostic.

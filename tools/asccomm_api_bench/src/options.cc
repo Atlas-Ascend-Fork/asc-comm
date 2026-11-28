@@ -132,6 +132,23 @@ uint8_t CommEngineCode(Engine engine)
     throw std::invalid_argument("invalid engine");
 }
 
+void ValidateMeasurementDType(const Options& options)
+{
+    // Reused policy: run_benchmark_aicpu.sh / run_benchmark_ccu.sh in hccl_api_test.
+    static const std::vector<std::string> aicpu = {"int8", "int64", "uint64", "fp16", "fp32", "fp64", "bf16"};
+    static const std::vector<std::string> ccu = {"int8", "fp16", "fp32", "bf16"};
+    const auto& allowed = options.engine == Engine::AicpuTs ? aicpu : ccu;
+    const std::string dtype = options.dtype == "bfp16" ? "bf16" : options.dtype;
+    if (std::find(allowed.begin(), allowed.end(), dtype) == allowed.end()) {
+        std::string supported;
+        for (const auto& name : allowed)
+            supported += (supported.empty() ? "" : ",") + name;
+        throw std::invalid_argument(
+            std::string(EngineName(options.engine)) + " measurements support -d " + supported +
+            " (bfp16 aliases bf16)");
+    }
+}
+
 size_t DTypeSize(const std::string& dtype)
 {
     if (dtype == "int8" || dtype == "uint8" || dtype == "hif8" || dtype == "fp8e4m3" || dtype == "fp8e5m2" ||
@@ -267,7 +284,7 @@ Options ParseOptions(const std::vector<std::string>& args)
         else if (key == "-p")
             options.devices_per_node = RankCount(value);
         else if (key == "-d")
-            options.dtype = value;
+            options.dtype = value == "bfp16" ? "bf16" : value;
         else if (key == "-o")
             options.reduce = value;
         else if (key == "-a") {
@@ -401,8 +418,10 @@ std::vector<QueryRequest> MakeQueryRequests(const Options& options, const std::v
 const char* Usage()
 {
     return "--op allgather|allreduce|reducescatter|alltoall|alltoallv|alltoallvwrite (required)\n"
-           "-n total_ranks (8)  -p devices_per_node (8)  -d dtype (fp32)\n"
+           "-n total_ranks (8)  -p devices_per_node (8)  -d dtype (fp16)\n"
            "-o sum|prod|max|min (sum)  -a aicpu_ts|ccu_sched (aicpu_ts)\n"
+           "Measurement types: AICPU int8,int64,uint64,fp16,fp32,fp64,bf16; CCU int8,fp16,fp32,bf16.\n"
+           "bfp16 aliases bf16; query-only accepts the wider SDK data types.\n"
            "alltoallvwrite requires CCU; its payload/output follow the legacy tensor layout.\n"
            "-b begin_bytes (32768)  -e target_end_bytes (268435456)\n"
            "-f factor (>1, default 2) OR -i linear_byte_step\n"
